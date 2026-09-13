@@ -102,6 +102,10 @@ def create_organization(
         membership = Membership.objects.create(user=user, role=_system_role(OWNER), joined_at=timezone.now())
         membership.organization = org  # cache the relation: outside a context RLS hides the row
         audit.record(actions.ORG_CREATED, request=request, user=user, resource=org, metadata={"name": name})
+        # Every organization starts with a usable sales pipeline (Phase 2).
+        from apps.pipelines.services import ensure_default_pipeline
+
+        ensure_default_pipeline()
     if request is not None:
         request.session.cycle_key()
         set_active_membership(request, membership)

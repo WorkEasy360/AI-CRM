@@ -1,6 +1,6 @@
 # ADR-0006 — Custom fields stored as validated JSONB with a definitions table
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 2 (`apps/customfields`)
 
 ## Context
 Tenants need custom fields of 13 types on contacts, companies, deals and products, usable in grids, filters, sorts, imports/exports and AI context. Options: entity-attribute-value tables (`custom_field_value` rows), a JSONB column per record, or dynamic columns.

@@ -1,6 +1,6 @@
 # ADR-0010 — Dependency introduction and supply-chain policy
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 1
 
 ## Decision
 - All dependencies pinned; `uv.lock` and `pnpm-lock.yaml` committed; CI installs from lock files only.

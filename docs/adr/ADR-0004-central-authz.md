@@ -1,6 +1,6 @@
 # ADR-0004 — Central authorization service with permission catalogue and scopes
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 1
 
 ## Context
 Authorization must be deny-by-default, consistent across API, background jobs and AI tools, and evolvable toward custom roles, record sharing and field-level permissions.

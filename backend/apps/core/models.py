@@ -99,3 +99,54 @@ class TenantModel(TimestampedModel):
                 raise CrossTenantWriteError(f"Cannot update {type(self).__name__} of another organization.")
         super().save(*args, **kwargs)
         self._original_organization_id = self.organization_id
+
+
+class OwnedModel(models.Model):
+    """Tenant record with an owner membership. ``owner`` drives the own/team scopes in ``authz.scope``."""
+
+    OWNER_FIELD: ClassVar[str | None] = "owner"
+
+    owner = models.ForeignKey("accounts.Membership", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        abstract = True
+
+
+class VersionedModel(models.Model):
+    """Optimistic concurrency (ADR-0007): every update must match the version the client last saw."""
+
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        abstract = True
+
+
+class ArchivableModel(models.Model):
+    """Soft delete: ``archived_at`` hides the record from lists and search; restorable by owner/admin."""
+
+    archived_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+    @property
+    def is_archived(self) -> bool:
+        return self.archived_at is not None
+
+
+class CrmRecord(TenantModel, OwnedModel, VersionedModel, ArchivableModel):
+    """Base for customer-facing CRM records (contacts, companies, deals, products)."""
+
+    # TenantModel declares OWNER_FIELD = None first in the MRO; restate it so own/team scopes apply.
+    OWNER_FIELD: ClassVar[str | None] = "owner"
+
+    custom_data = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(
+        "accounts.Membership", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", editable=False
+    )
+    updated_by = models.ForeignKey(
+        "accounts.Membership", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", editable=False
+    )
+
+    class Meta:
+        abstract = True

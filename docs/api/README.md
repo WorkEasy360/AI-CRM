@@ -37,3 +37,40 @@ sensitive action needs a fresh authentication (`POST /_allauth/browser/v1/auth/r
 | POST | `/api/v1/teams/{id}/members/add/`, `.../remove/` | `teams.manage` |
 | GET | `/api/v1/audit-events/`, `/api/v1/audit-events/{id}/` | `audit.view` |
 | GET | `/health/`, `/ready/` | public, no details |
+
+## Phase 2 surface (CRM core)
+
+Conventions for every record collection (`contacts`, `companies`, `products`, `deals`): cursor pagination
+(`?cursor=&limit=`), allowlisted filters (`?owner=me|<membership_id>`, entity-specific keys, `?custom.<key>=`),
+allowlisted sorts (`?sort=-created_at`), text search (`?q=`), `?archived=true` for archived records; unknown
+filter or sort keys answer 400. Writes to a record require the client's last-seen `version` (`If-Match: "<n>"`
+header or `version` in the body); a stale version answers `409 version_conflict`, a missing one `428`.
+
+| Method | Path | Permission |
+|---|---|---|
+| GET / POST | `/api/v1/{contacts,companies,products,deals}/` | `<module>.view` / `<module>.create` |
+| GET / PATCH / DELETE (archive) | `/api/v1/{module}/{id}/` | `<module>.view` / `<module>.update` / `<module>.delete` |
+| POST | `/api/v1/{module}/{id}/restore/` | `<module>.delete` |
+| PUT | `/api/v1/{module}/{id}/tags/` | `<module>.update` |
+| GET | `/api/v1/{module}/count/`, `/api/v1/{contacts,companies}/stats/` | `<module>.view` |
+| POST | `/api/v1/{contacts,companies,deals}/bulk/` (`archive`, `restore`, `reassign`, `add_tag`, `remove_tag`; max 500 ids; refuses the whole request if any id is outside the actor's scope) | `<module>.bulk_update` |
+| GET | `/api/v1/deals/board/?pipeline=` | `deals.view` |
+| POST | `/api/v1/deals/{id}/stage/` (`{stage_id, version, lost_reason?}`; row-locked, versioned, historised) | `deals.change_stage` |
+| GET | `/api/v1/deals/{id}/history/`, `.../products/`, `.../contacts/` | `deals.view` |
+| POST / PATCH / POST | `/api/v1/deals/{id}/products/add/`, `.../products/{line_id}/`, `.../products/{line_id}/remove/` | `deals.update` |
+| POST | `/api/v1/deals/{id}/contacts/add/`, `.../contacts/remove/` | `deals.update` |
+| GET / POST | `/api/v1/pipelines/` | `pipelines.view` / `pipelines.manage` |
+| GET / PATCH / DELETE | `/api/v1/pipelines/{id}/` | `pipelines.view` / `pipelines.manage` |
+| POST | `/api/v1/pipelines/{id}/stages/`, `.../stages/reorder/` | `pipelines.manage` |
+| GET / PATCH / DELETE | `/api/v1/stages/{id}/` | `pipelines.view` / `pipelines.manage` |
+| GET / POST | `/api/v1/custom-fields/` | `customfields.view` / `customfields.manage` |
+| GET / PATCH / DELETE, POST `.../restore/` | `/api/v1/custom-fields/{id}/` | `customfields.view` / `customfields.manage` |
+| GET / POST | `/api/v1/tags/`; GET / PATCH / DELETE `/api/v1/tags/{id}/` | `tags.view` / `tags.manage` |
+| GET / POST | `/api/v1/notes/?entity_type=&entity_id=` | `notes.view` (record must be visible) / `notes.create` |
+| GET / PATCH / DELETE | `/api/v1/notes/{id}/` | `notes.view` / `notes.update` / `notes.delete` (author scope) |
+| GET | `/api/v1/timeline/?entity_type=&entity_id=` | `notes.view` (record must be visible) |
+| GET | `/api/v1/search/?q=&types=&limit=` | `search.use` (results pass `authz.scope()` per entity) |
+| GET / POST (multipart `file`) | `/api/v1/imports/{contacts,companies,products}/` | `<module>.import` |
+| GET, GET `.../preview/`, POST `.../start/` | `/api/v1/imports/{entity}/{id}/` (requester only) | `<module>.import` |
+| GET / POST | `/api/v1/exports/{contacts,companies,products,deals}/` (POST requires recent authentication) | `<module>.export` |
+| GET, GET `.../download/` | `/api/v1/exports/{entity}/{id}/` (requester only; CSV attachment, formula-neutralised, 24 h expiry) | `<module>.export` |

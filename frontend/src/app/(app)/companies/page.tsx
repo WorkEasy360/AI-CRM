@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Building2 } from "lucide-react";
-import { ComingSoon } from "@/components/coming-soon";
+import * as React from "react";
+import { CompaniesPage } from "@/components/crm/companies/companies-page";
+import { SkeletonRows } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = { title: "Companies" };
 
-export default function CompaniesPage() {
-  return <ComingSoon title="Companies" phase="Phase 2" icon={<Building2 />} description="Accounts, hierarchies and ownership." />;
+export default function Page() {
+  return (
+    <React.Suspense fallback={<SkeletonRows rows={6} />}>
+      <CompaniesPage />
+    </React.Suspense>
+  );
 }

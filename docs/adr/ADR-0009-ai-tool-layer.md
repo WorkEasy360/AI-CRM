@@ -1,6 +1,6 @@
 # ADR-0009 — AI as an untrusted subsystem behind a typed, permission-gated tool layer with human-confirmed actions
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implementation in Phase 4
 
 ## Context
 The Copilot must answer questions over CRM data and help with actions, without any path by which the model, or content it reads, can access other tenants' data, bypass permissions, or change records unsupervised.

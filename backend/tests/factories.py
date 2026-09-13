@@ -16,7 +16,17 @@ from apps.accounts.models import Invitation, Membership, Organization, User
 from apps.audit import service as audit
 from apps.audit.models import AuditEvent
 from apps.authz.models import Role
+from apps.companies.models import Company
+from apps.contacts.models import Contact
 from apps.core.tenancy.context import tenant_context
+from apps.customfields.models import CustomFieldDefinition
+from apps.deals.models import Deal, DealStageHistory
+from apps.importexport.models import ExportJob, ImportJob
+from apps.notes.models import Note
+from apps.pipelines.models import Pipeline, PipelineStage
+from apps.pipelines.services import ensure_default_pipeline
+from apps.products.models import Product
+from apps.tagging.models import Tag
 from apps.teams.models import Team
 from tests.testapp.models import Widget
 
@@ -83,6 +93,130 @@ def make_audit_event(bundle: OrgBundle) -> AuditEvent:
     return event
 
 
+# ----------------------------------------------------------------------------- CRM core (Phase 2)
+
+
+def _ctx(bundle: OrgBundle, reason: str):
+    return tenant_context(
+        bundle.org.pk, user_id=bundle.owner.pk, membership_id=bundle.owner_membership.pk, reason=reason
+    )
+
+
+def make_company(bundle: OrgBundle, *, owner: Membership | None = None, name: str | None = None, **extra) -> Company:
+    with _ctx(bundle, "test.make_company"):
+        return Company.objects.create(
+            name=name or f"Company {uuid.uuid4().hex[:6]}", owner=owner or bundle.owner_membership, **extra
+        )
+
+
+def make_contact(
+    bundle: OrgBundle, *, owner: Membership | None = None, company: Company | None = None, **extra
+) -> Contact:
+    with _ctx(bundle, "test.make_contact"):
+        extra.setdefault("first_name", "Ada")
+        extra.setdefault("last_name", uuid.uuid4().hex[:6])
+        extra.setdefault("email", f"{uuid.uuid4().hex[:8]}@example.com")
+        return Contact.objects.create(owner=owner or bundle.owner_membership, company=company, **extra)
+
+
+def make_product(bundle: OrgBundle, *, owner: Membership | None = None, **extra) -> Product:
+    with _ctx(bundle, "test.make_product"):
+        extra.setdefault("name", f"Product {uuid.uuid4().hex[:6]}")
+        extra.setdefault("unit_price", "100.00")
+        extra.setdefault("currency", bundle.org.base_currency)
+        return Product.objects.create(owner=owner or bundle.owner_membership, **extra)
+
+
+def make_pipeline(bundle: OrgBundle) -> Pipeline:
+    """The organization's default pipeline (created on organization creation)."""
+    with _ctx(bundle, "test.make_pipeline"):
+        pipeline = ensure_default_pipeline()
+        return Pipeline.objects.prefetch_related("stages").get(pk=pipeline.pk)
+
+
+def stage_named(pipeline: Pipeline, name: str) -> PipelineStage:
+    return next(s for s in pipeline.stages.all() if s.name == name)
+
+
+def make_deal(
+    bundle: OrgBundle,
+    *,
+    owner: Membership | None = None,
+    stage: PipelineStage | None = None,
+    company: Company | None = None,
+    contact: Contact | None = None,
+    **extra,
+) -> Deal:
+    from django.utils import timezone
+
+    pipeline = make_pipeline(bundle)
+    stage = stage or stage_named(pipeline, "Qualification")
+    with _ctx(bundle, "test.make_deal"):
+        extra.setdefault("name", f"Deal {uuid.uuid4().hex[:6]}")
+        extra.setdefault("amount", "1000.00")
+        extra.setdefault("amount_base", "1000.00")
+        extra.setdefault("currency", bundle.org.base_currency)
+        now = timezone.now()
+        deal = Deal.objects.create(
+            pipeline=pipeline,
+            stage=stage,
+            stage_entered_at=now,
+            owner=owner or bundle.owner_membership,
+            company=company,
+            primary_contact=contact,
+            probability=stage.default_probability,
+            status="open" if stage.kind == "open" else stage.kind,
+            closed_at=None if stage.kind == "open" else now,
+            **extra,
+        )
+        DealStageHistory.objects.create(
+            deal=deal, to_stage=stage, changed_at=now, changed_by=owner or bundle.owner_membership
+        )
+        return deal
+
+
+def make_custom_field(
+    bundle: OrgBundle, entity_type: str = "contact", key: str | None = None, **extra
+) -> CustomFieldDefinition:
+    with _ctx(bundle, "test.make_custom_field"):
+        extra.setdefault("field_type", "text")
+        extra.setdefault("label", "Custom")
+        return CustomFieldDefinition.objects.create(
+            entity_type=entity_type, key=key or f"f_{uuid.uuid4().hex[:6]}", **extra
+        )
+
+
+def make_tag(bundle: OrgBundle, name: str | None = None) -> Tag:
+    with _ctx(bundle, "test.make_tag"):
+        return Tag.objects.create(name=name or f"tag-{uuid.uuid4().hex[:6]}")
+
+
+def make_note(bundle: OrgBundle, *, record=None, author: Membership | None = None, body: str = "hello") -> Note:
+    record = record or make_contact(bundle)
+    entity_type = type(record).__name__.lower()
+    with _ctx(bundle, "test.make_note"):
+        return Note.objects.create(
+            entity_type=entity_type, entity_id=record.pk, body=body, author=author or bundle.owner_membership
+        )
+
+
+def make_import_job(bundle: OrgBundle, entity_type: str = "contact") -> ImportJob:
+    with _ctx(bundle, "test.make_import_job"):
+        return ImportJob.objects.create(
+            entity_type=entity_type,
+            storage_key=f"{bundle.org.pk}/imports/{uuid.uuid4().hex}.csv",
+            original_filename="x.csv",
+            headers=["Email"],
+            total_rows=1,
+            requested_by=bundle.owner_membership,
+        )
+
+
+def make_export_job(bundle: OrgBundle, entity_type: str = "contact") -> ExportJob:
+    with _ctx(bundle, "test.make_export_job"):
+        return ExportJob.objects.create(entity_type=entity_type, requested_by=bundle.owner_membership)
+
+
 # model -> callable(bundle) -> instance, used by tests/tenant_isolation/test_generated.py
 CROSS_TENANT_FACTORIES = {
     Membership: lambda bundle: make_member(bundle),
@@ -90,4 +224,15 @@ CROSS_TENANT_FACTORIES = {
     Team: lambda bundle: make_team(bundle),
     AuditEvent: lambda bundle: make_audit_event(bundle),
     Widget: lambda bundle: make_widget(bundle),
+    Company: lambda bundle: make_company(bundle),
+    Contact: lambda bundle: make_contact(bundle),
+    Product: lambda bundle: make_product(bundle),
+    Pipeline: lambda bundle: make_pipeline(bundle),
+    PipelineStage: lambda bundle: stage_named(make_pipeline(bundle), "Qualification"),
+    Deal: lambda bundle: make_deal(bundle),
+    CustomFieldDefinition: lambda bundle: make_custom_field(bundle),
+    Tag: lambda bundle: make_tag(bundle),
+    Note: lambda bundle: make_note(bundle),
+    ImportJob: lambda bundle: make_import_job(bundle),
+    ExportJob: lambda bundle: make_export_job(bundle),
 }

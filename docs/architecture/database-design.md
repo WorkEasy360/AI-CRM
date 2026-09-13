@@ -102,6 +102,8 @@ Tenant-owned = has `organization_id` and RLS. Cardinality is written from the pa
 
 ### 3.2 CRM core (`companies`, `contacts`, `products`, `pipelines`, `deals`, `customfields`, `tagging`, `notes`)
 
+*As implemented in Phase 2 (2026-09-13):* every table below except `attachment` and `saved_view` exists with forced RLS. Naming follows Django (`owner_id` instead of `owner_membership_id`, `contacts_contact` etc.). Additional DB-level controls: `deals_dealstagehistory` is append-only (trigger), `deals_deal_stage_matches_pipeline` (trigger) guarantees the stage belongs to the deal's pipeline and organization, `(pipeline, position)` on stages is a deferrable unique constraint, `custom_data` keys are validated in `apps/customfields/service.py` (the JSONB expression indexes for `is_indexed` definitions are deferred until filter latency requires them), and `search_vector` is maintained by triggers on contacts, companies, products and deals. Company-name soft uniqueness is not enforced (duplicate warnings are a Phase 3 UI feature).
+
 | Entity | Key columns | Constraints / indexes | Deletion |
 |---|---|---|---|
 | `company` | `name`, `website`, `phone`, `industry`, `company_size`, `annual_revenue`, `revenue_currency`, `address JSONB`, `owner_membership_id`, `source`, `custom_data JSONB`, `search_vector tsvector`, `archived_at`, `version` | index `(organization_id, name)`, `(organization_id, owner_membership_id)`, GIN `(search_vector)`, GIN `(custom_data jsonb_path_ops)`; `UNIQUE (organization_id, lower(name)) WHERE archived_at IS NULL` (soft uniqueness, surfaced as duplicate warning not hard error in import) | Archive by default. Hard delete sets `contact.company_id = NULL`, `deal.company_id = NULL` (`SET NULL`) |

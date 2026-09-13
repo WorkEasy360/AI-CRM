@@ -37,6 +37,7 @@ REST_FRAMEWORK = {
         "admin": "10000/min",
         "sensitive": "10000/min",
         "invitation_public": "10000/min",
+        "search": "10000/min",
     },
 }
 ACCOUNT_RATE_LIMITS = {}

@@ -1,9 +1,14 @@
+import * as React from "react";
 import type { Metadata } from "next";
-import { KanbanSquare } from "lucide-react";
-import { ComingSoon } from "@/components/coming-soon";
+import { PipelinePage } from "@/components/crm/pipeline/pipeline-page";
+import { SkeletonRows } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = { title: "Pipeline" };
 
-export default function PipelinePage() {
-  return <ComingSoon title="Pipeline" phase="Phase 2" icon={<KanbanSquare />} description="Deals by stage, drag to move, forecast by close date." />;
+export default function Page() {
+  return (
+    <React.Suspense fallback={<SkeletonRows rows={4} />}>
+      <PipelinePage />
+    </React.Suspense>
+  );
 }

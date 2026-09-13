@@ -1,6 +1,6 @@
 # ADR-0012 — Money handling and multi-currency snapshotting
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 2 with a manual per-deal exchange rate (rate table deferred to Phase 3)
 
 ## Decision
 - Amounts are `NUMERIC(18,2)` with an ISO 4217 `currency` code; never floats.

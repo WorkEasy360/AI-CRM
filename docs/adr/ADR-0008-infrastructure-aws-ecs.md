@@ -1,6 +1,6 @@
 # ADR-0008 — AWS with ECS Fargate and managed data services
 
-**Status:** Proposed (pending the cloud/region decision in `docs/DECISIONS-REQUIRED.md`)
+**Status:** Accepted (2026-09-12, AWS ap-south-1); implementation in Phase 6
 
 ## Context
 The MVP needs a reverse proxy, containers, managed PostgreSQL, Redis, object storage, secrets/KMS, WAF, backups and CI/CD, without Kubernetes or bespoke infrastructure.

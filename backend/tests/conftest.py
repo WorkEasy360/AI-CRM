@@ -19,6 +19,37 @@ def _clear_cache():
     cache.clear()
 
 
+def _seed_system_roles() -> None:
+    from apps.authz.models import Role
+    from apps.authz.roles import ROLE_ORDER, SYSTEM_ROLES
+    from apps.core.tenancy.context import system_context
+
+    with system_context("test.seed_system_roles"):
+        if Role.objects.filter(organization=None, is_system=True).count() >= len(ROLE_ORDER):
+            return
+        for key in ROLE_ORDER:
+            definition = SYSTEM_ROLES[key]
+            Role.objects.update_or_create(
+                key=key,
+                organization=None,
+                defaults={"name": definition.name, "description": definition.description, "is_system": True},
+            )
+
+
+@pytest.fixture(autouse=True)
+def _system_roles(request):
+    """Keep the system roles present for every database test.
+
+    They are seeded by a data migration, but a transactional test flushes every table at teardown
+    (and a reused test database keeps that state), so re-seed cheaply when they are missing.
+    """
+    uses_db = request.node.get_closest_marker("django_db") is not None or "db" in request.fixturenames
+    if uses_db:
+        request.getfixturevalue("db")
+        _seed_system_roles()
+    yield
+
+
 @pytest.fixture
 def make_user(db):
     return factories.make_user
@@ -37,6 +68,12 @@ def make_member(db):
 @pytest.fixture
 def make_widget(db):
     return factories.make_widget
+
+
+@pytest.fixture
+def crm(db):
+    """Namespace of CRM factories: crm.make_contact(org_a, ...) etc."""
+    return factories
 
 
 @pytest.fixture

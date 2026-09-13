@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Package } from "lucide-react";
-import { ComingSoon } from "@/components/coming-soon";
+import * as React from "react";
+import { ProductsPage } from "@/components/crm/products/products-page";
+import { SkeletonRows } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = { title: "Products" };
 
-export default function ProductsPage() {
-  return <ComingSoon title="Products" phase="Phase 2" icon={<Package />} description="Your catalogue and price books." />;
+export default function Page() {
+  return (
+    <React.Suspense fallback={<SkeletonRows rows={6} />}>
+      <ProductsPage />
+    </React.Suspense>
+  );
 }

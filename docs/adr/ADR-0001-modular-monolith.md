@@ -1,6 +1,6 @@
 # ADR-0001 — Modular monolith on Django with a separate Next.js frontend
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12, Phase 0 approval)
 
 ## Context
 We need a production SaaS CRM with strong tenant isolation, a rich interactive UI, background processing and AI features, built incrementally by a small team. Microservices would multiply the authorization and tenancy surface and slow delivery; a server-rendered-only Django UI would not deliver the kanban/grid/calendar experience expected.

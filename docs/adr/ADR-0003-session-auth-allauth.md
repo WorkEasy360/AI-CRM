@@ -1,6 +1,6 @@
 # ADR-0003 — Cookie sessions, same-origin API, django-allauth headless for auth and MFA
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 1
 
 ## Context
 Browser clients need authentication that is resistant to XSS token theft and CSRF, supports revocation, MFA and passkeys, and does not require us to write our own token or MFA cryptography.

@@ -105,11 +105,35 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   throw error;
 }
 
+/**
+ * Multipart upload (CSV imports). The browser sets the multipart boundary itself, so no Content-Type
+ * header is written here; the CSRF header is still required.
+ */
+export async function requestForm<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = getCsrfToken();
+  if (token) headers[CSRF_HEADER_NAME] = token;
+  const response = await fetch(buildUrl(path), {
+    method: "POST",
+    headers,
+    body: form,
+    credentials: "include",
+    signal,
+    cache: "no-store",
+  });
+  const json = await readJson(response);
+  if (response.ok) return json as T;
+  const error = new ApiError(parseProblem(response.status, json));
+  if (error.isNotAuthenticated && unauthenticatedHandler) unauthenticatedHandler(error);
+  throw error;
+}
+
 export const api = {
   get: <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal) =>
     apiFetch<T>(path, { method: "GET", query, signal }),
   post: <T>(path: string, body?: unknown) => apiFetch<T>(path, { method: "POST", body: body ?? {} }),
   patch: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "PATCH", body }),
+  put: <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "PUT", body }),
   delete: <T = void>(path: string, body?: unknown) => apiFetch<T>(path, { method: "DELETE", body }),
 };
 

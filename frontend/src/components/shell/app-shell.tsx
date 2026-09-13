@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Bell, Menu, Plus, Search, Sparkles, X } from "lucide-react";
-import { OrgSwitcher } from "@/components/shell/org-switcher";
+import { Bell, Menu, Sparkles, X } from "lucide-react";
+import { GlobalSearch } from "@/components/shell/global-search";
 import { SideNav, Wordmark } from "@/components/shell/nav";
+import { OrgSwitcher } from "@/components/shell/org-switcher";
+import { QuickAdd } from "@/components/shell/quick-add";
 import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -15,10 +17,23 @@ import { cn } from "@/lib/utils";
 export function AppShell({ session, active, children }: { session: Session; active: ActiveContext; children: React.ReactNode }) {
   const [navOpen, setNavOpen] = React.useState(false);
   const [copilotOpen, setCopilotOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
   const { toast } = useToast();
 
+  // Ctrl/⌘+K toggles the global search from anywhere in the app.
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const placeholder = (feature: string) => () =>
-    toast({ title: `${feature} arrives in Phase 2`, description: "This control is a placeholder in Phase 1." });
+    toast({ title: `${feature} arrives in a later phase`, description: "This control is a placeholder for now." });
 
   const mfaBanner = active.mfa_required && !session.mfa_enabled;
 
@@ -51,36 +66,23 @@ export function AppShell({ session, active, children }: { session: Session; acti
           </Button>
           <OrgSwitcher session={session} />
 
-          <button
-            type="button"
-            onClick={placeholder("Global search")}
-            className="ml-auto hidden h-9 w-72 items-center gap-2 rounded-sm border border-border-strong bg-bg px-3 text-sm text-fg-subtle hover:bg-bg-subtle md:flex"
-            aria-label="Search (coming soon)"
-          >
-            <Search className="size-4" />
-            <span className="flex-1 text-left">Search…</span>
-            <kbd className="rounded-sm border border-border bg-surface px-1.5 font-mono text-[10px] text-fg-subtle">Ctrl K</kbd>
-          </button>
-          <Button variant="ghost" size="icon" className="ml-auto md:hidden" onClick={placeholder("Global search")} aria-label="Search">
-            <Search />
-          </Button>
-
-          <Button variant="secondary" size="sm" onClick={placeholder("Quick add")} className="hidden sm:inline-flex">
-            <Plus /> New
-          </Button>
-          <Button variant="ghost" size="icon" onClick={placeholder("Notifications")} aria-label="Notifications">
-            <Bell />
-          </Button>
-          <Button
-            variant={copilotOpen ? "primary" : "ghost"}
-            size="icon"
-            onClick={() => setCopilotOpen((v) => !v)}
-            aria-label="Toggle Copilot"
-            aria-pressed={copilotOpen}
-          >
-            <Sparkles />
-          </Button>
-          <UserMenu session={session} />
+          <div className="ml-auto flex items-center gap-2">
+            <GlobalSearch active={active} open={searchOpen} onOpenChange={setSearchOpen} />
+            <QuickAdd active={active} />
+            <Button variant="ghost" size="icon" onClick={placeholder("Notifications")} aria-label="Notifications">
+              <Bell />
+            </Button>
+            <Button
+              variant={copilotOpen ? "primary" : "ghost"}
+              size="icon"
+              onClick={() => setCopilotOpen((v) => !v)}
+              aria-label="Toggle Copilot"
+              aria-pressed={copilotOpen}
+            >
+              <Sparkles />
+            </Button>
+            <UserMenu session={session} />
+          </div>
         </header>
 
         {mfaBanner ? (

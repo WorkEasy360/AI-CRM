@@ -1,6 +1,6 @@
 # ADR-0005 — UUID primary keys for tenant resources
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 1
 
 ## Context
 Sequential integer ids leak record counts and invite enumeration; externally exposed ids should be unguessable. Alternatives: bigint PK with a separate public UUID column (two ids to manage) or UUID PKs everywhere.

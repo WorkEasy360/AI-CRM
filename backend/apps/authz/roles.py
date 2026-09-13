@@ -44,6 +44,10 @@ _COMMON_READ = {
     "teams.view": SCOPE_ALL,
     "roles.view": SCOPE_ALL,
     "products.view": SCOPE_ALL,
+    "pipelines.view": SCOPE_ALL,
+    "customfields.view": SCOPE_ALL,
+    "tags.view": SCOPE_ALL,
+    "notes.view": SCOPE_ALL,
     "search.use": SCOPE_ALL,
     "ai.scores.view": SCOPE_ALL,
     "dashboards.view": SCOPE_ALL,
@@ -73,6 +77,8 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
                 for p in PERMISSIONS
                 if p.split(".")[0] in {"contacts", "companies", "deals", "activities", "notes"}
             },
+            "pipelines.manage": SCOPE_ALL,
+            "tags.manage": SCOPE_ALL,
             "dashboards.manage_own": SCOPE_ALL,
             "dashboards.manage_shared": SCOPE_ALL,
             "reports.view": SCOPE_ALL,

@@ -18,7 +18,11 @@ members.view  members.invite  members.update_role  members.disable  members.remo
 teams.view  teams.manage
 roles.view  roles.manage                       (custom roles, future)
 audit.view
-settings.manage                                 (pipelines, stages, custom fields, tags, saved shared views)
+settings.manage                                 (reserved for organization-level settings)
+pipelines.view pipelines.manage                 (Phase 2: pipelines and stages; manage = Owner/Admin/Sales Manager)
+customfields.view customfields.manage           (Phase 2: definitions; manage = Owner/Admin)
+tags.view tags.manage                           (Phase 2: tag catalogue; manage = Owner/Admin/Sales Manager)
+notes.view                                      (Phase 2: read notes/timeline of a visible record)
 
 contacts.view contacts.create contacts.update contacts.delete contacts.export contacts.import contacts.bulk_update
 companies.*   (same actions)
@@ -57,7 +61,10 @@ Every DRF route must map to at least one permission through `permission_map`; a 
 | `products.view` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `products.create/update/delete` | ✅ | ✅ | ❌ | ❌ | ❌ |
 | `activities.*` | all | all | all | own (+ view team) | view all |
-| `notes.*` | all | all | all | own | ❌ |
+| `notes.view` | ✅ | ✅ | ✅ | ✅ (record must be visible) | ✅ |
+| `notes.create/update/delete` | all | all | all | create ✅ / update+delete own | ❌ |
+| `pipelines.manage`, `tags.manage` | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `customfields.manage` | ✅ | ✅ | ❌ | ❌ | ❌ |
 | `dashboards.view` / `manage_own` | ✅ | ✅ | ✅ | ✅ | view only |
 | `dashboards.manage_shared` | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `reports.view` / `reports.export` | ✅/✅ | ✅/✅ | ✅/✅ | team/❌ | ✅/❌ |
@@ -86,7 +93,7 @@ def scope(actor: Actor, permission: str, queryset: QuerySet) -> QuerySet:
 1. **View layer**: `RequirePermissions` DRF permission class reads `permission_map = {"list": "contacts.view", "create": "contacts.create", ...}` and calls `check()` with no object (a coarse gate).
 2. **Selector layer**: every list query passes through `scope()` for the action's permission. Detail endpoints look the record up within the *view* scope and then `check()` the action's permission against the object: a record outside the actor's view scope answers 404 (no existence leak), a record the actor may view but not modify answers 403.
 3. **Service layer**: every mutating service calls `check(actor, permission, obj)` again with the loaded object (object-level check) before writing. Services are the last line and are unit-tested independently of views.
-4. **Field-level**: serializers expose different writable fields per permission (e.g. `owner_membership_id` writable only with `*.reassign`). Read-only fields are enforced server-side; mass assignment is prevented by explicit `fields` lists and `read_only_fields`.
+4. **Field-level**: serializers expose different writable fields per permission. As implemented in Phase 2, `owner_id` is accepted by every write serializer but `records.resolve_owner()` only honours a value other than the actor's own membership when the actor may reassign (`deals.reassign` for deals; `<module>.update` at scope `all` otherwise) — anything else answers `403 reassign_denied`. Read-only fields are enforced server-side; mass assignment is prevented by explicit input serializers (never `ModelSerializer` with `__all__`).
 5. **Bulk operations**: the service computes the scoped set first and refuses (400 with count) if the request references records outside it, rather than silently skipping.
 6. **AI tools**: each tool declares its required permission; the tool runner calls `check()`/`scope()` with the human actor before executing.
 7. **Background jobs**: tasks carry the actor's membership id and re-run `scope()`; a job never escalates beyond the requester's permissions.

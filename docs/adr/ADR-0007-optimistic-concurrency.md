@@ -1,6 +1,6 @@
 # ADR-0007 — Optimistic concurrency via `version` and `If-Match`
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 2 (`apps/core/concurrency.py`)
 
 ## Context
 Multiple users edit the same deal/contact concurrently (kanban drags, inline grid edits, AI-proposed actions confirmed later). Silent last-writer-wins would lose data.

@@ -21,6 +21,14 @@ cd frontend
 pnpm install
 pnpm dev                                  # http://localhost:3000, proxies /api and /_allauth to :8000
 ```
+Background worker (CSV imports and exports are processed by Celery; without it jobs stay `pending`):
+```bash
+cd backend
+uv run celery -A config.celery worker -l info -Q default     # or: make worker
+```
+Import uploads and export files are written under `backend/private/` (git-ignored; `PRIVATE_STORAGE_ROOT`
+overrides the location) and are only reachable through the authenticated download endpoint.
+
 Mailpit UI: http://localhost:8025 (verification, invitation and reset emails land here).
 
 PostgreSQL is published on host port **5433** (5432 is often taken locally). The init script creates the

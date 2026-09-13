@@ -1,6 +1,6 @@
 # ADR-0011 — PostgreSQL full-text search before any search engine
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 2 (`apps/search`)
 
 ## Context
 Global search across contacts, companies, deals, products and activities must be tenant- and permission-scoped. A separate search engine adds infrastructure and a second copy of data that must also enforce isolation.

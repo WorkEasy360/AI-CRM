@@ -1,4 +1,4 @@
-.PHONY: dev services stop test test-backend test-frontend lint typecheck security rls-check schema
+.PHONY: dev worker services stop test test-backend test-frontend lint typecheck security rls-check schema
 
 services:
 	docker compose up -d postgres redis mailpit
@@ -8,6 +8,9 @@ stop:
 
 dev: services
 	cd backend && uv run python manage.py migrate && uv run python manage.py runserver 8000
+
+worker: services
+	cd backend && uv run celery -A config.celery worker -l info -Q default
 
 test: test-backend test-frontend
 

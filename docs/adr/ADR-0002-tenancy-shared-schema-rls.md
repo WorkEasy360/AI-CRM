@@ -1,6 +1,6 @@
 # ADR-0002 — Shared schema tenancy with `organization_id` and PostgreSQL RLS
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-12); implemented in Phase 1
 
 ## Context
 Tenant isolation is the most important security property. Options: shared schema with a tenant column, schema-per-tenant, database-per-tenant. Target market is many small/medium organizations.

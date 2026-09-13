@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.core.management.base import BaseCommand
 from django.db import connection
 
-APPEND_ONLY_TABLES = ("audit_auditevent",)
+APPEND_ONLY_TABLES = ("audit_auditevent", "deals_dealstagehistory")
 
 
 class Command(BaseCommand):

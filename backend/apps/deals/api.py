@@ -1,0 +1,439 @@
+from __future__ import annotations
+
+import datetime as dt
+from decimal import Decimal
+
+from django.db.models import Count, Sum
+from django.shortcuts import get_object_or_404
+from rest_framework import serializers, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from apps.companies.models import Company
+from apps.contacts.models import Contact
+from apps.core import validators
+from apps.core.api.crm import CrmViewSet, crud_permission_map
+from apps.core.api.fields import TenantPrimaryKeyRelatedField
+from apps.core.api.filters import Filter, FilterSet
+from apps.core.api.serializers import CrmReadSerializer, CustomDataField, MembershipRefSerializer, owner_field
+from apps.core.concurrency import expected_version
+from apps.deals import services
+from apps.deals.models import Deal, DealContact, DealProduct, DealStageHistory
+from apps.pipelines.api import StageSerializer
+from apps.pipelines.models import Pipeline, PipelineStage
+from apps.products.models import Product
+
+
+class RefSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    name = serializers.CharField(read_only=True)
+
+
+class ContactRefSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    name = serializers.CharField(source="display_name", read_only=True)
+    email = serializers.CharField(read_only=True)
+
+
+class StageRefSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    kind = serializers.CharField(read_only=True)
+    color_token = serializers.CharField(read_only=True)
+
+
+class DealSerializer(CrmReadSerializer):
+    entity_type = "deal"
+    pipeline = RefSerializer(read_only=True)
+    stage = StageRefSerializer(read_only=True)
+    company = RefSerializer(read_only=True)
+    primary_contact = ContactRefSerializer(read_only=True)
+    line_count = serializers.IntegerField(read_only=True, default=0)
+    products_total = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=Decimal("0.00"))
+
+    class Meta:
+        model = Deal
+        fields = [
+            "id",
+            "name",
+            "pipeline",
+            "stage",
+            "company",
+            "primary_contact",
+            "amount",
+            "currency",
+            "exchange_rate",
+            "amount_base",
+            "probability",
+            "expected_close_date",
+            "status",
+            "closed_at",
+            "lost_reason",
+            "stage_entered_at",
+            "description",
+            "owner",
+            "tags",
+            "custom_data",
+            "line_count",
+            "products_total",
+            "version",
+            "archived_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+def _active_pipelines():
+    return Pipeline.objects.filter(archived_at__isnull=True)
+
+
+def _active_stages():
+    return PipelineStage.objects.filter(archived_at__isnull=True)
+
+
+def _active_companies():
+    return Company.objects.filter(archived_at__isnull=True)
+
+
+def _active_contacts():
+    return Contact.objects.filter(archived_at__isnull=True)
+
+
+def _active_products():
+    return Product.objects.filter(archived_at__isnull=True, status=Product.Status.ACTIVE)
+
+
+class DealWriteSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=160)
+    pipeline_id = TenantPrimaryKeyRelatedField(
+        source="pipeline", model=Pipeline, queryset_fn=_active_pipelines, required=False
+    )
+    stage_id = TenantPrimaryKeyRelatedField(
+        source="stage", model=PipelineStage, queryset_fn=_active_stages, required=False
+    )
+    company_id = TenantPrimaryKeyRelatedField(
+        source="company", model=Company, queryset_fn=_active_companies, required=False, allow_null=True
+    )
+    primary_contact_id = TenantPrimaryKeyRelatedField(
+        source="primary_contact", model=Contact, queryset_fn=_active_contacts, required=False, allow_null=True
+    )
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2, required=False)
+    currency = serializers.CharField(max_length=3, required=False)
+    exchange_rate = serializers.DecimalField(max_digits=18, decimal_places=8, required=False, allow_null=True)
+    probability = serializers.IntegerField(min_value=0, max_value=100, required=False)
+    expected_close_date = serializers.DateField(required=False, allow_null=True)
+    lost_reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    description = serializers.CharField(max_length=5000, required=False, allow_blank=True)
+    owner_id = owner_field()
+    custom_data = CustomDataField("deal")
+
+    def validate_name(self, value: str) -> str:
+        value = validators.clean_text(value, max_length=160)
+        if not value:
+            raise serializers.ValidationError("Name is required.")
+        return value
+
+    def validate_amount(self, value: Decimal) -> Decimal:
+        return validators.clean_amount(value) or Decimal("0.00")
+
+    def validate_currency(self, value: str) -> str:
+        return validators.clean_currency(value, default="")
+
+    def validate_exchange_rate(self, value: Decimal | None) -> Decimal | None:
+        if value is None:
+            return None
+        if not value.is_finite() or value <= 0 or value > Decimal("1000000"):
+            raise serializers.ValidationError("Exchange rate must be a positive number.")
+        return value
+
+    def validate_expected_close_date(self, value: dt.date | None) -> dt.date | None:
+        if value is not None and not (dt.date(2000, 1, 1) <= value <= dt.date(2100, 12, 31)):
+            raise serializers.ValidationError("Date out of range.")
+        return value
+
+    def validate_lost_reason(self, value: str) -> str:
+        return validators.clean_text(value, max_length=255)
+
+    def validate_description(self, value: str) -> str:
+        return validators.clean_text(value, max_length=5000, allow_newlines=True)
+
+
+class StageMoveSerializer(serializers.Serializer):
+    stage_id = serializers.UUIDField()
+    version = serializers.IntegerField(min_value=1, required=False)
+    lost_reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+
+class DealProductSerializer(serializers.ModelSerializer):
+    product = RefSerializer(read_only=True)
+    sku = serializers.CharField(source="product.sku", read_only=True)
+
+    class Meta:
+        model = DealProduct
+        fields = [
+            "id",
+            "product",
+            "sku",
+            "quantity",
+            "unit_price",
+            "currency",
+            "discount_percent",
+            "tax_rate",
+            "line_total",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class DealProductInputSerializer(serializers.Serializer):
+    product_id = TenantPrimaryKeyRelatedField(
+        source="product", model=Product, queryset_fn=_active_products, required=False
+    )
+    quantity = serializers.DecimalField(max_digits=12, decimal_places=3, required=False, min_value=Decimal("0.001"))
+    unit_price = serializers.DecimalField(max_digits=18, decimal_places=2, required=False, min_value=Decimal(0))
+    discount_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False, min_value=Decimal(0), max_value=Decimal(100)
+    )
+    tax_rate = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False, min_value=Decimal(0), max_value=Decimal(100)
+    )
+
+
+class DealContactSerializer(serializers.ModelSerializer):
+    contact = ContactRefSerializer(read_only=True)
+
+    class Meta:
+        model = DealContact
+        fields = ["id", "contact", "role_label", "created_at"]
+        read_only_fields = fields
+
+
+class DealContactInputSerializer(serializers.Serializer):
+    contact_id = TenantPrimaryKeyRelatedField(source="contact", model=Contact, queryset_fn=_active_contacts)
+    role_label = serializers.CharField(max_length=60, required=False, allow_blank=True, default="")
+
+
+class StageHistorySerializer(serializers.ModelSerializer):
+    from_stage = StageRefSerializer(read_only=True)
+    to_stage = StageRefSerializer(read_only=True)
+    changed_by = MembershipRefSerializer(read_only=True)
+    duration_seconds = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DealStageHistory
+        fields = ["id", "from_stage", "to_stage", "changed_by", "changed_at", "duration_seconds", "source"]
+        read_only_fields = fields
+
+    def get_duration_seconds(self, obj: DealStageHistory) -> int | None:
+        return int(obj.duration_in_previous_stage.total_seconds()) if obj.duration_in_previous_stage else None
+
+
+FILTERS = FilterSet(
+    filters={
+        "owner": Filter("owner", "owner_id"),
+        "pipeline": Filter("uuid", "pipeline_id"),
+        "stage": Filter("uuid", "stage_id"),
+        "company": Filter("uuid", "company_id"),
+        "contact": Filter("uuid", "primary_contact_id"),
+        "status": Filter("choice", "status", choices=tuple(Deal.Status.values)),
+        "close_from": Filter("date_from", "expected_close_date"),
+        "close_to": Filter("date_to", "expected_close_date"),
+        "amount_min": Filter("decimal_min", "amount_base"),
+        "amount_max": Filter("decimal_max", "amount_base"),
+        "ids": Filter("uuid_list", "id"),
+    },
+    sort_fields={
+        "name": "name",
+        "amount": "amount_base",
+        "expected_close_date": "expected_close_date",
+        "created_at": "created_at",
+        "updated_at": "updated_at",
+        "stage_entered_at": "stage_entered_at",
+    },
+    default_sort="-created_at",
+    search_fields=("name", "company__name", "primary_contact__first_name", "primary_contact__last_name"),
+    custom_field_entity="deal",
+)
+
+BOARD_DEALS_PER_STAGE = 100
+
+
+class DealViewSet(CrmViewSet):
+    spec = services.SPEC
+    filterset = FILTERS
+    serializer_class = DealSerializer
+    write_serializer_class = DealWriteSerializer
+    permission_map = crud_permission_map(
+        "deals",
+        board="deals.view",
+        history="deals.view",
+        move_stage="deals.change_stage",
+        products="deals.view",
+        add_product="deals.update",
+        update_product="deals.update",
+        remove_product="deals.update",
+        contacts="deals.view",
+        add_contact="deals.update",
+        remove_contact="deals.update",
+    )
+
+    def base_queryset(self):
+        return Deal.objects.select_related("owner__user", "pipeline", "stage", "company", "primary_contact").annotate(
+            line_count=Count("lines", distinct=True), products_total=Sum("lines__line_total")
+        )
+
+    def perform_create(self, data):
+        return services.create_deal(self.request.actor, data, request=self.request._request)
+
+    def perform_update(self, obj, data, version):
+        return services.update_deal(
+            self.request.actor, obj, data, expected_version=version, request=self.request._request
+        )
+
+    @action(detail=True, methods=["post"], url_path="stage")
+    def move_stage(self, request, pk=None):
+        deal = self.get_object()  # view-scoped lookup + change_stage object check (404/403 semantics)
+        ser = StageMoveSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        version = expected_version(request._request, request.data)
+        services.move_stage(
+            request.actor,
+            deal.pk,
+            stage_id=ser.validated_data["stage_id"],
+            expected_version=version,
+            lost_reason=ser.validated_data.get("lost_reason"),
+            request=request._request,
+        )
+        return Response(self.read(deal))
+
+    @action(detail=True, methods=["get"])
+    def history(self, request, pk=None):
+        deal = self.get_object()
+        qs = (
+            DealStageHistory.objects.filter(deal=deal)
+            .select_related("from_stage", "to_stage", "changed_by__user")
+            .order_by("-changed_at")[:500]
+        )
+        return Response({"results": StageHistorySerializer(qs, many=True).data})
+
+    @action(detail=False, methods=["get"])
+    def board(self, request):
+        """Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals."""
+        pipeline_id = request.query_params.get("pipeline")
+        pipeline = (
+            get_object_or_404(Pipeline.objects.filter(archived_at__isnull=True), pk=pipeline_id)
+            if pipeline_id
+            else Pipeline.objects.filter(archived_at__isnull=True).order_by("-is_default", "position").first()
+        )
+        if pipeline is None:
+            return Response({"pipeline": None, "stages": []})
+        qs = self.get_queryset().filter(pipeline=pipeline, archived_at__isnull=True)
+        params = {k: v for k, v in request.query_params.items() if k not in {"pipeline"}}
+        qs, _ = self.filterset.apply(qs, params, actor=request.actor)
+        qs = qs.order_by("-stage_entered_at", "-id")
+        totals = {
+            row["stage_id"]: row
+            for row in qs.values("stage_id").annotate(total=Sum("amount_base"), count=Count("id")).order_by()
+        }
+        stages = list(pipeline.stages.filter(archived_at__isnull=True).order_by("position"))
+        by_stage: dict = {s.pk: [] for s in stages}
+        for deal in qs:
+            bucket = by_stage.get(deal.stage_id)
+            if bucket is not None and len(bucket) < BOARD_DEALS_PER_STAGE:
+                bucket.append(deal)
+        all_deals = [d for bucket in by_stage.values() for d in bucket]
+        ctx = self._read_context(all_deals)
+        payload = []
+        for stage in stages:
+            agg = totals.get(stage.pk, {})
+            payload.append(
+                {
+                    **StageSerializer(stage).data,
+                    "deal_count": agg.get("count", 0),
+                    "total_amount_base": str(agg.get("total") or Decimal("0.00")),
+                    "deals": DealSerializer(by_stage[stage.pk], many=True, context=ctx).data,
+                    "has_more": agg.get("count", 0) > len(by_stage[stage.pk]),
+                }
+            )
+        return Response({"pipeline": {"id": str(pipeline.pk), "name": pipeline.name}, "stages": payload})
+
+    # ------------------------------------------------------------------ product lines
+    @action(detail=True, methods=["get"])
+    def products(self, request, pk=None):
+        deal = self.get_object()
+        lines = DealProduct.objects.filter(deal=deal).select_related("product")
+        return Response({"results": DealProductSerializer(lines, many=True).data})
+
+    @action(detail=True, methods=["post"], url_path="products/add")
+    def add_product(self, request, pk=None):
+        deal = self.get_object()
+        ser = DealProductInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = ser.validated_data
+        if "product" not in data:
+            raise serializers.ValidationError({"product_id": "product_id is required."})
+        line = services.add_product(
+            request.actor,
+            deal,
+            product=data["product"],
+            quantity=data.get("quantity", Decimal(1)),
+            unit_price=data.get("unit_price"),
+            discount_percent=data.get("discount_percent", Decimal(0)),
+            tax_rate=data.get("tax_rate"),
+            request=request._request,
+        )
+        line = DealProduct.objects.select_related("product").get(pk=line.pk)
+        return Response(DealProductSerializer(line).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch"], url_path=r"products/(?P<line_id>[0-9a-f-]{36})")
+    def update_product(self, request, pk=None, line_id=None):
+        deal = self.get_object()
+        line = get_object_or_404(DealProduct.objects.filter(deal=deal), pk=line_id)
+        ser = DealProductInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = {k: v for k, v in ser.validated_data.items() if k != "product"}
+        services.update_product_line(request.actor, deal, line, request=request._request, **data)
+        line = DealProduct.objects.select_related("product").get(pk=line.pk)
+        return Response(DealProductSerializer(line).data)
+
+    @action(detail=True, methods=["post"], url_path=r"products/(?P<line_id>[0-9a-f-]{36})/remove")
+    def remove_product(self, request, pk=None, line_id=None):
+        deal = self.get_object()
+        line = get_object_or_404(DealProduct.objects.filter(deal=deal), pk=line_id)
+        services.remove_product(request.actor, deal, line, request=request._request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ------------------------------------------------------------------ contacts
+    @action(detail=True, methods=["get"])
+    def contacts(self, request, pk=None):
+        deal = self.get_object()
+        links = DealContact.objects.filter(deal=deal).select_related("contact")
+        return Response({"results": DealContactSerializer(links, many=True).data})
+
+    @action(detail=True, methods=["post"], url_path="contacts/add")
+    def add_contact(self, request, pk=None):
+        deal = self.get_object()
+        ser = DealContactInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        link = services.add_contact(
+            request.actor,
+            deal,
+            contact=ser.validated_data["contact"],
+            role_label=ser.validated_data["role_label"],
+            request=request._request,
+        )
+        link = DealContact.objects.select_related("contact").get(pk=link.pk)
+        return Response(DealContactSerializer(link).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="contacts/remove")
+    def remove_contact(self, request, pk=None):
+        deal = self.get_object()
+        contact_id = request.data.get("contact_id") if isinstance(request.data, dict) else None
+        ser = serializers.UUIDField()
+        try:
+            parsed = ser.to_internal_value(contact_id)
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({"contact_id": "Expected a UUID."}) from exc
+        services.remove_contact(request.actor, deal, contact_id=parsed, request=request._request)
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,4 +1,4 @@
-# Keel CRM — frontend (Phase 1)
+# Keel CRM — frontend (Phase 2)
 
 Next.js 15 (App Router) + React 19 + TypeScript strict + Tailwind CSS v4. Talks to the Django backend over same-origin cookie sessions; nothing sensitive lives in the browser bundle.
 
@@ -36,7 +36,11 @@ src/
   app/                 routes: (auth) group, (app) group with shell, onboarding
   components/ui/       small typed primitives on Radix (Button, Dialog, Select, ...)
   components/shell/    app shell: side nav, top bar, org switcher, user menu, Copilot drawer
-  components/settings/ organization, members, teams, security, audit-log screens
+  components/settings/ organization, members, teams, security, audit-log, pipelines, custom-fields, tags, data (import/export)
+  components/crm/      shared CRM layer (data table, list toolbar, custom-field form, tag picker, notes, timeline, record page)
+                       + contacts/, companies/, products/, pipeline/ (kanban, list), deals/ (detail, form, stage move)
+  lib/api/crm*.ts      hand-written Phase 2 types and endpoint functions (version-aware writes)
+  lib/crm/             query keys, URL-backed list params, formatting, UI permission helpers
   components/auth/     login, signup, verify, reset, invitation acceptance
   lib/api/             fetch client, RFC 9457 problem parsing, allauth client, endpoints, types
   lib/                 csrf reader, next-redirect validator, session hooks, validation schemas

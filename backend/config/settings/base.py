@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "allauth",
     "allauth.account",
     "allauth.mfa",
@@ -44,6 +45,16 @@ INSTALLED_APPS = [
     "apps.teams",
     "apps.audit",
     "apps.privacy",
+    "apps.customfields",
+    "apps.tagging",
+    "apps.companies",
+    "apps.contacts",
+    "apps.products",
+    "apps.pipelines",
+    "apps.deals",
+    "apps.notes",
+    "apps.search",
+    "apps.importexport",
 ]
 
 MIDDLEWARE = [
@@ -204,6 +215,7 @@ REST_FRAMEWORK = {
         "admin": "120/min",
         "sensitive": "30/min",
         "invitation_public": "20/min",
+        "search": "120/min",
     },
     "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.DefaultCursorPagination",
     "PAGE_SIZE": 50,
@@ -223,6 +235,8 @@ SPECTACULAR_SETTINGS = {
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 500
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+# CSV imports/exports live outside MEDIA/STATIC and are never served directly (see apps.importexport.storage).
+PRIVATE_STORAGE_ROOT = env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "private"))
 
 # ----------------------------------------------------------------------------- security headers
 SECURE_CONTENT_TYPE_NOSNIFF = True

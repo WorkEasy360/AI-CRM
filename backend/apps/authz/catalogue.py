@@ -41,6 +41,13 @@ PERMISSIONS: frozenset[str] = frozenset(
         *_crud("companies", "export", "import", "bulk_update"),
         *_crud("products", "export", "import"),
         *_crud("deals", "change_stage", "reassign", "export", "import", "bulk_update"),
+        "pipelines.view",
+        "pipelines.manage",
+        "customfields.view",
+        "customfields.manage",
+        "tags.view",
+        "tags.manage",
+        "notes.view",
         # sales operations (Phase 3)
         *_crud("activities"),
         "notes.create",

@@ -17,6 +17,7 @@ htmlcov/
 coverage.xml
 backend/staticfiles/
 backend/media/
+backend/private/
 
 # Node
 node_modules/
