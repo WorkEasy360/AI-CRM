@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from django.conf import settings
-from django.core.mail import send_mail
+
+from apps.accounts.tasks import queue_email
 
 
 def send_invitation_email(
@@ -15,7 +16,7 @@ def send_invitation_email(
         f"Accept the invitation:\n{accept_url}\n\n"
         f"This link expires in {expires_days} days. If you weren't expecting this, you can ignore this email.\n"
     )
-    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [to_email])
+    queue_email(subject=subject, body=body, to=[to_email], from_email=settings.DEFAULT_FROM_EMAIL)
 
 
 def send_new_device_notice(*, to_email: str, ip: str | None, when: str) -> None:
@@ -25,4 +26,4 @@ def send_new_device_notice(*, to_email: str, ip: str | None, when: str) -> None:
         f"Time: {when}\nIP address: {ip or 'unknown'}\n\n"
         "If this was you, no action is needed. If not, change your password and review your active sessions.\n"
     )
-    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [to_email])
+    queue_email(subject=subject, body=body, to=[to_email], from_email=settings.DEFAULT_FROM_EMAIL)

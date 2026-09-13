@@ -50,8 +50,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       {...(asChild ? {} : { type: props.type ?? "button" })}
       {...props}
     >
-      {loading ? <Loader2 className="animate-spin" aria-hidden /> : null}
-      {children}
+      {asChild ? (
+        // Slot needs exactly one element child: the loader placeholder must not be emitted here.
+        children
+      ) : (
+        <>
+          {loading ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          {children}
+        </>
+      )}
     </Comp>
   );
 });

@@ -1,0 +1,89 @@
+# Local stand-in for the production topology, used by loadtest/ (see docs/operations/load-testing.md):
+#
+#   k6 -> lb (nginx, ALB path rules) -> backend-a | backend-b (gunicorn, prod-like flags)
+#                                     -> frontend (Next.js standalone)
+#   worker (default,notifications) / worker-heavy (imports,exports,reports) / beat
+#
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml --profile full --profile loadtest up -d --build
+#
+# Kill one instance to test failover:  docker compose ... stop backend-b
+name: keel
+
+x-backend-loadtest: &backend-loadtest
+  build:
+    context: ./backend
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
+    REDIS_URL: redis://redis:6379/0
+    CELERY_BROKER_URL: redis://redis:6379/1
+    EMAIL_URL: smtp://mailpit:1025
+    DEBUG: "false"
+    ALLOWED_HOSTS: "*"
+    CSRF_TRUSTED_ORIGINS: http://localhost:8080,http://host.docker.internal:8080
+    FRONTEND_ORIGIN: http://localhost:8080
+    # Production runtime flags under test
+    DB_POOL: "true"
+    GUNICORN_WORKERS: "2"
+    GUNICORN_THREADS: "4"
+    CACHE_FAIL_OPEN: "true"
+    TRUSTED_PROXY_COUNT: "1"
+    EXPOSE_INSTANCE_HEADER: "true"
+    PRIVATE_STORAGE_ROOT: /app/private
+    LOG_LEVEL: WARNING
+  command: ["gunicorn", "config.wsgi:application", "-c", "config/gunicorn.py"]
+  # Filesystem storage must be shared with the heavy worker locally; production uses S3 instead.
+  volumes:
+    - loadtest-private:/app/private
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  profiles: ["loadtest"]
+
+services:
+  backend:
+    profiles: ["never"]  # replaced by backend-a / backend-b below
+
+  backend-a:
+    <<: *backend-loadtest
+  backend-b:
+    <<: *backend-loadtest
+
+  worker:
+    environment:
+      DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      PRIVATE_STORAGE_ROOT: /app/private
+      LOG_LEVEL: WARNING
+  worker-heavy:
+    environment:
+      DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      PRIVATE_STORAGE_ROOT: /app/private
+      LOG_LEVEL: WARNING
+    volumes:
+      - loadtest-private:/app/private
+
+  frontend:
+    environment:
+      API_INTERNAL_ORIGIN: http://lb:80
+    depends_on: []
+    ports: !override []
+
+  lb:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./infra/nginx/loadtest.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend-a
+      - backend-b
+    profiles: ["loadtest"]
+
+volumes:
+  loadtest-private:

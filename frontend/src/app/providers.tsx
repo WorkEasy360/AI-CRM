@@ -3,6 +3,7 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReauthProvider } from "@/components/reauth-provider";
+import { ThemeSync } from "@/lib/theme";
 import { ToastProvider } from "@/components/ui/toast";
 import { isApiError } from "@/lib/api/problem";
 
@@ -28,6 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ToastProvider>
+        <ThemeSync />
         <ReauthProvider>{children}</ReauthProvider>
       </ToastProvider>
     </QueryClientProvider>

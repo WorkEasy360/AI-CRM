@@ -1,5 +1,9 @@
 # Infrastructure Architecture
 
+> Implemented as Terraform in `infra/terraform/` (2026-09-13). Load balancing, autoscaling, connection
+> management, queue isolation, caching, timeouts and failure behaviour are specified in
+> [`scaling.md`](scaling.md); alert thresholds in [`../operations/alerts.md`](../operations/alerts.md).
+
 Recommendation (ADR-0008): **AWS, single region, containers on ECS Fargate, managed data services.** Terraform for everything; no Kubernetes in the MVP. The choice of cloud and region is listed in `docs/DECISIONS-REQUIRED.md`; the design below maps 1:1 onto GCP/Azure equivalents if a different provider is chosen.
 
 ## 1. Environments

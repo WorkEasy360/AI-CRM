@@ -13,6 +13,7 @@ vi.mock("@/lib/api/crm", () => ({
   updateCompany: vi.fn(),
   getCompany: vi.fn(),
   listCustomFields: vi.fn(),
+  findCompanyDuplicates: vi.fn(),
 }));
 
 const SESSION = {
@@ -28,7 +29,7 @@ vi.mock("@/lib/session", async (importOriginal) => {
   return { ...actual, useSession: () => ({ data: SESSION }) };
 });
 
-import { createCompany, listCustomFields } from "@/lib/api/crm";
+import { createCompany, findCompanyDuplicates, listCustomFields } from "@/lib/api/crm";
 
 const EMPTY_PAGE = { next: null, previous: null, results: [] };
 
@@ -47,12 +48,14 @@ describe("CompanyFormDialog", () => {
   beforeEach(() => {
     vi.mocked(createCompany).mockReset();
     vi.mocked(listCustomFields).mockReset().mockResolvedValue(EMPTY_PAGE);
+    vi.mocked(findCompanyDuplicates).mockReset().mockResolvedValue({ results: [] });
   });
 
   it("requires a name and validates the revenue currency client-side", async () => {
     const user = userEvent.setup();
     renderDialog();
 
+    await user.click(screen.getByRole("button", { name: /More details/ }));
     await user.type(screen.getByLabelText("Revenue currency"), "us");
     await user.click(screen.getByRole("button", { name: "Create company" }));
 
@@ -88,6 +91,7 @@ describe("CompanyFormDialog", () => {
 
     await user.type(screen.getByLabelText("Name"), "Acme");
     await user.type(screen.getByLabelText("Website"), "https://acme.test");
+    await user.click(screen.getByRole("button", { name: /More details/ }));
     await user.type(screen.getByLabelText("Annual revenue"), "1500000");
     await user.type(screen.getByLabelText("Revenue currency"), "eur");
     await user.click(screen.getByRole("button", { name: "Create company" }));
@@ -105,6 +109,7 @@ describe("CompanyFormDialog", () => {
       address: {},
       description: "",
       custom_data: {},
+      lifecycle_stage: "lead",
     });
   });
 });

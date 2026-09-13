@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from django.conf import settings
 from django.db.models import QuerySet
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -70,12 +71,13 @@ class CrmViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet
         ctx["actor"] = self.request.actor
         return ctx
 
-    def _read_context(self, objs: list[Any]) -> dict[str, Any]:
+    def _read_context(self, objs: list[Any], *, ids: QuerySet | None = None) -> dict[str, Any]:
+        """``ids`` may be a queryset of primary keys, used as a subquery instead of a long IN list."""
         from apps.customfields import service as customfields
         from apps.tagging import service as tagging
 
         ctx = dict(self.get_serializer_context())
-        ctx["tags_map"] = tagging.tags_for(self.spec.entity_type, [o.pk for o in objs])
+        ctx["tags_map"] = tagging.tags_for(self.spec.entity_type, ids if ids is not None else [o.pk for o in objs])
         ctx["custom_definitions"] = customfields.active_definitions(self.spec.entity_type)
         return ctx
 
@@ -99,8 +101,15 @@ class CrmViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet
 
     @action(detail=False, methods=["get"])
     def count(self, request):
-        queryset = self.filter_queryset(self.get_queryset())
-        return Response({"count": queryset.count()})
+        """Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.
+
+        An unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost
+        grows linearly with tenant size; the UI only needs "10,000+" beyond the cap.
+        """
+        cap = settings.LIST_COUNT_CAP
+        queryset = self.filter_queryset(self.get_queryset()).order_by().values("pk")[: cap + 1]
+        n = queryset.count()
+        return Response({"count": min(n, cap), "exact": n <= cap})
 
     def create(self, request):
         ser = self.write_serializer_class(data=request.data, context=self.get_serializer_context())

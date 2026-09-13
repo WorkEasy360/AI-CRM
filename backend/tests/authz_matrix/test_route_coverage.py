@@ -11,9 +11,12 @@ from apps.authz.permissions import DenyAll, IsAuthenticatedUser, RequirePermissi
 ALLOWED_WITHOUT_ORG = {
     "session": IsAuthenticatedUser,
     "session-switch": IsAuthenticatedUser,
+    "session-bootstrap": IsAuthenticatedUser,
     "organization-create": IsAuthenticatedUser,
 }
 ALLOWED_SCHEMA_ROUTES = {"schema", "docs"}
+# Machine-to-machine endpoints authenticated by a signature instead of a session (reviewed list).
+ALLOWED_PUBLIC = {"whatsapp-webhook": AllowAny}
 HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 
 
@@ -60,6 +63,9 @@ def test_every_api_route_declares_protection():
         elif name in ALLOWED_WITHOUT_ORG:
             if perm_classes != [ALLOWED_WITHOUT_ORG[name]]:
                 problems.append(f"{full}: expected {ALLOWED_WITHOUT_ORG[name].__name__}")
+        elif name in ALLOWED_PUBLIC:
+            if perm_classes != [ALLOWED_PUBLIC[name]]:
+                problems.append(f"{full}: expected {ALLOWED_PUBLIC[name].__name__}")
         elif DenyAll in perm_classes or not perm_classes:
             problems.append(f"{full}: view {cls.__name__} is unreachable (DenyAll); declare permissions")
         else:

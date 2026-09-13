@@ -127,6 +127,39 @@ SETTINGS_ROUTES = [
         "/api/v1/deals/board/",
         {"owner": 200, "admin": 200, "sales_manager": 200, "sales_rep": 200, "viewer": 200},
     ),
+    (
+        "post",
+        "/api/v1/activities/",
+        {"owner": 201, "admin": 201, "sales_manager": 201, "sales_rep": 201, "viewer": 403},
+    ),
+    ("get", "/api/v1/activities/", {"owner": 200, "admin": 200, "sales_manager": 200, "sales_rep": 200, "viewer": 200}),
+    (
+        "get",
+        "/api/v1/notifications/",
+        {"owner": 200, "admin": 200, "sales_manager": 200, "sales_rep": 200, "viewer": 200},
+    ),
+    ("get", "/api/v1/forecast/", {"owner": 200, "admin": 200, "sales_manager": 200, "sales_rep": 200, "viewer": 200}),
+    (
+        "post",
+        "/api/v1/email/templates/",
+        {"owner": 201, "admin": 201, "sales_manager": 201, "sales_rep": 403, "viewer": 403},
+    ),
+    (
+        "get",
+        "/api/v1/email/accounts/",
+        {"owner": 200, "admin": 200, "sales_manager": 200, "sales_rep": 200, "viewer": 200},
+    ),
+    (
+        "post",
+        "/api/v1/whatsapp/templates/",
+        {"owner": 201, "admin": 201, "sales_manager": 403, "sales_rep": 403, "viewer": 403},
+    ),
+    (
+        "post",
+        "/api/v1/ai/follow-up/",
+        {"owner": 400, "admin": 400, "sales_manager": 400, "sales_rep": 400, "viewer": 403},
+    ),
+    ("get", "/api/v1/ai/usage/", {"owner": 200, "admin": 200, "sales_manager": 403, "sales_rep": 403, "viewer": 403}),
 ]
 
 
@@ -146,6 +179,12 @@ def test_settings_routes_by_role(world, role, method, path, expectations, client
         payload = {"name": f"tag-{role}"}
     elif path.endswith("/bulk/"):
         payload = {"ids": ["00000000-0000-0000-0000-000000000001"], "action": "archive"}
+    elif path.endswith("/activities/"):
+        payload = {"kind": "task", "title": f"task-{role}"}
+    elif path.endswith("/email/templates/"):
+        payload = {"name": f"tpl-{role}", "body": "Hi"}
+    elif path.endswith("/whatsapp/templates/"):
+        payload = {"name": f"tpl_{role}", "body": "Hi"}
     resp = getattr(client, method)(path, payload, format="json") if method != "get" else client.get(path)
     assert resp.status_code == expectations[role], resp.content
 

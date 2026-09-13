@@ -42,11 +42,13 @@ def test_signup_requires_verification_then_login_and_org_creation():
     assert resp.status_code == 200
     session_key_after_login = client.session.session_key
 
+    # Verification created the personal workspace, so login lands in it (see test_onboarding.py).
     resp = client.get("/api/v1/session/")
     assert resp.status_code == 200
-    assert resp.json()["active"] is None
-    assert resp.json()["memberships"] == []
+    assert resp.json()["active"]["role"]["key"] == "owner"
+    assert len(resp.json()["memberships"]) == 1
 
+    # Creating a further organization explicitly still works for enterprise setups.
     resp = client.post("/api/v1/organizations/", {"name": "Acme"}, format="json")
     assert resp.status_code == 201
     assert client.session.session_key != session_key_after_login  # rotated on privilege change

@@ -1,0 +1,77 @@
+# Copy to environments/production.tfvars (git-ignored) and fill in the blanks.
+#
+#   terraform plan  -var-file=environments/production.tfvars
+#   terraform apply -var-file=environments/production.tfvars
+
+project     = "keel"
+environment = "production"
+aws_region  = "ap-south-1"
+
+# Public hostname. Route 53 alias -> CloudFront (see README).
+app_domain = "app.example.com"
+
+# ACM certificates created by hand before the first apply (README, "Bootstrap").
+acm_certificate_arn_alb        = "arn:aws:acm:ap-south-1:<ACCOUNT_ID>:certificate/<ALB_CERT_ID>"
+acm_certificate_arn_cloudfront = "arn:aws:acm:us-east-1:<ACCOUNT_ID>:certificate/<CLOUDFRONT_CERT_ID>"
+
+# GitHub repository allowed to assume the deploy role (main branch only).
+github_repository = "your-org/keel-crm"
+
+# Alarm notifications (leave empty to skip the email subscription).
+alarm_email = "ops@example.com"
+
+# --- Network ---------------------------------------------------------------
+vpc_cidr             = "10.40.0.0/16"
+az_count             = 2
+single_nat_gateway   = true # set false for per-AZ NAT once uptime matters more than ~USD 40/month
+enable_vpc_endpoints = true
+
+# --- Images ----------------------------------------------------------------
+# First apply uses <ecr-repo>:latest; CI rolls SHA-tagged revisions afterwards.
+image_tag = "latest"
+
+# --- Compute ---------------------------------------------------------------
+api_cpu    = 1024
+api_memory = 2048
+web_cpu    = 512
+web_memory = 1024
+
+api_min_capacity  = 2
+api_desired_count = 2
+api_max_capacity  = 6
+web_min_capacity  = 2
+web_desired_count = 2
+web_max_capacity  = 4
+
+worker_critical_min_capacity = 1
+worker_critical_max_capacity = 4
+worker_heavy_min_capacity    = 1
+worker_heavy_max_capacity    = 3
+
+alb_requests_per_target_api = 300
+alb_requests_per_target_web = 500
+cpu_target                  = 60
+
+# --- Data ------------------------------------------------------------------
+db_instance_class        = "db.t4g.medium"
+db_allocated_storage     = 50
+db_max_allocated_storage = 200
+db_backup_retention_days = 14
+db_max_connections_alarm = 400 # db.t4g.medium default max_connections ~= 400
+enable_rds_proxy         = false
+
+redis_node_type = "cache.t4g.small"
+redis_num_nodes = 2
+
+# --- Observability / edge ------------------------------------------------
+log_retention_days          = 30
+security_log_retention_days = 365
+enable_waf_bot_control      = false
+cloudfront_price_class      = "PriceClass_200"
+
+deletion_protection = true
+
+tags = {
+  CostCenter = "keel"
+  Owner      = "platform"
+}

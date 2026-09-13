@@ -21,6 +21,8 @@ export const inviteSchema = z.object({
 });
 export type InviteInput = z.infer<typeof inviteSchema>;
 
+export const nameSchema = z.string().trim().min(1, "Enter your name.").max(120, "Name is too long.");
+
 export const organizationNameSchema = z.string().trim().min(2, "Name must be at least 2 characters.").max(120, "Name is too long.");
 
 export const teamNameSchema = z.string().trim().min(1, "Team name is required.").max(80, "Team name is too long.");

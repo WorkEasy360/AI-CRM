@@ -1,66 +1,28 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, Handshake, MoreHorizontal, Pencil } from "lucide-react";
+import { RecordActivities } from "@/components/activities/record-activities";
 import { ContactFormDialog } from "@/components/crm/contacts/contact-form-dialog";
+import { ContactHeader } from "@/components/crm/contacts/contact-header";
+import { RecordDeals } from "@/components/crm/contacts/record-deals";
+import { Disclosure, RecordLayout } from "@/components/crm/contacts/record-layout";
 import { CustomFieldsSummary, useCustomFields } from "@/components/crm/custom-fields-form";
-import { DataTable, type Column } from "@/components/crm/data-table";
 import { NotesPanel } from "@/components/crm/notes-panel";
-import { Facts, RecordPage, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
+import { Facts, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
 import { TagPicker } from "@/components/crm/tag-picker";
 import { Timeline } from "@/components/crm/timeline";
 import { useArchiveRestore } from "@/components/crm/use-record-mutations";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { EmailHistory } from "@/components/messaging/email-history";
+import { WhatsAppConversation } from "@/components/messaging/whatsapp-conversation";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getContact, listDeals } from "@/lib/api/crm";
-import type { Contact, Deal } from "@/lib/api/crm-types";
-import { formatAddress, formatMoney } from "@/lib/crm/format";
+import { getContact } from "@/lib/api/crm";
+import type { Contact } from "@/lib/api/crm-types";
+import { formatAddress } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useSession } from "@/lib/session";
-import { useCursorList } from "@/lib/use-cursor-list";
-import { formatDate, formatDateTime } from "@/lib/utils";
-
-const enc = encodeURIComponent;
-
-function statusVariant(status: Deal["status"]): "success" | "danger" | "primary" {
-  if (status === "won") return "success";
-  if (status === "lost") return "danger";
-  return "primary";
-}
-
-const DEAL_COLUMNS: Column<Deal>[] = [
-  { key: "name", header: "Deal", render: (d) => d.name },
-  { key: "stage", header: "Stage", render: (d) => d.stage.name },
-  { key: "amount", header: "Amount", className: "text-right tabular-nums", render: (d) => formatMoney(d.amount, d.currency) },
-  { key: "status", header: "Status", className: "hidden md:table-cell", render: (d) => <Badge variant={statusVariant(d.status)}>{d.status}</Badge> },
-  { key: "close", header: "Expected close", className: "hidden md:table-cell", render: (d) => formatDate(d.expected_close_date) },
-];
-
-function ContactDeals({ contactId }: { contactId: string }) {
-  const params = React.useMemo(() => ({ contact: contactId }), [contactId]);
-  const deals = useCursorList<Deal>(crmKeys.list("deals", params), (cursor) => listDeals(params, cursor));
-  return (
-    <DataTable
-      rows={deals.items}
-      columns={DEAL_COLUMNS}
-      rowHref={(d) => `/deals/${enc(d.id)}`}
-      isPending={deals.isPending}
-      isError={deals.isError}
-      error={deals.error}
-      onRetry={() => deals.refetch()}
-      empty={<EmptyState icon={<Handshake />} title="No deals yet" description="Deals where this person is the primary contact will appear here." className="py-8" />}
-      hasMore={deals.hasMore}
-      onLoadMore={() => deals.loadMore()}
-      isLoadingMore={deals.isLoadingMore}
-      caption="Deals for this contact"
-    />
-  );
-}
+import { formatDateTime } from "@/lib/utils";
 
 export function ContactDetailPage({ id }: { id: string }) {
   const { data: session } = useSession();
@@ -76,111 +38,129 @@ export function ContactDetailPage({ id }: { id: string }) {
   const contact: Contact = query.data;
   const canEdit = canEditRecord(active, "contacts", contact.owner?.id);
   const canDelete = can(active, "contacts.delete");
-  const title = contact.display_name || contact.email || "Unnamed contact";
-  const subtitle = [contact.job_title, contact.company?.name].filter(Boolean).join(" @ ");
+  const canCreateDeal = can(active, "deals.create");
+  const name = contact.display_name || contact.email || "Unnamed contact";
+  const record = { contact: { id: contact.id, name }, company: contact.company, deal: null };
 
-  const overview = (
-    <div className="flex flex-col gap-4">
-      <Section title="Details">
-        <Facts
-          items={[
-            { label: "Email", value: contact.email },
-            { label: "Phone", value: contact.phone },
-            { label: "Job title", value: contact.job_title },
-            {
-              label: "Company",
-              value: contact.company ? (
-                <Link href={`/companies/${enc(contact.company.id)}`} className="text-primary hover:underline">
-                  {contact.company.name}
-                </Link>
-              ) : (
-                ""
-              ),
-            },
-            { label: "Source", value: contact.source },
-            { label: "Address", value: formatAddress(contact.address) },
-            { label: "Open deals", value: contact.open_deal_count.toLocaleString() },
-            { label: "Last activity", value: contact.last_activity_at ? formatDateTime(contact.last_activity_at) : "" },
-          ]}
-        />
-      </Section>
-      {definitions.length > 0 ? (
-        <Section title="Custom fields">
-          <CustomFieldsSummary definitions={definitions} value={contact.custom_data} />
-        </Section>
-      ) : null}
-      {contact.description ? (
-        <Section title="Description">
-          <p className="whitespace-pre-wrap break-words text-sm">{contact.description}</p>
-        </Section>
-      ) : null}
-    </div>
+  const newDealQs = new URLSearchParams({ new: "1", contact: contact.id });
+  if (contact.company) newDealQs.set("company", contact.company.id);
+
+  const hasDetails = Boolean(
+    contact.source || contact.description || definitions.length > 0 || Object.values(contact.address ?? {}).some(Boolean),
   );
 
   return (
     <>
-      <RecordPage
+      <RecordLayout
         backHref="/contacts"
         backLabel="Contacts"
-        title={title}
-        subtitle={subtitle || undefined}
-        archived={Boolean(contact.archived_at)}
-        actions={
-          <>
-            {canEdit ? (
-              <Button variant="secondary" onClick={() => setEditOpen(true)}>
-                <Pencil /> Edit
-              </Button>
-            ) : null}
-            {canDelete ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="More actions">
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {contact.archived_at ? (
-                    <DropdownMenuItem onSelect={() => restore.mutate(contact.id)}>
-                      <ArchiveRestore /> Restore
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem destructive onSelect={() => archive.mutate(contact.id)}>
-                      <Archive /> Archive
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-          </>
+        header={
+          <ContactHeader
+            contact={contact}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            onEdit={() => setEditOpen(true)}
+            onArchive={() => archive.mutate(contact.id)}
+            onRestore={() => restore.mutate(contact.id)}
+          />
         }
+        defaultTab="timeline"
         tabs={[
-          { value: "overview", label: "Overview", content: overview },
-          { value: "notes", label: "Notes", content: <NotesPanel entity="contact" recordId={contact.id} /> },
           { value: "timeline", label: "Timeline", content: <Timeline entity="contact" recordId={contact.id} /> },
-          { value: "deals", label: "Deals", content: <ContactDeals contactId={contact.id} /> },
+          {
+            value: "deals",
+            label: "Deals",
+            content: (
+              <RecordDeals
+                filter={{ contact: contact.id }}
+                newDealHref={`/pipeline?${newDealQs.toString()}`}
+                canCreate={canCreateDeal}
+                emptyDescription="Deals where this person is the primary contact will appear here."
+              />
+            ),
+          },
+          {
+            value: "activities",
+            label: "Activities",
+            content: can(active, "activities.view") ? <RecordActivities entity="contact" recordId={contact.id} record={record} /> : null,
+          },
+          {
+            value: "emails",
+            label: "Emails",
+            content: can(active, "email.view") ? (
+              <EmailHistory entity="contact" recordId={contact.id} contact={{ id: contact.id, name, email: contact.email }} company={contact.company} />
+            ) : null,
+          },
+          {
+            value: "whatsapp",
+            label: "WhatsApp",
+            content: can(active, "whatsapp.view") ? (
+              contact.phone ? (
+                <WhatsAppConversation contact={{ id: contact.id, name, phone: contact.phone, whatsapp_opt_in: contact.whatsapp_opt_in }} />
+              ) : (
+                <EmptyState
+                  title="No phone number"
+                  description="Add a phone number to this contact to start a WhatsApp conversation."
+                  className="py-8"
+                />
+              )
+            ) : null,
+          },
+          {
+            value: "calls",
+            label: "Calls",
+            content: can(active, "activities.view") ? (
+              <RecordActivities entity="contact" recordId={contact.id} record={record} kinds={["call"]} title="Calls" emptyDescription="Log a call to keep the conversation history here." />
+            ) : null,
+          },
+          {
+            value: "meetings",
+            label: "Meetings",
+            content: can(active, "activities.view") ? (
+              <RecordActivities entity="contact" recordId={contact.id} record={record} kinds={["meeting"]} title="Meetings" emptyDescription="Schedule a meeting with this person." />
+            ) : null,
+          },
+          { value: "notes", label: "Notes", content: <NotesPanel entity="contact" recordId={contact.id} /> },
         ]}
         aside={
           <>
-            <Section title="Owner">
-              <p className="text-sm">{contact.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span>}</p>
-            </Section>
             <Section title="Tags">
               <TagPicker entity="contact" recordId={contact.id} current={contact.tags} disabled={!canEdit} />
             </Section>
+            {hasDetails ? (
+              <Disclosure title="Details" bordered defaultOpen>
+                <div className="flex flex-col gap-3">
+                  <Facts
+                    items={[
+                      { label: "Source", value: contact.source },
+                      { label: "Address", value: formatAddress(contact.address) },
+                      { label: "WhatsApp consent", value: contact.whatsapp_opt_in ? "Given" : "Not given" },
+                    ]}
+                  />
+                  {definitions.length > 0 ? <CustomFieldsSummary definitions={definitions} value={contact.custom_data} /> : null}
+                  {contact.description ? <p className="whitespace-pre-wrap break-words text-sm">{contact.description}</p> : null}
+                </div>
+              </Disclosure>
+            ) : null}
             <Section title="Record">
-              <dl className="grid gap-2 text-sm">
-                <div>
-                  <dt className="text-xs text-fg-subtle">Created</dt>
+              <dl className="grid gap-1.5 text-xs">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-fg-subtle">Created</dt>
                   <dd>{formatDateTime(contact.created_at)}</dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-fg-subtle">Updated</dt>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-fg-subtle">Updated</dt>
                   <dd>{formatDateTime(contact.updated_at)}</dd>
                 </div>
+                {contact.lifecycle_changed_at ? (
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-fg-subtle">Status changed</dt>
+                    <dd>{formatDateTime(contact.lifecycle_changed_at)}</dd>
+                  </div>
+                ) : null}
                 {contact.archived_at ? (
-                  <div>
-                    <dt className="text-xs text-fg-subtle">Archived</dt>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-fg-subtle">Archived</dt>
                     <dd>{formatDateTime(contact.archived_at)}</dd>
                   </div>
                 ) : null}

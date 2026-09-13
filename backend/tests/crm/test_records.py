@@ -150,7 +150,7 @@ def test_list_filters_sort_and_count(org_a, owner_client, crm, make_member):
     resp = owner_client.get("/api/v1/contacts/?q=corp")
     assert [c["first_name"] for c in resp.json()["results"]] == ["Bob"]
     resp = owner_client.get("/api/v1/contacts/count/?source=web")
-    assert resp.json() == {"count": 1}
+    assert resp.json() == {"count": 1, "exact": True}
     resp = owner_client.get("/api/v1/contacts/stats/")
     assert resp.json()["total"] == 3
 
@@ -226,3 +226,35 @@ def test_bulk_actions_refuse_out_of_scope(org_a, owner_client, crm, make_member,
     assert resp.json()["type"] == "bulk_out_of_scope"
     resp = mgr.post("/api/v1/contacts/bulk/", {"ids": [str(mine.pk)], "action": "drop"}, format="json")
     assert resp.status_code == 400
+
+
+def test_deal_exposes_primary_contact_phone_only_within_contact_scope(
+    org_a, owner_client, crm, make_member, client_for
+):
+    """The deal header WhatsApp action needs the primary contact's phone. It rides along on the joined
+    contact row (nothing is copied onto the deal) and is null when the caller may not view the contact."""
+    rep = make_member(org_a, "sales_rep")
+    other = make_member(org_a, "sales_rep")
+    mine = crm.make_contact(org_a, owner=rep, phone="+1 555 0100 111", whatsapp_opt_in=True)
+    theirs = crm.make_contact(org_a, owner=other, phone="+1 555 0100 222")
+    own_deal = crm.make_deal(org_a, owner=rep, contact=mine)
+    foreign_contact_deal = crm.make_deal(org_a, owner=rep, contact=theirs)
+    repc = client_for(rep.user, rep)
+
+    body = repc.get(f"/api/v1/deals/{own_deal.pk}/").json()["primary_contact"]
+    assert body["phone"] == "+1 555 0100 111" and body["whatsapp_opt_in"] is True
+
+    body = repc.get(f"/api/v1/deals/{foreign_contact_deal.pk}/").json()["primary_contact"]
+    assert body["name"] and body["phone"] is None and body["whatsapp_opt_in"] is None
+    listed = {d["id"]: d for d in repc.get("/api/v1/deals/").json()["results"]}
+    assert listed[str(foreign_contact_deal.pk)]["primary_contact"]["phone"] is None
+    assert listed[str(own_deal.pk)]["primary_contact"]["phone"] == "+1 555 0100 111"
+
+    # The owner (contacts.view: all) sees both; the board payload follows the same rule.
+    assert (
+        owner_client.get(f"/api/v1/deals/{foreign_contact_deal.pk}/").json()["primary_contact"]["phone"]
+        == "+1 555 0100 222"
+    )
+    board = owner_client.get("/api/v1/deals/board/").json()
+    cards = {d["id"]: d for s in board["stages"] for d in s["deals"]}
+    assert cards[str(foreign_contact_deal.pk)]["primary_contact"]["phone"] == "+1 555 0100 222"

@@ -84,7 +84,7 @@ export function MembersPage() {
   return (
     <div>
       <PageHeader
-        title="Members"
+        title="Users"
         description="People in this organization and the roles they hold."
         actions={
           canInvite ? (

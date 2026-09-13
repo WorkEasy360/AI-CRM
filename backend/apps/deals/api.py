@@ -3,12 +3,14 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-from django.db.models import Count, Sum
+from django.db.models import Count, F, IntegerField, OuterRef, Subquery, Sum, Value, Window, prefetch_related_objects
+from django.db.models.functions import Coalesce, RowNumber
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.authz.service import scope
 from apps.companies.models import Company
 from apps.contacts.models import Contact
 from apps.core import validators
@@ -30,9 +32,28 @@ class RefSerializer(serializers.Serializer):
 
 
 class ContactRefSerializer(serializers.Serializer):
+    """Primary-contact reference on a deal.
+
+    ``phone`` and ``whatsapp_opt_in`` are read from the contact row already joined for the deal (no
+    copy on the deal) and are ``null`` unless the caller's ``contacts.view`` scope covers that contact,
+    so a deal never discloses more about a contact than the contact record itself would.
+    """
+
     id = serializers.UUIDField(read_only=True)
     name = serializers.CharField(source="display_name", read_only=True)
     email = serializers.CharField(read_only=True)
+    phone = serializers.SerializerMethodField()
+    whatsapp_opt_in = serializers.SerializerMethodField()
+
+    def _contact_visible(self, obj: Contact) -> bool:
+        actor = self.context.get("actor")
+        return actor is not None and actor.covers_owner("contacts.view", getattr(obj, "owner_id", None))
+
+    def get_phone(self, obj: Contact) -> str | None:
+        return obj.phone if self._contact_visible(obj) else None
+
+    def get_whatsapp_opt_in(self, obj: Contact) -> bool | None:
+        return obj.whatsapp_opt_in if self._contact_visible(obj) else None
 
 
 class StageRefSerializer(serializers.Serializer):
@@ -49,7 +70,20 @@ class DealSerializer(CrmReadSerializer):
     company = RefSerializer(read_only=True)
     primary_contact = ContactRefSerializer(read_only=True)
     line_count = serializers.IntegerField(read_only=True, default=0)
+    contact_count = serializers.IntegerField(read_only=True, default=0)
     products_total = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=Decimal("0.00"))
+    next_activity_title = serializers.CharField(read_only=True, default="")
+    weighted_amount_base = serializers.SerializerMethodField()
+    risk_level = serializers.SerializerMethodField()
+
+    def get_weighted_amount_base(self, obj: Deal) -> str:
+        """Deal value x probability, computed on the server so no client arithmetic is authoritative."""
+        return str(services.weighted_amount(obj.amount_base, obj.probability))
+
+    def get_risk_level(self, obj: Deal) -> str:
+        from apps.ai.risk import assess_deal
+
+        return assess_deal(obj, contact_count=getattr(obj, "contact_count", None)).level
 
     class Meta:
         model = Deal
@@ -65,16 +99,23 @@ class DealSerializer(CrmReadSerializer):
             "exchange_rate",
             "amount_base",
             "probability",
+            "probability_overridden",
+            "weighted_amount_base",
             "expected_close_date",
             "status",
             "closed_at",
             "lost_reason",
             "stage_entered_at",
+            "last_activity_at",
+            "next_activity_at",
+            "next_activity_title",
+            "risk_level",
             "description",
             "owner",
             "tags",
             "custom_data",
             "line_count",
+            "contact_count",
             "products_total",
             "version",
             "archived_at",
@@ -241,22 +282,28 @@ FILTERS = FilterSet(
         "close_to": Filter("date_to", "expected_close_date"),
         "amount_min": Filter("decimal_min", "amount_base"),
         "amount_max": Filter("decimal_max", "amount_base"),
+        "probability_min": Filter("decimal_min", "probability"),
         "ids": Filter("uuid_list", "id"),
     },
     sort_fields={
         "name": "name",
         "amount": "amount_base",
+        "probability": "probability",
         "expected_close_date": "expected_close_date",
         "created_at": "created_at",
         "updated_at": "updated_at",
         "stage_entered_at": "stage_entered_at",
+        "last_activity_at": "last_activity_at",
+        "next_activity_at": "next_activity_at",
     },
     default_sort="-created_at",
     search_fields=("name", "company__name", "primary_contact__first_name", "primary_contact__last_name"),
     custom_field_entity="deal",
 )
 
-BOARD_DEALS_PER_STAGE = 100
+# Cards rendered per column; the column footer links to the list view for the rest. 100 cards x 6 stages
+# cost ~200 ms of serialization per board load on a 12k-deal tenant; 50 keeps the board interactive.
+BOARD_DEALS_PER_STAGE = 50
 
 
 class DealViewSet(CrmViewSet):
@@ -276,12 +323,45 @@ class DealViewSet(CrmViewSet):
         contacts="deals.view",
         add_contact="deals.update",
         remove_contact="deals.update",
+        insights="deals.view",
     )
 
     def base_queryset(self):
-        return Deal.objects.select_related("owner__user", "pipeline", "stage", "company", "primary_contact").annotate(
-            line_count=Count("lines", distinct=True), products_total=Sum("lines__line_total")
+        # Correlated subqueries instead of LEFT JOIN + GROUP BY: Postgres evaluates them only for the
+        # rows a page actually returns, rather than aggregating every line of every deal in scope.
+        from apps.activities.queries import next_activity_title_subquery
+
+        lines = DealProduct.objects.filter(deal=OuterRef("pk")).order_by().values("deal")
+        contacts = DealContact.objects.filter(deal=OuterRef("pk")).order_by().values("deal")
+        # ``pipeline`` and ``stage`` are prefetched (one small query each per page) instead of
+        # select_related: an INNER JOIN to those tiny RLS-filtered tables invites the planner to drive
+        # the whole query from them, and with the tenant predicate applied twice (ORM filter + policy)
+        # it underestimates the deal fan-out by orders of magnitude and scans every deal of the tenant
+        # before the top-N sort (12k deals: ~200 ms). Starting from ``deals_deal`` with LEFT joins only,
+        # the ordered ``(organization, created_at)`` index serves a page in ~1 ms. RLS is unchanged.
+        return (
+            Deal.objects.select_related("owner__user", "company", "primary_contact")
+            .prefetch_related("pipeline", "stage")
+            .defer("search_vector")  # maintained by a trigger, only ever read inside SQL
+            .annotate(
+                line_count=Coalesce(
+                    Subquery(lines.annotate(n=Count("id")).values("n"), output_field=IntegerField()), Value(0)
+                ),
+                contact_count=Coalesce(
+                    Subquery(contacts.annotate(n=Count("id")).values("n"), output_field=IntegerField()), Value(0)
+                ),
+                products_total=Subquery(lines.annotate(t=Sum("line_total")).values("t")),
+                next_activity_title=next_activity_title_subquery("deal"),
+            )
         )
+
+    @action(detail=True, methods=["get"])
+    def insights(self, request, pk=None):
+        """Rules-based risk, score and next best action for one deal (no LLM, no extra permissions)."""
+        from apps.ai.insights import deal_insights
+
+        deal = self.get_object()
+        return Response(deal_insights(request.actor, deal))
 
     def perform_create(self, data):
         return services.create_deal(self.request.actor, data, request=self.request._request)
@@ -328,22 +408,49 @@ class DealViewSet(CrmViewSet):
         )
         if pipeline is None:
             return Response({"pipeline": None, "stages": []})
-        qs = self.get_queryset().filter(pipeline=pipeline, archived_at__isnull=True)
+        # Totals and ranking use a plain queryset; the per-row annotations are only needed for the
+        # rows actually rendered (see ``annotated`` below).
+        base = scope(request.actor, "deals.view", Deal.objects.filter(pipeline=pipeline, archived_at__isnull=True))
         params = {k: v for k, v in request.query_params.items() if k not in {"pipeline"}}
-        qs, _ = self.filterset.apply(qs, params, actor=request.actor)
-        qs = qs.order_by("-stage_entered_at", "-id")
+        base, _ = self.filterset.apply(base, params, actor=request.actor)
         totals = {
             row["stage_id"]: row
-            for row in qs.values("stage_id").annotate(total=Sum("amount_base"), count=Count("id")).order_by()
+            for row in base.values("stage_id").annotate(total=Sum("amount_base"), count=Count("id")).order_by()
         }
         stages = list(pipeline.stages.filter(archived_at__isnull=True).order_by("position"))
-        by_stage: dict = {s.pk: [] for s in stages}
-        for deal in qs:
-            bucket = by_stage.get(deal.stage_id)
-            if bucket is not None and len(bucket) < BOARD_DEALS_PER_STAGE:
-                bucket.append(deal)
+        # One small LIMIT query per stage (index deal_org_stage_entered_idx, annotations evaluated for
+        # the returned rows only) instead of ranking every deal of the pipeline and shipping hundreds
+        # of ids back to the database. Stages are few; deals are not.
+        annotated, _ = self.filterset.apply(
+            scope(
+                request.actor, "deals.view", self.base_queryset().filter(pipeline=pipeline, archived_at__isnull=True)
+            ),
+            params,
+            actor=request.actor,
+        )
+        by_stage: dict = {
+            s.pk: list(
+                annotated.prefetch_related(None)
+                .filter(stage_id=s.pk)
+                .order_by("-stage_entered_at", "-id")[:BOARD_DEALS_PER_STAGE]
+            )
+            for s in stages
+        }
         all_deals = [d for bucket in by_stage.values() for d in bucket]
-        ctx = self._read_context(all_deals)
+        # One prefetch for the whole board rather than one per stage bucket.
+        prefetch_related_objects(all_deals, "pipeline", "stage")
+        # Tags for exactly the rendered deals, resolved in the database (window function) rather than
+        # via a several-hundred-id IN list.
+        rendered_ids = (
+            base.annotate(
+                board_rank=Window(
+                    RowNumber(), partition_by=[F("stage_id")], order_by=[F("stage_entered_at").desc(), F("id").desc()]
+                )
+            )
+            .filter(board_rank__lte=BOARD_DEALS_PER_STAGE)
+            .values("pk")
+        )
+        ctx = self._read_context(all_deals, ids=rendered_ids)
         payload = []
         for stage in stages:
             agg = totals.get(stage.pk, {})

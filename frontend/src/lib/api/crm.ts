@@ -1,16 +1,26 @@
 /**
- * Endpoint functions for the Phase 2 CRM API. Every mutation that edits a versioned record sends the
+ * Endpoint functions for the CRM API. Every mutation that edits a versioned record sends the
  * `version` the client last saw; the backend answers 409 when the record moved on.
  */
 
 import { api, requestForm } from "@/lib/api/client";
 import type {
+  Activity,
+  ActivityInput,
+  ActivitySummary,
+  AIEmailOperation,
+  AIEmailPurpose,
+  AIStyle,
+  AITone,
+  AIUsage,
   Board,
   BulkResult,
   Company,
+  CompanyDuplicate,
   CompanyInput,
   CompanyStats,
   Contact,
+  ContactDuplicate,
   ContactInput,
   ContactStats,
   CustomFieldCreateInput,
@@ -19,23 +29,47 @@ import type {
   Deal,
   DealContactLink,
   DealInput,
+  DealInsights,
   DealLine,
   DealLineInput,
+  DealSummary,
+  EmailAccount,
+  EmailDraft,
+  EmailMessage,
+  EmailProvider,
+  EmailProviderOption,
+  EmailSendInput,
+  EmailTemplate,
+  EmailTemplateInput,
   EntityType,
   ExportJob,
+  FollowUpDraft,
+  Forecast,
+  ForecastGroupBy,
+  ForecastPeriod,
   ImportJob,
+  LeadScore,
   ListParams,
   Note,
+  Notification,
+  NotificationPreferences,
   Pipeline,
   PipelineStage,
   Product,
   ProductInput,
+  RelatedEntityType,
+  SearchEntityType,
   SearchResponse,
   StageHistoryEntry,
   StageInput,
   Tag,
   TagRef,
   TimelineEvent,
+  WhatsAppAccountStatus,
+  WhatsAppMessage,
+  WhatsAppSendInput,
+  WhatsAppTemplate,
+  WhatsAppWindow,
 } from "@/lib/api/crm-types";
 import type { Paginated } from "@/lib/api/types";
 
@@ -50,7 +84,8 @@ export function listRecords<T>(path: RecordPath, params: ListParams, cursor?: st
 }
 
 export const countRecords = (path: RecordPath, params: ListParams) =>
-  api.get<{ count: number }>(`/api/v1/${path}/count/`, params);
+  // `exact` is false when the server stopped counting at its cap (LIST_COUNT_CAP); show "count+" then.
+  api.get<{ count: number; exact: boolean }>(`/api/v1/${path}/count/`, params);
 
 export const getRecord = <T>(path: RecordPath, id: string) => api.get<T>(`/api/v1/${path}/${enc(id)}/`);
 
@@ -79,6 +114,12 @@ export const createContact = (input: ContactInput) => createRecord<Contact, Cont
 export const updateContact = (id: string, version: number, input: ContactInput) =>
   updateRecord<Contact, ContactInput>("contacts", id, version, input);
 export const contactStats = () => api.get<ContactStats>("/api/v1/contacts/stats/");
+/** Possible duplicates of a contact being created (same email, phone digits or full name), within the caller's scope. */
+export const findContactDuplicates = (
+  input: { email?: string; phone?: string; first_name?: string; last_name?: string; exclude?: string },
+  signal?: AbortSignal,
+) => api.get<{ results: ContactDuplicate[] }>("/api/v1/contacts/duplicates/", input, signal);
+export const getContactScore = (id: string) => api.get<LeadScore>(`/api/v1/ai/contacts/${enc(id)}/score/`);
 
 export const listCompanies = (params: ListParams, cursor?: string | null) => listRecords<Company>("companies", params, cursor);
 export const getCompany = (id: string) => getRecord<Company>("companies", id);
@@ -86,6 +127,8 @@ export const createCompany = (input: CompanyInput) => createRecord<Company, Comp
 export const updateCompany = (id: string, version: number, input: CompanyInput) =>
   updateRecord<Company, CompanyInput>("companies", id, version, input);
 export const companyStats = () => api.get<CompanyStats>("/api/v1/companies/stats/");
+export const findCompanyDuplicates = (input: { name?: string; website?: string; exclude?: string }, signal?: AbortSignal) =>
+  api.get<{ results: CompanyDuplicate[] }>("/api/v1/companies/duplicates/", input, signal);
 
 export const listProducts = (params: ListParams, cursor?: string | null) => listRecords<Product>("products", params, cursor);
 export const getProduct = (id: string) => getRecord<Product>("products", id);
@@ -130,6 +173,8 @@ export const addDealContact = (id: string, contact_id: string, role_label = "") 
   api.post<DealContactLink>(`/api/v1/deals/${enc(id)}/contacts/add/`, { contact_id, role_label });
 export const removeDealContact = (id: string, contact_id: string) =>
   api.post(`/api/v1/deals/${enc(id)}/contacts/remove/`, { contact_id });
+/** Rules-based risk, next best action and lead score for one deal (no LLM call). */
+export const getDealInsights = (id: string) => api.get<DealInsights>(`/api/v1/deals/${enc(id)}/insights/`);
 
 /* ------------------------------------------------------------------ custom fields / tags */
 
@@ -158,10 +203,113 @@ export const createNote = (input: { entity_type: EntityType; entity_id: string; 
   api.post<Note>("/api/v1/notes/", input);
 export const updateNote = (id: string, input: { body?: string; pinned?: boolean }) => api.patch<Note>(`/api/v1/notes/${enc(id)}/`, input);
 export const deleteNote = (id: string) => api.delete(`/api/v1/notes/${enc(id)}/`);
-export const getTimeline = (entity_type: EntityType, entity_id: string) =>
-  api.get<{ results: TimelineEvent[] }>("/api/v1/timeline/", { entity_type, entity_id });
-export const globalSearch = (q: string, types?: EntityType[], signal?: AbortSignal) =>
+/** `kinds` narrows the feed to event families (see TIMELINE_FILTERS), e.g. ["note", "activity"]. */
+export const getTimeline = (entity_type: EntityType, entity_id: string, kinds?: string[]) =>
+  api.get<{ results: TimelineEvent[] }>("/api/v1/timeline/", { entity_type, entity_id, kinds: kinds?.length ? kinds.join(",") : undefined });
+export const globalSearch = (q: string, types?: SearchEntityType[], signal?: AbortSignal) =>
   api.get<SearchResponse>("/api/v1/search/", { q, types: types?.join(",") }, signal);
+
+/* ------------------------------------------------------------------ activities (tasks, calls, meetings) */
+
+export const listActivities = (params: ListParams, cursor?: string | null) =>
+  api.get<Paginated<Activity>>("/api/v1/activities/", { ...params, cursor: cursor ?? undefined });
+export const getActivity = (id: string) => api.get<Activity>(`/api/v1/activities/${enc(id)}/`);
+export const createActivity = (input: ActivityInput) => api.post<Activity>("/api/v1/activities/", input);
+export const updateActivity = (id: string, version: number, input: ActivityInput) =>
+  api.patch<Activity>(`/api/v1/activities/${enc(id)}/`, { ...input, version });
+export const deleteActivity = (id: string) => api.delete(`/api/v1/activities/${enc(id)}/`);
+export const completeActivity = (id: string, version: number, input: { outcome?: string; note?: string } = {}) =>
+  api.post<Activity>(`/api/v1/activities/${enc(id)}/complete/`, { ...input, version });
+export const reopenActivity = (id: string, version: number) => api.post<Activity>(`/api/v1/activities/${enc(id)}/reopen/`, { version });
+/** All activities starting between two ISO dates (max 62 days) for the calendar views. */
+export const calendarActivities = (from: string, to: string, params: { owner?: "me"; kind?: string } = {}) =>
+  api.get<{ results: Activity[] }>("/api/v1/activities/calendar/", { from, to, ...params });
+export const activitySummary = (owner?: "me") => api.get<ActivitySummary>("/api/v1/activities/summary/", { owner });
+/** Activities linked to one record (newest first). */
+export const listRecordActivities = (entity: RelatedEntityType, id: string, params: ListParams = {}, cursor?: string | null) =>
+  listActivities({ ...params, [entity]: id, sort: params.sort ?? "-start_at" }, cursor);
+
+/* ------------------------------------------------------------------ notifications */
+
+export const listNotifications = (unread = false, cursor?: string | null) =>
+  api.get<Paginated<Notification>>("/api/v1/notifications/", { unread: unread ? "true" : undefined, cursor: cursor ?? undefined });
+export const unreadNotificationCount = () => api.get<{ count: number }>("/api/v1/notifications/unread-count/");
+export const markNotificationsRead = (ids: string[]) => api.post<{ updated: number }>("/api/v1/notifications/read/", { ids });
+export const markAllNotificationsRead = () => api.post<{ updated: number }>("/api/v1/notifications/read-all/");
+export const getNotificationPreferences = () => api.get<NotificationPreferences>("/api/v1/notifications/preferences/");
+export const updateNotificationPreferences = (input: Partial<Pick<NotificationPreferences, "in_app" | "email" | "deal_inactive_days">>) =>
+  api.patch<NotificationPreferences>("/api/v1/notifications/preferences/", input);
+
+/* ------------------------------------------------------------------ email */
+
+export const listEmailAccounts = () => api.get<Paginated<EmailAccount>>("/api/v1/email/accounts/");
+export const listEmailProviders = () => api.get<{ results: EmailProviderOption[] }>("/api/v1/email/accounts/providers/");
+/** Returns the provider's OAuth URL; the browser navigates there and comes back to /settings/email. */
+export const connectEmailAccount = (provider: EmailProvider) =>
+  api.post<{ authorization_url: string }>("/api/v1/email/accounts/connect/", { provider });
+export const disconnectEmailAccount = (id: string) => api.delete(`/api/v1/email/accounts/${enc(id)}/`);
+
+export const listEmailTemplates = () => api.get<Paginated<EmailTemplate>>("/api/v1/email/templates/", { limit: 200 });
+export const createEmailTemplate = (input: EmailTemplateInput) => api.post<EmailTemplate>("/api/v1/email/templates/", input);
+export const updateEmailTemplate = (id: string, input: EmailTemplateInput) =>
+  api.patch<EmailTemplate>(`/api/v1/email/templates/${enc(id)}/`, input);
+export const deleteEmailTemplate = (id: string) => api.delete(`/api/v1/email/templates/${enc(id)}/`);
+export const renderEmailTemplate = (id: string, params: { contact?: string; deal?: string }) =>
+  api.get<{ subject: string; body: string }>(`/api/v1/email/templates/${enc(id)}/render/`, params);
+
+/** Email history for one record (visible when the record is), newest first. */
+export const listRecordEmails = (entity: RelatedEntityType, id: string, cursor?: string | null) =>
+  api.get<Paginated<EmailMessage>>("/api/v1/email/messages/", { [entity]: id, cursor: cursor ?? undefined });
+export const getEmailMessage = (id: string) => api.get<EmailMessage>(`/api/v1/email/messages/${enc(id)}/`);
+/** Queue an email from the caller's connected mailbox. Attachments go as multipart. */
+export const sendEmail = (input: EmailSendInput, attachments: File[] = []) => {
+  if (attachments.length === 0) return api.post<EmailMessage>("/api/v1/email/messages/", input);
+  const form = new FormData();
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) form.append(key, value.join(","));
+    else form.append(key, String(value));
+  }
+  for (const file of attachments) form.append("attachments", file, file.name);
+  return requestForm<EmailMessage>("/api/v1/email/messages/", form);
+};
+
+/* ------------------------------------------------------------------ whatsapp */
+
+export const getWhatsAppAccount = () => api.get<WhatsAppAccountStatus>("/api/v1/whatsapp/account/");
+export const connectWhatsAppAccount = (input: { phone_number_id: string; access_token: string; business_account_id?: string }) =>
+  api.post<WhatsAppAccountStatus>("/api/v1/whatsapp/account/", input);
+export const disconnectWhatsAppAccount = () => api.delete("/api/v1/whatsapp/account/");
+export const listWhatsAppTemplates = () => api.get<Paginated<WhatsAppTemplate>>("/api/v1/whatsapp/templates/", { limit: 200 });
+export const createWhatsAppTemplate = (input: { name: string; language?: string; category?: string; body?: string }) =>
+  api.post<WhatsAppTemplate>("/api/v1/whatsapp/templates/", input);
+export const deleteWhatsAppTemplate = (id: string) => api.delete(`/api/v1/whatsapp/templates/${enc(id)}/`);
+/** Conversation with a contact (oldest first) or messages linked to a deal. */
+export const listWhatsAppMessages = (entity: "contact" | "deal", id: string, cursor?: string | null) =>
+  api.get<Paginated<WhatsAppMessage>>("/api/v1/whatsapp/messages/", { [entity]: id, cursor: cursor ?? undefined });
+export const sendWhatsApp = (input: WhatsAppSendInput) => api.post<WhatsAppMessage>("/api/v1/whatsapp/messages/", input);
+export const whatsAppWindow = (contactId: string) => api.get<WhatsAppWindow>("/api/v1/whatsapp/messages/window/", { contact: contactId });
+
+/* ------------------------------------------------------------------ forecast */
+
+export const getForecast = (params: { period?: ForecastPeriod; from?: string; to?: string; pipeline?: string; group_by?: ForecastGroupBy }) =>
+  api.get<Forecast>("/api/v1/forecast/", params);
+
+/* ------------------------------------------------------------------ AI (drafts only; a person reviews and sends) */
+
+export const summarizeDeal = (id: string, force = false) => api.post<DealSummary>(`/api/v1/ai/deals/${enc(id)}/summary/`, { force });
+export const generateFollowUp = (input: { entity_type: "deal" | "contact"; entity_id: string; tone?: AIStyle; channel?: "email" | "whatsapp" }) =>
+  api.post<FollowUpDraft>("/api/v1/ai/follow-up/", input);
+export const draftEmailWithAI = (input: {
+  contact_id?: string | null;
+  deal_id?: string | null;
+  purpose?: AIEmailPurpose;
+  tone?: AITone;
+  operation?: AIEmailOperation;
+  text?: string;
+  instructions?: string;
+}) => api.post<EmailDraft>("/api/v1/ai/email/", input);
+export const getAIUsage = () => api.get<AIUsage>("/api/v1/ai/usage/");
 
 /* ------------------------------------------------------------------ import / export */
 

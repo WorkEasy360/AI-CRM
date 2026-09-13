@@ -53,6 +53,7 @@ PERMISSIONS: frozenset[str] = frozenset(
         "notes.create",
         "notes.update",
         "notes.delete",
+        "notifications.view",
         "dashboards.view",
         "dashboards.manage_own",
         "dashboards.manage_shared",
@@ -64,6 +65,14 @@ PERMISSIONS: frozenset[str] = frozenset(
         "ai.actions.confirm",
         "ai.scores.view",
         "ai.settings.manage",
+        # communication (email + WhatsApp)
+        "email.view",
+        "email.send",
+        "email.templates_manage",
+        "email.connect",
+        "whatsapp.view",
+        "whatsapp.send",
+        "whatsapp.manage",
         # integrations (Phase 5)
         "integrations.view",
         "integrations.manage",

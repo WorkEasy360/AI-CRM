@@ -1,19 +1,25 @@
 from __future__ import annotations
 
 from django.core.validators import EmailValidator
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, F, IntegerField, OuterRef, Q, Subquery, Value
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.authz.service import scope
 from apps.companies.models import Company
 from apps.contacts.models import Contact
-from apps.core import validators
+from apps.core import records, validators
 from apps.core.api.crm import CrmViewSet, crud_permission_map
 from apps.core.api.fields import TenantPrimaryKeyRelatedField
 from apps.core.api.filters import Filter, FilterSet
 from apps.core.api.serializers import CrmReadSerializer, CustomDataField, owner_field
 from apps.core.records import RecordSpec
+from apps.deals.models import Deal
+from apps.lifecycle import service as lifecycle
+from apps.lifecycle.stages import LIFECYCLE_STAGES, LifecycleStage
 
 SPEC = RecordSpec(module="contacts", entity_type="contact", model=Contact, display=lambda c: c.display_name)
 
@@ -28,6 +34,13 @@ class ContactSerializer(CrmReadSerializer):
     display_name = serializers.CharField(read_only=True)
     company = CompanyRefSerializer(read_only=True)
     open_deal_count = serializers.IntegerField(read_only=True, default=0)
+    next_activity_title = serializers.CharField(read_only=True, default="")
+    lead_score = serializers.SerializerMethodField()
+
+    def get_lead_score(self, obj: Contact) -> int:
+        from apps.ai.scoring import score_contact_row
+
+        return score_contact_row(obj)
 
     class Meta:
         model = Contact
@@ -48,6 +61,13 @@ class ContactSerializer(CrmReadSerializer):
             "custom_data",
             "open_deal_count",
             "last_activity_at",
+            "next_activity_at",
+            "next_activity_title",
+            "lifecycle_stage",
+            "lifecycle_changed_at",
+            "whatsapp_opt_in",
+            "whatsapp_opt_in_at",
+            "lead_score",
             "version",
             "archived_at",
             "created_at",
@@ -74,6 +94,8 @@ class ContactWriteSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=5000, required=False, allow_blank=True)
     owner_id = owner_field()
     custom_data = CustomDataField("contact")
+    lifecycle_stage = serializers.ChoiceField(choices=[(v, v) for v in LIFECYCLE_STAGES], required=False)
+    whatsapp_opt_in = serializers.BooleanField(required=False)
 
     def validate_first_name(self, value: str) -> str:
         return validators.clean_text(value, max_length=80)
@@ -123,6 +145,7 @@ FILTERS = FilterSet(
         "job_title": Filter("text", "job_title", max_length=120),
         "created_from": Filter("date_from", "created_at__date"),
         "created_to": Filter("date_to", "created_at__date"),
+        "lifecycle": Filter("choice", "lifecycle_stage", choices=LIFECYCLE_STAGES),
         "ids": Filter("uuid_list", "id"),
     },
     sort_fields={
@@ -131,7 +154,10 @@ FILTERS = FilterSet(
         "email": "email",
         "created_at": "created_at",
         "updated_at": "updated_at",
-        "company": "company__name",
+        "last_activity_at": "last_activity_at",
+        "next_activity_at": "next_activity_at",
+        "lifecycle": "lifecycle_stage",
+        "company": "company_name",  # annotation: cursor pagination reads the sort value off the row
     },
     default_sort="-created_at",
     search_fields=("first_name", "last_name", "email", "phone", "job_title", "company__name"),
@@ -144,26 +170,95 @@ class ContactViewSet(CrmViewSet):
     filterset = FILTERS
     serializer_class = ContactSerializer
     write_serializer_class = ContactWriteSerializer
-    permission_map = crud_permission_map("contacts", stats="contacts.view")
+    permission_map = crud_permission_map("contacts", stats="contacts.view", duplicates="contacts.view")
+
+    def perform_create(self, data):
+        stage = data.pop("lifecycle_stage", None)
+        opt_in = data.pop("whatsapp_opt_in", None)
+        if stage is not None:
+            data["lifecycle_stage"] = lifecycle.clean_stage(stage)
+        if opt_in:
+            data["whatsapp_opt_in"] = True
+            data["whatsapp_opt_in_at"] = timezone.now()
+        obj = super().perform_create(data)
+        if stage is not None and stage != LifecycleStage.LEAD:
+            lifecycle.record_initial_stage(self.request.actor, obj)
+        return obj
+
+    def perform_update(self, obj, data, version):
+        stage = data.pop("lifecycle_stage", None)
+        opt_in = data.pop("whatsapp_opt_in", None)
+        extra: list[str] = []
+        if opt_in is not None and opt_in != obj.whatsapp_opt_in:
+            data["whatsapp_opt_in"] = bool(opt_in)
+            data["whatsapp_opt_in_at"] = timezone.now() if opt_in else None
+        if stage is not None and lifecycle.clean_stage(stage) != obj.lifecycle_stage:
+            # Same authorization as any edit; the lifecycle service writes the history row.
+            records.check_update(self.request.actor, self.spec, obj)
+            lifecycle.set_stage(self.request.actor, obj, stage, request=self.request._request)
+            extra = ["lifecycle_stage", "lifecycle_changed_at"]
+        return records.update(
+            self.request.actor,
+            self.spec,
+            obj,
+            data,
+            expected_version=version,
+            request=self.request._request,
+            extra_update_fields=extra,
+        )
 
     def base_queryset(self):
-        return Contact.objects.select_related("owner__user", "company").annotate(
-            open_deal_count=Count(
-                "primary_deals",
-                filter=Q(primary_deals__status="open", primary_deals__archived_at__isnull=True),
-                distinct=True,
+        # Correlated subquery (evaluated per returned row) instead of a LEFT JOIN + GROUP BY over every
+        # deal of every contact in scope. ``company_name`` backs the "company" sort: DRF's cursor
+        # pagination reads the sort value off the instance, which a plain ``company__name`` ordering
+        # cannot provide (it 500s on the second page); Coalesce keeps contacts without a company sortable.
+        open_deals = (
+            Deal.objects.filter(primary_contact=OuterRef("pk"), status="open", archived_at__isnull=True)
+            .order_by()
+            .values("primary_contact")
+            .annotate(n=Count("id"))
+            .values("n")
+        )
+        from apps.activities.queries import next_activity_title_subquery
+
+        return (
+            Contact.objects.select_related("owner__user", "company")
+            .defer("search_vector")  # maintained by a trigger, only ever read inside SQL
+            .annotate(
+                open_deal_count=Coalesce(Subquery(open_deals, output_field=IntegerField()), Value(0)),
+                company_name=Coalesce(F("company__name"), Value("")),
+                next_activity_title=next_activity_title_subquery("contact"),
             )
         )
 
     @action(detail=False, methods=["get"])
-    def stats(self, request):
-        qs = self.get_queryset().filter(archived_at__isnull=True)
-        with_open = qs.filter(primary_deals__status="open", primary_deals__archived_at__isnull=True).distinct().count()
-        return Response(
-            {
-                "total": qs.count(),
-                "with_open_deals": with_open,
-                "without_deals": qs.filter(primary_deals__isnull=True).count(),
-                "untouched": qs.filter(last_activity_at__isnull=True).count(),
-            }
+    def duplicates(self, request):
+        """Possible duplicates of a contact being created: same email, same phone digits or same full name.
+
+        Answers only within the actor's view scope (never confirms the existence of a hidden record).
+        """
+        from apps.contacts.duplicates import find_contact_duplicates
+
+        matches = find_contact_duplicates(
+            request.actor,
+            email=request.query_params.get("email", ""),
+            phone=request.query_params.get("phone", ""),
+            first_name=request.query_params.get("first_name", ""),
+            last_name=request.query_params.get("last_name", ""),
+            exclude_id=request.query_params.get("exclude"),
         )
+        return Response({"results": matches})
+
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        # Scope the plain model queryset (no per-row COUNT annotation) and answer in one query.
+        qs = scope(self.request.actor, "contacts.view", Contact.objects.filter(archived_at__isnull=True))
+        open_deals = Deal.objects.filter(primary_contact=OuterRef("pk"), status="open", archived_at__isnull=True)
+        any_deals = Deal.objects.filter(primary_contact=OuterRef("pk"))
+        agg = qs.annotate(has_open=Exists(open_deals), has_deal=Exists(any_deals)).aggregate(
+            total=Count("id"),
+            with_open_deals=Count("id", filter=Q(has_open=True)),
+            without_deals=Count("id", filter=Q(has_deal=False)),
+            untouched=Count("id", filter=Q(last_activity_at__isnull=True)),
+        )
+        return Response(agg)

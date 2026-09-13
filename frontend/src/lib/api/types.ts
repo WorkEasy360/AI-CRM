@@ -95,6 +95,84 @@ export interface TeamMember {
   status?: MembershipStatus;
 }
 
+export const DASHBOARD_PERIODS = ["7d", "30d", "90d", "365d"] as const;
+export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
+
+export interface DashboardMoney {
+  count: number;
+  amount: string;
+}
+
+export interface DashboardStage {
+  id: string;
+  name: string;
+  kind: "open" | "won" | "lost";
+  color_token: string;
+  count: number;
+  amount: string;
+}
+
+export interface DashboardActivities {
+  /** Completed inside the period. */
+  tasks_completed: number;
+  meetings_completed: number;
+  calls_completed: number;
+  /** Open work right now. */
+  tasks_due: number;
+  tasks_overdue: number;
+  meetings_upcoming: number;
+  calls_upcoming: number;
+}
+
+export interface DashboardLeadConversion {
+  created: number;
+  converted: number;
+  /** Percentage 0-100; null when nothing was created in the period. */
+  rate: number | null;
+}
+
+export interface DashboardOwnerRow {
+  id: string;
+  name: string;
+  count: number;
+  amount: string;
+  /** Sum of value x probability for the owner's open deals. */
+  weighted: string;
+}
+
+export interface DashboardForecastMonth {
+  month: string;
+  count: number;
+  amount: string;
+  weighted: string;
+}
+
+export interface DashboardSummary {
+  period: DashboardPeriod;
+  since: string;
+  until: string;
+  currency: string;
+  /** Null when the member lacks the module's view permission. */
+  activities: DashboardActivities | null;
+  contacts_created: number | null;
+  lead_conversion: DashboardLeadConversion | null;
+  deals_won: DashboardMoney | null;
+  deals_lost: DashboardMoney | null;
+  /** Open deals right now. */
+  open_pipeline: DashboardMoney | null;
+  /** Sum of value x probability over the open deals (server-computed). */
+  weighted_pipeline: DashboardMoney | null;
+  /** Percentage 0-100 of closed deals that were won; null when nothing closed. */
+  win_rate: number | null;
+  average_deal_size: string | null;
+  deals_by_stage: { pipeline: { id: string; name: string } | null; stages: DashboardStage[] } | null;
+  deals_by_owner: DashboardOwnerRow[] | null;
+  revenue_trend: { month: string; count: number; amount: string }[] | null;
+  /** Next three months by expected close date. */
+  forecast: DashboardForecastMonth[] | null;
+  top_companies: { id: string; name: string; count: number; amount: string }[] | null;
+}
+
 export interface AuditEventFilters {
   action?: string;
   actor_user?: string;

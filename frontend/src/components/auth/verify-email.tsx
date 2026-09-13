@@ -68,9 +68,9 @@ export function VerifyEmail() {
       <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-success-soft text-success">
         <CheckCircle2 className="size-6" aria-hidden />
       </div>
-      <AuthHeading title="Email verified" description="Your email address is confirmed." />
+      <AuthHeading title="Email verified" description="Your workspace is ready. Sign in to open your CRM." />
       <Button asChild className="w-full">
-        <Link href={state.authenticated ? "/dashboard" : "/login"}>{state.authenticated ? "Continue" : "Sign in"}</Link>
+        <Link href={state.authenticated ? "/pipeline" : "/login"}>{state.authenticated ? "Open your CRM" : "Sign in"}</Link>
       </Button>
     </div>
   );

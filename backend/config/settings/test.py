@@ -21,6 +21,10 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+MESSAGING_PROVIDER_BACKEND = "fake"
+AI_PROVIDER_BACKEND = "fake"
+WHATSAPP_APP_SECRET = "test-app-secret"  # nosec B105 - test-only value
+WHATSAPP_VERIFY_TOKEN = "test-verify-token"  # nosec B105 - test-only value
 
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False

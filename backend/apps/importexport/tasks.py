@@ -6,6 +6,7 @@ from __future__ import annotations
 import uuid
 
 import structlog
+from celery import shared_task
 
 from apps.core.tenancy.tasks import tenant_task
 from apps.importexport import service
@@ -14,7 +15,13 @@ from apps.importexport.models import ExportJob, ImportJob, JobStatus
 log = structlog.get_logger(__name__)
 
 
-@tenant_task(name="importexport.run_import")
+# Hard limits per task class: a runaway import cannot hold a heavy-worker slot for more than an hour, and
+# the broker visibility timeout (2h) is longer than every limit here so no job is ever started twice.
+IMPORT_TIME_LIMIT = 3600
+EXPORT_TIME_LIMIT = 1800
+
+
+@tenant_task(name="importexport.run_import", soft_time_limit=IMPORT_TIME_LIMIT - 60, time_limit=IMPORT_TIME_LIMIT)
 def run_import(*, job_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
     job = ImportJob.objects.filter(pk=job_id, status=JobStatus.PENDING).first()
     if job is None:
@@ -29,7 +36,7 @@ def run_import(*, job_id: str, organization_id, actor_membership_id: str, **kwar
         return "failed"
 
 
-@tenant_task(name="importexport.run_export")
+@tenant_task(name="importexport.run_export", soft_time_limit=EXPORT_TIME_LIMIT - 60, time_limit=EXPORT_TIME_LIMIT)
 def run_export(*, job_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
     job = ExportJob.objects.filter(pk=job_id, status=JobStatus.PENDING).first()
     if job is None:
@@ -42,3 +49,13 @@ def run_export(*, job_id: str, organization_id, actor_membership_id: str, **kwar
         log.exception("importexport.export_failed", job_id=job_id)
         service.fail_export(job, str(getattr(exc, "message", "Export failed.")))
         return "failed"
+
+
+@shared_task(name="importexport.purge_expired", ignore_result=True, soft_time_limit=240, time_limit=300)
+def purge_expired() -> int:
+    """Beat task: remove export files past their expiry (the S3 lifecycle rule is the backstop)."""
+    from apps.privacy import retention
+
+    removed = retention.purge_expired_exports()
+    log.info("importexport.purged_expired", removed=removed)
+    return removed

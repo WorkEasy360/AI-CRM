@@ -30,6 +30,8 @@ export interface DataTableProps<T extends { id: string }> {
   onToggle?: (id: string) => void;
   onToggleAll?: (ids: string[]) => void;
   isPending?: boolean;
+  /** Rows shown are from the previous query while a changed one loads. */
+  isRefreshing?: boolean;
   isError?: boolean;
   error?: unknown;
   onRetry?: () => void;
@@ -57,6 +59,7 @@ export function DataTable<T extends { id: string }>({
   onToggle,
   onToggleAll,
   isPending,
+  isRefreshing,
   isError,
   error,
   onRetry,
@@ -84,7 +87,7 @@ export function DataTable<T extends { id: string }>({
   if (rows.length === 0) return <>{empty ?? <EmptyState title="Nothing here yet" />}</>;
 
   return (
-    <div>
+    <div className={cn("transition-opacity", isRefreshing && "opacity-70")} aria-busy={isRefreshing || undefined}>
       <Table>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <TableHeader>

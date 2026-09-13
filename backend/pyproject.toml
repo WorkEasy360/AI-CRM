@@ -17,6 +17,10 @@ dependencies = [
     "argon2-cffi>=23.1",
     "structlog>=25.4",
     "gunicorn>=23.0",
+    "boto3>=1.43.93",
+    "anthropic>=1.0",
+    "httpx>=0.28",
+    "cryptography>=45",
 ]
 
 [dependency-groups]
@@ -56,7 +60,7 @@ ignore = ["S101", "RUF012"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S105", "S106", "S311"]
-"tests/**" = ["S105", "S106", "S311"]
+"tests/**" = ["S105", "S106", "S311", "N803"]
 "config/settings/*" = ["S105"]
 
 [tool.mypy]
@@ -72,7 +76,7 @@ module = ["apps.core.tenancy.*", "apps.authz.service", "apps.authz.catalogue", "
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["allauth.*", "django_celery_beat.*", "django_redis.*", "environ.*", "csp.*", "celery.*"]
+module = ["allauth.*", "django_celery_beat.*", "django_redis.*", "environ.*", "csp.*", "celery.*", "boto3.*", "botocore.*", "redis.*", "anthropic.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]

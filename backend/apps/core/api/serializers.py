@@ -64,14 +64,14 @@ class CrmReadSerializer(serializers.ModelSerializer):
     custom_data = serializers.SerializerMethodField()
 
     def get_tags(self, obj: Any) -> Any:
-        from apps.tagging.api import TagRefSerializer
-
         tags_map = self.context.get("tags_map")
         if tags_map is None:
             from apps.tagging import service as tagging
 
             tags_map = tagging.tags_for(self.entity_type, [obj.pk])
-        return TagRefSerializer(tags_map.get(obj.pk, []), many=True).data
+        # Same shape as TagRefSerializer, built directly: instantiating a nested ListSerializer per
+        # row is the single largest per-row cost when serializing a page or a board.
+        return [{"id": str(t.pk), "name": t.name, "color_token": t.color_token} for t in tags_map.get(obj.pk, [])]
 
     def get_custom_data(self, obj: Any) -> dict[str, Any]:
         from apps.customfields import service as customfields

@@ -51,6 +51,9 @@ _COMMON_READ = {
     "search.use": SCOPE_ALL,
     "ai.scores.view": SCOPE_ALL,
     "dashboards.view": SCOPE_ALL,
+    "notifications.view": SCOPE_ALL,
+    "email.view": SCOPE_ALL,
+    "whatsapp.view": SCOPE_ALL,
 }
 
 SYSTEM_ROLES: dict[str, RoleDefinition] = {
@@ -85,6 +88,10 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
             "reports.export": SCOPE_ALL,
             "ai.copilot.use": SCOPE_ALL,
             "ai.actions.confirm": SCOPE_ALL,
+            "email.send": SCOPE_ALL,
+            "email.connect": SCOPE_ALL,
+            "email.templates_manage": SCOPE_ALL,
+            "whatsapp.send": SCOPE_ALL,
         },
     ),
     SALES_REP: RoleDefinition(
@@ -117,6 +124,9 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
             "reports.view": SCOPE_TEAM,
             "ai.copilot.use": SCOPE_ALL,
             "ai.actions.confirm": SCOPE_OWN,
+            "email.send": SCOPE_ALL,
+            "email.connect": SCOPE_ALL,
+            "whatsapp.send": SCOPE_ALL,
         },
     ),
     VIEWER: RoleDefinition(

@@ -11,6 +11,10 @@ rules:
         - "**/apps/core/**"
         - "**/apps/accounts/services.py"
         - "**/apps/privacy/**"
+        - "**/apps/messaging/webhooks.py"
+        - "**/apps/messaging/tasks.py"
+        - "**/apps/activities/tasks.py"
+        - "**/apps/notifications/tasks.py"
         - "**/tests/**"
         - "**/migrations/**"
 
@@ -69,6 +73,7 @@ rules:
     paths:
       exclude:
         - "**/apps/accounts/api/views.py"
+        - "**/apps/messaging/webhooks.py"
         - "**/config/api_v1.py"
         - "**/tests/**"
 

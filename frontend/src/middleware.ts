@@ -1,6 +1,28 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
+ * Server-side only. The Django origin backend paths are proxied to. Never
+ * exposed to the browser (not NEXT_PUBLIC_*).
+ */
+const API_INTERNAL_ORIGIN = (process.env.API_INTERNAL_ORIGIN ?? "http://localhost:8000").replace(/\/+$/, "");
+
+const BACKEND_PREFIXES = ["/api/", "/_allauth/", "/health/", "/ready/"] as const;
+
+function isBackendPath(pathname: string): boolean {
+  return BACKEND_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
+}
+
+/**
+ * Backend proxy + security headers.
+ *
+ * Backend paths (/api, /_allauth, /health/, /ready/) are proxied here rather
+ * than through `rewrites()` in next.config.ts. Every DRF route ends in "/",
+ * and a config rewrite matches `:path*` loosely and forwards the path with the
+ * slash stripped, so Django (APPEND_SLASH) 301s back and the browser loops
+ * until fetch fails. Middleware sees the request URL verbatim (with
+ * `skipTrailingSlashRedirect` set so Next does not 308 it first) and forwards
+ * it unchanged.
+ *
  * Security headers with a per-request CSP nonce.
  *
  * - script-src uses a nonce + 'strict-dynamic' so only scripts Next.js emits
@@ -13,6 +35,11 @@ import { NextResponse, type NextRequest } from "next/server";
  *   never include it.
  */
 export function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  if (isBackendPath(pathname)) {
+    return NextResponse.rewrite(new URL(`${pathname}${search}`, API_INTERNAL_ORIGIN));
+  }
+
   const nonce = btoa(crypto.randomUUID());
   const isProduction = process.env.NODE_ENV === "production";
 
@@ -53,10 +80,15 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // Backend paths, proxied verbatim to API_INTERNAL_ORIGIN.
+    "/api/:path*",
+    "/_allauth/:path*",
+    "/health/",
+    "/ready/",
     {
       /*
-       * Apply to all routes except:
-       * - the proxied backend paths (/api, /_allauth, /health, /ready)
+       * Security headers on all routes except:
+       * - the proxied backend paths (handled above, no CSP needed)
        * - Next.js internals and static assets
        */
       source: "/((?!api/|_allauth/|health/|ready/|_next/static|_next/image|favicon.ico|robots.txt).*)",

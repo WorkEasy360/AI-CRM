@@ -41,12 +41,20 @@ function deal(overrides: Partial<Deal> & Pick<Deal, "id" | "name" | "stage">): D
     stage_entered_at: "2026-01-02T00:00:00Z",
     description: "",
     line_count: 0,
+    probability_overridden: false,
+    weighted_amount_base: "300.00",
+    last_activity_at: null,
+    next_activity_at: null,
+    next_activity_title: "",
+    risk_level: "low",
+    contact_count: 0,
     products_total: null,
     ...overrides,
   };
 }
 
 const stageBase = { pipeline_id: "p1", description: "", archived_at: null, has_more: false };
+const qualified = { id: "s1", name: "Qualified", kind: "open", color_token: "blue" } as const;
 
 const board: Board = {
   pipeline: { id: "p1", name: "Sales" },
@@ -61,7 +69,21 @@ const board: Board = {
       color_token: "blue",
       deal_count: 2,
       total_amount_base: "4000.00",
-      deals: [deal({ id: "d1", name: "Acme renewal", stage: { id: "s1", name: "Qualified", kind: "open", color_token: "blue" } }), deal({ id: "d2", name: "Globex pilot", stage: { id: "s1", name: "Qualified", kind: "open", color_token: "blue" }, amount: "2500.00", amount_base: "2500.00" })],
+      deals: [
+        deal({ id: "d1", name: "Acme renewal", stage: qualified }),
+        deal({
+          id: "d2",
+          name: "Globex pilot",
+          stage: qualified,
+          amount: "2500.00",
+          amount_base: "2500.00",
+          probability: 60,
+          weighted_amount_base: "1500.00",
+          next_activity_at: "2026-09-20T10:00:00Z",
+          next_activity_title: "Call about pricing",
+          risk_level: "high",
+        }),
+      ],
     },
     { ...stageBase, id: "s2", name: "Proposal", position: 2, kind: "open", default_probability: 50, color_token: "teal", deal_count: 0, total_amount_base: "0.00", deals: [] },
     { ...stageBase, id: "s3", name: "Won", position: 3, kind: "won", default_probability: 100, color_token: "green", deal_count: 0, total_amount_base: "0.00", deals: [] },
@@ -92,7 +114,7 @@ describe("KanbanBoard", () => {
     vi.mocked(moveDealStage).mockReset();
   });
 
-  it("renders one column per stage with counts, totals and deal cards", () => {
+  it("renders one column per stage with counts, totals, weighted totals and deal cards", () => {
     renderBoard();
 
     const columns = screen.getAllByRole("listitem").filter((el) => el.getAttribute("data-testid")?.startsWith("column-"));
@@ -101,12 +123,32 @@ describe("KanbanBoard", () => {
     expect(screen.getByRole("heading", { name: "Lost" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 deals")).toBeInTheDocument();
     expect(screen.getByText("$4,000.00")).toBeInTheDocument();
+    // Weighted total sums the loaded cards (300 + 1500) since every card is loaded.
+    expect(within(screen.getByTestId("column-s1")).getByText("Weighted $1,800.00")).toBeInTheDocument();
+    expect(within(screen.getByTestId("column-s2")).queryByText(/Weighted/)).not.toBeInTheDocument();
 
     const card = screen.getByTestId("deal-card-d1");
     expect(within(card).getByRole("link", { name: "Acme renewal" })).toHaveAttribute("href", "/deals/d1");
     expect(within(card).getByText("Acme")).toBeInTheDocument();
     expect(within(card).getByText("$1,500.00")).toBeInTheDocument();
+    expect(within(card).getByText("20%")).toBeInTheDocument();
+    expect(within(card).getByText("No next step")).toBeInTheDocument();
+    expect(within(card).getByRole("img", { name: "Low risk" })).toBeInTheDocument();
+    expect(within(card).getByLabelText("Owner: Ada Lovelace")).toBeInTheDocument();
     expect(card).toHaveAttribute("draggable", "true");
+
+    const other = screen.getByTestId("deal-card-d2");
+    expect(within(other).getByText("60%")).toBeInTheDocument();
+    expect(within(other).getByText("Call about pricing")).toBeInTheDocument();
+    expect(within(other).getByRole("img", { name: "High risk" })).toBeInTheDocument();
+  });
+
+  it("omits the weighted total when a column is truncated and the risk dot without ai.scores.view", () => {
+    const truncated: Board = { ...board, stages: board.stages.map((s) => (s.id === "s1" ? { ...s, has_more: true, deal_count: 5 } : s)) };
+    renderBoard({ board: truncated, showRisk: false });
+    expect(screen.queryByText(/Weighted/)).not.toBeInTheDocument();
+    expect(screen.getByText("+3 more in the list view")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /risk/ })).not.toBeInTheDocument();
   });
 
   it("hides drag and move controls when the user cannot change stages", () => {

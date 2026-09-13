@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { MembersPage } from "@/components/settings/members-page";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Members" };
-
-export default function Page() {
-  return <MembersPage />;
+/** Kept so old links keep working; the page now lives under Settings / Users. */
+export default function MembersRedirect() {
+  redirect("/settings/users");
 }

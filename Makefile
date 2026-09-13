@@ -1,4 +1,4 @@
-.PHONY: dev worker services stop test test-backend test-frontend lint typecheck security rls-check schema
+.PHONY: dev worker worker-heavy beat seed-loadtest services stop test test-backend test-frontend lint typecheck security rls-check schema
 
 services:
 	docker compose up -d postgres redis mailpit
@@ -10,7 +10,16 @@ dev: services
 	cd backend && uv run python manage.py migrate && uv run python manage.py runserver 8000
 
 worker: services
-	cd backend && uv run celery -A config.celery worker -l info -Q default
+	cd backend && uv run celery -A config.celery worker -l info -Q default,notifications -c 4
+
+worker-heavy: services
+	cd backend && uv run celery -A config.celery worker -l info -Q imports,exports,reports -c 2
+
+beat: services
+	cd backend && uv run celery -A config.celery beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+seed-loadtest:
+	cd backend && uv run python manage.py seed_loadtest --out ../loadtest/users.json
 
 test: test-backend test-frontend
 

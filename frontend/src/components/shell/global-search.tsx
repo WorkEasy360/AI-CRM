@@ -3,11 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Contact, CornerDownLeft, Handshake, Loader2, Package, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Building2, CalendarCheck, Contact, CornerDownLeft, Handshake, Loader2, Package, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { globalSearch } from "@/lib/api/crm";
-import { ENTITY_LABELS, ENTITY_TYPES, type EntityType, type SearchHit, type SearchResponse } from "@/lib/api/crm-types";
+import { ENTITY_LABELS, type SearchEntityType, type SearchHit, type SearchResponse } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import type { ActiveContext } from "@/lib/api/types";
 import { useDebounced } from "@/lib/crm/use-list-params";
@@ -18,39 +17,44 @@ export const SEARCH_MAX_LENGTH = 200;
 export const SEARCH_MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
 
-const ICONS: Record<EntityType, React.ComponentType<{ className?: string }>> = {
+/** Result groups in display order: the records a rep looks up most, then the calendar, then the catalogue. */
+export const GROUP_ORDER: readonly SearchEntityType[] = ["contact", "company", "deal", "activity", "product"];
+
+const ICONS: Record<SearchEntityType, React.ComponentType<{ className?: string }>> = {
   contact: Contact,
   company: Building2,
   deal: Handshake,
   product: Package,
+  activity: CalendarCheck,
 };
 
-/** Fixed route prefixes; the id segment is the API-provided id, URL-encoded. */
-const ROUTES: Record<EntityType, string> = {
-  contact: "/contacts",
-  company: "/companies",
-  deal: "/deals",
-  product: "/products",
+/** Fixed route builders; the id is the API-provided id, URL-encoded. Activities open in place on the Activities page. */
+const ROUTES: Record<SearchEntityType, (id: string) => string> = {
+  contact: (id) => `/contacts/${id}`,
+  company: (id) => `/companies/${id}`,
+  deal: (id) => `/deals/${id}`,
+  product: (id) => `/products/${id}`,
+  activity: (id) => `/activities?open=${id}`,
 };
 
-export function hitHref(type: EntityType, id: string): string {
-  return `${ROUTES[type]}/${encodeURIComponent(id)}`;
+export function hitHref(type: SearchEntityType, id: string): string {
+  return ROUTES[type](encodeURIComponent(id));
 }
 
 interface FlatHit {
-  type: EntityType;
+  type: SearchEntityType;
   hit: SearchHit;
   href: string;
 }
 
 interface Group {
-  type: EntityType;
+  type: SearchEntityType;
   hits: FlatHit[];
 }
 
 function toGroups(response: SearchResponse): Group[] {
   const groups: Group[] = [];
-  for (const type of ENTITY_TYPES) {
+  for (const type of GROUP_ORDER) {
     const hits = response.results?.[type];
     if (!Array.isArray(hits) || hits.length === 0) continue;
     groups.push({ type, hits: hits.map((hit) => ({ type, hit, href: hitHref(type, hit.id) })) });
@@ -175,7 +179,7 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
   } else if (state.status === "idle") {
     body = (
       <p className="px-3 py-6 text-center text-sm text-fg-muted">
-        Type at least {SEARCH_MIN_LENGTH} characters to search contacts, companies, deals and products.
+        Type at least {SEARCH_MIN_LENGTH} characters to search contacts, companies, deals, activities and products.
       </p>
     );
   } else if (flat.length === 0) {
@@ -236,29 +240,25 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
 
   return (
     <>
+      {/* Below `md` the bottom tab bar owns the Search entry point. */}
       {allowed ? (
-        <>
-          <button
-            type="button"
-            onClick={() => handleOpenChange(true)}
-            className="hidden h-9 w-72 items-center gap-2 rounded-sm border border-border-strong bg-bg px-3 text-sm text-fg-subtle hover:bg-bg-subtle md:flex"
-            aria-label="Search"
-            aria-keyshortcuts="Control+K Meta+K"
-          >
-            <Search className="size-4" aria-hidden />
-            <span className="flex-1 text-left">Search…</span>
-            <kbd className="rounded-sm border border-border bg-surface px-1.5 font-mono text-[10px] text-fg-subtle">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
-          </button>
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => handleOpenChange(true)} aria-label="Search" aria-keyshortcuts="Control+K Meta+K">
-            <Search />
-          </Button>
-        </>
+        <button
+          type="button"
+          onClick={() => handleOpenChange(true)}
+          className="hidden h-9 w-72 items-center gap-2 rounded-sm border border-border-strong bg-bg px-3 text-sm text-fg-subtle hover:bg-bg-subtle md:flex"
+          aria-label="Search"
+          aria-keyshortcuts="Control+K Meta+K"
+        >
+          <Search className="size-4" aria-hidden />
+          <span className="flex-1 text-left">Search…</span>
+          <kbd className="rounded-sm border border-border bg-surface px-1.5 font-mono text-[10px] text-fg-subtle">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
+        </button>
       ) : null}
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent hideClose className="top-[10%] max-w-xl translate-y-0 gap-0 overflow-hidden p-0 sm:top-[15%]">
           <DialogTitle className="sr-only">Search</DialogTitle>
-          <DialogDescription className="sr-only">Search contacts, companies, deals and products. Use the arrow keys to move and Enter to open.</DialogDescription>
+          <DialogDescription className="sr-only">Search contacts, companies, deals, activities and products. Use the arrow keys to move and Enter to open.</DialogDescription>
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Search className="size-4 shrink-0 text-fg-subtle" aria-hidden />
             <input
@@ -273,7 +273,7 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
               autoFocus
               spellCheck={false}
               maxLength={SEARCH_MAX_LENGTH}
-              placeholder="Search contacts, companies, deals, products…"
+              placeholder="Search contacts, companies, deals, activities…"
               value={query}
               onChange={(e) => setQuery(e.target.value.slice(0, SEARCH_MAX_LENGTH))}
               onKeyDown={onKeyDown}

@@ -30,6 +30,9 @@ RUN groupadd --gid 10001 app \
               /usr/local/bin/pip*
 WORKDIR /app
 COPY --from=builder --chown=app:app /app /app
+# Filesystem private storage (single-instance/dev only; production uses S3). Present in the image so a
+# named volume mounted here inherits app ownership instead of root's.
+RUN mkdir -p /app/private && chown app:app /app/private
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -38,4 +41,7 @@ USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3).status == 200 else 1)"
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60", "--access-logfile", "-"]
+# gthread workers: a page load fires several API calls in parallel; sync workers would queue them
+# behind each other. Tenant context lives in a ContextVar and DB context is transaction-local,
+# so threads are safe. Connections: workers x threads (persistent, CONN_MAX_AGE).
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "3", "--threads", "4", "--timeout", "60", "--access-logfile", "-"]

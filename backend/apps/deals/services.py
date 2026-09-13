@@ -17,6 +17,7 @@ from apps.contacts.models import Contact
 from apps.core import records, validators
 from apps.core.exceptions import ConflictError, DomainError
 from apps.core.records import RecordSpec
+from apps.dashboards import cache as dashboard_cache
 from apps.deals.models import Deal, DealContact, DealProduct, DealStageHistory
 from apps.pipelines.models import Pipeline, PipelineStage
 from apps.products.models import Product
@@ -31,6 +32,13 @@ CENT = Decimal("0.01")
 
 def compute_amount_base(amount: Decimal, exchange_rate: Decimal) -> Decimal:
     return (amount * exchange_rate).quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def weighted_amount(amount_base: Decimal, probability: int) -> Decimal:
+    """Deal value x probability (the forecast contribution), rounded to the cent."""
+    return (Decimal(amount_base or 0) * Decimal(int(probability or 0)) / Decimal(100)).quantize(
+        CENT, rounding=ROUND_HALF_UP
+    )
 
 
 def _status_for(stage: PipelineStage) -> str:
@@ -67,6 +75,7 @@ def _stage_fields(
         "stage_entered_at": now,
         "status": status,
         "probability": stage.default_probability,
+        "probability_overridden": False,
         "closed_at": None if status == Deal.Status.OPEN else now,
         "lost_reason": "",
     }
@@ -98,8 +107,9 @@ def create_deal(actor: Actor, data: dict[str, Any], *, request: Any = None) -> D
     probability = data.pop("probability", None)
     lost_reason = data.pop("lost_reason", "")
     data.update(_stage_fields(stage, now, lost_reason=lost_reason))
-    if probability is not None and data["status"] == Deal.Status.OPEN:
+    if probability is not None and data["status"] == Deal.Status.OPEN and probability != stage.default_probability:
         data["probability"] = probability
+        data["probability_overridden"] = True
     deal = records.create(
         actor, SPEC, data, request=request, audit_extra={"pipeline_id": str(pipeline.pk), "stage_id": str(stage.pk)}
     )
@@ -127,6 +137,13 @@ def update_deal(
         raise ValidationError({"stage_id": "Use the stage endpoint to change the stage."})
     if "probability" in data and deal.status != Deal.Status.OPEN:
         data.pop("probability")
+    if "probability" in data:
+        # A manual value that differs from the stage default is an override; setting it back to the
+        # default clears the override.
+        stage_default = (
+            PipelineStage.objects.filter(pk=deal.stage_id).values_list("default_probability", flat=True).first()
+        )
+        data["probability_overridden"] = data["probability"] != stage_default
     if "lost_reason" in data and deal.status != Deal.Status.LOST:
         data.pop("lost_reason")
     amount = data.get("amount", deal.amount)
@@ -174,6 +191,7 @@ def move_stage(
         raise ValidationError({"stage_id": "Stage does not belong to this deal's pipeline."})
     if stage.pk == deal.stage_id:
         return deal
+    dashboard_cache.invalidate(actor.organization.pk)
     now = timezone.now()
     from_stage = deal.stage
     duration = now - deal.stage_entered_at if deal.stage_entered_at else None
@@ -209,7 +227,24 @@ def move_stage(
             "source": source,
         },
     )
+    if deal.status == Deal.Status.WON:
+        _promote_customers(actor, deal, request=request)
     return deal
+
+
+def _promote_customers(actor: Actor, deal: Deal, *, request: Any = None) -> None:
+    """Closed won: the company, the primary contact and every linked contact become customers."""
+    from apps.companies.models import Company
+    from apps.lifecycle import service as lifecycle
+
+    records_to_promote: list[Any] = []
+    if deal.company_id:
+        records_to_promote.append(Company.objects.filter(pk=deal.company_id).first())
+    contact_ids: set[uuid.UUID] = set(DealContact.objects.filter(deal=deal).values_list("contact_id", flat=True))
+    if deal.primary_contact_id is not None:
+        contact_ids.add(deal.primary_contact_id)
+    records_to_promote.extend(Contact.objects.filter(pk__in=contact_ids))
+    lifecycle.promote_on_won(actor, records_to_promote, deal_name=deal.name, request=request)
 
 
 # ----------------------------------------------------------------------------- product lines

@@ -160,3 +160,16 @@ class LLMProvider(Protocol):
 - Budgets: hard stop at limit; anomaly alert fires.
 - Proposal lifecycle: expiry, double confirm (idempotency), stale version (409), confirm by a different user (403).
 - Scoring honesty: label is `rules` unless a registry row with metrics and approval exists.
+
+## 13. Implementation status (2026-09-13)
+
+Shipped in `apps/ai/`:
+
+- `providers/` — `LLMProvider` protocol, `AnthropicProvider` (official SDK, non-streaming `messages.create`, cached static system prompt, adaptive thinking with low effort on the strong model, refusal → `LLMError(refused=True)`), `FakeProvider` for tests.
+- `context.py` — permission-scoped context packs (`<deal>`, `<contact>`, `<company>` attributes + a `<timeline>` of `<crm_data>` blocks from notes, activities, emails, WhatsApp), size-capped.
+- `safety.py` — escaping, injection heuristics (`untrusted="high"`), output sanitisation, canary.
+- `budgets.py` + `models.AIUsage` — per-user hourly requests, per-organization daily tokens, ledger with estimated cost, admin usage endpoint.
+- `features.py` — deal summary (strong model, cached per deal version), follow-up drafts and email drafts (fast model); every call audited (`ai.*`).
+- `scoring.py`, `risk.py`, `nba.py`, `insights.py` — rules-based lead score, deal risk and next best action, no LLM involved, always labelled "Rules-based".
+
+Model routing defaults: `AI_MODEL_FAST=claude-haiku-4-5` (drafting, rewrites, follow-ups), `AI_MODEL_STRONG=claude-opus-5` (deal summaries). Deferred: copilot chat with tools, natural-language analytics, proposed actions, pgvector retrieval, predictive scoring (data gate in §8.2).

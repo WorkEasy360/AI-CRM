@@ -1,48 +1,67 @@
 "use client";
 
-import Link from "next/link";
-import { Building2, ChevronDown, Contact, Handshake, Package, Plus } from "lucide-react";
+import { Building2, CalendarDays, ChevronDown, Contact, Handshake, ListTodo, Phone, Plus } from "lucide-react";
+import { useQuickCreate, type QuickCreateKind } from "@/components/shell/quick-create-provider";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ActiveContext } from "@/lib/api/types";
 import { hasPermission } from "@/lib/session";
 
-interface QuickAddItem {
+export interface QuickAddItem {
+  kind: QuickCreateKind;
   label: string;
-  href: string;
   permission: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-/** Fixed, hard-coded targets: the list pages open their create dialog when `?new=1` is present. */
+/** Everything the header "+ New" menu can create, in display order. Records first, then activities. */
 export const QUICK_ADD_ITEMS: readonly QuickAddItem[] = [
-  { label: "New contact", href: "/contacts?new=1", permission: "contacts.create", icon: Contact },
-  { label: "New company", href: "/companies?new=1", permission: "companies.create", icon: Building2 },
-  { label: "New deal", href: "/pipeline?new=1", permission: "deals.create", icon: Handshake },
-  { label: "New product", href: "/products?new=1", permission: "products.create", icon: Package },
+  { kind: "contact", label: "Contact", permission: "contacts.create", icon: Contact },
+  { kind: "company", label: "Company", permission: "companies.create", icon: Building2 },
+  { kind: "deal", label: "Deal", permission: "deals.create", icon: Handshake },
+  { kind: "task", label: "Task", permission: "activities.create", icon: ListTodo },
+  { kind: "call", label: "Call", permission: "activities.create", icon: Phone },
+  { kind: "meeting", label: "Meeting", permission: "activities.create", icon: CalendarDays },
 ];
 
-/** The header "New" dropdown. Renders nothing when the member may not create any record type. */
-export function QuickAdd({ active }: { active: ActiveContext }) {
+const RECORD_KINDS: readonly QuickCreateKind[] = ["contact", "company", "deal"];
+
+/** The items the member may create, optionally restricted to (and ordered by) `kinds`. */
+export function permittedQuickAddItems(active: ActiveContext | null | undefined, kinds?: readonly QuickCreateKind[]): QuickAddItem[] {
   const items = QUICK_ADD_ITEMS.filter((item) => hasPermission(active, item.permission));
+  if (!kinds) return items;
+  return kinds.flatMap((kind) => items.filter((item) => item.kind === kind));
+}
+
+/** The header "+ New" dropdown. Renders nothing when the member may not create any record type. */
+export function QuickAdd({ active }: { active: ActiveContext }) {
+  const { open } = useQuickCreate();
+  const items = permittedQuickAddItems(active);
+  const records = items.filter((item) => RECORD_KINDS.includes(item.kind));
+  const activities = items.filter((item) => !RECORD_KINDS.includes(item.kind));
   if (items.length === 0) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm" className="px-2 sm:px-3" aria-label="New record">
+        <Button size="sm" className="px-2 sm:px-2.5" aria-label="New record">
           <Plus />
           <span className="hidden sm:inline">New</span>
-          <ChevronDown className="hidden text-fg-subtle sm:block" aria-hidden />
+          <ChevronDown className="hidden opacity-70 sm:block" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuLabel>Create</DropdownMenuLabel>
-        {items.map((item) => (
-          <DropdownMenuItem key={item.href} asChild>
-            <Link href={item.href}>
-              <item.icon />
-              {item.label}
-            </Link>
+        {records.map((item) => (
+          <DropdownMenuItem key={item.kind} onSelect={() => open(item.kind)}>
+            <item.icon />
+            {item.label}
+          </DropdownMenuItem>
+        ))}
+        {records.length > 0 && activities.length > 0 ? <DropdownMenuSeparator /> : null}
+        {activities.map((item) => (
+          <DropdownMenuItem key={item.kind} onSelect={() => open(item.kind)}>
+            <item.icon />
+            {item.label}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

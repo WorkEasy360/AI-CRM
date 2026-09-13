@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from apps.accounts import services
 from apps.accounts.api import serializers as s
 from apps.accounts.models import Invitation, Membership, Organization
+from apps.authz.actor import build_actor
 from apps.authz.permissions import IsAuthenticatedUser
 from apps.core.api.request import ActorRequest, authenticated_user
 from apps.core.api.viewsets import TenantAPIView, TenantViewSet
@@ -29,9 +30,14 @@ def _session_payload(request: Request) -> dict:
         .select_related("organization", "role")
         .order_by("organization__name")
     )
-    mfa_enabled = Authenticator.objects.filter(
-        user=user, type__in=[Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN]
-    ).exists()
+    # The actor caches the same lookup for ``mfa_required``; reuse it rather than query twice.
+    mfa_enabled = (
+        actor.mfa_enabled
+        if actor is not None
+        else Authenticator.objects.filter(
+            user=user, type__in=[Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN]
+        ).exists()
+    )
     payload = {
         "user": s.UserPublicSerializer(user).data,
         "mfa_enabled": mfa_enabled,
@@ -50,11 +56,33 @@ def _session_payload(request: Request) -> dict:
     return payload
 
 
+# The CSRF cookie must be issued on dispatch, not on get(): the permission check
+# rejects signed-out visitors before get() runs, and the login page relies on
+# this endpoint's 403 to seed the cookie the login POST then has to present.
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class SessionView(APIView):
     permission_classes = [IsAuthenticatedUser]
 
-    @method_decorator(ensure_csrf_cookie)
     def get(self, request: Request) -> Response:
+        return Response(_session_payload(request))
+
+
+class SessionBootstrapView(APIView):
+    """Give a signed-in session an active organization without any client input.
+
+    Creates the user's personal workspace when they have none, then activates their default
+    membership. Idempotent: calling it twice, refreshing, or racing two tabs yields one workspace.
+    The request body is ignored on purpose; nothing here can be steered from the client.
+    """
+
+    permission_classes = [IsAuthenticatedUser]
+    throttle_scope = "sensitive"
+
+    def post(self, request: Request) -> Response:
+        if getattr(request, "actor", None) is None:
+            membership = services.bootstrap_session(request._request, authenticated_user(request))
+            if membership is not None:
+                request._request.actor = build_actor(membership)  # type: ignore[attr-defined]
         return Response(_session_payload(request))
 
 

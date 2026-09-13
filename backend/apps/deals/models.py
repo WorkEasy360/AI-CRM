@@ -27,6 +27,8 @@ class Deal(CrmRecord):
     exchange_rate = models.DecimalField(max_digits=18, decimal_places=8, default=1)
     amount_base = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     probability = models.PositiveSmallIntegerField(default=10)
+    # True when a person set the probability by hand; a stage move resets it to the stage default.
+    probability_overridden = models.BooleanField(default=False)
     expected_close_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.OPEN)
     closed_at = models.DateTimeField(null=True, blank=True)
@@ -44,6 +46,8 @@ class Deal(CrmRecord):
             models.Index(fields=["organization", "owner", "status"], name="deal_org_owner_status_idx"),
             models.Index(fields=["organization", "company"], name="deal_org_company_idx"),
             models.Index(fields=["organization", "-created_at"], name="deal_org_created_idx"),
+            # Board ordering: newest arrivals per stage.
+            models.Index(fields=["organization", "stage", "-stage_entered_at"], name="deal_org_stage_entered_idx"),
             GinIndex(fields=["search_vector"], name="deal_search_idx"),
         ]
         constraints = [

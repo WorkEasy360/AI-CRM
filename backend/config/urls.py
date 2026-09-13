@@ -20,8 +20,10 @@ handler404 = _problem(404, "Not found", "not_found")
 handler500 = _problem(500, "Internal server error", "server_error")
 
 urlpatterns = [
-    path("health/", core_views.health, name="health"),
-    path("ready/", core_views.ready, name="ready"),
+    path("health/live/", core_views.health, name="health-live"),
+    path("health/ready/", core_views.ready, name="health-ready"),
+    path("health/", core_views.health, name="health"),  # alias
+    path("ready/", core_views.ready, name="ready"),  # alias
     path("_allauth/", include("allauth.headless.urls")),
     path("api/v1/", include("config.api_v1")),
 ]

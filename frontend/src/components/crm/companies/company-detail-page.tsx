@@ -1,86 +1,27 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, Contact as ContactIcon, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { RecordActivities } from "@/components/activities/record-activities";
+import { CompanyContacts, CompanyWhatsApp } from "@/components/crm/companies/company-contacts";
 import { CompanyFormDialog } from "@/components/crm/companies/company-form-dialog";
+import { CompanyHeader, CompanySummary } from "@/components/crm/companies/company-summary";
+import { RecordDeals } from "@/components/crm/contacts/record-deals";
+import { Disclosure, RecordLayout } from "@/components/crm/contacts/record-layout";
 import { CustomFieldsSummary, useCustomFields } from "@/components/crm/custom-fields-form";
-import { DataTable, type Column } from "@/components/crm/data-table";
 import { NotesPanel } from "@/components/crm/notes-panel";
-import { Facts, RecordPage, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
-import { TagList, TagPicker } from "@/components/crm/tag-picker";
+import { Facts, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
+import { TagPicker } from "@/components/crm/tag-picker";
 import { Timeline } from "@/components/crm/timeline";
 import { useArchiveRestore } from "@/components/crm/use-record-mutations";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { EmptyState } from "@/components/ui/empty-state";
-import { getCompany, listContacts } from "@/lib/api/crm";
-import type { Company, Contact } from "@/lib/api/crm-types";
+import { EmailHistory } from "@/components/messaging/email-history";
+import { getCompany } from "@/lib/api/crm";
+import type { Company } from "@/lib/api/crm-types";
 import { formatAddress, formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useSession } from "@/lib/session";
-import { useCursorList } from "@/lib/use-cursor-list";
 import { formatDateTime } from "@/lib/utils";
-
-const enc = encodeURIComponent;
-
-const CONTACT_COLUMNS: Column<Contact>[] = [
-  { key: "name", header: "Name", render: (c) => c.display_name || c.email || "Unnamed contact" },
-  { key: "email", header: "Email", render: (c) => (c.email ? <span className="break-all">{c.email}</span> : <span className="text-fg-subtle">—</span>) },
-  { key: "job_title", header: "Job title", className: "hidden md:table-cell", render: (c) => c.job_title || <span className="text-fg-subtle">—</span> },
-  { key: "tags", header: "Tags", className: "hidden lg:table-cell", render: (c) => (c.tags.length ? <TagList tags={c.tags} /> : <span className="text-fg-subtle">—</span>) },
-  { key: "open_deals", header: "Open deals", className: "hidden md:table-cell text-right tabular-nums", render: (c) => c.open_deal_count },
-];
-
-function CompanyContacts({ companyId, canCreate }: { companyId: string; canCreate: boolean }) {
-  const params = React.useMemo(() => ({ company: companyId, sort: "name" }), [companyId]);
-  const contacts = useCursorList<Contact>(crmKeys.list("contacts", params), (cursor) => listContacts(params, cursor));
-  return (
-    <div className="flex flex-col gap-3">
-      {canCreate && contacts.items.length > 0 ? (
-        <div className="flex justify-end">
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/contacts?new=1">
-              <Plus /> New contact
-            </Link>
-          </Button>
-        </div>
-      ) : null}
-      <DataTable
-        rows={contacts.items}
-        columns={CONTACT_COLUMNS}
-        rowHref={(c) => `/contacts/${enc(c.id)}`}
-        isPending={contacts.isPending}
-        isError={contacts.isError}
-        error={contacts.error}
-        onRetry={() => contacts.refetch()}
-        empty={
-          <EmptyState
-            icon={<ContactIcon />}
-            title="No contacts yet"
-            description="People linked to this company will appear here."
-            className="py-8"
-            action={
-              canCreate ? (
-                <Button asChild variant="secondary">
-                  <Link href="/contacts?new=1">
-                    <Plus /> New contact
-                  </Link>
-                </Button>
-              ) : null
-            }
-          />
-        }
-        hasMore={contacts.hasMore}
-        onLoadMore={() => contacts.loadMore()}
-        isLoadingMore={contacts.isLoadingMore}
-        caption="Contacts at this company"
-      />
-    </div>
-  );
-}
 
 export function CompanyDetailPage({ id }: { id: string }) {
   const { data: session } = useSession();
@@ -97,101 +38,105 @@ export function CompanyDetailPage({ id }: { id: string }) {
   const canEdit = canEditRecord(active, "companies", company.owner?.id);
   const canDelete = can(active, "companies.delete");
   const canCreateContact = can(active, "contacts.create");
+  const canCreateDeal = can(active, "deals.create");
+  const baseCurrency = active?.organization.base_currency ?? "USD";
+  const record = { contact: null, company: { id: company.id, name: company.name }, deal: null };
 
-  const overview = (
-    <div className="flex flex-col gap-4">
-      <Section title="Details">
-        <Facts
-          items={[
-            { label: "Website", value: company.website },
-            { label: "Phone", value: company.phone },
-            { label: "Industry", value: company.industry },
-            { label: "Company size", value: company.company_size ? `${company.company_size} employees` : "" },
-            { label: "Annual revenue", value: company.annual_revenue ? formatMoney(company.annual_revenue, company.revenue_currency || active?.organization.base_currency) : "" },
-            { label: "Source", value: company.source },
-            { label: "Address", value: formatAddress(company.address) },
-            { label: "Contacts", value: company.contact_count.toLocaleString() },
-            { label: "Open deals", value: company.open_deal_count.toLocaleString() },
-          ]}
-        />
-      </Section>
-      {definitions.length > 0 ? (
-        <Section title="Custom fields">
-          <CustomFieldsSummary definitions={definitions} value={company.custom_data} />
-        </Section>
-      ) : null}
-      {company.description ? (
-        <Section title="Description">
-          <p className="whitespace-pre-wrap break-words text-sm">{company.description}</p>
-        </Section>
-      ) : null}
-    </div>
+  const hasDetails = Boolean(
+    company.company_size ||
+      company.annual_revenue ||
+      company.source ||
+      company.description ||
+      definitions.length > 0 ||
+      Object.values(company.address ?? {}).some(Boolean),
   );
 
   return (
     <>
-      <RecordPage
+      <RecordLayout
         backHref="/companies"
         backLabel="Companies"
-        title={company.name}
-        subtitle={company.industry || undefined}
-        archived={Boolean(company.archived_at)}
-        actions={
-          <>
-            {canEdit ? (
-              <Button variant="secondary" onClick={() => setEditOpen(true)}>
-                <Pencil /> Edit
-              </Button>
-            ) : null}
-            {canDelete ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="More actions">
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {company.archived_at ? (
-                    <DropdownMenuItem onSelect={() => restore.mutate(company.id)}>
-                      <ArchiveRestore /> Restore
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem destructive onSelect={() => archive.mutate(company.id)}>
-                      <Archive /> Archive
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-          </>
+        header={
+          <div className="flex flex-col gap-4">
+            <CompanyHeader
+              company={company}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              onEdit={() => setEditOpen(true)}
+              onArchive={() => archive.mutate(company.id)}
+              onRestore={() => restore.mutate(company.id)}
+            />
+            <CompanySummary company={company} currency={baseCurrency} />
+          </div>
         }
         tabs={[
-          { value: "overview", label: "Overview", content: overview },
-          { value: "contacts", label: "Contacts", content: <CompanyContacts companyId={company.id} canCreate={canCreateContact} /> },
+          { value: "contacts", label: "Contacts", content: <CompanyContacts company={company} canCreate={canCreateContact} /> },
+          {
+            value: "deals",
+            label: "Deals",
+            content: (
+              <RecordDeals
+                filter={{ company: company.id }}
+                newDealHref={`/pipeline?new=1&company=${encodeURIComponent(company.id)}`}
+                canCreate={canCreateDeal}
+                emptyDescription="Deals with this company will appear here."
+              />
+            ),
+          },
+          {
+            value: "activities",
+            label: "Activities",
+            content: can(active, "activities.view") ? <RecordActivities entity="company" recordId={company.id} record={record} /> : null,
+          },
+          {
+            value: "emails",
+            label: "Emails",
+            content: can(active, "email.view") ? <EmailHistory entity="company" recordId={company.id} company={{ id: company.id, name: company.name }} /> : null,
+          },
+          { value: "whatsapp", label: "WhatsApp", content: can(active, "whatsapp.view") ? <CompanyWhatsApp companyId={company.id} /> : null },
           { value: "notes", label: "Notes", content: <NotesPanel entity="company" recordId={company.id} /> },
           { value: "timeline", label: "Timeline", content: <Timeline entity="company" recordId={company.id} /> },
         ]}
         aside={
           <>
-            <Section title="Owner">
-              <p className="text-sm">{company.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span>}</p>
-            </Section>
             <Section title="Tags">
               <TagPicker entity="company" recordId={company.id} current={company.tags} disabled={!canEdit} />
             </Section>
+            {hasDetails ? (
+              <Disclosure title="Details" bordered defaultOpen>
+                <div className="flex flex-col gap-3">
+                  <Facts
+                    items={[
+                      { label: "Company size", value: company.company_size ? `${company.company_size} employees` : "" },
+                      { label: "Annual revenue", value: company.annual_revenue ? formatMoney(company.annual_revenue, company.revenue_currency || baseCurrency) : "" },
+                      { label: "Source", value: company.source },
+                      { label: "Address", value: formatAddress(company.address) },
+                    ]}
+                  />
+                  {definitions.length > 0 ? <CustomFieldsSummary definitions={definitions} value={company.custom_data} /> : null}
+                  {company.description ? <p className="whitespace-pre-wrap break-words text-sm">{company.description}</p> : null}
+                </div>
+              </Disclosure>
+            ) : null}
             <Section title="Record">
-              <dl className="grid gap-2 text-sm">
-                <div>
-                  <dt className="text-xs text-fg-subtle">Created</dt>
+              <dl className="grid gap-1.5 text-xs">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-fg-subtle">Created</dt>
                   <dd>{formatDateTime(company.created_at)}</dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-fg-subtle">Updated</dt>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-fg-subtle">Updated</dt>
                   <dd>{formatDateTime(company.updated_at)}</dd>
                 </div>
+                {company.lifecycle_changed_at ? (
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-fg-subtle">Status changed</dt>
+                    <dd>{formatDateTime(company.lifecycle_changed_at)}</dd>
+                  </div>
+                ) : null}
                 {company.archived_at ? (
-                  <div>
-                    <dt className="text-xs text-fg-subtle">Archived</dt>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-fg-subtle">Archived</dt>
                     <dd>{formatDateTime(company.archived_at)}</dd>
                   </div>
                 ) : null}

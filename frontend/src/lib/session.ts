@@ -18,6 +18,7 @@ export const queryKeys = {
   authenticators: ["auth", "authenticators"] as const,
   totp: ["auth", "totp"] as const,
   recoveryCodes: ["auth", "recovery-codes"] as const,
+  dashboard: (period: string, pipeline?: string) => ["dashboard", period, pipeline ?? "default"] as const,
 };
 
 /**
@@ -28,7 +29,10 @@ export function useSession(): UseQueryResult<Session, Error> {
   return useQuery({
     queryKey: queryKeys.session,
     queryFn: ({ signal }) => getSession(signal),
-    staleTime: 30_000,
+    // Permissions and organisation rarely change mid-session and the API enforces them anyway;
+    // refetching on every route change after 30s only delayed navigation. Mutations that change
+    // the session (switch organisation, MFA, profile) invalidate it explicitly.
+    staleTime: 5 * 60_000,
     retry: (count, error) => {
       if (isApiError(error) && (error.status === 401 || error.status === 403)) return false;
       return count < 2;

@@ -86,6 +86,13 @@ const existingDeal: Deal = {
   stage_entered_at: "2026-01-02T00:00:00Z",
   description: "",
   line_count: 0,
+  probability_overridden: false,
+  weighted_amount_base: "300.00",
+  last_activity_at: null,
+  next_activity_at: null,
+  next_activity_title: "",
+  risk_level: "low",
+  contact_count: 0,
   products_total: null,
 };
 
@@ -127,6 +134,11 @@ describe("DealFormDialog", () => {
     vi.mocked(createDeal).mockResolvedValue({ ...existingDeal, id: "d9", name: "Globex pilot" });
     const { onOpenChange } = renderDialog();
 
+    // Probability lives under "More details", collapsed for new deals, with the stage default explained.
+    expect(screen.queryByLabelText("Probability (%)")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "More details" }));
+    expect(screen.getByText(/Stage default is 20%/)).toBeInTheDocument();
+
     await user.type(screen.getByLabelText("Deal name"), "Globex pilot");
     await user.clear(screen.getByLabelText("Amount"));
     await user.type(screen.getByLabelText("Amount"), "1500");
@@ -153,6 +165,21 @@ describe("DealFormDialog", () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
+  it("prefills company and contact from `defaults` and sends their ids", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createDeal).mockResolvedValue(existingDeal);
+    renderDialog({ defaults: { company: { id: "c1", name: "Acme" }, contact: { id: "k1", name: "Hank Scorpio" } } });
+
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Acme");
+    expect(screen.getByLabelText("Primary contact")).toHaveTextContent("Hank Scorpio");
+
+    await user.type(screen.getByLabelText("Deal name"), "Acme onboarding");
+    await user.click(screen.getByRole("button", { name: "Create deal" }));
+
+    await waitFor(() => expect(createDeal).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createDeal).mock.calls[0]![0]).toMatchObject({ company_id: "c1", primary_contact_id: "k1" });
+  });
+
   it("sends the exchange rate only for foreign currencies and rejects a bad rate", async () => {
     const user = userEvent.setup();
     renderDialog();
@@ -160,6 +187,7 @@ describe("DealFormDialog", () => {
     await user.type(screen.getByLabelText("Deal name"), "Paris expansion");
     await user.clear(screen.getByLabelText("Currency"));
     await user.type(screen.getByLabelText("Currency"), "eur");
+    // A foreign currency reveals "More details" so the rate is never silently defaulted.
     const rate = await screen.findByLabelText("Rate to USD");
     await user.type(rate, "-2");
     await user.click(screen.getByRole("button", { name: "Create deal" }));
@@ -174,14 +202,16 @@ describe("DealFormDialog", () => {
     expect(vi.mocked(createDeal).mock.calls[0]![0]).toMatchObject({ currency: "EUR", exchange_rate: "1.08" });
   });
 
-  it("edits with the record version and never sends pipeline or stage", async () => {
+  it("edits with the record version, keeps the stage-default probability and never sends pipeline or stage", async () => {
     const user = userEvent.setup();
     vi.mocked(updateDeal).mockResolvedValue({ ...existingDeal, version: 8 });
     renderDialog({ deal: existingDeal });
 
     expect(screen.queryByLabelText("Pipeline")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Deal name")).toHaveValue("Acme renewal");
+    // "More details" is open when editing; a non-overridden probability stays blank (stage default).
     expect(screen.getByLabelText("Rate to USD")).toHaveValue("1.08000000");
+    expect(screen.getByLabelText("Probability (%)")).toHaveValue("");
 
     await user.clear(screen.getByLabelText("Deal name"));
     await user.type(screen.getByLabelText("Deal name"), "Acme renewal 2027");
@@ -191,9 +221,15 @@ describe("DealFormDialog", () => {
     const [id, version, payload] = vi.mocked(updateDeal).mock.calls[0]!;
     expect(id).toBe("d1");
     expect(version).toBe(7);
-    expect(payload).toMatchObject({ name: "Acme renewal 2027", currency: "EUR", exchange_rate: "1.08000000", probability: 20 });
+    expect(payload).toMatchObject({ name: "Acme renewal 2027", currency: "EUR", exchange_rate: "1.08000000" });
+    expect(payload).not.toHaveProperty("probability");
     expect(payload).not.toHaveProperty("pipeline_id");
     expect(payload).not.toHaveProperty("stage_id");
     expect(createDeal).not.toHaveBeenCalled();
+  });
+
+  it("shows a hand-set probability when editing an overridden deal", () => {
+    renderDialog({ deal: { ...existingDeal, probability: 65, probability_overridden: true } });
+    expect(screen.getByLabelText("Probability (%)")).toHaveValue("65");
   });
 });

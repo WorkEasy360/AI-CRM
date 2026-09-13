@@ -2,62 +2,56 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Archive, ArrowRightLeft, Check, Package, Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
-import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
+import { Archive, ArrowLeft, ArrowRightLeft, Building2, Pencil, RotateCcw, User } from "lucide-react";
+import { RecordActivities } from "@/components/activities/record-activities";
 import { CustomFieldsSummary, useCustomFields } from "@/components/crm/custom-fields-form";
+import { DealCommunication } from "@/components/crm/deals/deal-communication";
+import { DealContactsSection } from "@/components/crm/deals/deal-contacts-section";
 import { DealFormDialog } from "@/components/crm/deals/deal-form-dialog";
+import { relativeDayLabel } from "@/components/crm/deals/deal-helpers";
+import { DealHistorySection } from "@/components/crm/deals/deal-history-section";
+import { DealInsightsPanel, NextBestActionCard, RiskCard } from "@/components/crm/deals/deal-insights-panel";
+import { DealLinesSection } from "@/components/crm/deals/deal-lines-section";
+import { DealMetrics } from "@/components/crm/deals/deal-metrics";
+import { DealSummaryCard } from "@/components/crm/deals/deal-summary-card";
 import { useMoveStage, type StageTarget } from "@/components/crm/deals/move-stage-dialog";
 import { NotesPanel } from "@/components/crm/notes-panel";
-import { StageBadge, StatusBadge } from "@/components/crm/pipeline/deals-list";
-import { Facts, RecordPage, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
+import { StatusBadge } from "@/components/crm/pipeline/deals-list";
+import { QuickActions } from "@/components/crm/quick-actions";
+import { Facts, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
 import { TagPicker } from "@/components/crm/tag-picker";
 import { Timeline } from "@/components/crm/timeline";
 import { useArchiveRestore } from "@/components/crm/use-record-mutations";
 import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { EmptyState } from "@/components/ui/empty-state";
-import { FormError, FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SkeletonRows } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useToast } from "@/components/ui/toast";
-import {
-  addDealContact,
-  addDealLine,
-  dealContacts,
-  dealHistory,
-  dealLines,
-  getDeal,
-  listContacts,
-  listPipelines,
-  listProducts,
-  removeDealContact,
-  removeDealLine,
-  updateDealLine,
-} from "@/lib/api/crm";
-import type { Deal, DealLine, DealLineInput, PipelineStage } from "@/lib/api/crm-types";
-import { errorMessage, isApiError } from "@/lib/api/problem";
-import { formatDuration, formatMoney, formatNumber, stageDotClass } from "@/lib/crm/format";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getDeal, getDealInsights, listPipelines } from "@/lib/api/crm";
+import type { PipelineStage } from "@/lib/api/crm-types";
+import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useSession } from "@/lib/session";
-import { cn, formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
-const BACK = { href: "/pipeline", label: "Pipeline" };
+const BACK = { href: "/pipeline", label: "Back to pipeline" };
+const enc = encodeURIComponent;
 
+/**
+ * The deal command centre: who the customer is, what it is worth, where it stands, what happened,
+ * what to do next, whether it is at risk and when it closes — all above the fold, then tabs.
+ */
 export function DealDetailPage({ id }: { id: string }) {
   const { data: session } = useSession();
   const active = session?.active ?? null;
   const baseCurrency = active?.organization.base_currency ?? "USD";
   const deal = useQuery({ queryKey: crmKeys.record("deals", id), queryFn: () => getDeal(id) });
   const pipelines = useQuery({ queryKey: crmKeys.pipelines, queryFn: () => listPipelines(), staleTime: 60_000 });
+  const insights = useQuery({ queryKey: crmKeys.dealInsights(id), queryFn: () => getDealInsights(id), enabled: deal.isSuccess, staleTime: 60_000 });
   const { definitions } = useCustomFields("deal");
   const { archive, restore } = useArchiveRestore("deal");
   const move = useMoveStage();
@@ -65,58 +59,147 @@ export function DealDetailPage({ id }: { id: string }) {
   const [confirmArchive, setConfirmArchive] = React.useState(false);
 
   if (deal.isPending) return <RecordPageSkeleton />;
-  if (deal.isError) return <RecordPageError error={deal.error} backHref={BACK.href} backLabel={BACK.label} />;
+  if (deal.isError) return <RecordPageError error={deal.error} backHref={BACK.href} backLabel="Pipeline" />;
   const record = deal.data;
   const archived = Boolean(record.archived_at);
   const editable = !archived && canEditRecord(active, "deals", record.owner?.id);
   const canMove = !archived && can(active, "deals.change_stage");
   const canArchive = !archived && can(active, "deals.delete");
   const canRestore = archived && can(active, "deals.restore");
+  const canViewScores = can(active, "ai.scores.view");
+  const canUseCopilot = can(active, "ai.copilot.use");
+  const showActivities = can(active, "activities.view");
+  const showCommunication = can(active, "email.view") || can(active, "whatsapp.view");
+  const showInsights = canViewScores || canUseCopilot;
   const pipeline = pipelines.data?.results.find((p) => p.id === record.pipeline.id) ?? null;
   const stages: PipelineStage[] = pipeline ? pipeline.stages.filter((s) => !s.archived_at) : [];
   const moveTargets: StageTarget[] = stages.filter((s) => s.id !== record.stage.id);
+  const contactRef = record.primary_contact ? { id: record.primary_contact.id, name: record.primary_contact.name, email: record.primary_contact.email } : null;
+  const insightsData = insights.data ?? null;
 
   const facts = [
-    { label: "Amount", value: `${formatMoney(record.amount, record.currency)}${record.currency !== baseCurrency ? ` · ${formatMoney(record.amount_base, baseCurrency)} at ${record.exchange_rate}` : ""}` },
-    { label: "Probability", value: `${record.probability}%` },
-    { label: "Expected close", value: formatDate(record.expected_close_date) },
+    {
+      label: "Amount",
+      value: `${formatMoney(record.amount, record.currency)}${record.currency !== baseCurrency ? ` · ${formatMoney(record.amount_base, baseCurrency)} at ${record.exchange_rate}` : ""}`,
+    },
+    { label: "Weighted value", value: formatMoney(record.weighted_amount_base, baseCurrency) },
     { label: "Pipeline / stage", value: `${record.pipeline.name} · ${record.stage.name}` },
-    {
-      label: "Company",
-      value: record.company ? (
-        <Link href={`/companies/${encodeURIComponent(record.company.id)}`} className="text-primary hover:underline">
-          {record.company.name}
-        </Link>
-      ) : (
-        ""
-      ),
-    },
-    {
-      label: "Primary contact",
-      value: record.primary_contact ? (
-        <Link href={`/contacts/${encodeURIComponent(record.primary_contact.id)}`} className="text-primary hover:underline">
-          {record.primary_contact.name}
-        </Link>
-      ) : (
-        ""
-      ),
-    },
+    { label: "Probability", value: `${record.probability}%${record.probability_overridden ? " (manual)" : ""}` },
+    { label: "Expected close", value: formatDate(record.expected_close_date) },
+    { label: "Linked contacts", value: String(record.contact_count) },
     ...(record.status !== "open" ? [{ label: record.status === "won" ? "Won on" : "Lost on", value: formatDateTime(record.closed_at) }] : []),
     ...(record.status === "lost" && record.lost_reason ? [{ label: "Lost reason", value: record.lost_reason }] : []),
     ...(record.products_total !== null ? [{ label: "Products total", value: formatMoney(record.products_total, record.currency) }] : []),
   ];
 
+  const tabs: { value: string; label: string; content: React.ReactNode }[] = [
+    {
+      value: "overview",
+      label: "Overview",
+      content: (
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {insights.isPending ? (
+              <SkeletonRows rows={2} className="lg:col-span-2" />
+            ) : insightsData ? (
+              <>
+                <NextBestActionCard nba={insightsData.next_best_action} />
+                {canViewScores && record.status === "open" ? <RiskCard risk={insightsData.risk} compact /> : null}
+              </>
+            ) : null}
+          </div>
+          <DealSummaryCard dealId={record.id} />
+          <details open className="rounded-md border border-border bg-surface">
+            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold">Details</summary>
+            <div className="flex flex-col gap-4 border-t border-border px-4 py-4">
+              <Facts items={facts} />
+              {record.description ? (
+                <div>
+                  <h3 className="mb-1 text-xs text-fg-subtle">Description</h3>
+                  <p className="whitespace-pre-wrap break-words text-sm">{record.description}</p>
+                </div>
+              ) : null}
+              {definitions.length > 0 ? (
+                <div>
+                  <h3 className="mb-2 text-xs text-fg-subtle">Custom fields</h3>
+                  <CustomFieldsSummary definitions={definitions} value={record.custom_data} />
+                </div>
+              ) : null}
+            </div>
+          </details>
+        </div>
+      ),
+    },
+    {
+      value: "timeline",
+      label: "Timeline",
+      content: (
+        <div className="flex flex-col gap-4">
+          <Timeline entity="deal" recordId={record.id} />
+          <DealHistorySection dealId={record.id} />
+        </div>
+      ),
+    },
+    { value: "contacts", label: `Contacts${record.contact_count ? ` (${record.contact_count})` : ""}`, content: <DealContactsSection deal={record} editable={editable} /> },
+    { value: "products", label: `Products${record.line_count ? ` (${record.line_count})` : ""}`, content: <DealLinesSection deal={record} editable={editable} /> },
+    ...(showActivities
+      ? [
+          {
+            value: "activities",
+            label: "Activities",
+            content: (
+              <RecordActivities
+                entity="deal"
+                recordId={record.id}
+                record={{ contact: contactRef ? { id: contactRef.id, name: contactRef.name } : null, company: record.company, deal: { id: record.id, name: record.name } }}
+                emptyDescription="Schedule a call, meeting or task so this deal always has a next step."
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(showCommunication ? [{ value: "communication", label: "Communication", content: <DealCommunication deal={record} /> }] : []),
+    ...(showInsights
+      ? [{ value: "insights", label: "AI Insights", content: <DealInsightsPanel deal={record} insights={insightsData} isPending={insights.isPending} error={insights.error} contact={contactRef} /> }]
+      : []),
+    { value: "notes", label: "Notes", content: <NotesPanel entity="deal" recordId={record.id} /> },
+  ];
+
   return (
-    <>
-      <RecordPage
-        backHref={BACK.href}
-        backLabel="Back to pipeline"
-        title={record.name}
-        subtitle={<StageProgress stages={stages} current={record.stage} status={record.status} canMove={canMove} busy={move.isPending} onSelect={(s) => move.requestMove(record, s)} />}
-        badges={<StatusBadge status={record.status} />}
-        archived={archived}
-        actions={
-          <>
+    <div className="flex flex-col gap-4">
+      <div>
+        <Button asChild variant="link" size="sm" className="mb-2 h-auto px-0 text-fg-muted">
+          <Link href={BACK.href}>
+            <ArrowLeft /> {BACK.label}
+          </Link>
+        </Button>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-xl font-semibold tracking-tight">{record.name}</h1>
+              {archived ? <Badge variant="warning">Archived</Badge> : null}
+              <StatusBadge status={record.status} />
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
+              {record.company ? (
+                <Link href={`/companies/${enc(record.company.id)}`} className="inline-flex items-center gap-1 hover:text-primary hover:underline">
+                  <Building2 className="size-3.5" aria-hidden /> {record.company.name}
+                </Link>
+              ) : null}
+              {record.primary_contact ? (
+                <Link href={`/contacts/${enc(record.primary_contact.id)}`} className="inline-flex items-center gap-1 hover:text-primary hover:underline">
+                  <User className="size-3.5" aria-hidden /> {record.primary_contact.name}
+                </Link>
+              ) : (
+                <span className="text-fg-subtle">No primary contact</span>
+              )}
+              <span className="inline-flex items-center gap-1.5">
+                {record.owner ? <Avatar name={record.owner.display_name} size="sm" className="size-5 text-[9px]" /> : null}
+                {record.owner ? record.owner.display_name : "Unassigned"}
+              </span>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {editable ? (
               <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
                 <Pencil /> Edit
@@ -150,64 +233,81 @@ export function DealDetailPage({ id }: { id: string }) {
                 <RotateCcw /> Restore
               </Button>
             ) : null}
-          </>
-        }
-        tabs={[
-          {
-            value: "overview",
-            label: "Overview",
-            content: (
-              <div className="flex flex-col gap-4">
-                <Section title="Details">
-                  <Facts items={facts} />
-                </Section>
-                {record.description ? (
-                  <Section title="Description">
-                    <p className="whitespace-pre-wrap break-words text-sm">{record.description}</p>
-                  </Section>
-                ) : null}
-                {definitions.length > 0 ? (
-                  <Section title="Custom fields">
-                    <CustomFieldsSummary definitions={definitions} value={record.custom_data} />
-                  </Section>
-                ) : null}
-              </div>
-            ),
-          },
-          { value: "products", label: `Products${record.line_count ? ` (${record.line_count})` : ""}`, content: <LinesSection deal={record} editable={editable} /> },
-          { value: "contacts", label: "Contacts", content: <ContactsSection deal={record} editable={editable} /> },
-          { value: "history", label: "History", content: <HistorySection dealId={record.id} /> },
-          { value: "notes", label: "Notes", content: <NotesPanel entity="deal" recordId={record.id} /> },
-          { value: "timeline", label: "Timeline", content: <Timeline entity="deal" recordId={record.id} /> },
-        ]}
-        aside={
-          <>
-            <Section title="Owner">
-              {record.owner ? (
-                <div className="flex items-center gap-2">
-                  <Avatar name={record.owner.display_name} size="sm" />
-                  <span className="truncate text-sm">{record.owner.display_name}</span>
-                </div>
-              ) : (
-                <p className="text-sm text-fg-subtle">Unassigned</p>
-              )}
-            </Section>
-            <Section title="Tags">
-              <TagPicker entity="deal" recordId={record.id} current={record.tags} disabled={!editable} />
-            </Section>
-            <Section title="Record">
-              <Facts
-                items={[
-                  { label: "Stage since", value: formatDateTime(record.stage_entered_at) },
-                  { label: "Created", value: formatDateTime(record.created_at) },
-                  { label: "Updated", value: formatDateTime(record.updated_at) },
-                  ...(record.archived_at ? [{ label: "Archived", value: formatDateTime(record.archived_at) }] : []),
-                ]}
-              />
-            </Section>
-          </>
-        }
+          </div>
+        </div>
+      </div>
+
+      <DealMetrics
+        deal={record}
+        baseCurrency={baseCurrency}
+        stages={stages}
+        insights={insightsData}
+        insightsPending={insights.isPending}
+        canViewScores={canViewScores}
+        canMove={canMove}
+        busy={move.isPending}
+        onSelectStage={(s) => move.requestMove(record, s)}
       />
+      {!archived ? <QuickActions deal={record} /> : null}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <Tabs defaultValue="overview" className="min-w-0">
+          <div className="-mx-1 overflow-x-auto px-1 pb-0.5">
+            <TabsList className="w-max">
+              {tabs.map((t) => (
+                <TabsTrigger key={t.value} value={t.value}>
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          {tabs.map((t) => (
+            <TabsContent key={t.value} value={t.value}>
+              {t.content}
+            </TabsContent>
+          ))}
+        </Tabs>
+        <aside className="flex flex-col gap-4">
+          <Section title="Owner">
+            {record.owner ? (
+              <div className="flex items-center gap-2">
+                <Avatar name={record.owner.display_name} size="sm" />
+                <span className="truncate text-sm">{record.owner.display_name}</span>
+              </div>
+            ) : (
+              <p className="text-sm text-fg-subtle">Unassigned</p>
+            )}
+          </Section>
+          <Section title="Tags">
+            <TagPicker entity="deal" recordId={record.id} current={record.tags} disabled={!editable} />
+          </Section>
+          <Section title="Key dates">
+            <Facts
+              items={[
+                { label: "Stage since", value: formatDateTime(record.stage_entered_at) },
+                { label: "Last activity", value: record.last_activity_at ? `${relativeDayLabel(record.last_activity_at)} · ${formatDate(record.last_activity_at)}` : "None yet" },
+                {
+                  label: "Next activity",
+                  value: record.next_activity_at ? (
+                    <span className={record.next_activity_title ? undefined : "text-fg-muted"} title={record.next_activity_title || undefined}>
+                      {relativeDayLabel(record.next_activity_at)}
+                      {record.next_activity_title ? ` · ${record.next_activity_title}` : ""}
+                    </span>
+                  ) : record.status === "open" ? (
+                    <span className="text-danger">No next step</span>
+                  ) : (
+                    "—"
+                  ),
+                },
+                { label: "Created", value: formatDateTime(record.created_at) },
+                { label: "Updated", value: formatDateTime(record.updated_at) },
+                ...(record.archived_at ? [{ label: "Archived", value: formatDateTime(record.archived_at) }] : []),
+              ]}
+            />
+          </Section>
+        </aside>
+      </div>
+
       {move.dialog}
       <DealFormDialog open={editing} onOpenChange={setEditing} deal={record} pipelines={pipelines.data?.results ?? []} />
       <ConfirmDialog
@@ -220,519 +320,6 @@ export function DealDetailPage({ id }: { id: string }) {
         loading={archive.isPending}
         onConfirm={() => archive.mutate(record.id, { onSuccess: () => setConfirmArchive(false) })}
       />
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ stage progress */
-
-function StageProgress({
-  stages,
-  current,
-  status,
-  canMove,
-  busy,
-  onSelect,
-}: {
-  stages: PipelineStage[];
-  current: Deal["stage"];
-  status: Deal["status"];
-  canMove: boolean;
-  busy: boolean;
-  onSelect: (stage: StageTarget) => void;
-}) {
-  if (stages.length === 0) {
-    return (
-      <span className="inline-flex items-center gap-2">
-        <StageBadge name={current.name} colorToken={current.color_token} />
-      </span>
-    );
-  }
-  const currentIndex = stages.findIndex((s) => s.id === current.id);
-  return (
-    <ol className="mt-1 flex flex-wrap items-center gap-1" aria-label="Stage progress">
-      {stages.map((stage, index) => {
-        const isCurrent = stage.id === current.id;
-        const reached = status === "open" ? currentIndex >= 0 && index < currentIndex : false;
-        const classes = cn(
-          "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors",
-          isCurrent
-            ? "border-primary bg-primary text-primary-fg"
-            : reached
-              ? "border-primary/40 bg-primary-soft text-primary"
-              : "border-border bg-surface text-fg-muted",
-          canMove && !isCurrent && "hover:border-primary hover:text-primary",
-        );
-        const inner = (
-          <>
-            <span className={cn("size-2 rounded-full", isCurrent ? "bg-primary-fg" : stageDotClass(stage.color_token))} aria-hidden />
-            {stage.name}
-            {isCurrent ? <Check className="size-3" aria-hidden /> : null}
-          </>
-        );
-        return (
-          <li key={stage.id} className="flex items-center">
-            {canMove && !isCurrent ? (
-              <button type="button" className={classes} onClick={() => onSelect(stage)} disabled={busy} aria-label={`Move to ${stage.name}`}>
-                {inner}
-              </button>
-            ) : (
-              <span className={classes} aria-current={isCurrent ? "step" : undefined}>
-                {inner}
-              </span>
-            )}
-            {index < stages.length - 1 ? <span className="mx-0.5 h-px w-2 bg-border-strong" aria-hidden /> : null}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-/* ------------------------------------------------------------------ product lines */
-
-const DEC2 = /^\d{1,16}(\.\d{1,2})?$/;
-const DEC3 = /^\d{1,9}(\.\d{1,3})?$/;
-const PCT = /^\d{1,3}(\.\d{1,2})?$/;
-
-const lineSchema = z.object({
-  product_id: z.string().min(1, "Choose a product."),
-  quantity: z.string().trim().refine((v) => DEC3.test(v) && Number(v) > 0, "Enter a positive quantity (up to 3 decimals)."),
-  unit_price: z.string().trim().refine((v) => v === "" || DEC2.test(v), "Enter a price like 99 or 99.50."),
-  discount_percent: z.string().trim().refine((v) => v === "" || (PCT.test(v) && Number(v) <= 100), "Enter a discount from 0 to 100."),
-  tax_rate: z.string().trim().refine((v) => v === "" || (PCT.test(v) && Number(v) <= 100), "Enter a tax rate from 0 to 100."),
-});
-type LineFormValues = z.infer<typeof lineSchema>;
-
-function LinesSection({ deal, editable }: { deal: Deal; editable: boolean }) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const lines = useQuery({ queryKey: crmKeys.dealLines(deal.id), queryFn: () => dealLines(deal.id) });
-  const [editing, setEditing] = React.useState<DealLine | "new" | null>(null);
-  const [removing, setRemoving] = React.useState<DealLine | null>(null);
-
-  const refresh = () =>
-    Promise.all([queryClient.invalidateQueries({ queryKey: crmKeys.dealLines(deal.id) }), queryClient.invalidateQueries({ queryKey: crmKeys.record("deals", deal.id) })]);
-
-  const remove = useMutation({
-    mutationFn: (line: DealLine) => removeDealLine(deal.id, line.id),
-    onSuccess: async () => {
-      await refresh();
-      setRemoving(null);
-    },
-    onError: (err) => toast({ tone: "error", title: "Could not remove product", description: errorMessage(err) }),
-  });
-
-  const items = lines.data?.results ?? [];
-  const total = items.reduce((sum, l) => sum + Number(l.line_total || 0), 0);
-
-  return (
-    <Section
-      title="Products"
-      actions={
-        editable ? (
-          <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
-            <Plus /> Add product
-          </Button>
-        ) : undefined
-      }
-    >
-      {lines.isPending ? (
-        <SkeletonRows rows={3} />
-      ) : lines.isError ? (
-        <p className="text-sm text-danger">{errorMessage(lines.error)}</p>
-      ) : items.length === 0 ? (
-        <EmptyState icon={<Package />} title="No products yet" description="Add products to build the quote for this deal." className="py-8" />
-      ) : (
-        <Table>
-          <caption className="sr-only">Deal products</caption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Unit price</TableHead>
-              <TableHead className="text-right">Discount</TableHead>
-              <TableHead className="text-right">Tax</TableHead>
-              <TableHead className="text-right">Line total</TableHead>
-              {editable ? <TableHead className="w-20"><span className="sr-only">Actions</span></TableHead> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((line) => (
-              <TableRow key={line.id}>
-                <TableCell>
-                  <div className="font-medium">{line.product.name}</div>
-                  {line.sku ? <div className="text-xs text-fg-subtle">{line.sku}</div> : null}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">{formatNumber(line.quantity)}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatMoney(line.unit_price, line.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{Number(line.discount_percent) ? `${formatNumber(line.discount_percent)}%` : "—"}</TableCell>
-                <TableCell className="text-right tabular-nums">{Number(line.tax_rate) ? `${formatNumber(line.tax_rate)}%` : "—"}</TableCell>
-                <TableCell className="text-right font-medium tabular-nums">{formatMoney(line.line_total, line.currency)}</TableCell>
-                {editable ? (
-                  <TableCell>
-                    <div className="flex justify-end gap-0.5">
-                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${line.product.name}`} onClick={() => setEditing(line)}>
-                        <Pencil />
-                      </Button>
-                      <Button variant="ghost" size="icon-sm" aria-label={`Remove ${line.product.name}`} onClick={() => setRemoving(line)}>
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  </TableCell>
-                ) : null}
-              </TableRow>
-            ))}
-            <TableRow className="bg-surface-sunken font-semibold hover:bg-surface-sunken">
-              <TableCell colSpan={5} className="text-right">
-                Total
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{formatMoney(total, deal.currency)}</TableCell>
-              {editable ? <TableCell /> : null}
-            </TableRow>
-          </TableBody>
-        </Table>
-      )}
-      <LineDialog deal={deal} line={editing} onOpenChange={(open) => !open && setEditing(null)} onSaved={refresh} />
-      <ConfirmDialog
-        open={removing !== null}
-        onOpenChange={(open) => !open && setRemoving(null)}
-        title={`Remove ${removing?.product.name ?? "product"}?`}
-        description="The line is removed from this deal; the product itself is kept."
-        confirmLabel="Remove"
-        destructive
-        loading={remove.isPending}
-        onConfirm={() => removing && remove.mutate(removing)}
-      />
-    </Section>
-  );
-}
-
-function LineDialog({ deal, line, onOpenChange, onSaved }: { deal: Deal; line: DealLine | "new" | null; onOpenChange: (open: boolean) => void; onSaved: () => Promise<unknown> }) {
-  const { toast } = useToast();
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
-  const open = line !== null;
-  const existing = line && line !== "new" ? line : null;
-  const products = useQuery({
-    queryKey: crmKeys.list("products", { status: "active", sort: "name", picker: "deal" }),
-    queryFn: () => listProducts({ status: "active", sort: "name" }),
-    enabled: open,
-    staleTime: 60_000,
-  });
-
-  const form = useForm<LineFormValues>({
-    resolver: zodResolver(lineSchema),
-    defaultValues: { product_id: "", quantity: "1", unit_price: "", discount_percent: "", tax_rate: "" },
-  });
-
-  React.useEffect(() => {
-    if (open) {
-      form.reset({
-        product_id: existing?.product.id ?? "",
-        quantity: existing?.quantity ?? "1",
-        unit_price: existing?.unit_price ?? "",
-        discount_percent: existing ? existing.discount_percent : "",
-        tax_rate: existing ? existing.tax_rate : "",
-      });
-      setFieldErrors({});
-    }
-  }, [open, existing, form]);
-
-  const productId = form.watch("product_id");
-
-  const mutation = useMutation({
-    mutationFn: (values: LineFormValues) => {
-      const input: DealLineInput = { quantity: values.quantity };
-      if (values.unit_price !== "") input.unit_price = values.unit_price;
-      if (values.discount_percent !== "") input.discount_percent = values.discount_percent;
-      if (values.tax_rate !== "") input.tax_rate = values.tax_rate;
-      if (existing) return updateDealLine(deal.id, existing.id, input);
-      return addDealLine(deal.id, { product_id: values.product_id, ...input });
-    },
-    onSuccess: async () => {
-      await onSaved();
-      toast({ tone: "success", title: existing ? "Product updated" : "Product added" });
-      onOpenChange(false);
-    },
-    onError: (err) => {
-      if (isApiError(err) && err.isValidation) setFieldErrors(err.fieldErrors());
-      else toast({ tone: "error", title: "Could not save product", description: errorMessage(err) });
-    },
-  });
-
-  const options = products.data?.results ?? [];
-  const selected = options.find((p) => p.id === productId);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form
-          className="grid gap-4"
-          noValidate
-          onSubmit={form.handleSubmit((v) => {
-            setFieldErrors({});
-            mutation.mutate(v);
-          })}
-        >
-          <DialogHeader>
-            <DialogTitle>{existing ? "Edit product line" : "Add a product"}</DialogTitle>
-            <DialogDescription>Leave the price blank to use the product&apos;s list price. Totals are computed on save.</DialogDescription>
-          </DialogHeader>
-          <FormError message={fieldErrors.non_field_errors ?? fieldErrors.detail} />
-          <FormField control={form.control} name="product_id" label="Product" serverError={fieldErrors.product_id}>
-            {(field) =>
-              existing ? (
-                <Input id={field.id} value={existing.product.name} readOnly disabled />
-              ) : (
-                <Select
-                  value={field.value}
-                  onValueChange={(v) => {
-                    field.onChange(v);
-                    const p = options.find((o) => o.id === v);
-                    if (p) {
-                      form.setValue("unit_price", p.unit_price);
-                      form.setValue("tax_rate", p.tax_rate);
-                    }
-                  }}
-                >
-                  <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
-                    <SelectValue placeholder={products.isPending ? "Loading…" : "Choose a product"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {options.length === 0 && !products.isPending ? <div className="px-2 py-1.5 text-sm text-fg-muted">No active products.</div> : null}
-                    {options.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                        {p.sku ? ` · ${p.sku}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )
-            }
-          </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField control={form.control} name="quantity" label="Quantity" serverError={fieldErrors.quantity}>
-              {(field) => <Input {...field} inputMode="decimal" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
-            <FormField control={form.control} name="unit_price" label={`Unit price (${existing?.currency ?? selected?.currency ?? deal.currency})`} serverError={fieldErrors.unit_price}>
-              {(field) => <Input {...field} inputMode="decimal" placeholder={selected?.unit_price ?? "List price"} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
-            <FormField control={form.control} name="discount_percent" label="Discount (%)" serverError={fieldErrors.discount_percent}>
-              {(field) => <Input {...field} inputMode="decimal" placeholder="0" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
-            <FormField control={form.control} name="tax_rate" label="Tax rate (%)" serverError={fieldErrors.tax_rate}>
-              {(field) => <Input {...field} inputMode="decimal" placeholder="0" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={mutation.isPending}>
-              {existing ? "Save changes" : "Add product"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ------------------------------------------------------------------ linked contacts */
-
-function ContactsSection({ deal, editable }: { deal: Deal; editable: boolean }) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const links = useQuery({ queryKey: crmKeys.dealContacts(deal.id), queryFn: () => dealContacts(deal.id) });
-  const [adding, setAdding] = React.useState(false);
-  const [contactId, setContactId] = React.useState("");
-  const [roleLabel, setRoleLabel] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
-  const contactParams = React.useMemo(() => ({ sort: "name", ...(deal.company ? { company: deal.company.id } : {}) }), [deal.company]);
-  const contacts = useQuery({
-    queryKey: crmKeys.list("contacts", { ...contactParams, picker: "deal-link" }),
-    queryFn: () => listContacts(contactParams),
-    enabled: adding,
-    staleTime: 60_000,
-  });
-
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: crmKeys.dealContacts(deal.id) }),
-      queryClient.invalidateQueries({ queryKey: crmKeys.timeline("deal", deal.id) }),
-    ]);
-
-  const add = useMutation({
-    mutationFn: () => addDealContact(deal.id, contactId, roleLabel.trim()),
-    onSuccess: async () => {
-      await refresh();
-      setAdding(false);
-      setContactId("");
-      setRoleLabel("");
-      setError(null);
-    },
-    onError: (err) => setError(errorMessage(err)),
-  });
-  const remove = useMutation({
-    mutationFn: (id: string) => removeDealContact(deal.id, id),
-    onSuccess: refresh,
-    onError: (err) => toast({ tone: "error", title: "Could not remove contact", description: errorMessage(err) }),
-  });
-
-  const items = links.data?.results ?? [];
-  const linkedIds = new Set(items.map((l) => l.contact.id));
-  const options = (contacts.data?.results ?? []).filter((c) => !linkedIds.has(c.id));
-  const roleId = React.useId();
-  const contactSelectId = React.useId();
-
-  return (
-    <Section
-      title="Contacts"
-      actions={
-        editable ? (
-          <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
-            <Plus /> Link contact
-          </Button>
-        ) : undefined
-      }
-    >
-      {links.isPending ? (
-        <SkeletonRows rows={2} />
-      ) : links.isError ? (
-        <p className="text-sm text-danger">{errorMessage(links.error)}</p>
-      ) : items.length === 0 ? (
-        <EmptyState icon={<Users />} title="No linked contacts" description="Link the people involved in this deal and note their role." className="py-8" />
-      ) : (
-        <ul className="divide-y divide-border">
-          {items.map((link) => (
-            <li key={link.id} className="flex items-center gap-3 py-2">
-              <Avatar name={link.contact.name} size="sm" />
-              <div className="min-w-0 flex-1">
-                <Link href={`/contacts/${encodeURIComponent(link.contact.id)}`} className="block truncate text-sm font-medium hover:text-primary hover:underline">
-                  {link.contact.name}
-                </Link>
-                <div className="truncate text-xs text-fg-subtle">{[link.role_label, link.contact.email].filter(Boolean).join(" · ")}</div>
-              </div>
-              {editable ? (
-                <Button
-                  variant="danger-ghost"
-                  size="sm"
-                  onClick={() => remove.mutate(link.contact.id)}
-                  loading={remove.isPending && remove.variables === link.contact.id}
-                  aria-label={`Unlink ${link.contact.name}`}
-                >
-                  Remove
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-      <Dialog
-        open={adding}
-        onOpenChange={(open) => {
-          setAdding(open);
-          if (!open) setError(null);
-        }}
-      >
-        <DialogContent>
-          <form
-            className="grid gap-4"
-            noValidate
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!contactId) {
-                setError("Choose a contact.");
-                return;
-              }
-              add.mutate();
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>Link a contact</DialogTitle>
-              <DialogDescription>{deal.company ? `Showing contacts at ${deal.company.name}.` : "Choose a contact and describe their role."}</DialogDescription>
-            </DialogHeader>
-            <FormError message={error} />
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={contactSelectId} className="text-sm font-medium">
-                Contact
-              </label>
-              <Select value={contactId} onValueChange={setContactId}>
-                <SelectTrigger id={contactSelectId}>
-                  <SelectValue placeholder={contacts.isPending ? "Loading…" : "Choose a contact"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {options.length === 0 && !contacts.isPending ? <div className="px-2 py-1.5 text-sm text-fg-muted">No more contacts to link.</div> : null}
-                  {options.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.display_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={roleId} className="text-sm font-medium">
-                Role (optional)
-              </label>
-              <Input id={roleId} value={roleLabel} onChange={(e) => setRoleLabel(e.target.value)} maxLength={60} placeholder="Decision maker, Champion, Legal…" />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="secondary" onClick={() => setAdding(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" loading={add.isPending}>
-                Link contact
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </Section>
-  );
-}
-
-/* ------------------------------------------------------------------ stage history */
-
-function HistorySection({ dealId }: { dealId: string }) {
-  const history = useQuery({ queryKey: crmKeys.dealHistory(dealId), queryFn: () => dealHistory(dealId) });
-  const items = history.data?.results ?? [];
-  return (
-    <Section title="Stage history">
-      {history.isPending ? (
-        <SkeletonRows rows={3} />
-      ) : history.isError ? (
-        <p className="text-sm text-danger">{errorMessage(history.error)}</p>
-      ) : items.length === 0 ? (
-        <EmptyState title="No stage changes yet" className="py-8" />
-      ) : (
-        <Table>
-          <caption className="sr-only">Stage history, newest first</caption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>When</TableHead>
-              <TableHead>From</TableHead>
-              <TableHead>To</TableHead>
-              <TableHead>By</TableHead>
-              <TableHead className="text-right">Time in previous stage</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell className="whitespace-nowrap text-fg-muted">{formatDateTime(entry.changed_at)}</TableCell>
-                <TableCell>{entry.from_stage ? <StageBadge name={entry.from_stage.name} colorToken={entry.from_stage.color_token} /> : <span className="text-fg-subtle">—</span>}</TableCell>
-                <TableCell>
-                  <StageBadge name={entry.to_stage.name} colorToken={entry.to_stage.color_token} />
-                </TableCell>
-                <TableCell>{entry.changed_by?.display_name ?? (entry.source && entry.source !== "user" ? entry.source : "—")}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatDuration(entry.duration_seconds) || "—"}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Section>
+    </div>
   );
 }

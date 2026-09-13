@@ -1,0 +1,52 @@
+# Manual load test against a running stack (staging by default). Never runs on a schedule and never against
+# production: seeded load-test tenants and a shared password must not exist there.
+name: Load test
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Base URL of the environment under test (e.g. https://staging.example.com)
+        required: true
+      stage:
+        description: k6 stage
+        type: choice
+        options: [baseline, moderate, high, spike, soak, e, g, h]
+        default: baseline
+      soak_minutes:
+        description: Soak duration (minutes, soak stage only)
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Refuse production hosts
+        run: |
+          case "${{ inputs.base_url }}" in
+            *prod*|*production*) echo "Refusing to load test a production host"; exit 1;;
+          esac
+      - name: Write users file from secret
+        run: printf '%s' "${{ secrets.LOADTEST_USERS_JSON }}" > loadtest/users.json
+      - name: Run k6
+        env:
+          STAGE: ${{ inputs.stage }}
+          BASE_URL: ${{ inputs.base_url }}
+          SOAK_MINUTES: ${{ inputs.soak_minutes }}
+          SESSION_COOKIE: __Host-keel_session
+          CSRF_COOKIE: __Host-keel_csrftoken
+        run: |
+          mkdir -p loadtest/results
+          docker run --rm -e STAGE -e BASE_URL -e SOAK_MINUTES -e SESSION_COOKIE -e CSRF_COOKIE \
+            -v "$PWD/loadtest/k6:/scripts" -v "$PWD/loadtest/results:/results" \
+            -v "$PWD/loadtest/users.json:/scripts/users.json:ro" \
+            grafana/k6:0.54.0 run /scripts/main.js
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: k6-${{ inputs.stage }}
+          path: loadtest/results/

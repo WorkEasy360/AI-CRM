@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.privacy",
     "apps.customfields",
     "apps.tagging",
+    "apps.lifecycle",
     "apps.companies",
     "apps.contacts",
     "apps.products",
@@ -55,9 +56,20 @@ INSTALLED_APPS = [
     "apps.notes",
     "apps.search",
     "apps.importexport",
+    "apps.dashboards",
+    "apps.observability",
+    "apps.activities",
+    "apps.notifications",
+    "apps.forecasting",
+    "apps.messaging",
+    "apps.ai",
 ]
 
 MIDDLEWARE = [
+    # Probes are answered before host validation / HTTPS redirect (load balancers probe over plain HTTP).
+    "security.middleware.HealthProbeMiddleware",
+    # Real client address from X-Forwarded-For, trusting exactly TRUSTED_PROXY_COUNT hops.
+    "security.middleware.ClientIPMiddleware",
     "security.middleware.RequestIDMiddleware",
     "security.middleware.RequestLoggingMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -70,7 +82,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
-    "allauth.usersessions.middleware.UserSessionsMiddleware",
+    "apps.accounts.middleware.ThrottledUserSessionsMiddleware",
     "apps.core.tenancy.middleware.TenantMiddleware",
 ]
 
@@ -93,25 +105,76 @@ TEMPLATES = [
 ]
 
 # ----------------------------------------------------------------------------- database / cache
+# Per-connection server settings. Every value is a hard stop that turns a hung query into an error the
+# client sees, instead of a thread that waits forever (statement_timeout also bounds RLS-heavy queries).
+# The one-off migrate task raises DB_STATEMENT_TIMEOUT_MS; nothing else should.
+_DB_OPTIONS_FLAGS = " ".join(
+    [
+        f"-c statement_timeout={env.int('DB_STATEMENT_TIMEOUT_MS', default=15000)}",
+        f"-c lock_timeout={env.int('DB_LOCK_TIMEOUT_MS', default=5000)}",
+        f"-c idle_in_transaction_session_timeout={env.int('DB_IDLE_IN_TRANSACTION_TIMEOUT_MS', default=60000)}",
+    ]
+)
+# Connection strategy (docs/architecture/scaling.md, "Database connections"):
+# - DB_POOL=true (production): psycopg's in-process pool, hard-capped at DB_POOL_MAX_SIZE connections per
+#   process (default: one per gunicorn thread). A thread that cannot get a connection within
+#   DB_POOL_TIMEOUT seconds fails fast instead of queueing. Total connections per task are therefore
+#   bounded by GUNICORN_WORKERS x DB_POOL_MAX_SIZE, whatever the traffic does.
+# - DB_POOL=false (development/tests): Django persistent connections (CONN_MAX_AGE).
+# RLS context uses SET LOCAL (transaction-scoped), so both strategies and transaction-mode proxies
+# (RDS Proxy / PgBouncer) are safe.
+DB_POOL = env.bool("DB_POOL", default=False)
+DB_POOL_MAX_SIZE = env.int("DB_POOL_MAX_SIZE", default=env.int("GUNICORN_THREADS", default=4))
 DATABASES = {
     "default": {
         **env.db("DATABASE_URL"),
-        "CONN_MAX_AGE": 0,
+        "CONN_MAX_AGE": 0 if DB_POOL else env.int("DB_CONN_MAX_AGE", default=60),
         "CONN_HEALTH_CHECKS": True,
-        "OPTIONS": {"options": "-c statement_timeout=15000"},
+        "OPTIONS": {
+            "options": _DB_OPTIONS_FLAGS,
+            "connect_timeout": env.int("DB_CONNECT_TIMEOUT", default=5),
+            # Named prepared statements pin connections on RDS Proxy / PgBouncer; keep them off.
+            "prepare_threshold": None,
+        },
     }
 }
+if DB_POOL:
+    DATABASES["default"]["OPTIONS"]["pool"] = {
+        "min_size": env.int("DB_POOL_MIN_SIZE", default=1),
+        "max_size": DB_POOL_MAX_SIZE,
+        "timeout": env.float("DB_POOL_TIMEOUT", default=5.0),
+        "max_lifetime": env.int("DB_POOL_MAX_LIFETIME", default=1800),
+        "max_idle": env.int("DB_POOL_MAX_IDLE", default=300),
+        "reconnect_timeout": env.float("DB_POOL_RECONNECT_TIMEOUT", default=30.0),
+    }
 # Transactions are opened by TenantMiddleware (so SET LOCAL covers the whole request).
 ATOMIC_REQUESTS = False
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+# CACHE_FAIL_OPEN: when Redis is unreachable, cache reads return None and writes are dropped (logged) so
+# sessions fall back to the database and pages keep loading. The price is that DRF/allauth throttles
+# cannot count during the outage; the WAF rate rules remain as the outer limit. Production turns this on.
+CACHE_FAIL_OPEN = env.bool("CACHE_FAIL_OPEN", default=False)
+DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": REDIS_URL,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": CACHE_FAIL_OPEN,
+            "SOCKET_CONNECT_TIMEOUT": env.float("REDIS_CONNECT_TIMEOUT", default=2.0),
+            "SOCKET_TIMEOUT": env.float("REDIS_SOCKET_TIMEOUT", default=2.0),
+            "CONNECTION_POOL_KWARGS": {
+                # Per process: one per request thread plus headroom; total = tasks x workers x this.
+                "max_connections": env.int("REDIS_MAX_CONNECTIONS", default=20),
+                "retry_on_timeout": True,
+            },
+        },
         "KEY_PREFIX": "keel",
+        # Nothing is cached without an expiry; every key has its own TTL (never rely on this default).
+        "TIMEOUT": 300,
     }
 }
 
@@ -154,6 +217,7 @@ HEADLESS_ADAPTER = "apps.accounts.adapters.HeadlessAdapter"
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
+ACCOUNT_SIGNUP_FORM_CLASS = "apps.accounts.forms.SignupForm"  # adds an optional display name
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = False
@@ -186,6 +250,8 @@ MFA_TOTP_ISSUER = SITE_NAME
 MFA_RECOVERY_CODE_COUNT = 10
 
 USERSESSIONS_TRACK_ACTIVITY = True
+# Write "last seen" at most this often per session (see apps.accounts.middleware).
+USERSESSIONS_ACTIVITY_INTERVAL = 300
 
 HEADLESS_ONLY = True
 HEADLESS_CLIENTS = ("browser",)
@@ -208,6 +274,9 @@ REST_FRAMEWORK = {
         "security.throttles.UserThrottle",
         "security.throttles.ScopedThrottle",
     ],
+    # ClientIPMiddleware already resolved the real client into REMOTE_ADDR; DRF must not read
+    # X-Forwarded-For itself (with NUM_PROXIES unset it would key throttles on a client-controlled header).
+    "NUM_PROXIES": 0,
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
         "user": "600/min",
@@ -236,7 +305,14 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 500
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 # CSV imports/exports live outside MEDIA/STATIC and are never served directly (see apps.importexport.storage).
+# "filesystem" is for a single local process; any multi-instance deployment must use "s3" so every
+# instance and worker sees the same files.
+PRIVATE_STORAGE_BACKEND = env("PRIVATE_STORAGE_BACKEND", default="filesystem")
 PRIVATE_STORAGE_ROOT = env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "private"))
+PRIVATE_STORAGE_BUCKET = env("PRIVATE_STORAGE_BUCKET", default="")
+PRIVATE_STORAGE_KMS_KEY_ID = env("PRIVATE_STORAGE_KMS_KEY_ID", default="")
+PRIVATE_STORAGE_URL_TTL_SECONDS = env.int("PRIVATE_STORAGE_URL_TTL_SECONDS", default=60)
+AWS_REGION = env("AWS_REGION", default="ap-south-1")
 
 # ----------------------------------------------------------------------------- security headers
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -268,12 +344,118 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@keel.local")
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_ACKS_LATE = True
+# A task whose worker dies is redelivered (with acks_late) instead of silently lost. Every task is
+# idempotent by status checks (jobs), cache markers (emails) or being read-only (metrics).
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TASK_TIME_LIMIT = 600
 CELERY_TASK_SOFT_TIME_LIMIT = 540
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_MAX_RETRIES = None  # keep reconnecting; the worker must outlive a Redis failover
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    # Redis has no real acks: an unacked message is redelivered after visibility_timeout. It must exceed
+    # the longest task's hard limit (imports: 1h) or a slow import would be started twice.
+    "visibility_timeout": env.int("CELERY_VISIBILITY_TIMEOUT", default=2 * 3600),
+    "socket_timeout": 30,
+    "socket_connect_timeout": 5,
+    "socket_keepalive": True,
+    "max_connections": env.int("CELERY_BROKER_MAX_CONNECTIONS", default=20),
+    "retry_on_timeout": True,
+}
+# Queue isolation (docs/architecture/scaling.md, "Celery"): heavy work never shares a worker with the
+# work the interactive product depends on. Worker services consume:
+#   worker-critical: default, notifications      worker-heavy: imports, exports, reports
+#   (ai is declared for Phase 5 and has no consumer yet)
+CELERY_TASK_QUEUES = {
+    name: {"exchange": name, "routing_key": name}
+    for name in ("default", "imports", "exports", "notifications", "reports", "ai")
+}
+CELERY_TASK_ROUTES = {
+    "importexport.run_import": {"queue": "imports"},
+    "importexport.run_export": {"queue": "exports"},
+    "importexport.purge_expired": {"queue": "default"},
+    "accounts.send_email": {"queue": "notifications"},
+    "observability.publish_celery_metrics": {"queue": "default"},
+    "activities.send_reminders": {"queue": "notifications"},
+    "notifications.deal_health_sweep": {"queue": "reports"},
+    "messaging.send_email_message": {"queue": "notifications"},
+    "messaging.send_whatsapp_message": {"queue": "notifications"},
+    "messaging.sync_email_accounts": {"queue": "default"},
+    "messaging.sync_email_account": {"queue": "default"},
+}
+CELERY_BEAT_SCHEDULE = {
+    "observability.publish_celery_metrics": {
+        "task": "observability.publish_celery_metrics",
+        "schedule": 30.0,
+        "options": {"expires": 25},  # a stale metrics tick is worthless; drop it rather than queue it
+    },
+    "importexport.purge_expired": {"task": "importexport.purge_expired", "schedule": 6 * 3600.0},
+    "activities.send_reminders": {"task": "activities.send_reminders", "schedule": 60.0, "options": {"expires": 55}},
+    "notifications.deal_health_sweep": {"task": "notifications.deal_health_sweep", "schedule": 24 * 3600.0},
+    "messaging.sync_email_accounts": {
+        "task": "messaging.sync_email_accounts",
+        "schedule": 300.0,
+        "options": {"expires": 280},
+    },
+}
+# Emails are queued (notifications queue) unless a deployment opts out; tests run tasks eagerly.
+EMAIL_ASYNC = env.bool("EMAIL_ASYNC", default=True)
+
+# ----------------------------------------------------------------------------- scaling / observability
+# Number of proxy hops that append to X-Forwarded-For in front of this process (CloudFront + ALB = 2).
+TRUSTED_PROXY_COUNT = env.int("TRUSTED_PROXY_COUNT", default=0)
+# Forwarded (public) requests to /health/ready/ get a shallow answer; only the load balancer's direct
+# probes run the dependency checks.
+HEALTH_READY_INTERNAL_ONLY = env.bool("HEALTH_READY_INTERNAL_ONLY", default=True)
+SLOW_REQUEST_MS = env.int("SLOW_REQUEST_MS", default=1000)
+EXPOSE_INSTANCE_HEADER = env.bool("EXPOSE_INSTANCE_HEADER", default=False)
+# "log" prints metrics as structured log lines; "cloudwatch" publishes to CloudWatch (task role).
+METRICS_BACKEND = env("METRICS_BACKEND", default="log")
+METRICS_NAMESPACE = env("METRICS_NAMESPACE", default="Keel")
+# Dashboard aggregates are cached per organization + membership + permission scope; a write to any
+# CRM record of the organization invalidates them (version key), the TTL bounds staleness otherwise.
+DASHBOARD_CACHE_SECONDS = env.int("DASHBOARD_CACHE_SECONDS", default=60)
+# List "count" endpoints stop counting here and report the value as a lower bound.
+LIST_COUNT_CAP = env.int("LIST_COUNT_CAP", default=10_000)
+# Import/export fairness: an organization may have at most this many jobs pending or running at once.
+MAX_ACTIVE_JOBS_PER_ORG = env.int("MAX_ACTIVE_JOBS_PER_ORG", default=3)
+
+# ----------------------------------------------------------------------------- communication (email / WhatsApp)
+# Provider credentials come only from the environment. Without them the UI shows "not configured" and
+# nothing can be connected; provider tokens are stored encrypted with MESSAGING_ENCRYPTION_KEYS.
+MESSAGING_PROVIDER_BACKEND = env("MESSAGING_PROVIDER_BACKEND", default="live")  # live | fake (dev/tests)
+MESSAGING_ENCRYPTION_KEYS = env("MESSAGING_ENCRYPTION_KEYS", default="")
+EMAIL_OAUTH_GOOGLE_CLIENT_ID = env("EMAIL_OAUTH_GOOGLE_CLIENT_ID", default="")
+EMAIL_OAUTH_GOOGLE_CLIENT_SECRET = env("EMAIL_OAUTH_GOOGLE_CLIENT_SECRET", default="")
+EMAIL_OAUTH_MICROSOFT_CLIENT_ID = env("EMAIL_OAUTH_MICROSOFT_CLIENT_ID", default="")
+EMAIL_OAUTH_MICROSOFT_CLIENT_SECRET = env("EMAIL_OAUTH_MICROSOFT_CLIENT_SECRET", default="")
+EMAIL_OAUTH_MICROSOFT_TENANT = env("EMAIL_OAUTH_MICROSOFT_TENANT", default="common")
+WHATSAPP_API_VERSION = env("WHATSAPP_API_VERSION", default="v21.0")
+WHATSAPP_APP_SECRET = env("WHATSAPP_APP_SECRET", default="")  # webhook signature (X-Hub-Signature-256)
+WHATSAPP_VERIFY_TOKEN = env("WHATSAPP_VERIFY_TOKEN", default="")  # webhook verification handshake
+
+# ----------------------------------------------------------------------------- AI
+# The assistant never touches the database: it receives permission-checked, delimited context and
+# returns drafts a person reviews. Model routing keeps cost bounded: the fast model drafts and
+# summarises; the strong model reasons over a whole deal.
+AI_PROVIDER_BACKEND = env("AI_PROVIDER_BACKEND", default="anthropic")  # anthropic | fake
+ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
+AI_MODEL_FAST = env("AI_MODEL_FAST", default="claude-haiku-4-5")
+AI_MODEL_STRONG = env("AI_MODEL_STRONG", default="claude-opus-5")
+AI_MAX_TOKENS_DRAFT = env.int("AI_MAX_TOKENS_DRAFT", default=1200)
+AI_MAX_TOKENS_SUMMARY = env.int("AI_MAX_TOKENS_SUMMARY", default=1500)
+AI_REQUEST_TIMEOUT_SECONDS = env.float("AI_REQUEST_TIMEOUT_SECONDS", default=45.0)
+AI_USER_REQUESTS_PER_HOUR = env.int("AI_USER_REQUESTS_PER_HOUR", default=60)
+AI_ORG_TOKENS_PER_DAY = env.int("AI_ORG_TOKENS_PER_DAY", default=2_000_000)
+# USD per million input / output tokens, used for the usage ledger's cost estimate.
+AI_MODEL_RATES_USD_PER_MTOK = {
+    "claude-opus-5": (5.0, 25.0),
+    "claude-sonnet-5": (2.0, 10.0),
+    "claude-haiku-4-5": (1.0, 5.0),
+    "default": (5.0, 25.0),
+}
 
 # ----------------------------------------------------------------------------- i18n / static
 LANGUAGE_CODE = "en"
@@ -285,5 +467,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # ----------------------------------------------------------------------------- product limits
 MAX_ORGANIZATIONS_PER_USER = 5
+# Defaults for the workspace created automatically for every verified account (editable in Settings).
+DEFAULT_ORGANIZATION_CURRENCY = env("DEFAULT_ORGANIZATION_CURRENCY", default="INR")
+DEFAULT_ORGANIZATION_TIMEZONE = env("DEFAULT_ORGANIZATION_TIMEZONE", default="Asia/Kolkata")
 MAX_PENDING_INVITATIONS_PER_ORG = 200
 INVITATION_EXPIRY_DAYS = 7

@@ -7,12 +7,22 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.api import views as account_views
+from apps.activities.api import ActivityViewSet
+from apps.ai.api import (
+    AIEmailDraftView,
+    AIFollowUpView,
+    AIUsageView,
+    ContactScoreView,
+    DealSummaryView,
+)
 from apps.audit.api import AuditEventViewSet
 from apps.authz.api import RolesView
 from apps.companies.api import CompanyViewSet
 from apps.contacts.api import ContactViewSet
 from apps.customfields.api import CustomFieldDefinitionViewSet
+from apps.dashboards.api import DashboardSummaryView
 from apps.deals.api import DealViewSet
+from apps.forecasting.api import ForecastView
 from apps.importexport.api import (
     CompanyExportViewSet,
     CompanyImportViewSet,
@@ -22,7 +32,17 @@ from apps.importexport.api import (
     ProductExportViewSet,
     ProductImportViewSet,
 )
+from apps.messaging.api import (
+    EmailAccountViewSet,
+    EmailMessageViewSet,
+    EmailTemplateViewSet,
+    WhatsAppAccountView,
+    WhatsAppMessageViewSet,
+    WhatsAppTemplateViewSet,
+)
+from apps.messaging.webhooks import WhatsAppWebhookView
 from apps.notes.api import NoteViewSet, TimelineView
+from apps.notifications.api import NotificationPreferenceView, NotificationViewSet
 from apps.pipelines.api import PipelineStageViewSet, PipelineViewSet
 from apps.products.api import ProductViewSet
 from apps.search.api import GlobalSearchView
@@ -53,17 +73,37 @@ router.register("exports/contacts", ContactExportViewSet, basename="export-conta
 router.register("exports/companies", CompanyExportViewSet, basename="export-company")
 router.register("exports/products", ProductExportViewSet, basename="export-product")
 router.register("exports/deals", DealExportViewSet, basename="export-deal")
+# Sales operations
+router.register("activities", ActivityViewSet, basename="activity")
+router.register("notifications", NotificationViewSet, basename="notification")
+# Communication
+router.register("email/accounts", EmailAccountViewSet, basename="email-account")
+router.register("email/templates", EmailTemplateViewSet, basename="email-template")
+router.register("email/messages", EmailMessageViewSet, basename="email-message")
+router.register("whatsapp/templates", WhatsAppTemplateViewSet, basename="whatsapp-template")
+router.register("whatsapp/messages", WhatsAppMessageViewSet, basename="whatsapp-message")
 
 _schema_permission = [AllowAny] if settings.DEBUG else [IsAuthenticated]
 
 urlpatterns = [
     path("session/", account_views.SessionView.as_view(), name="session"),
     path("session/switch-organization/", account_views.SwitchOrganizationView.as_view(), name="session-switch"),
+    path("session/bootstrap/", account_views.SessionBootstrapView.as_view(), name="session-bootstrap"),
     path("organizations/", account_views.OrganizationCreateView.as_view(), name="organization-create"),
     path("organizations/current/", account_views.OrganizationCurrentView.as_view(), name="organization-current"),
     path("roles/", RolesView.as_view(), name="roles"),
     path("search/", GlobalSearchView.as_view(), name="search"),
+    path("dashboard/", DashboardSummaryView.as_view(), name="dashboard"),
     path("timeline/", TimelineView.as_view(), name="timeline"),
+    path("forecast/", ForecastView.as_view(), name="forecast"),
+    path("notifications/preferences/", NotificationPreferenceView.as_view(), name="notification-preferences"),
+    path("whatsapp/account/", WhatsAppAccountView.as_view(), name="whatsapp-account"),
+    path("whatsapp/webhook/", WhatsAppWebhookView.as_view(), name="whatsapp-webhook"),
+    path("ai/deals/<uuid:deal_id>/summary/", DealSummaryView.as_view(), name="ai-deal-summary"),
+    path("ai/contacts/<uuid:contact_id>/score/", ContactScoreView.as_view(), name="ai-contact-score"),
+    path("ai/follow-up/", AIFollowUpView.as_view(), name="ai-follow-up"),
+    path("ai/email/", AIEmailDraftView.as_view(), name="ai-email"),
+    path("ai/usage/", AIUsageView.as_view(), name="ai-usage"),
     path("schema/", SpectacularAPIView.as_view(permission_classes=_schema_permission), name="schema"),
     path(
         "docs/",

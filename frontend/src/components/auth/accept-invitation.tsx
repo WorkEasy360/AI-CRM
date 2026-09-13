@@ -32,7 +32,7 @@ export function AcceptInvitation() {
     mutationFn: () => acceptInvitation(token),
     onSuccess: async () => {
       await queryClient.invalidateQueries();
-      router.replace("/dashboard");
+      router.replace("/pipeline");
     },
   });
 

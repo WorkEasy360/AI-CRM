@@ -24,6 +24,7 @@ from apps.authz.service import check, scope
 from apps.core.concurrency import save_with_version
 from apps.core.exceptions import DomainError
 from apps.core.models import CrmRecord
+from apps.dashboards import cache as dashboard_cache
 
 MAX_BULK_IDS = 500
 BULK_ACTIONS = ("archive", "restore", "reassign", "add_tag", "remove_tag")
@@ -68,6 +69,7 @@ def resolve_owner(
 def create(
     actor: Actor, spec: RecordSpec, data: dict[str, Any], *, request: Any = None, audit_extra: dict | None = None
 ):
+    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("create"))
     if "custom_data" not in data:
         # Required custom fields apply even when the client omits custom_data entirely.
@@ -88,6 +90,13 @@ def create(
     return obj
 
 
+def check_update(actor: Actor, spec: RecordSpec, obj: Any) -> None:
+    """Authorize an edit of ``obj`` (used by callers that write through a side service first)."""
+    check(actor, spec.perm("update"), obj)
+    if obj.archived_at is not None:
+        raise DomainError("Restore the record before editing it.", code="record_archived", status_code=409)
+
+
 @transaction.atomic
 def update(
     actor: Actor,
@@ -99,6 +108,7 @@ def update(
     request: Any = None,
     extra_update_fields: list[str] | None = None,
 ):
+    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("update"), obj)
     if obj.archived_at is not None:
         raise DomainError("Restore the record before editing it.", code="record_archived", status_code=409)
@@ -136,11 +146,23 @@ def update(
         resource_type=spec.entity_type,
         metadata=metadata,
     )
+    if "owner" in changed and spec.entity_type == "deal" and obj.owner_id and obj.owner_id != actor.membership.pk:
+        from apps.notifications import service as notifications
+
+        notifications.notify(
+            obj.owner_id,
+            kind="deal_assigned",
+            title=f"{spec.display(obj)} was assigned to you",
+            body=f"Assigned by {actor.user.display_name}.",
+            entity_type="deal",
+            entity_id=obj.pk,
+        )
     return obj
 
 
 @transaction.atomic
 def archive(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
+    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("delete"), obj)
     if obj.archived_at is not None:
         return obj
@@ -160,6 +182,7 @@ def archive(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
 
 @transaction.atomic
 def restore(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
+    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("delete"), obj)
     if obj.archived_at is None:
         return obj
@@ -189,6 +212,7 @@ def bulk(
 ) -> dict[str, Any]:
     """Apply one action to many records. Refuses the whole request if any id is outside the scope."""
     check(actor, spec.perm("bulk_update"))
+    dashboard_cache.invalidate(actor.organization.pk)
     if action not in BULK_ACTIONS:
         raise ValidationError({"action": f"Allowed actions: {', '.join(BULK_ACTIONS)}."})
     if len(ids) > MAX_BULK_IDS:

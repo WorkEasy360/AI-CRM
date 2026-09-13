@@ -31,18 +31,27 @@ def register(entity_types: tuple[str, ...]) -> Callable[[Provider], Provider]:
     return decorator
 
 
-def build(actor: Actor, entity_type: str, record: Any) -> list[TimelineEvent]:
+def build(
+    actor: Actor, entity_type: str, record: Any, *, kinds: set[str] | None = None, limit: int = MAX_EVENTS
+) -> list[TimelineEvent]:
+    """Merge every provider's events, newest first. ``kinds`` keeps only events whose kind (or its
+    ``prefix.`` family, e.g. ``deal`` for ``deal.stage_changed``) is listed."""
     events: list[TimelineEvent] = []
     for provider in _PROVIDERS.get(entity_type, []):
         events.extend(provider(actor, entity_type, record))
+    if kinds:
+        events = [e for e in events if e["kind"] in kinds or e["kind"].split(".", 1)[0] in kinds]
     events.sort(key=lambda e: e["occurred_at"], reverse=True)
-    return events[:MAX_EVENTS]
+    return events[: max(1, min(limit, MAX_EVENTS))]
 
 
-def _member(m: Any) -> dict[str, Any] | None:
+def member_ref(m: Any) -> dict[str, Any] | None:
     if m is None:
         return None
     return {"id": str(m.pk), "display_name": m.user.display_name}
+
+
+_member = member_ref
 
 
 @register(("contact", "company", "deal", "product"))

@@ -27,7 +27,8 @@ from apps.authz.reauth import require_recent_auth
 from apps.authz.roles import ADMIN, ASSIGNABLE_BY_ADMIN, OWNER, SYSTEM_ROLES
 from apps.authz.service import check
 from apps.core.exceptions import ConflictError, DomainError
-from apps.core.tenancy.context import get_context, system_context, tenant_context
+from apps.core.tenancy.context import get_context, set_db_user, system_context, tenant_context
+from apps.core.tenancy.middleware import ACTIVE_MEMBERSHIP_KEY
 
 # ----------------------------------------------------------------------------- helpers
 
@@ -81,7 +82,13 @@ def _active_owner_count() -> int:
 
 
 def create_organization(
-    user: User, *, name: str, base_currency: str = "INR", timezone_name: str = "Asia/Kolkata", request=None
+    user: User,
+    *,
+    name: str,
+    base_currency: str = "INR",
+    timezone_name: str = "Asia/Kolkata",
+    request=None,
+    source: str = "user",
 ) -> Membership:
     name = (name or "").strip()
     if not name:
@@ -101,13 +108,73 @@ def create_organization(
     with tenant_context(org.pk, user_id=user.pk, reason="organization.create"):
         membership = Membership.objects.create(user=user, role=_system_role(OWNER), joined_at=timezone.now())
         membership.organization = org  # cache the relation: outside a context RLS hides the row
-        audit.record(actions.ORG_CREATED, request=request, user=user, resource=org, metadata={"name": name})
+        audit.record(
+            actions.ORG_CREATED, request=request, user=user, resource=org, metadata={"name": name, "source": source}
+        )
         # Every organization starts with a usable sales pipeline (Phase 2).
         from apps.pipelines.services import ensure_default_pipeline
 
         ensure_default_pipeline()
     if request is not None:
         request.session.cycle_key()
+        set_active_membership(request, membership)
+    return membership
+
+
+# ----------------------------------------------------------------------------- automatic onboarding
+
+
+def personal_organization_name(user: User) -> str:
+    """Display name of the workspace created for a new account; the owner can rename it in Settings."""
+    base = (user.first_name or "").strip() or user.email.split("@", 1)[0]
+    base = " ".join(base.split())[:100] or "My"
+    return f"{base}'s workspace"
+
+
+def ensure_personal_organization(user: User) -> Membership | None:
+    """Create the user's own workspace the first time they need one. Idempotent and race-safe.
+
+    Called after email verification and again on every login as a fallback (accounts verified
+    before this existed). Nothing about the organization comes from the client: name, defaults,
+    owner role and the default pipeline are all decided here.
+
+    Concurrency: the user row is locked for the duration of the transaction, so two overlapping
+    callers (double verification callback, a refreshed login, a retried bootstrap request) serialize
+    and the second one sees the membership the first one committed. Any failure inside rolls the
+    whole workspace back: no organization without its owner membership and default pipeline.
+
+    Returns the new owner membership, or None when the user already belongs to an organization.
+    """
+    with system_context(reason="organization.auto_create"), transaction.atomic():
+        locked = User.objects.select_for_update().get(pk=user.pk)
+        if not locked.is_active:
+            return None
+        if Membership.identity.for_user(locked).exists():
+            return None
+        return create_organization(
+            locked,
+            name=personal_organization_name(locked),
+            base_currency=settings.DEFAULT_ORGANIZATION_CURRENCY,
+            timezone_name=settings.DEFAULT_ORGANIZATION_TIMEZONE,
+            source="auto",
+        )
+
+
+def bootstrap_session(request, user: User) -> Membership | None:
+    """Make sure the signed-in user has somewhere to land: a workspace and an active membership.
+
+    Used by the login signal and by ``POST /session/bootstrap/`` for sessions that have no active
+    organization. Idempotent: an existing active membership is simply (re)activated.
+    """
+    from apps.accounts.session import pick_default_membership
+
+    ensure_personal_organization(user)
+    set_db_user(user.pk)
+    membership = pick_default_membership(user)
+    if membership is not None and request is not None:
+        current = request.session.get(ACTIVE_MEMBERSHIP_KEY)
+        if current != str(membership.pk):
+            request.session.cycle_key()
         set_active_membership(request, membership)
     return membership
 

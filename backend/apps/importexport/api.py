@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
 from rest_framework.parsers import JSONParser, MultiPartParser
@@ -165,9 +165,13 @@ class _ExportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
     @action(detail=True, methods=["get"])
     def download(self, request, pk=None):
         job = self.get_object()
-        data, filename = service.open_download(request.actor, job, request=request._request)
-        response = HttpResponse(data, content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        download = service.open_download(request.actor, job, request=request._request)
+        if download.url is not None:
+            # Object storage: a short-lived signed URL (attachment disposition enforced by the URL itself).
+            response = HttpResponseRedirect(download.url)
+        else:
+            response = HttpResponse(download.data, content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="{download.filename}"'
         response["X-Content-Type-Options"] = "nosniff"
         response["Cache-Control"] = "no-store"
         return response

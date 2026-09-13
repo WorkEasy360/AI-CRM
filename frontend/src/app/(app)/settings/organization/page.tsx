@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { OrganizationPage } from "@/components/settings/organization-page";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Organization settings" };
-
-export default function Page() {
-  return <OrganizationPage />;
+/** Kept so old links keep working; the page now lives under Settings / General. */
+export default function OrganizationRedirect() {
+  redirect("/settings/general");
 }

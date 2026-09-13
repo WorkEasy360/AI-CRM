@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, cast
 
 import structlog
 from django.conf import settings
-from django.db import transaction
+from django.db import connections, transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 
@@ -37,13 +37,18 @@ class TenantMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         request.actor = None  # type: ignore[attr-defined]
+        # When this is the outermost transaction, COMMIT/ROLLBACK resets every SET LOCAL by itself;
+        # the explicit restore below is only needed when an enclosing transaction (tests) outlives it.
+        nested = connections["default"].in_atomic_block
         with transaction.atomic():
             previous = get_context()
             try:
                 return self._handle(request)
             finally:
                 # Whatever the view (or a login signal) set at the DB level, restore the outer state.
-                apply_db_context(previous)
+                # One round trip here instead of one per nested bind_context() level in _handle().
+                if nested:
+                    apply_db_context(previous)
 
     def _handle(self, request: HttpRequest) -> HttpResponse:
         user = getattr(request, "user", None)
@@ -57,7 +62,7 @@ class TenantMiddleware:
             )
         # Identity-level context: lets the user see their own memberships/organizations (RLS user
         # policies) but grants no tenant scope. Nested contexts restore to this on exit.
-        with bind_context(TenantContext(organization_id=None, user_id=user.pk)):
+        with bind_context(TenantContext(organization_id=None, user_id=user.pk), restore_db=False):
             actor = self._resolve_actor(request)
             if actor is None:
                 return self.get_response(request)
@@ -67,7 +72,7 @@ class TenantMiddleware:
                 user_id=user.pk,
                 membership_id=actor.membership.id,
             )
-            with bind_context(ctx):
+            with bind_context(ctx, restore_db=False):
                 return self.get_response(request)
 
     @staticmethod

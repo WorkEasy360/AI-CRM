@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Activity } from "lucide-react";
-import { ComingSoon } from "@/components/coming-soon";
+import * as React from "react";
+import { ActivitiesPage } from "@/components/activities/activities-page";
+import { SkeletonRows } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = { title: "Activities" };
 
-export default function ActivitiesPage() {
-  return <ComingSoon title="Activities" phase="Phase 2" icon={<Activity />} description="Calls, meetings, emails and tasks in one timeline." />;
+export default function Page() {
+  return (
+    <React.Suspense fallback={<SkeletonRows rows={4} />}>
+      <ActivitiesPage />
+    </React.Suspense>
+  );
 }

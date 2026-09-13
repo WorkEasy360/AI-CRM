@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from django.db import IntegrityError, transaction
+from django.db.models import QuerySet
 from rest_framework.exceptions import ValidationError
 
 from apps.audit import service as audit
@@ -79,10 +80,10 @@ def delete_tag(actor: Actor, tag: Tag, *, request: Any = None) -> None:
     )
 
 
-def tags_for(entity_type: str, entity_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, list[Tag]]:
-    """Batch-load tags for a page of records (no N+1)."""
-    ids = list(entity_ids)
-    if not ids:
+def tags_for(entity_type: str, entity_ids: Iterable[uuid.UUID] | QuerySet) -> dict[uuid.UUID, list[Tag]]:
+    """Batch-load tags for a page of records (no N+1). A queryset of ids is used as a subquery."""
+    ids = entity_ids if isinstance(entity_ids, QuerySet) else list(entity_ids)
+    if not isinstance(ids, QuerySet) and not ids:
         return {}
     out: dict[uuid.UUID, list[Tag]] = defaultdict(list)
     items = (

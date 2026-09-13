@@ -1,0 +1,5 @@
+results/*
+!results/.gitkeep
+users.json
+# empty mountpoint Docker Desktop leaves behind when users.json is bind-mounted into /scripts
+k6/users.json

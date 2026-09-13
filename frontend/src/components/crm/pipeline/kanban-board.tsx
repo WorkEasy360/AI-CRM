@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Building2, CalendarDays, GripVertical, MoreHorizontal, User } from "lucide-react";
+import { Building2, CalendarClock, CalendarDays, GripVertical, MoreHorizontal, User } from "lucide-react";
+import { isPastClose, weightedTotal } from "@/components/crm/deals/deal-helpers";
 import { useMoveStage, type StageTarget } from "@/components/crm/deals/move-stage-dialog";
-import { TagList } from "@/components/crm/tag-picker";
+import { RiskBadge } from "@/components/crm/risk-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -14,9 +15,21 @@ import { cn, formatDate } from "@/lib/utils";
 
 const DRAG_MIME = "application/x-keel-deal";
 
+/** Client-side ordering inside each column; "recent" keeps the server order (most recently moved first). */
+export type BoardSort = "recent" | "amount" | "close" | "name";
+
 interface PendingMove {
   stageId: string;
   deal: Deal;
+}
+
+function sortDeals(deals: Deal[], sort: BoardSort): Deal[] {
+  if (sort === "recent") return deals;
+  const copy = [...deals];
+  if (sort === "amount") copy.sort((a, b) => Number(b.amount_base || 0) - Number(a.amount_base || 0));
+  else if (sort === "name") copy.sort((a, b) => a.name.localeCompare(b.name));
+  else if (sort === "close") copy.sort((a, b) => (a.expected_close_date ?? "9999").localeCompare(b.expected_close_date ?? "9999"));
+  return copy;
 }
 
 /** Apply optimistic moves on top of the server board so cards render in their new column instantly. */
@@ -43,13 +56,18 @@ export function KanbanBoard({
   board,
   baseCurrency,
   canMove = true,
+  showRisk = true,
   isFetching,
+  sort = "recent",
 }: {
   board: Board;
   baseCurrency: string;
   /** Whether the actor holds `deals.change_stage`; the API re-checks per deal. */
   canMove?: boolean;
+  /** Whether the actor holds `ai.scores.view`; hides the risk dot otherwise. */
+  showRisk?: boolean;
   isFetching?: boolean;
+  sort?: BoardSort;
 }) {
   const [pending, setPending] = React.useState<Record<string, PendingMove>>({});
   const [dragging, setDragging] = React.useState<string | null>(null);
@@ -86,7 +104,7 @@ export function KanbanBoard({
     });
   }, [board]);
 
-  const stages = React.useMemo(() => applyPending(board, pending), [board, pending]);
+  const stages = React.useMemo(() => applyPending(board, pending).map((s) => ({ ...s, deals: sortDeals(s.deals, sort) })), [board, pending, sort]);
   const targets: StageTarget[] = React.useMemo(() => board.stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), [board.stages]);
   const dealsById = React.useMemo(() => {
     const map = new Map<string, Deal>();
@@ -105,15 +123,17 @@ export function KanbanBoard({
   }
 
   return (
-    <div className={cn("-mx-1 overflow-x-auto pb-3 transition-opacity", isFetching && "opacity-80")} aria-busy={isFetching || undefined}>
-      <ol className="flex min-w-max items-start gap-3 px-1" aria-label="Pipeline stages">
+    <div className={cn("-mx-1 min-h-0 flex-1 overflow-x-auto pb-2 transition-opacity", isFetching && "opacity-80")} aria-busy={isFetching || undefined}>
+      <ol className="flex h-full min-w-max items-stretch gap-2.5 px-1" aria-label="Pipeline stages">
         {stages.map((stage) => {
           const isOver = overStage === stage.id && dragging !== null;
+          // Weighted total is only meaningful when every card of the column is loaded.
+          const weighted = stage.kind === "open" && !stage.has_more && stage.deals.length > 0 ? weightedTotal(stage.deals) : null;
           return (
             <li
               key={stage.id}
               className={cn(
-                "flex w-72 shrink-0 flex-col rounded-md border bg-surface-sunken transition-colors",
+                "flex w-64 shrink-0 flex-col rounded-md border bg-surface-sunken transition-colors",
                 isOver ? "border-primary bg-primary-soft/40" : "border-border",
               )}
               onDragOver={(e) => {
@@ -134,23 +154,27 @@ export function KanbanBoard({
               }}
               data-testid={`column-${stage.id}`}
             >
-              <header className="flex items-center gap-2 border-b border-border px-3 py-2">
-                <span className={cn("size-2.5 shrink-0 rounded-full", stageDotClass(stage.color_token))} aria-hidden />
-                <h3 className="min-w-0 flex-1 truncate text-sm font-semibold" title={stage.name}>
-                  {stage.name}
-                </h3>
-                <span className="rounded-full bg-bg-subtle px-2 py-0.5 text-xs font-medium text-fg-muted" aria-label={`${stage.deal_count} deals`}>
-                  {stage.deal_count}
-                </span>
+              <header className="px-2.5 pb-1.5 pt-2">
+                <div className="flex items-center gap-2">
+                  <span className={cn("size-2 shrink-0 rounded-full", stageDotClass(stage.color_token))} aria-hidden />
+                  <h3 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-fg" title={stage.name}>
+                    {stage.name}
+                  </h3>
+                  <span className="rounded-full bg-surface px-1.5 py-0.5 text-[11px] font-medium text-fg-muted" aria-label={`${stage.deal_count} deals`}>
+                    {stage.deal_count}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs font-medium tabular-nums text-fg-muted">{formatMoney(stage.total_amount_base, baseCurrency)}</p>
+                {weighted !== null ? <p className="text-[11px] tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
               </header>
-              <p className="px-3 pt-2 text-xs text-fg-subtle">{formatMoney(stage.total_amount_base, baseCurrency)}</p>
-              <ul className="flex min-h-24 flex-col gap-2 p-2" aria-label={`${stage.name} deals`}>
+              <ul className="flex min-h-20 flex-1 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5" aria-label={`${stage.name} deals`}>
                 {stage.deals.map((deal) => (
                   <DealCard
                     key={deal.id}
                     deal={deal}
                     stages={targets}
                     canMove={canMove}
+                    showRisk={showRisk}
                     dragging={dragging === deal.id}
                     busy={move.pendingDealId === deal.id}
                     onDragStart={(e) => {
@@ -166,11 +190,11 @@ export function KanbanBoard({
                     onMove={(target) => move.requestMove(deal, target)}
                   />
                 ))}
-                {stage.deals.length === 0 ? <li className="py-6 text-center text-xs text-fg-subtle">No deals</li> : null}
+                {stage.deals.length === 0 ? <li className="py-5 text-center text-xs text-fg-subtle">No deals</li> : null}
               </ul>
               {stage.has_more ? (
-                <p className="border-t border-border px-3 py-2 text-xs text-fg-subtle">
-                  +{Math.max(stage.deal_count - stage.deals.length, 1)} more — use the list view to see all
+                <p className="border-t border-border px-2.5 py-1.5 text-[11px] text-fg-subtle">
+                  +{Math.max(stage.deal_count - stage.deals.length, 1)} more in the list view
                 </p>
               ) : null}
             </li>
@@ -186,6 +210,7 @@ function DealCard({
   deal,
   stages,
   canMove,
+  showRisk,
   dragging,
   busy,
   onDragStart,
@@ -195,6 +220,7 @@ function DealCard({
   deal: Deal;
   stages: StageTarget[];
   canMove: boolean;
+  showRisk: boolean;
   dragging: boolean;
   busy: boolean;
   onDragStart: (e: React.DragEvent<HTMLElement>) => void;
@@ -202,14 +228,16 @@ function DealCard({
   onMove: (stage: StageTarget) => void;
 }) {
   const who = deal.company?.name || deal.primary_contact?.name || "";
+  const open = deal.status === "open";
+  const overdue = isPastClose(deal);
   return (
     <li
       className={cn(
-        "group rounded-md border border-border bg-surface p-3 shadow-sm transition-opacity",
+        "group rounded-sm border border-border bg-surface px-2.5 py-2 shadow-sm transition-opacity",
         canMove && "cursor-grab active:cursor-grabbing",
         (dragging || busy) && "opacity-50",
-        deal.status === "won" && "border-l-4 border-l-success",
-        deal.status === "lost" && "border-l-4 border-l-danger",
+        deal.status === "won" && "border-l-2 border-l-success",
+        deal.status === "lost" && "border-l-2 border-l-danger",
       )}
       draggable={canMove && !busy}
       onDragStart={onDragStart}
@@ -217,8 +245,8 @@ function DealCard({
       aria-busy={busy || undefined}
       data-testid={`deal-card-${deal.id}`}
     >
-      <div className="flex items-start gap-1.5">
-        {canMove ? <GripVertical className="mt-0.5 size-4 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" aria-hidden /> : null}
+      <div className="flex items-start gap-1">
+        {canMove ? <GripVertical className="mt-0.5 size-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" aria-hidden /> : null}
         <div className="min-w-0 flex-1">
           <Link href={`/deals/${encodeURIComponent(deal.id)}`} className="block truncate text-sm font-medium text-fg hover:text-primary hover:underline" draggable={false}>
             {deal.name}
@@ -233,7 +261,7 @@ function DealCard({
         {canMove ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="-mr-1 -mt-1 shrink-0" aria-label={`Move ${deal.name} to another stage`} disabled={busy}>
+              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1 size-7 shrink-0" aria-label={`Move ${deal.name} to another stage`} disabled={busy}>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
@@ -251,25 +279,43 @@ function DealCard({
           </DropdownMenu>
         ) : null}
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold tabular-nums">{formatMoney(deal.amount, deal.currency)}</span>
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <span className="flex items-baseline gap-1 truncate">
+          <span className="text-sm font-semibold tabular-nums">{formatMoney(deal.amount, deal.currency)}</span>
+          <span className="text-[11px] tabular-nums text-fg-muted" title={deal.probability_overridden ? "Probability set by hand" : "Probability"}>
+            {deal.probability}%
+          </span>
+        </span>
         {deal.expected_close_date ? (
-          <span className="inline-flex items-center gap-1 text-xs text-fg-subtle">
+          <span className={cn("inline-flex shrink-0 items-center gap-1 text-[11px]", overdue ? "text-danger" : "text-fg-subtle")} title={overdue ? "Past the expected close date" : "Expected close"}>
             <CalendarDays className="size-3" aria-hidden />
             <time dateTime={deal.expected_close_date}>{formatDate(deal.expected_close_date)}</time>
           </span>
         ) : null}
       </div>
-      {deal.tags.length > 0 || deal.owner ? (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <TagList tags={deal.tags} max={2} />
+      <div className="mt-1 flex items-center justify-between gap-2">
+        {deal.next_activity_title ? (
+          <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-fg-muted" title={`Next: ${deal.next_activity_title}`}>
+            <CalendarClock className="size-3 shrink-0" aria-hidden />
+            <span className="truncate">{deal.next_activity_title}</span>
+          </span>
+        ) : open ? (
+          <span className="inline-flex items-center gap-1 text-[11px] text-danger/80">
+            <CalendarClock className="size-3 shrink-0" aria-hidden />
+            No next step
+          </span>
+        ) : (
+          <span />
+        )}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {showRisk && open ? <RiskBadge compact level={deal.risk_level} /> : null}
           {deal.owner ? (
-            <span className="ml-auto" title={deal.owner.display_name}>
-              <Avatar name={deal.owner.display_name} size="sm" aria-label={`Owner: ${deal.owner.display_name}`} />
+            <span title={deal.owner.display_name}>
+              <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[9px]" aria-label={`Owner: ${deal.owner.display_name}`} />
             </span>
           ) : null}
-        </div>
-      ) : null}
+        </span>
+      </div>
     </li>
   );
 }

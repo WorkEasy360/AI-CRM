@@ -5,6 +5,7 @@ from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 
 from apps.core.models import CrmRecord
+from apps.lifecycle.stages import DEFAULT_STAGE, LifecycleStage
 
 
 class Contact(CrmRecord):
@@ -20,11 +21,20 @@ class Contact(CrmRecord):
     address = models.JSONField(default=dict, blank=True)
     description = models.TextField(blank=True)
     last_activity_at = models.DateTimeField(null=True, blank=True)
+    next_activity_at = models.DateTimeField(null=True, blank=True)
+    # Lifecycle (lead -> prospect -> qualified -> customer / inactive); written only by apps.lifecycle.
+    lifecycle_stage = models.CharField(max_length=16, choices=LifecycleStage.choices, default=DEFAULT_STAGE)
+    lifecycle_changed_at = models.DateTimeField(null=True, blank=True)
+    # WhatsApp consent: template messages are only sent to contacts who opted in (recorded when and by whom).
+    whatsapp_opt_in = models.BooleanField(default=False)
+    whatsapp_opt_in_at = models.DateTimeField(null=True, blank=True)
     search_vector = SearchVectorField(null=True, editable=False)
 
     class Meta:
         indexes = [
             models.Index(fields=["organization", "last_name", "first_name"], name="contact_org_name_idx"),
+            models.Index(fields=["organization", "lifecycle_stage"], name="contact_org_lifecycle_idx"),
+            models.Index(fields=["organization", "next_activity_at"], name="contact_org_next_act_idx"),
             models.Index(fields=["organization", "email"], name="contact_org_email_idx"),
             models.Index(fields=["organization", "company"], name="contact_org_company_idx"),
             models.Index(fields=["organization", "owner"], name="contact_org_owner_idx"),

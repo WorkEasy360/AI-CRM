@@ -2,11 +2,14 @@
 
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AddressFields, cleanAddress } from "@/components/crm/address-fields";
+import { Disclosure } from "@/components/crm/contacts/record-layout";
 import { CustomFieldsForm, useCustomFields } from "@/components/crm/custom-fields-form";
+import { CompanyDuplicateCheck } from "@/components/crm/duplicate-warning";
+import { LifecycleSelect } from "@/components/crm/lifecycle-select";
 import { OwnerSelect } from "@/components/crm/owner-select";
 import { isVersionConflict, useInvalidateRecord } from "@/components/crm/use-record-mutations";
 import { Button } from "@/components/ui/button";
@@ -16,7 +19,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { createCompany, getCompany, updateCompany } from "@/lib/api/crm";
-import { COMPANY_SIZES, type Address, type Company, type CompanyInput, type CustomData } from "@/lib/api/crm-types";
+import { COMPANY_SIZES, LIFECYCLE_STAGES, type Address, type Company, type CompanyInput, type CustomData } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { crmKeys } from "@/lib/crm/keys";
 import { canReassign } from "@/lib/crm/permissions";
@@ -31,6 +34,7 @@ const schema = z.object({
   website: z.string().trim().max(2048, "Website is too long."),
   phone: z.string().trim().max(32, "Phone is too long."),
   industry: z.string().trim().max(80, "Industry is too long."),
+  lifecycle_stage: z.enum(LIFECYCLE_STAGES),
   company_size: z.string(),
   annual_revenue: z
     .string()
@@ -47,12 +51,28 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+const BASIC_FIELDS = ["name", "website", "phone", "industry", "lifecycle_stage"];
+
+/** True when any "More details" field carries a value (used to expand the section on edit). */
+function hasDetails(company: Company | null): boolean {
+  if (!company) return false;
+  return Boolean(
+    company.company_size ||
+      company.annual_revenue ||
+      company.source ||
+      company.description ||
+      Object.values(company.address ?? {}).some(Boolean) ||
+      Object.values(company.custom_data ?? {}).some((v) => v !== null && v !== "" && v !== undefined),
+  );
+}
+
 function defaults(company: Company | null, membershipId: string | undefined): FormValues {
   return {
     name: company?.name ?? "",
     website: company?.website ?? "",
     phone: company?.phone ?? "",
     industry: company?.industry ?? "",
+    lifecycle_stage: company?.lifecycle_stage ?? "lead",
     company_size: company?.company_size || NONE,
     annual_revenue: company?.annual_revenue ?? "",
     revenue_currency: company?.revenue_currency ?? "",
@@ -74,6 +94,7 @@ function toPayload(values: FormValues, address: Address, customData: CustomData,
     address: cleanAddress(address),
     description: values.description,
     custom_data: customData,
+    lifecycle_stage: values.lifecycle_stage,
   };
   // Numbers: omit when empty on create; send null on edit so a cleared field really clears.
   if (values.annual_revenue) payload.annual_revenue = values.annual_revenue;
@@ -109,6 +130,7 @@ export function CompanyFormDialog({
   const [address, setAddress] = React.useState<Address>({});
   const [conflict, setConflict] = React.useState(false);
   const [reloading, setReloading] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
 
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: defaults(null, active?.membership_id) });
 
@@ -119,6 +141,7 @@ export function CompanyFormDialog({
       setAddress(record?.address ?? {});
       setFieldErrors({});
       setConflict(false);
+      setMoreOpen(hasDetails(record));
     },
     [form, active?.membership_id],
   );
@@ -129,6 +152,10 @@ export function CompanyFormDialog({
       load(company);
     }
   }, [open, company, load]);
+
+  // Duplicate hints: always on create; on edit only once the name or website differs from the saved record.
+  const [name, website] = useWatch({ control: form.control, name: ["name", "website"] });
+  const identityChanged = !existing || name !== existing.name || website !== existing.website;
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
@@ -148,7 +175,9 @@ export function CompanyFormDialog({
         return;
       }
       if (isApiError(err) && err.isValidation) {
-        setFieldErrors(err.fieldErrors());
+        const errors = err.fieldErrors();
+        setFieldErrors(errors);
+        if (Object.keys(errors).some((k) => !BASIC_FIELDS.includes(k))) setMoreOpen(true);
         return;
       }
       toast({ tone: "error", title: "Could not save company", description: errorMessage(err) });
@@ -218,56 +247,68 @@ export function CompanyFormDialog({
             <FormField control={form.control} name="industry" label="Industry" serverError={fieldErrors.industry}>
               {(field) => <Input {...field} maxLength={80} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
             </FormField>
-            <FormField control={form.control} name="company_size" label="Company size" serverError={fieldErrors.company_size}>
+            <FormField control={form.control} name="lifecycle_stage" label="Status" serverError={fieldErrors.lifecycle_stage}>
               {(field) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
-                    <SelectValue placeholder="Not set" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>Not set</SelectItem>
-                    {COMPANY_SIZES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s} employees
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LifecycleSelect id={field.id} value={field.value} onChange={(v) => field.onChange(v || "lead")} ariaInvalid={field.invalid} ariaDescribedBy={field["aria-describedby"]} />
               )}
             </FormField>
-            <FormField control={form.control} name="annual_revenue" label="Annual revenue" serverError={fieldErrors.annual_revenue}>
-              {(field) => (
-                <Input {...field} inputMode="decimal" placeholder="0.00" maxLength={20} value={field.value} onChange={(e) => field.onChange(e.target.value)} />
-              )}
-            </FormField>
-            <FormField control={form.control} name="revenue_currency" label="Revenue currency" serverError={fieldErrors.revenue_currency}>
-              {(field) => (
-                <Input
-                  {...field}
-                  placeholder={active?.organization.base_currency ?? "USD"}
-                  maxLength={3}
-                  className="uppercase"
-                  autoCapitalize="characters"
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField control={form.control} name="source" label="Source" serverError={fieldErrors.source}>
-              {(field) => <Input {...field} maxLength={60} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
-            {reassign ? (
-              <FormField control={form.control} name="owner_id" label="Owner" serverError={fieldErrors.owner_id}>
-                {(field) => <OwnerSelect id={field.id} value={field.value} onChange={field.onChange} ariaInvalid={field.invalid} />}
-              </FormField>
-            ) : null}
-            <FormField control={form.control} name="description" label="Description" className="sm:col-span-2" serverError={fieldErrors.description}>
-              {(field) => <Textarea {...field} maxLength={5000} rows={3} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
+            <CompanyDuplicateCheck className="sm:col-span-2" name={name ?? ""} website={website ?? ""} exclude={existing?.id} enabled={open && identityChanged} />
           </div>
 
-          <AddressFields value={address} onChange={setAddress} errors={fieldErrors} disabled={mutation.isPending} />
-          <CustomFieldsForm definitions={definitions} value={customData} onChange={setCustomData} errors={fieldErrors} disabled={mutation.isPending} />
+          <Disclosure title="More details" summary="Size, revenue, source, owner, address…" open={moreOpen} onOpenChange={setMoreOpen}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField control={form.control} name="company_size" label="Company size" serverError={fieldErrors.company_size}>
+                {(field) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
+                      <SelectValue placeholder="Not set" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>Not set</SelectItem>
+                      {COMPANY_SIZES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s} employees
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FormField>
+              <FormField control={form.control} name="source" label="Source" serverError={fieldErrors.source}>
+                {(field) => <Input {...field} maxLength={60} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+              </FormField>
+              <FormField control={form.control} name="annual_revenue" label="Annual revenue" serverError={fieldErrors.annual_revenue}>
+                {(field) => (
+                  <Input {...field} inputMode="decimal" placeholder="0.00" maxLength={20} value={field.value} onChange={(e) => field.onChange(e.target.value)} />
+                )}
+              </FormField>
+              <FormField control={form.control} name="revenue_currency" label="Revenue currency" serverError={fieldErrors.revenue_currency}>
+                {(field) => (
+                  <Input
+                    {...field}
+                    placeholder={active?.organization.base_currency ?? "USD"}
+                    maxLength={3}
+                    className="uppercase"
+                    autoCapitalize="characters"
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                )}
+              </FormField>
+              {reassign ? (
+                <FormField control={form.control} name="owner_id" label="Owner" serverError={fieldErrors.owner_id}>
+                  {(field) => <OwnerSelect id={field.id} value={field.value} onChange={field.onChange} ariaInvalid={field.invalid} />}
+                </FormField>
+              ) : null}
+              <FormField control={form.control} name="description" label="Description" className="sm:col-span-2" serverError={fieldErrors.description}>
+                {(field) => <Textarea {...field} maxLength={5000} rows={3} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+              </FormField>
+            </div>
+            <div className="mt-4 grid gap-5">
+              <AddressFields value={address} onChange={setAddress} errors={fieldErrors} disabled={mutation.isPending} />
+              <CustomFieldsForm definitions={definitions} value={customData} onChange={setCustomData} errors={fieldErrors} disabled={mutation.isPending} />
+            </div>
+          </Disclosure>
 
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>

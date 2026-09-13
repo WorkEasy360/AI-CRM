@@ -44,7 +44,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       EMAIL_URL: smtp://mailpit:1025
-    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2"]
+    # Sizing/timeouts come from config/gunicorn.py (GUNICORN_* variables); run 2+ replicas behind
+    # infra/nginx/loadtest.conf to exercise multi-instance behaviour locally.
+    command: ["gunicorn", "config.wsgi:application", "-c", "config/gunicorn.py"]
     ports:
       - "8000:8000"
     depends_on:
@@ -54,6 +56,7 @@ services:
         condition: service_healthy
     profiles: ["full"]
 
+  # Queue isolation mirrors production: the critical worker never runs imports/exports.
   worker:
     build:
       context: ./backend
@@ -62,7 +65,31 @@ services:
       DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
-    command: ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "default"]
+    command: ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "default,notifications", "-c", "4", "--max-tasks-per-child", "500"]
+    # The image health check probes the HTTP port; Celery processes have none.
+    healthcheck:
+      disable: true
+    stop_grace_period: 120s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ["full"]
+
+  worker-heavy:
+    build:
+      context: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+    command: ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "imports,exports,reports", "-c", "2", "--max-tasks-per-child", "100"]
+    # The image health check probes the HTTP port; Celery processes have none.
+    healthcheck:
+      disable: true
+    stop_grace_period: 120s
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,6 +106,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
     command: ["celery", "-A", "config.celery", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+    # The image health check probes the HTTP port; Celery processes have none.
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy

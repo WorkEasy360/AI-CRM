@@ -1,7 +1,17 @@
 """Production settings. The process refuses to start if any hardening requirement is missing."""
 
 from config.settings.base import *  # noqa: F403
-from config.settings.base import ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, DATABASES, ENVIRONMENT, SECRET_KEY, env
+from config.settings.base import (
+    ALLOWED_HOSTS,
+    CSRF_TRUSTED_ORIGINS,
+    DATABASES,
+    ENVIRONMENT,
+    MESSAGING_ENCRYPTION_KEYS,
+    PRIVATE_STORAGE_BACKEND,
+    PRIVATE_STORAGE_BUCKET,
+    SECRET_KEY,
+    env,
+)
 from security.logging import configure_logging
 
 DEBUG = False
@@ -14,10 +24,20 @@ if not CSRF_TRUSTED_ORIGINS:
     raise RuntimeError("CSRF_TRUSTED_ORIGINS must be set in production.")
 if len(SECRET_KEY) < 50 or "insecure" in SECRET_KEY:
     raise RuntimeError("SECRET_KEY is missing or weak.")
+if PRIVATE_STORAGE_BACKEND == "s3" and not PRIVATE_STORAGE_BUCKET:
+    raise RuntimeError("PRIVATE_STORAGE_BUCKET must be set when PRIVATE_STORAGE_BACKEND=s3.")
+if not MESSAGING_ENCRYPTION_KEYS:
+    raise RuntimeError("MESSAGING_ENCRYPTION_KEYS must be set (Fernet keys for stored provider tokens).")
+if PRIVATE_STORAGE_BACKEND == "filesystem" and not env.bool("ALLOW_LOCAL_PRIVATE_STORAGE", default=False):
+    # A second instance or a redeploy would lose in-flight imports/exports on a container filesystem.
+    raise RuntimeError("PRIVATE_STORAGE_BACKEND=filesystem is single-instance only; use s3 in production.")
 
 # TLS termination happens at the load balancer; it strips client-supplied X-Forwarded-Proto.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = True
+# Probes come over plain HTTP from the load balancer (HealthProbeMiddleware answers them first; this
+# keeps the routed views reachable for tooling that bypasses the middleware).
+SECURE_REDIRECT_EXEMPT = [r"^health/", r"^ready/$"]
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_NAME = "__Host-keel_session"
@@ -31,9 +51,10 @@ DATABASES["default"]["OPTIONS"] = {
     "sslmode": env("DB_SSLMODE", default="verify-full"),
     "sslrootcert": env("DB_SSLROOTCERT", default="/etc/ssl/certs/ca-certificates.crt"),
 }
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=0)
 
-CACHES["default"]["OPTIONS"]["CONNECTION_POOL_KWARGS"] = {"max_connections": 50}  # noqa: F405
+# Redis outage must not take login and browsing down (sessions degrade to the database).
+CACHE_FAIL_OPEN = env.bool("CACHE_FAIL_OPEN", default=True)
+CACHES["default"]["OPTIONS"]["IGNORE_EXCEPTIONS"] = CACHE_FAIL_OPEN  # noqa: F405
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = False

@@ -23,6 +23,7 @@ import { CURRENCIES, timezoneOptions } from "@/lib/reference-data";
 import { hasPermission, queryKeys, useSession } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 import { organizationNameSchema } from "@/lib/validation";
+import { OrganizationsCard } from "@/components/settings/organizations-card";
 
 const schema = z.object({
   name: organizationNameSchema,
@@ -94,7 +95,7 @@ export function OrganizationPage() {
 
   return (
     <div className="max-w-2xl">
-      <PageHeader title="Organization" description="Name, defaults and security policy for this organization." />
+      <PageHeader title="General" description="Name, defaults and security policy for this organization." />
 
       {org.isPending && !loaded ? (
         <SkeletonRows rows={4} />
@@ -200,6 +201,7 @@ export function OrganizationPage() {
           </Card>
         </form>
       )}
+      <OrganizationsCard />
     </div>
   );
 }

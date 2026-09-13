@@ -4,6 +4,217 @@
  */
 
 export interface paths {
+    "/api/v1/activities/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members
+         *     invited to a meeting also see it on their calendar.
+         */
+        get: operations["activities_list"];
+        put?: never;
+        /**
+         * @description Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members
+         *     invited to a meeting also see it on their calendar.
+         */
+        post: operations["activities_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members
+         *     invited to a meeting also see it on their calendar.
+         */
+        get: operations["activities_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members
+         *     invited to a meeting also see it on their calendar.
+         */
+        delete: operations["activities_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members
+         *     invited to a meeting also see it on their calendar.
+         */
+        patch: operations["activities_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/activities/{id}/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members
+         *     invited to a meeting also see it on their calendar.
+         */
+        post: operations["activities_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/{id}/reopen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members
+         *     invited to a meeting also see it on their calendar.
+         */
+        post: operations["activities_reopen_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/calendar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Everything with a start inside ``from``..``to`` (max 62 days), for the month/week/day views. */
+        get: operations["activities_calendar_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Counters for the header and dashboard, computed inside the actor's scope in one query. */
+        get: operations["activities_summary_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/contacts/{contact_id}/score/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Rules-based lead score with reasons for one contact the caller may view. */
+        get: operations["ai_contacts_score_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/deals/{deal_id}/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST: summarise one deal the caller may view (cached per deal version; ``force`` refreshes). */
+        post: operations["ai_deals_summary_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/email/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        post: operations["ai_email_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/follow-up/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        post: operations["ai_follow_up_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Organization AI usage and limits (administrators). */
+        get: operations["ai_usage_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-events/": {
         parameters: {
             query?: never;
@@ -123,7 +334,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @description Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.
+         *
+         *     An unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost
+         *     grows linearly with tenant size; the UI only needs "10,000+" beyond the cap.
+         */
         get: operations["companies_count_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/duplicates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Companies in scope with the same name (case-insensitive) or the same website host. */
+        get: operations["companies_duplicates_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -236,7 +470,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @description Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.
+         *
+         *     An unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost
+         *     grows linearly with tenant size; the UI only needs "10,000+" beyond the cap.
+         */
         get: operations["contacts_count_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/duplicates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Possible duplicates of a contact being created: same email, same phone digits or same full name.
+         *
+         *     Answers only within the actor's view scope (never confirms the existence of a hidden record).
+         */
+        get: operations["contacts_duplicates_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -333,6 +594,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Sales dashboard numbers for the active organization, limited to what the actor may see. */
+        get: operations["dashboard_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/deals/": {
         parameters: {
             query?: never;
@@ -421,6 +699,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["deals_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deals/{id}/insights/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Rules-based risk, score and next best action for one deal (no LLM, no extra permissions). */
+        get: operations["deals_insights_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -581,7 +876,183 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @description Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.
+         *
+         *     An unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost
+         *     grows linearly with tenant size; the UI only needs "10,000+" beyond the cap.
+         */
         get: operations["deals_count_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly. */
+        get: operations["email_accounts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly. */
+        get: operations["email_accounts_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly. */
+        delete: operations["email_accounts_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/callback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly. */
+        get: operations["email_accounts_callback_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/connect/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly. */
+        post: operations["email_accounts_connect_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/providers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly. */
+        get: operations["email_accounts_providers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Email history per record (visible when the record is), plus sending from the caller's mailbox. */
+        get: operations["email_messages_list"];
+        put?: never;
+        /** @description Email history per record (visible when the record is), plus sending from the caller's mailbox. */
+        post: operations["email_messages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Email history per record (visible when the record is), plus sending from the caller's mailbox. */
+        get: operations["email_messages_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["email_templates_list"];
+        put?: never;
+        post: operations["email_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["email_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete: operations["email_templates_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["email_templates_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/email/templates/{id}/render/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The template with placeholders filled from a contact/deal the caller may view. */
+        get: operations["email_templates_render_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -774,6 +1245,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["exports_products_download_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forecast/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Sales forecast for the active organization inside the caller's ``deals.view`` scope. */
+        get: operations["forecast_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1170,6 +1658,109 @@ export interface paths {
         patch: operations["notes_partial_update"];
         trace?: never;
     };
+    "/api/v1/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A member's own notifications only. The recipient filter is applied before any scope logic. */
+        get: operations["notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A member's own notifications only. The recipient filter is applied before any scope logic. */
+        get: operations["notifications_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/preferences/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        get: operations["notifications_preferences_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        patch: operations["notifications_preferences_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/notifications/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A member's own notifications only. The recipient filter is applied before any scope logic. */
+        post: operations["notifications_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A member's own notifications only. The recipient filter is applied before any scope logic. */
+        post: operations["notifications_read_all_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/unread-count/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A member's own notifications only. The recipient filter is applied before any scope logic. */
+        get: operations["notifications_unread_count_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/": {
         parameters: {
             query?: never;
@@ -1339,6 +1930,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @description Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.
+         *
+         *     An unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost
+         *     grows linearly with tenant size; the UI only needs "10,000+" beyond the cap.
+         */
         get: operations["products_count_retrieve"];
         put?: never;
         post?: never;
@@ -1392,6 +1989,29 @@ export interface paths {
         get: operations["session_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session/bootstrap/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Give a signed-in session an active organization without any client input.
+         *
+         *     Creates the user's personal workspace when they have none, then activates their default
+         *     membership. Idempotent: calling it twice, refreshing, or racing two tabs yields one workspace.
+         *     The request body is ignored on purpose; nothing here can be steered from the client.
+         */
+        post: operations["session_bootstrap_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1559,42 +2179,180 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/widgets/": {
+    "/api/v1/whatsapp/account/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["widgets_list"];
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        get: operations["whatsapp_account_retrieve"];
         put?: never;
-        post: operations["widgets_create"];
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        post: operations["whatsapp_account_create"];
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        delete: operations["whatsapp_account_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/whatsapp/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Conversation history for a contact (or deal) the caller may view, and sending. */
+        get: operations["whatsapp_messages_list"];
+        put?: never;
+        /** @description Conversation history for a contact (or deal) the caller may view, and sending. */
+        post: operations["whatsapp_messages_create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/widgets/{id}/": {
+    "/api/v1/whatsapp/messages/{id}/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["widgets_retrieve"];
-        put: operations["widgets_update"];
+        /** @description Conversation history for a contact (or deal) the caller may view, and sending. */
+        get: operations["whatsapp_messages_retrieve"];
+        put?: never;
         post?: never;
-        delete: operations["widgets_destroy"];
+        delete?: never;
         options?: never;
         head?: never;
-        patch: operations["widgets_partial_update"];
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/whatsapp/messages/window/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether a free-form message may be sent to this contact right now (24-hour service window). */
+        get: operations["whatsapp_messages_window_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/whatsapp/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["whatsapp_templates_list"];
+        put?: never;
+        post: operations["whatsapp_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/whatsapp/templates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["whatsapp_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete: operations["whatsapp_templates_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/whatsapp/webhook/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["whatsapp_webhook_retrieve"];
+        put?: never;
+        post: operations["whatsapp_webhook_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Activity: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly kind: components["schemas"]["ActivityKindEnum"];
+            readonly title: string;
+            readonly description: string;
+            readonly status: components["schemas"]["ActivityStatusEnum"];
+            readonly priority: components["schemas"]["PriorityEnum"];
+            /** Format: date-time */
+            readonly start_at: string | null;
+            /** Format: date-time */
+            readonly end_at: string | null;
+            readonly all_day: boolean;
+            readonly duration_minutes: number | null;
+            readonly timezone: string;
+            readonly location: string;
+            readonly meeting_url: string;
+            readonly direction: components["schemas"]["DirectionEnum"];
+            readonly outcome: components["schemas"]["OutcomeEnum"];
+            readonly reminder_minutes: number | null;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+            readonly owner: components["schemas"]["MembershipRef"];
+            readonly contact: components["schemas"]["ContactRef"];
+            readonly company: components["schemas"]["Ref"];
+            readonly deal: components["schemas"]["Ref"];
+            readonly attendees: {
+                [key: string]: unknown;
+            }[];
+            readonly is_overdue: boolean;
+            readonly version: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `task` - Task
+         *     * `call` - Call
+         *     * `meeting` - Meeting
+         * @enum {string}
+         */
+        ActivityKindEnum: "task" | "call" | "meeting";
+        /**
+         * @description * `open` - Open
+         *     * `in_progress` - In progress
+         *     * `completed` - Completed
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        ActivityStatusEnum: "open" | "in_progress" | "completed" | "cancelled";
         /**
          * @description * `user` - User
          *     * `system` - System
@@ -1643,6 +2401,25 @@ export interface components {
             readonly contact_count: number;
             /** @default 0 */
             readonly open_deal_count: number;
+            /**
+             * Format: decimal
+             * @default 0.00
+             */
+            readonly open_deal_amount: string;
+            /**
+             * Format: decimal
+             * @default 0.00
+             */
+            readonly won_deal_amount: string;
+            /** Format: date-time */
+            readonly last_activity_at: string | null;
+            /** Format: date-time */
+            readonly next_activity_at: string | null;
+            /** @default  */
+            readonly next_activity_title: string;
+            readonly lifecycle_stage: components["schemas"]["LifecycleStageEnum"];
+            /** Format: date-time */
+            readonly lifecycle_changed_at: string | null;
             readonly version: number;
             /** Format: date-time */
             readonly archived_at: string | null;
@@ -1679,6 +2456,17 @@ export interface components {
             readonly open_deal_count: number;
             /** Format: date-time */
             readonly last_activity_at: string | null;
+            /** Format: date-time */
+            readonly next_activity_at: string | null;
+            /** @default  */
+            readonly next_activity_title: string;
+            readonly lifecycle_stage: components["schemas"]["LifecycleStageEnum"];
+            /** Format: date-time */
+            readonly lifecycle_changed_at: string | null;
+            readonly whatsapp_opt_in: boolean;
+            /** Format: date-time */
+            readonly whatsapp_opt_in_at: string | null;
+            readonly lead_score: number;
             readonly version: number;
             /** Format: date-time */
             readonly archived_at: string | null;
@@ -1691,7 +2479,6 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             readonly name: string;
-            readonly email: string;
         };
         CustomFieldDefinition: {
             /** Format: uuid */
@@ -1728,6 +2515,9 @@ export interface components {
             /** Format: decimal */
             readonly amount_base: string;
             readonly probability: number;
+            readonly probability_overridden: boolean;
+            /** @description Deal value x probability, computed on the server so no client arithmetic is authoritative. */
+            readonly weighted_amount_base: string;
             /** Format: date */
             readonly expected_close_date: string | null;
             readonly status: components["schemas"]["StatusCffEnum"];
@@ -1736,6 +2526,13 @@ export interface components {
             readonly lost_reason: string;
             /** Format: date-time */
             readonly stage_entered_at: string;
+            /** Format: date-time */
+            readonly last_activity_at: string | null;
+            /** Format: date-time */
+            readonly next_activity_at: string | null;
+            /** @default  */
+            readonly next_activity_title: string;
+            readonly risk_level: string;
             readonly description: string;
             readonly owner: components["schemas"]["MembershipRef"];
             readonly tags: unknown;
@@ -1744,6 +2541,8 @@ export interface components {
             };
             /** @default 0 */
             readonly line_count: number;
+            /** @default 0 */
+            readonly contact_count: number;
             /**
              * Format: decimal
              * @default 0.00
@@ -1752,6 +2551,89 @@ export interface components {
             readonly version: number;
             /** Format: date-time */
             readonly archived_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `inbound` - Inbound
+         *     * `outbound` - Outbound
+         * @enum {string}
+         */
+        DirectionEnum: "inbound" | "outbound";
+        EmailAccount: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly provider: components["schemas"]["ProviderEnum"];
+            /** Format: email */
+            readonly email_address: string;
+            readonly display_name: string;
+            readonly status: components["schemas"]["EmailAccountStatusEnum"];
+            readonly error_message: string;
+            /** Format: date-time */
+            readonly last_sync_at: string | null;
+            /** Format: date-time */
+            readonly connected_at: string | null;
+            readonly membership: components["schemas"]["MembershipRef"];
+        };
+        /**
+         * @description * `connected` - Connected
+         *     * `error` - Needs attention
+         *     * `disconnected` - Disconnected
+         * @enum {string}
+         */
+        EmailAccountStatusEnum: "connected" | "error" | "disconnected";
+        EmailAttachment: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly filename: string;
+            readonly content_type: string;
+            readonly size_bytes: number;
+        };
+        EmailMessage: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly direction: components["schemas"]["DirectionEnum"];
+            readonly status: components["schemas"]["EmailMessageStatusEnum"];
+            readonly from_address: string;
+            readonly to_addresses: unknown;
+            readonly cc_addresses: unknown;
+            readonly bcc_addresses: unknown;
+            readonly subject: string;
+            readonly body_text: string;
+            readonly snippet: string;
+            readonly provider_thread_id: string;
+            readonly contact: components["schemas"]["ContactRef"];
+            readonly company: components["schemas"]["Ref"];
+            readonly deal: components["schemas"]["Ref"];
+            readonly sent_by: components["schemas"]["MembershipRef"];
+            /** Format: date-time */
+            readonly sent_at: string | null;
+            /** Format: date-time */
+            readonly received_at: string | null;
+            readonly error_message: string;
+            readonly ai_assisted: boolean;
+            readonly attachments: components["schemas"]["EmailAttachment"][];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `queued` - Queued
+         *     * `sent` - Sent
+         *     * `failed` - Failed
+         *     * `received` - Received
+         * @enum {string}
+         */
+        EmailMessageStatusEnum: "queued" | "sent" | "failed" | "received";
+        EmailTemplate: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly subject: string;
+            readonly body: string;
+            readonly is_shared: boolean;
+            readonly created_by: components["schemas"]["MembershipRef"];
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -1846,7 +2728,16 @@ export interface components {
          *     * `lost` - Lost
          * @enum {string}
          */
-        KindEnum: "open" | "won" | "lost";
+        KindCffEnum: "open" | "won" | "lost";
+        /**
+         * @description * `lead` - Lead
+         *     * `prospect` - Prospect
+         *     * `qualified` - Qualified
+         *     * `customer` - Customer
+         *     * `inactive` - Inactive
+         * @enum {string}
+         */
+        LifecycleStageEnum: "lead" | "prospect" | "qualified" | "customer" | "inactive";
         Membership: {
             /** Format: uuid */
             readonly id: string;
@@ -1872,6 +2763,12 @@ export interface components {
          * @enum {string}
          */
         MembershipStatusEnum: "active" | "disabled";
+        /**
+         * @description * `text` - Text
+         *     * `template` - Template
+         * @enum {string}
+         */
+        MessageTypeEnum: "text" | "template";
         Note: {
             /** Format: uuid */
             readonly id: string;
@@ -1887,6 +2784,55 @@ export interface components {
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
+        };
+        Notification: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly kind: components["schemas"]["NotificationKindEnum"];
+            readonly title: string;
+            readonly body: string;
+            readonly entity_type: string;
+            /** Format: uuid */
+            readonly entity_id: string | null;
+            /** Format: date-time */
+            readonly read_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `task_due` - Task due
+         *     * `meeting_soon` - Meeting approaching
+         *     * `call_soon` - Call scheduled
+         *     * `deal_assigned` - Deal assigned to you
+         *     * `deal_inactive` - Deal inactivity warning
+         *     * `customer_replied` - Customer replied
+         *     * `ai_high_risk` - Deal at high risk
+         * @enum {string}
+         */
+        NotificationKindEnum: "task_due" | "meeting_soon" | "call_soon" | "deal_assigned" | "deal_inactive" | "customer_replied" | "ai_high_risk";
+        /**
+         * @description * `connected` - Connected
+         *     * `no_answer` - No answer
+         *     * `voicemail` - Voicemail
+         *     * `busy` - Busy
+         *     * `interested` - Interested
+         *     * `not_interested` - Not interested
+         *     * `follow_up_required` - Follow-up required
+         * @enum {string}
+         */
+        OutcomeEnum: "connected" | "no_answer" | "voicemail" | "busy" | "interested" | "not_interested" | "follow_up_required";
+        PaginatedActivityList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Activity"][];
         };
         PaginatedAuditEventList: {
             /**
@@ -1953,6 +2899,45 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Deal"][];
         };
+        PaginatedEmailAccountList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["EmailAccount"][];
+        };
+        PaginatedEmailMessageList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["EmailMessage"][];
+        };
+        PaginatedEmailTemplateList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["EmailTemplate"][];
+        };
         PaginatedExportJobList: {
             /**
              * Format: uri
@@ -2018,6 +3003,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Note"][];
         };
+        PaginatedNotificationList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Notification"][];
+        };
         PaginatedPipelineList: {
             /**
              * Format: uri
@@ -2070,7 +3068,7 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Team"][];
         };
-        PaginatedWidgetList: {
+        PaginatedWhatsAppMessageList: {
             /**
              * Format: uri
              * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
@@ -2081,15 +3079,25 @@ export interface components {
              * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
              */
             previous?: string | null;
-            results: components["schemas"]["Widget"][];
+            results: components["schemas"]["WhatsAppMessage"][];
+        };
+        PaginatedWhatsAppTemplateList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["WhatsAppTemplate"][];
         };
         PatchedTeamRequest: {
             name?: string;
             /** Format: uuid */
             manager_id?: string | null;
-        };
-        PatchedWidgetRequest: {
-            name?: string;
         };
         Pipeline: {
             /** Format: uuid */
@@ -2106,6 +3114,14 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        /**
+         * @description * `low` - Low
+         *     * `normal` - Normal
+         *     * `high` - High
+         *     * `urgent` - Urgent
+         * @enum {string}
+         */
+        PriorityEnum: "low" | "normal" | "high" | "urgent";
         /** @description Base read serializer: owner/tag/custom-field output resolved from batch-loaded context. */
         Product: {
             /** Format: uuid */
@@ -2139,6 +3155,12 @@ export interface components {
          * @enum {string}
          */
         ProductStatusEnum: "active" | "inactive";
+        /**
+         * @description * `gmail` - Gmail
+         *     * `microsoft` - Microsoft 365
+         * @enum {string}
+         */
+        ProviderEnum: "gmail" | "microsoft";
         Ref: {
             /** Format: uuid */
             readonly id: string;
@@ -2155,7 +3177,7 @@ export interface components {
             readonly pipeline_id: string;
             readonly name: string;
             readonly position: number;
-            readonly kind: components["schemas"]["KindEnum"];
+            readonly kind: components["schemas"]["KindCffEnum"];
             readonly default_probability: number;
             readonly description: string;
             readonly color_token: string;
@@ -2219,17 +3241,49 @@ export interface components {
             readonly email: string;
             readonly display_name: string;
         };
-        Widget: {
+        WhatsAppMessage: {
             /** Format: uuid */
             readonly id: string;
-            name: string;
-            /** Format: uuid */
-            readonly owner_id: string;
+            readonly direction: components["schemas"]["DirectionEnum"];
+            readonly status: components["schemas"]["WhatsAppMessageStatusEnum"];
+            readonly wa_id: string;
+            readonly message_type: components["schemas"]["MessageTypeEnum"];
+            readonly body: string;
+            readonly template: components["schemas"]["WhatsAppTemplate"];
+            readonly template_params: unknown;
+            readonly contact: components["schemas"]["ContactRef"];
+            readonly deal: components["schemas"]["Ref"];
+            readonly sent_by: components["schemas"]["MembershipRef"];
+            /** Format: date-time */
+            readonly sent_at: string | null;
+            /** Format: date-time */
+            readonly received_at: string | null;
+            readonly error_message: string;
+            readonly ai_assisted: boolean;
             /** Format: date-time */
             readonly created_at: string;
         };
-        WidgetRequest: {
-            name: string;
+        /**
+         * @description * `queued` - Queued
+         *     * `sent` - Sent
+         *     * `delivered` - Delivered
+         *     * `read` - Read
+         *     * `failed` - Failed
+         *     * `received` - Received
+         * @enum {string}
+         */
+        WhatsAppMessageStatusEnum: "queued" | "sent" | "delivered" | "read" | "failed" | "received";
+        WhatsAppTemplate: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly language: string;
+            readonly category: string;
+            readonly body: string;
+            readonly parameter_count: number;
+            readonly status: string;
+            /** Format: date-time */
+            readonly created_at: string;
         };
     };
     responses: never;
@@ -2240,6 +3294,285 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    activities_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedActivityList"];
+                };
+            };
+        };
+    };
+    activities_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    activities_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    activities_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    activities_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    activities_complete_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    activities_reopen_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    activities_calendar_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    activities_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    ai_contacts_score_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ai_deals_summary_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ai_email_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ai_follow_up_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ai_usage_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     audit_events_list: {
         parameters: {
             query?: {
@@ -2470,6 +3803,25 @@ export interface operations {
             };
         };
     };
+    companies_duplicates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+        };
+    };
     companies_stats_retrieve: {
         parameters: {
             query?: never;
@@ -2674,6 +4026,25 @@ export interface operations {
             };
         };
     };
+    contacts_duplicates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Contact"];
+                };
+            };
+        };
+    };
     contacts_stats_retrieve: {
         parameters: {
             query?: never;
@@ -2816,6 +4187,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CustomFieldDefinition"];
                 };
+            };
+        };
+    };
+    dashboard_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2988,6 +4377,27 @@ export interface operations {
         };
     };
     deals_history_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+        };
+    };
+    deals_insights_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -3210,6 +4620,318 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Deal"];
+                };
+            };
+        };
+    };
+    email_accounts_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedEmailAccountList"];
+                };
+            };
+        };
+    };
+    email_accounts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+        };
+    };
+    email_accounts_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    email_accounts_callback_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+        };
+    };
+    email_accounts_connect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+        };
+    };
+    email_accounts_providers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+        };
+    };
+    email_messages_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedEmailMessageList"];
+                };
+            };
+        };
+    };
+    email_messages_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailMessage"];
+                };
+            };
+        };
+    };
+    email_messages_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailMessage"];
+                };
+            };
+        };
+    };
+    email_templates_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedEmailTemplateList"];
+                };
+            };
+        };
+    };
+    email_templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplate"];
+                };
+            };
+        };
+    };
+    email_templates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplate"];
+                };
+            };
+        };
+    };
+    email_templates_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    email_templates_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplate"];
+                };
+            };
+        };
+    };
+    email_templates_render_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplate"];
                 };
             };
         };
@@ -3551,6 +5273,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ExportJob"];
                 };
+            };
+        };
+    };
+    forecast_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -4207,6 +5947,144 @@ export interface operations {
             };
         };
     };
+    notifications_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedNotificationList"];
+                };
+            };
+        };
+    };
+    notifications_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_preferences_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_preferences_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_read_all_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_unread_count_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
     organizations_create: {
         parameters: {
             query?: never;
@@ -4628,6 +6506,24 @@ export interface operations {
             };
         };
     };
+    session_bootstrap_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     session_switch_organization_create: {
         parameters: {
             query?: never;
@@ -5015,7 +6911,61 @@ export interface operations {
             };
         };
     };
-    widgets_list: {
+    whatsapp_account_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    whatsapp_account_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    whatsapp_account_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    whatsapp_messages_list: {
         parameters: {
             query?: {
                 /** @description The pagination cursor value. */
@@ -5034,35 +6984,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedWidgetList"];
+                    "application/json": components["schemas"]["PaginatedWhatsAppMessageList"];
                 };
             };
         };
     };
-    widgets_create: {
+    whatsapp_messages_create: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WidgetRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Widget"];
+                    "application/json": components["schemas"]["WhatsAppMessage"];
                 };
             };
         };
     };
-    widgets_retrieve: {
+    whatsapp_messages_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -5078,12 +7024,74 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Widget"];
+                    "application/json": components["schemas"]["WhatsAppMessage"];
                 };
             };
         };
     };
-    widgets_update: {
+    whatsapp_messages_window_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatsAppMessage"];
+                };
+            };
+        };
+    };
+    whatsapp_templates_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedWhatsAppTemplateList"];
+                };
+            };
+        };
+    };
+    whatsapp_templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatsAppTemplate"];
+                };
+            };
+        };
+    };
+    whatsapp_templates_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -5092,23 +7100,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WidgetRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Widget"];
+                    "application/json": components["schemas"]["WhatsAppTemplate"];
                 };
             };
         };
     };
-    widgets_destroy: {
+    whatsapp_templates_destroy: {
         parameters: {
             query?: never;
             header?: never;
@@ -5128,28 +7132,39 @@ export interface operations {
             };
         };
     };
-    widgets_partial_update: {
+    whatsapp_webhook_retrieve: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["PatchedWidgetRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
+            /** @description No response body */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["Widget"];
+                content?: never;
+            };
+        };
+    };
+    whatsapp_webhook_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
                 };
+                content?: never;
             };
         };
     };

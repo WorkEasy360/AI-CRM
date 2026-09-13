@@ -110,4 +110,8 @@ class TimelineView(TenantAPIView):
         ser.is_valid(raise_exception=True)
         entity_type = ser.validated_data["entity_type"]
         record = resolve_viewable(request.actor, entity_type, ser.validated_data["entity_id"])
-        return Response({"results": timeline.build(request.actor, entity_type, record)})
+        raw_kinds = (request.query_params.get("kinds") or "").strip()
+        kinds = {k.strip() for k in raw_kinds.split(",") if k.strip()} if raw_kinds else None
+        if kinds is not None and (len(kinds) > 20 or any(len(k) > 40 for k in kinds)):
+            raise serializers.ValidationError({"kinds": "Too many or too long kind filters."})
+        return Response({"results": timeline.build(request.actor, entity_type, record, kinds=kinds)})

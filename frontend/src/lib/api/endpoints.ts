@@ -4,6 +4,8 @@ import type {
   AuditEventFilters,
   CreateOrganizationInput,
   CreateOrganizationResponse,
+  DashboardPeriod,
+  DashboardSummary,
   Invitation,
   Membership,
   Organization,
@@ -21,6 +23,15 @@ export const getSession = (signal?: AbortSignal) => api.get<Session>("/api/v1/se
 
 export const switchOrganization = (membership_id: string) =>
   api.post<unknown>("/api/v1/session/switch-organization/", { membership_id });
+
+/**
+ * Give the session an active organization. The server creates the user's personal workspace when
+ * they have none and activates their default membership; the request carries no body on purpose.
+ */
+export const bootstrapSession = () => api.post<Session>("/api/v1/session/bootstrap/");
+
+export const getDashboard = (period: DashboardPeriod, pipeline?: string) =>
+  api.get<DashboardSummary>("/api/v1/dashboard/", { period, pipeline });
 
 export const createOrganization = (input: CreateOrganizationInput) =>
   api.post<CreateOrganizationResponse>("/api/v1/organizations/", input);

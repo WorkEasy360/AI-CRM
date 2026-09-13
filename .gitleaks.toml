@@ -19,6 +19,8 @@ paths = [
   '''(^|/)\.venv/''',
   '''(^|/)node_modules/''',
   '''(^|/)\.next/''',
+  '''(^|/)\.next-build/''',
+  '''(^|/)loadtest/results/''',
   '''(^|/)\.git/''',
 ]
 regexes = [

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Archive, ArchiveRestore, MoreHorizontal, Package, Pencil, Plus } from "lucide-react";
+import { Archive, ArchiveRestore, MoreHorizontal, Package, Pencil, Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, type Column } from "@/components/crm/data-table";
 import { ListToolbar, type SortOption } from "@/components/crm/list-toolbar";
@@ -16,13 +16,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listProducts } from "@/lib/api/crm";
 import type { ListParams, Product } from "@/lib/api/crm-types";
-import { formatMoney, formatNumber } from "@/lib/crm/format";
+import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
-import { formatDateTime } from "@/lib/utils";
 
 const ALLOWED = ["q", "sort", "owner", "archived", "status", "currency", "price_min", "price_max"] as const;
 const DEFAULTS: ListParams = { sort: "name" };
@@ -51,12 +50,15 @@ export function ProductsPage() {
   const active = session?.active ?? null;
   const canCreate = can(active, "products.create");
   const canDelete = can(active, "products.delete");
+  const canImport = can(active, "products.import");
 
-  const { params, setParam, clear, activeFilterCount } = useListParams(ALLOWED, DEFAULTS);
+  const { params, setParam, setParams, clear, activeFilterCount } = useListParams(ALLOWED, DEFAULTS);
   const searchParams = useSearchParams();
   const wantsNew = canCreate && searchParams?.get("new") === "1";
 
-  const list = useCursorList<Product>(crmKeys.list("products", params), (cursor) => listProducts(params, cursor));
+  const list = useCursorList<Product>(crmKeys.list("products", params), (cursor) => listProducts(params, cursor), true, {
+    recordKey: (row) => crmKeys.record("products", row.id),
+  });
   const { archive, restore } = useArchiveRestore("product");
 
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -72,8 +74,9 @@ export function ProductsPage() {
     () => [
       {
         key: "name",
-        header: "Name",
+        header: "Product name",
         sortKey: "name",
+        className: "min-w-44",
         render: (p) => (
           <span className="inline-flex items-center gap-2">
             {p.name}
@@ -82,20 +85,9 @@ export function ProductsPage() {
         ),
       },
       { key: "sku", header: "SKU", sortKey: "sku", render: (p) => (p.sku ? <span className="font-mono text-xs">{p.sku}</span> : <Dash />) },
-      { key: "price", header: "Price", sortKey: "unit_price", className: "text-right tabular-nums", render: (p) => formatMoney(p.unit_price, p.currency) },
-      {
-        key: "tax",
-        header: "Tax",
-        className: "hidden md:table-cell text-right tabular-nums",
-        render: (p) => (
-          <span>
-            {formatNumber(p.tax_rate)}%{p.tax_label ? <span className="ml-1 text-fg-subtle">{p.tax_label}</span> : null}
-          </span>
-        ),
-      },
+      { key: "price", header: "Unit price", sortKey: "unit_price", className: "text-right tabular-nums whitespace-nowrap", render: (p) => formatMoney(p.unit_price, p.currency) },
       { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} /> },
-      { key: "owner", header: "Owner", className: "hidden lg:table-cell", render: (p) => p.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span> },
-      { key: "updated", header: "Updated", sortKey: "updated_at", className: "hidden xl:table-cell", render: (p) => formatDateTime(p.updated_at) },
+      { key: "owner", header: "Owner", className: "hidden md:table-cell", render: (p) => p.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span> },
       {
         key: "actions",
         header: <span className="sr-only">Actions</span>,
@@ -149,45 +141,51 @@ export function ProductsPage() {
   ) : (
     <EmptyState
       icon={<Package />}
-      title="No products yet"
-      description={
-        <>
-          Build your catalogue so deals can carry line items.
-          <br />
-          Have a spreadsheet already? CSV import lives under{" "}
-          <Link href="/settings/data" className="text-primary hover:underline">
-            Settings → Data
-          </Link>
-          .
-        </>
-      }
+      title="Track what you sell."
+      description="Add your products and services with their prices, so deals can carry line items and totals."
+      className="py-16"
       action={
-        canCreate ? (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus /> New product
-          </Button>
-        ) : null
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {canCreate ? (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus /> Add product
+            </Button>
+          ) : null}
+          {canImport ? (
+            <Button asChild variant="secondary">
+              <Link href="/settings/data">
+                <Upload /> Import products
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       }
     />
   );
 
   return (
     <div>
-      <PageHeader
-        title="Products"
-        description="Your catalogue: what you sell, at what price."
+      <PageHeader title="Products" />
+
+      <ListToolbar
+        params={params}
+        setParam={setParam}
+        setParams={setParams}
+        clear={clear}
+        sortOptions={SORT_OPTIONS}
+        activeFilterCount={activeFilterCount}
+        entityLabel="products"
+        searchPlaceholder="Search products…"
         actions={
           canCreate ? (
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus /> New product
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus /> Product
             </Button>
           ) : null
         }
-      />
-
-      <ListToolbar params={params} setParam={setParam} clear={clear} sortOptions={SORT_OPTIONS} activeFilterCount={activeFilterCount} searchPlaceholder="Search products…">
+      >
         <Select value={params.status ?? "all"} onValueChange={(v) => setParam("status", v === "all" ? undefined : v)}>
-          <SelectTrigger className="w-36" aria-label="Status filter">
+          <SelectTrigger className="h-8 w-36" aria-label="Status filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -205,6 +203,7 @@ export function ProductsPage() {
         onSort={(s) => setParam("sort", s)}
         rowHref={(p) => `/products/${enc(p.id)}`}
         isPending={list.isPending}
+        isRefreshing={list.isPlaceholderData}
         isError={list.isError}
         error={list.error}
         onRetry={() => list.refetch()}
@@ -214,13 +213,6 @@ export function ProductsPage() {
         isLoadingMore={list.isLoadingMore}
         caption="Products"
       />
-
-      {!list.isPending && !list.isError && list.items.length > 0 ? (
-        <p className="mt-3 text-xs text-fg-subtle">
-          Showing {list.items.length.toLocaleString()} {list.items.length === 1 ? "product" : "products"}
-          {list.hasMore ? " (more available)" : ""}
-        </p>
-      ) : null}
 
       <ProductFormDialog open={createOpen || wantsNew || editing !== null} product={editing} onOpenChange={(open) => !open && closeDialog()} />
     </div>

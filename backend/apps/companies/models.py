@@ -5,6 +5,7 @@ from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 
 from apps.core.models import CrmRecord
+from apps.lifecycle.stages import DEFAULT_STAGE, LifecycleStage
 
 COMPANY_SIZES = ("1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5000+")
 
@@ -20,11 +21,16 @@ class Company(CrmRecord):
     address = models.JSONField(default=dict, blank=True)
     source = models.CharField(max_length=60, blank=True)
     description = models.TextField(blank=True)
+    last_activity_at = models.DateTimeField(null=True, blank=True)
+    next_activity_at = models.DateTimeField(null=True, blank=True)
+    lifecycle_stage = models.CharField(max_length=16, choices=LifecycleStage.choices, default=DEFAULT_STAGE)
+    lifecycle_changed_at = models.DateTimeField(null=True, blank=True)
     search_vector = SearchVectorField(null=True, editable=False)
 
     class Meta:
         indexes = [
             models.Index(fields=["organization", "name"], name="company_org_name_idx"),
+            models.Index(fields=["organization", "lifecycle_stage"], name="company_org_lifecycle_idx"),
             models.Index(fields=["organization", "owner"], name="company_org_owner_idx"),
             models.Index(fields=["organization", "-created_at"], name="company_org_created_idx"),
             GinIndex(fields=["search_vector"], name="company_search_idx"),

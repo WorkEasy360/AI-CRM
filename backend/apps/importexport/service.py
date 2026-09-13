@@ -11,9 +11,11 @@ import csv
 import io
 import uuid
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -24,6 +26,7 @@ from apps.authz.actor import Actor, build_actor
 from apps.authz.service import check, scope
 from apps.core import records
 from apps.core.exceptions import DomainError
+from apps.dashboards import cache as dashboard_cache
 from apps.importexport import csvsafe, storage
 from apps.importexport.models import ExportJob, ImportJob, JobStatus
 
@@ -32,6 +35,25 @@ MAX_EXPORT_ROWS = 100_000
 EXPORT_TTL_HOURS = 24
 IMPORT_ENTITY_TYPES = ("contact", "company", "product")
 EXPORT_ENTITY_TYPES = ("contact", "company", "product", "deal")
+
+# ----------------------------------------------------------------------------- fairness
+
+
+def _active_jobs() -> int:
+    """Jobs of this organization that hold or wait for a heavy worker slot."""
+    active = (JobStatus.PENDING, JobStatus.RUNNING)
+    return ImportJob.objects.filter(status__in=active).count() + ExportJob.objects.filter(status__in=active).count()
+
+
+def _enforce_job_quota() -> None:
+    """One tenant must not fill the heavy queues: cap pending+running jobs per organization."""
+    if _active_jobs() >= settings.MAX_ACTIVE_JOBS_PER_ORG:
+        raise DomainError(
+            "Too many imports or exports are already in progress for this workspace. Wait for one to finish.",
+            code="too_many_active_jobs",
+            status_code=429,
+        )
+
 
 # ----------------------------------------------------------------------------- entity descriptors
 
@@ -231,6 +253,7 @@ def validate_mapping(entity_type: str, headers: list[str], mapping: Any) -> dict
 
 @transaction.atomic
 def start_import(actor: Actor, job: ImportJob, *, mapping: Any, options: Any = None, request: Any = None) -> ImportJob:
+    _enforce_job_quota()
     from apps.importexport.tasks import run_import
 
     check(actor, f"{_module_for(job.entity_type)}.import", job)
@@ -318,6 +341,7 @@ def process_import(job: ImportJob, actor: Actor) -> ImportJob:
     job.status = JobStatus.RUNNING
     job.started_at = timezone.now()
     job.save(update_fields=["status", "started_at", "updated_at"])
+    dashboard_cache.invalidate(job.organization_id)
     raw = storage.read(job.storage_key)
     errors: list[dict[str, Any]] = []
     created = processed = failed = 0
@@ -405,6 +429,7 @@ def create_export(actor: Actor, *, entity_type: str, filters: dict[str, str], re
     check(actor, f"{_module_for(entity_type)}.export")
     if request is not None:
         require_recent_auth(request)
+    _enforce_job_quota()
     filterset, _ = _filterset_and_queryset(entity_type)
     clean = {k: str(v)[:200] for k, v in filters.items() if k not in {"cursor", "limit", "expand", "format"}}
     filterset.apply(_base_queryset(entity_type), clean, actor=actor)  # validate now; re-applied in the task
@@ -577,8 +602,21 @@ def fail_export(job: ExportJob, message: str) -> None:
     )
 
 
-def open_download(actor: Actor, job: ExportJob, *, request: Any = None) -> tuple[bytes, str]:
-    """Return the CSV bytes and a safe filename; only the requester may download, and only before expiry."""
+@dataclass(frozen=True)
+class Download:
+    """What the API needs to hand the file over: either bytes to stream, or a short-lived signed URL."""
+
+    filename: str
+    data: bytes | None = None
+    url: str | None = None
+
+
+def open_download(actor: Actor, job: ExportJob, *, request: Any = None) -> Download:
+    """Authorize, audit and resolve the download. Only the requester may download, and only before expiry.
+
+    With the S3 backend the bytes never pass through the API: the response is a redirect to a signed URL
+    that expires in ``PRIVATE_STORAGE_URL_TTL_SECONDS``.
+    """
     module = _module_for(job.entity_type)
     check(actor, f"{module}.export", job)
     if job.requested_by_id != actor.membership.pk or job.status != JobStatus.COMPLETED or not job.storage_key:
@@ -587,9 +625,15 @@ def open_download(actor: Actor, job: ExportJob, *, request: Any = None) -> tuple
         raise Http404
     if job.expires_at and job.expires_at < timezone.now():
         raise DomainError("This export has expired. Request a new one.", code="export_expired", status_code=410)
+    if storage.organization_of(job.storage_key) != job.organization_id:  # defensive: never serve across tenants
+        raise PermissionDenied(code="permission_denied")
     if not storage.exists(job.storage_key):
         raise DomainError("The export file is no longer available.", code="export_missing", status_code=410)
-    data = storage.read(job.storage_key)
+    filename = f"{job.entity_type}s-{job.created_at:%Y%m%d-%H%M%S}.csv"
+    if storage.supports_signed_urls():
+        download = Download(filename=filename, url=storage.signed_download_url(job.storage_key, filename))
+    else:
+        download = Download(filename=filename, data=storage.read(job.storage_key))
     ExportJob.objects.filter(pk=job.pk).update(download_count=job.download_count + 1)
     audit.record(
         "exports.downloaded",
@@ -598,5 +642,4 @@ def open_download(actor: Actor, job: ExportJob, *, request: Any = None) -> tuple
         resource=job,
         metadata={"entity_type": job.entity_type, "rows": job.row_count},
     )
-    filename = f"{job.entity_type}s-{job.created_at:%Y%m%d-%H%M}.csv"
-    return data, filename
+    return download

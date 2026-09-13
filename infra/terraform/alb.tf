@@ -1,0 +1,231 @@
+# ---------------------------------------------------------------------------
+# Application Load Balancer
+#
+# Internet-facing but reachable only from CloudFront (security group prefix
+# list) AND only for requests carrying the X-Origin-Verify header that
+# CloudFront injects. Anything else hits the default 403 action.
+# ---------------------------------------------------------------------------
+
+resource "aws_lb" "this" {
+  name               = "${local.name}-alb"
+  load_balancer_type = "application"
+  internal           = false
+  subnets            = aws_subnet.public[*].id
+  security_groups    = [aws_security_group.alb.id]
+
+  drop_invalid_header_fields = true
+  idle_timeout               = 60
+  enable_deletion_protection = var.deletion_protection
+  enable_http2               = true
+  desync_mitigation_mode     = "defensive"
+
+  access_logs {
+    bucket  = aws_s3_bucket.alb_logs.id
+    prefix  = "alb"
+    enabled = true
+  }
+
+  depends_on = [aws_s3_bucket_policy.alb_logs]
+
+  tags = { Name = "${local.name}-alb" }
+}
+
+# ---------------------------------------------------------------------------
+# Target groups
+# ---------------------------------------------------------------------------
+
+resource "aws_lb_target_group" "api" {
+  name        = "${local.name}-api"
+  port        = 8000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.this.id
+
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/health/ready/"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = { Name = "${local.name}-api" }
+}
+
+resource "aws_lb_target_group" "web" {
+  name        = "${local.name}-web"
+  port        = 3000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.this.id
+
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/health"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = { Name = "${local.name}-web" }
+}
+
+# ---------------------------------------------------------------------------
+# Listeners
+# ---------------------------------------------------------------------------
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.this.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.this.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = var.acm_certificate_arn_alb
+
+  # Requests that do not carry the CloudFront origin-verify header never reach a target.
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "forbidden"
+      status_code  = "403"
+    }
+  }
+}
+
+# api: Django paths
+resource "aws_lb_listener_rule" "api" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api.arn
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-Origin-Verify"
+      values           = [random_password.origin_verify.result]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/*", "/_allauth/*"]
+    }
+  }
+
+  tags = { Name = "${local.name}-rule-api" }
+}
+
+# Probes are for the load balancer only (it calls targets directly, bypassing listener rules); the
+# public edge never reaches /health/* so the readiness check cannot be used to hammer dependencies.
+resource "aws_lb_listener_rule" "health_blocked" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 15
+
+  action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "not found"
+      status_code  = "404"
+    }
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-Origin-Verify"
+      values           = [random_password.origin_verify.result]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/health/*", "/ready/*"]
+    }
+  }
+
+  tags = { Name = "${local.name}-rule-health-blocked" }
+}
+
+# Django admin is not exposed through the edge at all.
+resource "aws_lb_listener_rule" "admin_blocked" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 20
+
+  action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "not found"
+      status_code  = "404"
+    }
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-Origin-Verify"
+      values           = [random_password.origin_verify.result]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/admin/*"]
+    }
+  }
+
+  tags = { Name = "${local.name}-rule-admin-blocked" }
+}
+
+# web: everything else
+resource "aws_lb_listener_rule" "web" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 30
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web.arn
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-Origin-Verify"
+      values           = [random_password.origin_verify.result]
+    }
+  }
+
+  tags = { Name = "${local.name}-rule-web" }
+}

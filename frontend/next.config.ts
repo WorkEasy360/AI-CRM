@@ -1,22 +1,27 @@
 import type { NextConfig } from "next";
 
-/**
- * Server-side only. The Django origin the dev server proxies API calls to.
- * Never exposed to the browser (not NEXT_PUBLIC_*).
- */
-const API_INTERNAL_ORIGIN = (process.env.API_INTERNAL_ORIGIN ?? "http://localhost:8000").replace(/\/+$/, "");
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Backend paths are proxied in src/middleware.ts, which needs the request
+  // URL untouched: every DRF path ends in "/", and the default 308 that strips
+  // it would send Django a slashless path it 301s straight back (a loop).
+  skipTrailingSlashRedirect: true,
   poweredByHeader: false,
   output: "standalone",
-  async rewrites() {
-    return [
-      { source: "/api/:path*", destination: `${API_INTERNAL_ORIGIN}/api/:path*` },
-      { source: "/_allauth/:path*", destination: `${API_INTERNAL_ORIGIN}/_allauth/:path*` },
-      { source: "/health/", destination: `${API_INTERNAL_ORIGIN}/health/` },
-      { source: "/ready/", destination: `${API_INTERNAL_ORIGIN}/ready/` },
-    ];
+  // Build-only escape hatch: a running dev server holds .next/trace on Windows, so a verification
+  // build can target another directory (NEXT_DIST_DIR=.next-build pnpm build). Unset in CI.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+  experimental: {
+    // Import only the icons/primitives a page uses instead of each package's whole barrel file.
+    // Cuts module count per route noticeably in dev and trims client bundles in prod.
+    optimizePackageImports: [
+      "lucide-react",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-toast",
+    ],
   },
 };
 

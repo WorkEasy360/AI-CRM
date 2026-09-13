@@ -28,6 +28,11 @@ def _ua_hash(request) -> str:
 
 @receiver(account_signals.user_logged_in)
 def on_user_logged_in(sender, request, user, **kwargs):
+    from apps.accounts.services import ensure_personal_organization
+
+    # First login of an account that never got its workspace (verified before automatic onboarding
+    # existed, or the verification-time creation failed): create it now. No-op for everyone else.
+    ensure_personal_organization(user)
     set_db_user(user.pk)
     membership = pick_default_membership(user)
     set_active_membership(request, membership)
@@ -100,7 +105,13 @@ def _after_password_change(request, user, action: str) -> None:
 
 @receiver(account_signals.email_confirmed)
 def on_email_confirmed(sender, request, email_address, **kwargs):
-    audit.record(actions.AUTH_EMAIL_VERIFIED, request=request, user=email_address.user, organization_id=None)
+    from apps.accounts.services import ensure_personal_organization
+
+    user = email_address.user
+    audit.record(actions.AUTH_EMAIL_VERIFIED, request=request, user=user, organization_id=None)
+    # A verified account gets its workspace immediately, so the first login opens a working CRM.
+    # Also fires when a secondary address is confirmed later; the call is idempotent.
+    ensure_personal_organization(user)
 
 
 @receiver(mfa_signals.authenticator_added)

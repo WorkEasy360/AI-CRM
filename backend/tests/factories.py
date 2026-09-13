@@ -13,6 +13,8 @@ from allauth.account.models import EmailAddress
 
 from apps.accounts import services as account_services
 from apps.accounts.models import Invitation, Membership, Organization, User
+from apps.activities.models import Activity
+from apps.ai.models import AIUsage
 from apps.audit import service as audit
 from apps.audit.models import AuditEvent
 from apps.authz.models import Role
@@ -22,7 +24,17 @@ from apps.core.tenancy.context import tenant_context
 from apps.customfields.models import CustomFieldDefinition
 from apps.deals.models import Deal, DealStageHistory
 from apps.importexport.models import ExportJob, ImportJob
+from apps.lifecycle.models import LifecycleHistory
+from apps.messaging.models import (
+    EmailAccount,
+    EmailMessage,
+    EmailTemplate,
+    WhatsAppAccount,
+    WhatsAppMessage,
+    WhatsAppTemplate,
+)
 from apps.notes.models import Note
+from apps.notifications.models import Notification, NotificationPreference
 from apps.pipelines.models import Pipeline, PipelineStage
 from apps.pipelines.services import ensure_default_pipeline
 from apps.products.models import Product
@@ -217,8 +229,150 @@ def make_export_job(bundle: OrgBundle, entity_type: str = "contact") -> ExportJo
         return ExportJob.objects.create(entity_type=entity_type, requested_by=bundle.owner_membership)
 
 
+# ----------------------------------------------------------------------------- sales operations / communication
+
+
+def make_activity(bundle: OrgBundle, *, owner: Membership | None = None, kind: str = "task", **extra) -> Activity:
+    from django.utils import timezone
+
+    with _ctx(bundle, "test.make_activity"):
+        extra.setdefault("title", f"Activity {uuid.uuid4().hex[:6]}")
+        if kind != "task":
+            extra.setdefault("start_at", timezone.now() + __import__("datetime").timedelta(days=1))
+            extra.setdefault("direction", "outbound" if kind == "call" else "")
+        return Activity.objects.create(
+            kind=kind, owner=owner or bundle.owner_membership, created_by=owner or bundle.owner_membership, **extra
+        )
+
+
+def make_notification(bundle: OrgBundle, *, recipient: Membership | None = None) -> Notification:
+    with _ctx(bundle, "test.make_notification"):
+        return Notification.objects.create(
+            recipient=recipient or bundle.owner_membership, kind="task_due", title="Reminder"
+        )
+
+
+def make_notification_preference(bundle: OrgBundle) -> NotificationPreference:
+    with _ctx(bundle, "test.make_notification_preference"):
+        return NotificationPreference.objects.create(membership=bundle.owner_membership)
+
+
+def make_lifecycle_history(bundle: OrgBundle) -> LifecycleHistory:
+    from django.utils import timezone
+
+    contact = make_contact(bundle)
+    with _ctx(bundle, "test.make_lifecycle_history"):
+        return LifecycleHistory.objects.create(
+            entity_type="contact",
+            entity_id=contact.pk,
+            from_stage="lead",
+            to_stage="prospect",
+            changed_at=timezone.now(),
+        )
+
+
+def make_email_account(
+    bundle: OrgBundle, *, membership: Membership | None = None, provider: str = "gmail"
+) -> EmailAccount:
+    from django.utils import timezone
+
+    from apps.core import crypto
+
+    with _ctx(bundle, "test.make_email_account"):
+        member = membership or bundle.owner_membership
+        return EmailAccount.objects.create(
+            membership=member,
+            provider=provider,
+            email_address=f"{member.user.email}",
+            access_token_enc=crypto.encrypt("access"),
+            refresh_token_enc=crypto.encrypt("refresh"),
+            token_expires_at=timezone.now() + __import__("datetime").timedelta(hours=1),
+            connected_at=timezone.now(),
+            last_sync_at=timezone.now(),
+        )
+
+
+def make_email_template(bundle: OrgBundle) -> EmailTemplate:
+    with _ctx(bundle, "test.make_email_template"):
+        return EmailTemplate.objects.create(
+            name=f"Template {uuid.uuid4().hex[:6]}",
+            subject="Hello {{first_name}}",
+            body="Hi {{first_name}},\n\nBody",
+            created_by=bundle.owner_membership,
+        )
+
+
+def make_email_message(bundle: OrgBundle, *, contact: Contact | None = None) -> EmailMessage:
+    contact = contact or make_contact(bundle)
+    with _ctx(bundle, "test.make_email_message"):
+        return EmailMessage.objects.create(
+            direction="outbound",
+            status="sent",
+            from_address="me@example.com",
+            to_addresses=[contact.email],
+            subject="Hello",
+            body_text="Body",
+            contact=contact,
+            sent_by=bundle.owner_membership,
+        )
+
+
+def make_whatsapp_account(bundle: OrgBundle) -> WhatsAppAccount:
+    from django.utils import timezone
+
+    from apps.core import crypto
+
+    with _ctx(bundle, "test.make_whatsapp_account"):
+        return WhatsAppAccount.objects.create(
+            phone_number_id="123456789",
+            access_token_enc=crypto.encrypt("token"),
+            connected_by=bundle.owner_membership,
+            connected_at=timezone.now(),
+        )
+
+
+def make_whatsapp_template(bundle: OrgBundle) -> WhatsAppTemplate:
+    with _ctx(bundle, "test.make_whatsapp_template"):
+        return WhatsAppTemplate.objects.create(
+            name=f"hello_{uuid.uuid4().hex[:6]}", body="Hello {{1}}", parameter_count=1
+        )
+
+
+def make_whatsapp_message(bundle: OrgBundle, *, contact: Contact | None = None) -> WhatsAppMessage:
+    contact = contact or make_contact(bundle, phone="+15550100")
+    with _ctx(bundle, "test.make_whatsapp_message"):
+        return WhatsAppMessage.objects.create(
+            direction="outbound",
+            status="sent",
+            wa_id="15550100",
+            body="Hi",
+            contact=contact,
+            sent_by=bundle.owner_membership,
+        )
+
+
+def make_ai_usage(bundle: OrgBundle) -> AIUsage:
+    from django.utils import timezone
+
+    with _ctx(bundle, "test.make_ai_usage"):
+        return AIUsage.objects.create(
+            membership=bundle.owner_membership, day=timezone.now().date(), feature="followup", model="fake", requests=1
+        )
+
+
 # model -> callable(bundle) -> instance, used by tests/tenant_isolation/test_generated.py
 CROSS_TENANT_FACTORIES = {
+    Activity: lambda bundle: make_activity(bundle),
+    Notification: lambda bundle: make_notification(bundle),
+    NotificationPreference: lambda bundle: make_notification_preference(bundle),
+    LifecycleHistory: lambda bundle: make_lifecycle_history(bundle),
+    EmailAccount: lambda bundle: make_email_account(bundle),
+    EmailTemplate: lambda bundle: make_email_template(bundle),
+    EmailMessage: lambda bundle: make_email_message(bundle),
+    WhatsAppAccount: lambda bundle: make_whatsapp_account(bundle),
+    WhatsAppTemplate: lambda bundle: make_whatsapp_template(bundle),
+    WhatsAppMessage: lambda bundle: make_whatsapp_message(bundle),
+    AIUsage: lambda bundle: make_ai_usage(bundle),
     Membership: lambda bundle: make_member(bundle),
     Invitation: lambda bundle: make_invitation(bundle),
     Team: lambda bundle: make_team(bundle),

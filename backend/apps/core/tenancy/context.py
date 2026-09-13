@@ -84,10 +84,14 @@ def set_db_user(user_id: uuid.UUID | None, using: str = "default") -> None:
 
 
 @contextlib.contextmanager
-def bind_context(ctx: TenantContext, *, apply_db: bool = True, using: str = "default") -> Iterator[TenantContext]:
+def bind_context(
+    ctx: TenantContext, *, apply_db: bool = True, restore_db: bool = True, using: str = "default"
+) -> Iterator[TenantContext]:
     """Bind ``ctx`` for the duration of the block, restoring the previous context afterwards.
 
     If no transaction is open, one is opened so that the DB-level context has SET LOCAL semantics.
+    ``restore_db=False`` skips re-applying the previous DB context on exit; only for callers that
+    restore it themselves once (the request middleware) instead of once per nested level.
     """
     token: Token[TenantContext | None] = _context.set(ctx)
     previous = token.old_value if token.old_value is not Token.MISSING else None
@@ -110,7 +114,7 @@ def bind_context(ctx: TenantContext, *, apply_db: bool = True, using: str = "def
         if apply_db:
             if atomic_cm is not None:
                 atomic_cm.__exit__(None, None, None)
-            elif connections[using].in_atomic_block:
+            elif restore_db and connections[using].in_atomic_block:
                 apply_db_context(previous, using=using)
 
 

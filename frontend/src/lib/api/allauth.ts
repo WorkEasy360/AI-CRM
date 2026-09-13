@@ -73,7 +73,7 @@ function interpretAuth(res: RawResponse): AuthOutcome {
 }
 
 /* Auth flows */
-export async function signup(input: { email: string; password: string }): Promise<AuthOutcome> {
+export async function signup(input: { email: string; password: string; name?: string }): Promise<AuthOutcome> {
   const res = await request(`${BASE}/auth/signup`, { method: "POST", body: input });
   const outcome = interpretAuth(res);
   if (outcome.kind === "unknown") fail(res);

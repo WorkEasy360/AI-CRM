@@ -119,5 +119,25 @@ describe("GlobalSearch", () => {
 
   it("URL-encodes ids in result links", () => {
     expect(hitHref("product", "a b/c")).toBe("/products/a%20b%2Fc");
+    expect(hitHref("activity", "a 1")).toBe("/activities?open=a%201");
+  });
+
+  it("groups activities after deals and links them to the Activities page", async () => {
+    vi.mocked(globalSearch).mockResolvedValue({
+      query: "demo",
+      results: {
+        product: [{ id: "p1", type: "product", title: "Demo kit", subtitle: "", meta: "" }],
+        activity: [{ id: "a1", type: "activity", title: "Demo call", subtitle: "Tomorrow 10:00", meta: "Call" }],
+        deal: [{ id: "d1", type: "deal", title: "Demo deal", subtitle: "", meta: "" }],
+      },
+    });
+    const user = userEvent.setup();
+    renderSearch();
+
+    await user.type(screen.getByRole("combobox", { name: "Search" }), "demo");
+
+    expect(await screen.findByRole("link", { name: /Demo call/ })).toHaveAttribute("href", "/activities?open=a1");
+    const groups = screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"));
+    expect(groups).toEqual(["Deals", "Activities", "Products"]);
   });
 });

@@ -124,7 +124,7 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onCredentials} className="grid gap-4" noValidate>
-      <AuthHeading title="Sign in" description="Welcome back. Enter your details to continue." />
+      <AuthHeading title="Sign in" />
       <FormError message={error} />
       <FormField control={credentials.control} name="email" label="Email" serverError={fieldErrors.email}>
         {(field) => (
@@ -152,16 +152,16 @@ export function LoginForm() {
       </FormField>
       <div className="-mt-2 text-right">
         <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
-          Forgot your password?
+          Forgot password?
         </Link>
       </div>
       <Button type="submit" className="w-full" loading={credentials.formState.isSubmitting}>
         Sign in
       </Button>
       <p className="text-center text-sm text-fg-muted">
-        New to Keel?{" "}
+        New here?{" "}
         <Link href="/signup" className="font-medium text-primary hover:underline">
-          Create an account
+          Create account
         </Link>
       </p>
     </form>

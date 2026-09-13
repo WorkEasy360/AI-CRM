@@ -14,18 +14,21 @@ import { FormError, FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { signup } from "@/lib/api/allauth";
 import { errorMessage, isApiError } from "@/lib/api/problem";
+import { DEFAULT_NEXT } from "@/lib/safe-next";
 import { queryKeys } from "@/lib/session";
-import { emailSchema, passwordSchema } from "@/lib/validation";
+import { emailSchema, nameSchema, passwordSchema } from "@/lib/validation";
 
-const schema = z
-  .object({
-    email: emailSchema,
-    password: passwordSchema,
-    confirm: z.string(),
-  })
-  .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Passwords do not match." });
+const schema = z.object({
+  name: nameSchema,
+  email: emailSchema,
+  password: passwordSchema,
+});
 type SignupInput = z.infer<typeof schema>;
 
+/**
+ * Sign up = name, email, password. There is no organization step: the server creates the user's
+ * workspace (organization, owner membership, default pipeline) once the email is verified.
+ */
 export function SignupForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -35,17 +38,17 @@ export function SignupForm() {
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "", confirm: "" },
+    defaultValues: { name: "", email: "", password: "" },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     setFieldErrors({});
     try {
-      const outcome = await signup({ email: values.email, password: values.password });
+      const outcome = await signup({ name: values.name, email: values.email, password: values.password });
       if (outcome.kind === "authenticated") {
         await queryClient.invalidateQueries({ queryKey: queryKeys.session });
-        router.replace("/onboarding/create-organization");
+        router.replace(DEFAULT_NEXT);
         return;
       }
       setDone(values.email);
@@ -62,7 +65,7 @@ export function SignupForm() {
           <MailCheck className="size-6" aria-hidden />
         </div>
         <AuthHeading title="Check your email" description={`We sent a verification link to ${done}.`} />
-        <p className="text-sm text-fg-muted">Open the link to verify your address, then sign in to set up your organization.</p>
+        <p className="text-sm text-fg-muted">Open the link to verify your address. Your CRM is ready as soon as you sign in.</p>
         <Button asChild variant="secondary" className="mt-6 w-full">
           <Link href="/login">Back to sign in</Link>
         </Button>
@@ -72,36 +75,20 @@ export function SignupForm() {
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4" noValidate>
-      <AuthHeading title="Create your account" description="Start with your work email. You will create or join an organization next." />
+      <AuthHeading title="Create account" />
       <FormError message={error} />
-      <FormField control={form.control} name="email" label="Work email" serverError={fieldErrors.email}>
+      <FormField control={form.control} name="name" label="Name" serverError={fieldErrors.name}>
         {(field) => (
-          <Input
-            {...field}
-            type="email"
-            autoComplete="email"
-            autoFocus
-            placeholder="you@company.com"
-            value={field.value}
-            onChange={(e) => field.onChange(e.target.value)}
-          />
+          <Input {...field} autoComplete="name" autoFocus placeholder="Your name" value={field.value} onChange={(e) => field.onChange(e.target.value)} />
         )}
       </FormField>
-      <FormField
-        control={form.control}
-        name="password"
-        label="Password"
-        description="At least 10 characters."
-        serverError={fieldErrors.password}
-      >
+      <FormField control={form.control} name="email" label="Email" serverError={fieldErrors.email}>
         {(field) => (
-          <Input {...field} type="password" autoComplete="new-password" value={field.value} onChange={(e) => field.onChange(e.target.value)} />
+          <Input {...field} type="email" autoComplete="email" placeholder="you@company.com" value={field.value} onChange={(e) => field.onChange(e.target.value)} />
         )}
       </FormField>
-      <FormField control={form.control} name="confirm" label="Confirm password">
-        {(field) => (
-          <Input {...field} type="password" autoComplete="new-password" value={field.value} onChange={(e) => field.onChange(e.target.value)} />
-        )}
+      <FormField control={form.control} name="password" label="Password" description="At least 10 characters." serverError={fieldErrors.password}>
+        {(field) => <Input {...field} type="password" autoComplete="new-password" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
       </FormField>
       <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
         Create account

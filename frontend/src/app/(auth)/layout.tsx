@@ -14,8 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </span>
         <span className="text-lg tracking-tight">Keel</span>
       </Link>
-      <div className="w-full max-w-md rounded-md border border-border bg-surface p-6 shadow-md sm:p-8">{children}</div>
-      <p className="mt-6 text-xs text-fg-subtle">Keel CRM · Phase 1</p>
+      <div className="w-full max-w-sm rounded-md border border-border bg-surface p-6 shadow-md sm:p-7">{children}</div>
     </div>
   );
 }

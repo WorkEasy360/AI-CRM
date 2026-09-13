@@ -3,23 +3,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
-  BarChart3,
+  Bell,
   Building2,
+  CalendarCheck,
   Contact,
   DatabaseZap,
   KanbanSquare,
   LayoutDashboard,
   ListChecks,
   Lock,
+  Mail,
+  MessageCircle,
   Package,
+  Settings,
   Settings2,
   SlidersHorizontal,
+  Sparkles,
   Tag,
   Users,
   UsersRound,
 } from "lucide-react";
-import type { ActiveContext } from "@/lib/api/types";
+import { Avatar } from "@/components/ui/avatar";
+import type { ActiveContext, Session } from "@/lib/api/types";
 import { hasPermission } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -27,59 +32,109 @@ export interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  permission?: string;
 }
 
-export const PRIMARY_NAV: NavItem[] = [
+/** The everyday CRM. Six entries, nothing administrative. */
+export const PRIMARY_NAV: readonly NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { href: "/contacts", label: "Contacts", icon: Contact },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/activities", label: "Activities", icon: CalendarCheck },
   { href: "/products", label: "Products", icon: Package },
-  { href: "/activities", label: "Activities", icon: Activity },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
-export const SETTINGS_NAV: NavItem[] = [
-  { href: "/settings/organization", label: "Organization", icon: Settings2 },
-  { href: "/settings/members", label: "Members", icon: Users },
-  { href: "/settings/teams", label: "Teams", icon: UsersRound },
-  { href: "/settings/pipelines", label: "Pipelines", icon: KanbanSquare, permission: "pipelines.view" },
-  { href: "/settings/custom-fields", label: "Custom fields", icon: SlidersHorizontal, permission: "customfields.view" },
-  { href: "/settings/tags", label: "Tags", icon: Tag, permission: "tags.view" },
-  { href: "/settings/data", label: "Data (import/export)", icon: DatabaseZap },
-  { href: "/settings/security", label: "Security", icon: Lock },
-  { href: "/settings/audit-log", label: "Audit log", icon: ListChecks, permission: "audit.view" },
+export interface SettingsNavItem extends NavItem {
+  /** UI-only visibility rule. The API enforces the real permission on every request. */
+  visible: (active: ActiveContext | null | undefined) => boolean;
+}
+
+const anyOf = (active: ActiveContext | null | undefined, keys: string[]) => keys.some((key) => hasPermission(active, key));
+
+/** Administrative pages, reachable from the gear icon only, shown when the member can act on them. */
+export const SETTINGS_NAV: readonly SettingsNavItem[] = [
+  { href: "/settings/general", label: "General", icon: Settings2, visible: (a) => hasPermission(a, "org.update") },
+  { href: "/settings/users", label: "Users", icon: Users, visible: (a) => anyOf(a, ["members.invite", "members.update_role", "members.disable"]) },
+  { href: "/settings/teams", label: "Teams", icon: UsersRound, visible: (a) => hasPermission(a, "teams.manage") },
+  { href: "/settings/pipelines", label: "Pipelines", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
+  { href: "/settings/custom-fields", label: "Custom fields", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
+  { href: "/settings/tags", label: "Tags", icon: Tag, visible: (a) => hasPermission(a, "tags.manage") },
+  { href: "/settings/email", label: "Email", icon: Mail, visible: (a) => hasPermission(a, "email.view") },
+  { href: "/settings/whatsapp", label: "WhatsApp", icon: MessageCircle, visible: (a) => hasPermission(a, "whatsapp.view") },
+  { href: "/settings/notifications", label: "Notifications", icon: Bell, visible: () => true },
+  { href: "/settings/ai", label: "AI", icon: Sparkles, visible: (a) => hasPermission(a, "ai.settings.manage") },
+  { href: "/settings/security", label: "Security", icon: Lock, visible: () => true },
+  {
+    href: "/settings/data",
+    label: "Import / Export",
+    icon: DatabaseZap,
+    visible: (a) =>
+      anyOf(a, ["contacts.import", "companies.import", "products.import", "contacts.export", "companies.export", "products.export", "deals.export"]),
+  },
+  { href: "/settings/audit-log", label: "Audit log", icon: ListChecks, visible: (a) => hasPermission(a, "audit.view") },
 ];
 
-export function SideNav({ active, onNavigate }: { active: ActiveContext; onNavigate?: () => void }) {
+export function visibleSettingsNav(active: ActiveContext | null | undefined): SettingsNavItem[] {
+  return SETTINGS_NAV.filter((item) => item.visible(active));
+}
+
+function isCurrent(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function SideNav({ session, onNavigate }: { session: Session; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const renderItem = (item: NavItem) => {
-    if (item.permission && !hasPermission(active, item.permission)) return null;
-    const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
-    return (
-      <li key={item.href}>
+  const active = session.active;
+  const name = session.user.display_name || session.user.email;
+  return (
+    <nav aria-label="Primary" className="flex flex-1 flex-col overflow-y-auto">
+      <ul className="flex flex-col gap-0.5 px-2 py-2">
+        {PRIMARY_NAV.map((item) => {
+          const current = isCurrent(pathname, item.href);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                aria-current={current ? "page" : undefined}
+                className={cn(
+                  "flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium transition-colors",
+                  current ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+                )}
+              >
+                <item.icon className="size-4 shrink-0" />
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="mt-auto border-t border-border px-2 py-2">
         <Link
-          href={item.href}
+          href="/settings"
           onClick={onNavigate}
-          aria-current={current ? "page" : undefined}
+          aria-current={isCurrent(pathname, "/settings") ? "page" : undefined}
           className={cn(
-            "flex items-center gap-3 rounded-sm px-3 py-2 text-sm font-medium transition-colors",
-            current ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+            "flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium transition-colors",
+            isCurrent(pathname, "/settings") ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
           )}
         >
-          <item.icon className="size-4 shrink-0" />
-          {item.label}
+          <Settings className="size-4 shrink-0" />
+          Settings
         </Link>
-      </li>
-    );
-  };
-  return (
-    <nav aria-label="Primary" className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
-      <ul className="flex flex-col gap-0.5">{PRIMARY_NAV.map(renderItem)}</ul>
-      <div>
-        <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Settings</p>
-        <ul className="flex flex-col gap-0.5">{SETTINGS_NAV.map(renderItem)}</ul>
+        <Link
+          href="/settings/security"
+          onClick={onNavigate}
+          className="mt-1 flex items-center gap-2.5 rounded-sm px-2 py-1.5 hover:bg-bg-subtle"
+          aria-label={`${name}: profile and security`}
+        >
+          <Avatar name={name} size="sm" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-fg">{name}</span>
+            <span className="block truncate text-xs text-fg-subtle">{active?.role.name ?? session.user.email}</span>
+          </span>
+        </Link>
       </div>
     </nav>
   );
@@ -87,13 +142,13 @@ export function SideNav({ active, onNavigate }: { active: ActiveContext; onNavig
 
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <Link href="/dashboard" className={cn("flex items-center gap-2 font-semibold text-fg", className)} aria-label="Keel CRM home">
-      <span className="flex size-7 items-center justify-center rounded-sm bg-primary text-primary-fg">
-        <svg viewBox="0 0 20 20" className="size-4" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <Link href="/pipeline" className={cn("flex items-center gap-2 font-semibold text-fg", className)} aria-label="Keel CRM home">
+      <span className="flex size-6 items-center justify-center rounded-sm bg-primary text-primary-fg">
+        <svg viewBox="0 0 20 20" className="size-3.5" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M5 3v14M5 10l8-7M5 10l8 7" />
         </svg>
       </span>
-      <span className="text-md tracking-tight">Keel</span>
+      <span className="text-sm tracking-tight">Keel</span>
     </Link>
   );
 }

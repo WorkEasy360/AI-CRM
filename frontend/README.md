@@ -12,13 +12,13 @@ pnpm install
 pnpm dev                     # http://localhost:3000
 ```
 
-`API_INTERNAL_ORIGIN` is read **server-side only** by `next.config.ts` and used as the destination of the dev rewrites for `/api/*`, `/_allauth/*`, `/health/` and `/ready/`. It is never exposed to the browser; there are no `NEXT_PUBLIC_*` variables and no secrets in Phase 1.
+`API_INTERNAL_ORIGIN` is read **server-side only** by `src/middleware.ts` and used as the destination of the proxy for `/api/*`, `/_allauth/*`, `/health/` and `/ready/` (middleware rather than `next.config.ts` rewrites so the trailing slash every DRF route requires survives the hop). It is never exposed to the browser; there are no `NEXT_PUBLIC_*` variables and no secrets in Phase 1.
 
 ## Scripts
 
 | Script            | What it does                                                                  |
 | ----------------- | ----------------------------------------------------------------------------- |
-| `pnpm dev`        | Next.js dev server with rewrites to the backend                               |
+| `pnpm dev`        | Next.js dev server proxying backend paths                                     |
 | `pnpm build`      | Production build (`output: "standalone"`)                                     |
 | `pnpm start`      | Serve the production build                                                    |
 | `pnpm lint`       | ESLint (next/core-web-vitals + next/typescript + security rules)              |
@@ -33,7 +33,7 @@ The generated `schema.d.ts` is committed so builds are reproducible without the 
 
 ```
 src/
-  app/                 routes: (auth) group, (app) group with shell, onboarding
+  app/                 routes: (auth) group, (app) group with shell (settings has its own sub-layout)
   components/ui/       small typed primitives on Radix (Button, Dialog, Select, ...)
   components/shell/    app shell: side nav, top bar, org switcher, user menu, Copilot drawer
   components/settings/ organization, members, teams, security, audit-log, pipelines, custom-fields, tags, data (import/export)
@@ -92,7 +92,7 @@ Everything is pinned to exact versions; `pnpm-lock.yaml` is committed. `.npmrc` 
 
 ### Client-side session gating (known limitation)
 
-Protected routes are gated **client-side** in `src/components/auth-gate.tsx`. The Django session cookie is only visible to the browser and to Django behind the same-origin rewrite; the Next.js server never sees it, so it cannot verify the session during server rendering. The `(app)` and `onboarding` layouts therefore render a skeleton until `GET /api/v1/session/` resolves, then redirect to `/login?next=…` (unauthenticated) or `/onboarding/create-organization` (no active organisation). True server-side gating arrives with the shared-origin reverse proxy in staging, when Next.js route handlers/middleware can forward the cookie to the backend.
+Protected routes are gated **client-side** in `src/components/auth-gate.tsx`. The Django session cookie is only visible to the browser and to Django behind the same-origin rewrite; the Next.js server never sees it, so it cannot verify the session during server rendering. The `(app)` layout therefore renders a skeleton until `GET /api/v1/session/` resolves, then redirects to `/login?next=…` (unauthenticated) or calls `POST /api/v1/session/bootstrap/` (no active organisation: the server creates the personal workspace and activates a membership, so there is no onboarding wizard). True server-side gating arrives with the shared-origin reverse proxy in staging, when Next.js route handlers/middleware can forward the cookie to the backend.
 
 ## Docker
 
@@ -101,7 +101,7 @@ docker build -t keel-frontend .
 docker run -p 3000:3000 -e API_INTERNAL_ORIGIN=http://backend:8000 keel-frontend
 ```
 
-Multi-stage on `node:22-alpine`, standalone output, non-root user (uid 10001), `HEALTHCHECK` against `/login`. Note that `next.config.ts` rewrites are evaluated at build time, so `API_INTERNAL_ORIGIN` must be set when building the image if it differs from the default; in staging the reverse proxy routes `/api` and `/_allauth` directly and the rewrites are not exercised.
+Multi-stage on `node:22-alpine`, standalone output, non-root user (uid 10001), `HEALTHCHECK` against `/login`. `API_INTERNAL_ORIGIN` is read by the middleware at runtime, so it can be set on the container (as `docker-compose.yml` does); in staging the reverse proxy routes `/api` and `/_allauth` directly and the middleware proxy is not exercised.
 
 ## Tests
 
@@ -109,4 +109,24 @@ Multi-stage on `node:22-alpine`, standalone output, non-root user (uid 10001), `
 - `src/lib/safe-next.test.ts` — redirect validator (open-redirect cases).
 - `src/lib/api/problem.test.ts` — problem-details parser and `ApiError` classification.
 - `src/components/settings/invite-member-dialog.test.tsx` — invite dialog zod validation with the API mocked.
-- `tests/e2e/smoke.spec.ts` — login page, signup up to "check your email", security headers. Run with `E2E_BASE_URL=http://localhost:3000 pnpm test:e2e` against a live stack.
+- `tests/e2e/smoke.spec.ts` — production hydration under the CSP nonce (no backend needed; CI runs it against the standalone server), signup up to "check your email", security headers.
+- `tests/e2e/sales-workflow.spec.ts` — the critical business workflow through the browser: login, pipeline, company, contact, deal, stage move, task, meeting, call, email (sandbox OAuth), WhatsApp (connect, template, signed inbound webhook, free text), AI summary / follow-up / risk, closed won, dashboard and forecast.
+- `tests/e2e/browser-behaviour.spec.ts` — server-side session revocation, MFA enrolment and login, permission denial (UI + API), concurrent deal edits, loading/error states, phone and tablet layouts, keyboard-only operation.
+
+Running the browser suites needs a live stack with sandbox providers:
+
+```sh
+# backend (from ./backend): fake email/WhatsApp/AI providers; the port must differ from any dev server you keep running
+MESSAGING_PROVIDER_BACKEND=fake AI_PROVIDER_BACKEND=fake WHATSAPP_APP_SECRET=e2e-app-secret WHATSAPP_VERIFY_TOKEN=e2e-verify FRONTEND_ORIGIN=http://localhost:3100 CSRF_TRUSTED_ORIGINS=http://localhost:3100,http://localhost:8001 uv run python manage.py runserver 8001 --noreload
+uv run celery -A config.celery worker -l info -Q default,notifications --pool=solo   # sends run on the worker
+uv run python manage.py seed_e2e --out ../frontend/test-results/e2e-users.json     # fresh org + owner/viewer/rep/mfa users
+
+# frontend (from ./frontend): production build served by the standalone server
+NEXT_DIST_DIR=.next-build pnpm build
+cp -r .next-build/static .next-build/standalone/.next-build/static && cp -r public .next-build/standalone/public
+(cd .next-build/standalone && API_INTERNAL_ORIGIN=http://localhost:8001 HOSTNAME=localhost PORT=3100 node server.js)
+
+E2E_BASE_URL=http://localhost:3100 E2E_USERS_FILE=test-results/e2e-users.json E2E_WHATSAPP_APP_SECRET=e2e-app-secret pnpm test:e2e
+```
+
+`next start` refuses `output: standalone`; run `server.js`. The dev server also works as a target (it renders dynamically), but only the production build proves the CSP nonce contract, which is why the smoke spec runs against it in CI.

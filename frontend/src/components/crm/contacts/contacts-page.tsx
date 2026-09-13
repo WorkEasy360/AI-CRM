@@ -3,30 +3,30 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { BulkBar } from "@/components/crm/bulk-bar";
+import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
 import { ContactFormDialog } from "@/components/crm/contacts/contact-form-dialog";
 import { DataTable, useSelection, type Column } from "@/components/crm/data-table";
+import { LifecycleBadge } from "@/components/crm/lifecycle-badge";
+import { LifecycleSelect } from "@/components/crm/lifecycle-select";
 import { ListToolbar, type SortOption } from "@/components/crm/list-toolbar";
-import { TagList } from "@/components/crm/tag-picker";
 import { useArchiveRestore } from "@/components/crm/use-record-mutations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { contactStats, listContacts } from "@/lib/api/crm";
-import type { Contact, ContactStats, ListParams } from "@/lib/api/crm-types";
+import { listContacts } from "@/lib/api/crm";
+import type { Contact, LifecycleStage, ListParams } from "@/lib/api/crm-types";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
-import { formatDate } from "@/lib/utils";
 
-const ALLOWED = ["q", "sort", "owner", "archived", "company", "has_company", "source", "job_title", "created_from", "created_to"] as const;
+const ALLOWED = ["q", "sort", "owner", "archived", "company", "has_company", "lifecycle", "source", "job_title", "created_from", "created_to"] as const;
 const DEFAULTS: ListParams = { sort: "-created_at" };
 const SORT_OPTIONS: SortOption[] = [
   { value: "-created_at", label: "Newest first" },
@@ -37,32 +37,12 @@ const SORT_OPTIONS: SortOption[] = [
   { value: "first_name", label: "First name A–Z" },
   { value: "email", label: "Email A–Z" },
   { value: "company", label: "Company A–Z" },
+  { value: "lifecycle", label: "Status" },
+  { value: "-last_activity_at", label: "Recent activity" },
+  { value: "next_activity_at", label: "Next activity soonest" },
 ];
 
 const enc = encodeURIComponent;
-
-function Dash() {
-  return <span className="text-fg-subtle">—</span>;
-}
-
-function Kpis({ stats }: { stats: ContactStats | undefined }) {
-  const items = [
-    { label: "Total contacts", value: stats?.total },
-    { label: "With open deals", value: stats?.with_open_deals },
-    { label: "Without deals", value: stats?.without_deals },
-    { label: "Untouched", value: stats?.untouched },
-  ];
-  return (
-    <dl aria-label="Contact statistics" className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-4">
-      {items.map((item) => (
-        <div key={item.label} className="bg-surface px-4 py-3">
-          <dt className="text-xs text-fg-subtle">{item.label}</dt>
-          <dd className="text-lg font-semibold tabular-nums text-fg">{item.value === undefined ? "—" : item.value.toLocaleString()}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 
 export function ContactsPage() {
   const { data: session } = useSession();
@@ -71,13 +51,14 @@ export function ContactsPage() {
   const canDelete = can(active, "contacts.delete");
   const canBulk = can(active, "contacts.bulk_update");
 
-  const { params, setParam, clear, activeFilterCount } = useListParams(ALLOWED, DEFAULTS);
+  const { params, setParam, setParams, clear, activeFilterCount } = useListParams(ALLOWED, DEFAULTS);
   const searchParams = useSearchParams();
   const wantsNew = canCreate && searchParams?.get("new") === "1";
   const archivedView = params.archived === "true";
 
-  const list = useCursorList<Contact>(crmKeys.list("contacts", params), (cursor) => listContacts(params, cursor));
-  const stats = useQuery({ queryKey: crmKeys.stats("contacts"), queryFn: contactStats, staleTime: 60_000 });
+  const list = useCursorList<Contact>(crmKeys.list("contacts", params), (cursor) => listContacts(params, cursor), true, {
+    recordKey: (row) => crmKeys.record("contacts", row.id),
+  });
   const selection = useSelection();
   const { archive, restore } = useArchiveRestore("contact");
 
@@ -101,6 +82,7 @@ export function ContactsPage() {
         key: "name",
         header: "Name",
         sortKey: "name",
+        className: "min-w-40",
         render: (c) => (
           <span className="inline-flex items-center gap-2">
             {c.display_name || c.email || "Unnamed contact"}
@@ -108,25 +90,56 @@ export function ContactsPage() {
           </span>
         ),
       },
-      { key: "email", header: "Email", sortKey: "email", render: (c) => (c.email ? <span className="break-all">{c.email}</span> : <Dash />) },
-      { key: "phone", header: "Phone", className: "hidden md:table-cell", render: (c) => c.phone || <Dash /> },
       {
         key: "company",
         header: "Company",
         sortKey: "company",
+        className: "max-w-48",
         render: (c) =>
           c.company ? (
-            <Link href={`/companies/${enc(c.company.id)}`} className="text-fg hover:text-primary hover:underline">
+            <Link href={`/companies/${enc(c.company.id)}`} className="block truncate text-fg hover:text-primary hover:underline">
               {c.company.name}
             </Link>
           ) : (
             <Dash />
           ),
       },
-      { key: "owner", header: "Owner", className: "hidden lg:table-cell", render: (c) => c.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span> },
-      { key: "tags", header: "Tags", className: "hidden md:table-cell", render: (c) => (c.tags.length ? <TagList tags={c.tags} /> : <Dash />) },
-      { key: "open_deals", header: "Open deals", className: "hidden lg:table-cell text-right tabular-nums", render: (c) => c.open_deal_count },
-      { key: "created", header: "Created", sortKey: "created_at", className: "hidden xl:table-cell", render: (c) => formatDate(c.created_at) },
+      {
+        key: "email",
+        header: "Email",
+        sortKey: "email",
+        className: "hidden lg:table-cell max-w-56",
+        render: (c) =>
+          c.email ? (
+            <a href={`mailto:${c.email}`} className="block truncate text-fg hover:text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+              {c.email}
+            </a>
+          ) : (
+            <Dash />
+          ),
+      },
+      { key: "phone", header: "Phone", className: "hidden md:table-cell whitespace-nowrap", render: (c) => c.phone || <Dash /> },
+      { key: "lifecycle", header: "Status", sortKey: "lifecycle", render: (c) => <LifecycleBadge stage={c.lifecycle_stage} /> },
+      {
+        key: "owner",
+        header: "Owner",
+        className: "hidden xl:table-cell",
+        render: (c) => c.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span>,
+      },
+      {
+        key: "last_activity",
+        header: "Last activity",
+        sortKey: "last_activity_at",
+        className: "hidden md:table-cell whitespace-nowrap",
+        render: (c) => <LastActivityCell value={c.last_activity_at} />,
+      },
+      {
+        key: "next_activity",
+        header: "Next activity",
+        sortKey: "next_activity_at",
+        className: "hidden sm:table-cell max-w-48",
+        render: (c) => <NextActivityCell at={c.next_activity_at} title={c.next_activity_title} />,
+      },
       {
         key: "actions",
         header: <span className="sr-only">Actions</span>,
@@ -181,11 +194,11 @@ export function ContactsPage() {
     <EmptyState
       icon={<ContactIcon />}
       title="No contacts yet"
-      description="People you work with, linked to companies and deals."
+      description="Add the people you sell to. Link them to companies and deals as you go."
       action={
         canCreate ? (
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus /> New contact
+            <Plus /> Contact
           </Button>
         ) : null
       }
@@ -194,21 +207,34 @@ export function ContactsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Contacts"
-        description="People you work with, linked to companies and deals."
+      <PageHeader title="Contacts" />
+
+      <ListToolbar
+        params={params}
+        setParam={setParam}
+        setParams={setParams}
+        clear={clear}
+        sortOptions={SORT_OPTIONS}
+        activeFilterCount={activeFilterCount}
+        entityLabel="contacts"
+        searchPlaceholder="Search contacts…"
         actions={
           canCreate ? (
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus /> New contact
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus /> Contact
             </Button>
           ) : null
         }
-      />
-
-      <ListToolbar params={params} setParam={setParam} clear={clear} sortOptions={SORT_OPTIONS} activeFilterCount={activeFilterCount} searchPlaceholder="Search contacts…">
+      >
+        <LifecycleSelect
+          allowAll
+          value={(params.lifecycle as LifecycleStage | undefined) ?? ""}
+          onChange={(v) => setParam("lifecycle", v || undefined)}
+          className="h-8 w-40"
+          ariaLabel="Status filter"
+        />
         <Select value={params.has_company ?? "all"} onValueChange={(v) => setParam("has_company", v === "all" ? undefined : v)}>
-          <SelectTrigger className="w-40" aria-label="Company filter">
+          <SelectTrigger className="h-8 w-40" aria-label="Company filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -232,6 +258,7 @@ export function ContactsPage() {
         onToggle={selection.toggle}
         onToggleAll={selection.toggleAll}
         isPending={list.isPending}
+        isRefreshing={list.isPlaceholderData}
         isError={list.isError}
         error={list.error}
         onRetry={() => list.refetch()}
@@ -241,8 +268,6 @@ export function ContactsPage() {
         isLoadingMore={list.isLoadingMore}
         caption="Contacts"
       />
-
-      <Kpis stats={stats.data} />
 
       <ContactFormDialog open={createOpen || wantsNew || editing !== null} contact={editing} onOpenChange={(open) => !open && closeDialog()} />
     </div>

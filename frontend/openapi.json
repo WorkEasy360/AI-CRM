@@ -5,6 +5,414 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/api/v1/activities/": {
+            "get": {
+                "operationId": "activities_list",
+                "description": "Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members\ninvited to a meeting also see it on their calendar.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedActivityList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "activities_create",
+                "description": "Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members\ninvited to a meeting also see it on their calendar.",
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/activities/{id}/": {
+            "get": {
+                "operationId": "activities_retrieve",
+                "description": "Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members\ninvited to a meeting also see it on their calendar.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "activities_partial_update",
+                "description": "Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members\ninvited to a meeting also see it on their calendar.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "activities_destroy",
+                "description": "Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members\ninvited to a meeting also see it on their calendar.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/activities/{id}/complete/": {
+            "post": {
+                "operationId": "activities_complete_create",
+                "description": "Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members\ninvited to a meeting also see it on their calendar.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/activities/{id}/reopen/": {
+            "post": {
+                "operationId": "activities_reopen_create",
+                "description": "Tasks, calls and meetings. Visibility follows ``activities.view`` scope on the owner; members\ninvited to a meeting also see it on their calendar.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/activities/calendar/": {
+            "get": {
+                "operationId": "activities_calendar_retrieve",
+                "description": "Everything with a start inside ``from``..``to`` (max 62 days), for the month/week/day views.",
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/activities/summary/": {
+            "get": {
+                "operationId": "activities_summary_retrieve",
+                "description": "Counters for the header and dashboard, computed inside the actor's scope in one query.",
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/contacts/{contact_id}/score/": {
+            "get": {
+                "operationId": "ai_contacts_score_retrieve",
+                "description": "Rules-based lead score with reasons for one contact the caller may view.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "contact_id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/deals/{deal_id}/summary/": {
+            "post": {
+                "operationId": "ai_deals_summary_create",
+                "description": "POST: summarise one deal the caller may view (cached per deal version; ``force`` refreshes).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "deal_id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/email/": {
+            "post": {
+                "operationId": "ai_email_create",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "tags": [
+                    "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/follow-up/": {
+            "post": {
+                "operationId": "ai_follow_up_create",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "tags": [
+                    "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/usage/": {
+            "get": {
+                "operationId": "ai_usage_retrieve",
+                "description": "Organization AI usage and limits (administrators).",
+                "tags": [
+                    "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
         "/api/v1/audit-events/": {
             "get": {
                 "operationId": "audit_events_list",
@@ -345,6 +753,33 @@
         "/api/v1/companies/count/": {
             "get": {
                 "operationId": "companies_count_retrieve",
+                "description": "Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.\n\nAn unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost\ngrows linearly with tenant size; the UI only needs \"10,000+\" beyond the cap.",
+                "tags": [
+                    "companies"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Company"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/companies/duplicates/": {
+            "get": {
+                "operationId": "companies_duplicates_retrieve",
+                "description": "Companies in scope with the same name (case-insensitive) or the same website host.",
                 "tags": [
                     "companies"
                 ],
@@ -653,6 +1088,33 @@
         "/api/v1/contacts/count/": {
             "get": {
                 "operationId": "contacts_count_retrieve",
+                "description": "Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.\n\nAn unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost\ngrows linearly with tenant size; the UI only needs \"10,000+\" beyond the cap.",
+                "tags": [
+                    "contacts"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/contacts/duplicates/": {
+            "get": {
+                "operationId": "contacts_duplicates_retrieve",
+                "description": "Possible duplicates of a contact being created: same email, same phone digits or same full name.\n\nAnswers only within the actor's view scope (never confirms the existence of a hidden record).",
                 "tags": [
                     "contacts"
                 ],
@@ -899,6 +1361,25 @@
                             }
                         },
                         "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/": {
+            "get": {
+                "operationId": "dashboard_retrieve",
+                "description": "Sales dashboard numbers for the active organization, limited to what the actor may see.",
+                "tags": [
+                    "dashboard"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
                     }
                 }
             }
@@ -1173,6 +1654,42 @@
         "/api/v1/deals/{id}/history/": {
             "get": {
                 "operationId": "deals_history_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "deals"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Deal"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/deals/{id}/insights/": {
+            "get": {
+                "operationId": "deals_insights_retrieve",
+                "description": "Rules-based risk, score and next best action for one deal (no LLM, no extra permissions).",
                 "parameters": [
                     {
                         "in": "path",
@@ -1522,6 +2039,7 @@
         "/api/v1/deals/count/": {
             "get": {
                 "operationId": "deals_count_retrieve",
+                "description": "Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.\n\nAn unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost\ngrows linearly with tenant size; the UI only needs \"10,000+\" beyond the cap.",
                 "tags": [
                     "deals"
                 ],
@@ -1536,6 +2054,497 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Deal"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/accounts/": {
+            "get": {
+                "operationId": "email_accounts_list",
+                "description": "The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedEmailAccountList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/accounts/{id}/": {
+            "get": {
+                "operationId": "email_accounts_retrieve",
+                "description": "The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailAccount"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "email_accounts_destroy",
+                "description": "The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/email/accounts/callback/": {
+            "get": {
+                "operationId": "email_accounts_callback_retrieve",
+                "description": "The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly.",
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailAccount"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/accounts/connect/": {
+            "post": {
+                "operationId": "email_accounts_connect_create",
+                "description": "The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly.",
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailAccount"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/accounts/providers/": {
+            "get": {
+                "operationId": "email_accounts_providers_retrieve",
+                "description": "The caller's mailbox connections (never tokens). Connect via OAuth, disconnect explicitly.",
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailAccount"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/messages/": {
+            "get": {
+                "operationId": "email_messages_list",
+                "description": "Email history per record (visible when the record is), plus sending from the caller's mailbox.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedEmailMessageList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "email_messages_create",
+                "description": "Email history per record (visible when the record is), plus sending from the caller's mailbox.",
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailMessage"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/messages/{id}/": {
+            "get": {
+                "operationId": "email_messages_retrieve",
+                "description": "Email history per record (visible when the record is), plus sending from the caller's mailbox.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailMessage"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/templates/": {
+            "get": {
+                "operationId": "email_templates_list",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedEmailTemplateList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "email_templates_create",
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailTemplate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/email/templates/{id}/": {
+            "get": {
+                "operationId": "email_templates_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailTemplate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "email_templates_partial_update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailTemplate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "email_templates_destroy",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/email/templates/{id}/render/": {
+            "get": {
+                "operationId": "email_templates_render_retrieve",
+                "description": "The template with placeholders filled from a contact/deal the caller may view.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "email"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailTemplate"
                                 }
                             }
                         },
@@ -2092,6 +3101,25 @@
                             }
                         },
                         "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/forecast/": {
+            "get": {
+                "operationId": "forecast_retrieve",
+                "description": "Sales forecast for the active organization inside the caller's ``deals.view`` scope.",
+                "tags": [
+                    "forecast"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
                     }
                 }
             }
@@ -3147,6 +4175,202 @@
                 }
             }
         },
+        "/api/v1/notifications/": {
+            "get": {
+                "operationId": "notifications_list",
+                "description": "A member's own notifications only. The recipient filter is applied before any scope logic.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedNotificationList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/{id}/": {
+            "get": {
+                "operationId": "notifications_retrieve",
+                "description": "A member's own notifications only. The recipient filter is applied before any scope logic.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/preferences/": {
+            "get": {
+                "operationId": "notifications_preferences_retrieve",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "notifications_preferences_partial_update",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/read/": {
+            "post": {
+                "operationId": "notifications_read_create",
+                "description": "A member's own notifications only. The recipient filter is applied before any scope logic.",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/read-all/": {
+            "post": {
+                "operationId": "notifications_read_all_create",
+                "description": "A member's own notifications only. The recipient filter is applied before any scope logic.",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/unread-count/": {
+            "get": {
+                "operationId": "notifications_unread_count_retrieve",
+                "description": "A member's own notifications only. The recipient filter is applied before any scope logic.",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/organizations/": {
             "post": {
                 "operationId": "organizations_create",
@@ -3668,6 +4892,7 @@
         "/api/v1/products/count/": {
             "get": {
                 "operationId": "products_count_retrieve",
+                "description": "Bounded count: counting stops at ``LIST_COUNT_CAP`` rows and ``exact`` says whether the cap was hit.\n\nAn unbounded ``COUNT(*)`` over a large tenant's filtered set is one of the few queries whose cost\ngrows linearly with tenant size; the UI only needs \"10,000+\" beyond the cap.",
                 "tags": [
                     "products"
                 ],
@@ -3731,6 +4956,25 @@
         "/api/v1/session/": {
             "get": {
                 "operationId": "session_retrieve",
+                "tags": [
+                    "session"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/session/bootstrap/": {
+            "post": {
+                "operationId": "session_bootstrap_create",
+                "description": "Give a signed-in session an active organization without any client input.\n\nCreates the user's personal workspace when they have none, then activates their default\nmembership. Idempotent: calling it twice, refreshing, or racing two tabs yields one workspace.\nThe request body is ignored on purpose; nothing here can be steered from the client.",
                 "tags": [
                     "session"
                 ],
@@ -4345,9 +5589,63 @@
                 }
             }
         },
-        "/api/v1/widgets/": {
+        "/api/v1/whatsapp/account/": {
             "get": {
-                "operationId": "widgets_list",
+                "operationId": "whatsapp_account_retrieve",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "tags": [
+                    "whatsapp"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "whatsapp_account_create",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "tags": [
+                    "whatsapp"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "whatsapp_account_destroy",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "tags": [
+                    "whatsapp"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/whatsapp/messages/": {
+            "get": {
+                "operationId": "whatsapp_messages_list",
+                "description": "Conversation history for a contact (or deal) the caller may view, and sending.",
                 "parameters": [
                     {
                         "name": "cursor",
@@ -4369,7 +5667,7 @@
                     }
                 ],
                 "tags": [
-                    "widgets"
+                    "whatsapp"
                 ],
                 "security": [
                     {
@@ -4381,7 +5679,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PaginatedWidgetList"
+                                    "$ref": "#/components/schemas/PaginatedWhatsAppMessageList"
                                 }
                             }
                         },
@@ -4390,20 +5688,11 @@
                 }
             },
             "post": {
-                "operationId": "widgets_create",
+                "operationId": "whatsapp_messages_create",
+                "description": "Conversation history for a contact (or deal) the caller may view, and sending.",
                 "tags": [
-                    "widgets"
+                    "whatsapp"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/WidgetRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -4414,7 +5703,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Widget"
+                                    "$ref": "#/components/schemas/WhatsAppMessage"
                                 }
                             }
                         },
@@ -4423,9 +5712,10 @@
                 }
             }
         },
-        "/api/v1/widgets/{id}/": {
+        "/api/v1/whatsapp/messages/{id}/": {
             "get": {
-                "operationId": "widgets_retrieve",
+                "operationId": "whatsapp_messages_retrieve",
+                "description": "Conversation history for a contact (or deal) the caller may view, and sending.",
                 "parameters": [
                     {
                         "in": "path",
@@ -4437,7 +5727,7 @@
                     }
                 ],
                 "tags": [
-                    "widgets"
+                    "whatsapp"
                 ],
                 "security": [
                     {
@@ -4449,39 +5739,67 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Widget"
+                                    "$ref": "#/components/schemas/WhatsAppMessage"
                                 }
                             }
                         },
                         "description": ""
                     }
                 }
-            },
-            "put": {
-                "operationId": "widgets_update",
-                "parameters": [
+            }
+        },
+        "/api/v1/whatsapp/messages/window/": {
+            "get": {
+                "operationId": "whatsapp_messages_window_retrieve",
+                "description": "Whether a free-form message may be sent to this contact right now (24-hour service window).",
+                "tags": [
+                    "whatsapp"
+                ],
+                "security": [
                     {
-                        "in": "path",
-                        "name": "id",
-                        "schema": {
-                            "type": "string"
-                        },
-                        "required": true
+                        "cookieAuth": []
                     }
                 ],
-                "tags": [
-                    "widgets"
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/WidgetRequest"
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WhatsAppMessage"
+                                }
                             }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/whatsapp/templates/": {
+            "get": {
+                "operationId": "whatsapp_templates_list",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
                         }
                     },
-                    "required": true
-                },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "whatsapp"
+                ],
                 "security": [
                     {
                         "cookieAuth": []
@@ -4492,7 +5810,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Widget"
+                                    "$ref": "#/components/schemas/PaginatedWhatsAppTemplateList"
                                 }
                             }
                         },
@@ -4500,8 +5818,33 @@
                     }
                 }
             },
-            "patch": {
-                "operationId": "widgets_partial_update",
+            "post": {
+                "operationId": "whatsapp_templates_create",
+                "tags": [
+                    "whatsapp"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WhatsAppTemplate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/whatsapp/templates/{id}/": {
+            "get": {
+                "operationId": "whatsapp_templates_retrieve",
                 "parameters": [
                     {
                         "in": "path",
@@ -4513,17 +5856,8 @@
                     }
                 ],
                 "tags": [
-                    "widgets"
+                    "whatsapp"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/PatchedWidgetRequest"
-                            }
-                        }
-                    }
-                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -4534,7 +5868,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Widget"
+                                    "$ref": "#/components/schemas/WhatsAppTemplate"
                                 }
                             }
                         },
@@ -4543,7 +5877,7 @@
                 }
             },
             "delete": {
-                "operationId": "widgets_destroy",
+                "operationId": "whatsapp_templates_destroy",
                 "parameters": [
                     {
                         "in": "path",
@@ -4555,7 +5889,7 @@
                     }
                 ],
                 "tags": [
-                    "widgets"
+                    "whatsapp"
                 ],
                 "security": [
                     {
@@ -4568,10 +5902,247 @@
                     }
                 }
             }
+        },
+        "/api/v1/whatsapp/webhook/": {
+            "get": {
+                "operationId": "whatsapp_webhook_retrieve",
+                "tags": [
+                    "whatsapp"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "whatsapp_webhook_create",
+                "tags": [
+                    "whatsapp"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
         }
     },
     "components": {
         "schemas": {
+            "Activity": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ActivityKindEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ActivityStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PriorityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "start_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "end_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "all_day": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "duration_minutes": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "location": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "meeting_url": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "direction": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DirectionEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "outcome": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/OutcomeEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "reminder_minutes": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "completed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "owner": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MembershipRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "contact": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ContactRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "company": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Ref"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "deal": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Ref"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "attendees": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        },
+                        "readOnly": true
+                    },
+                    "is_overdue": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "version": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "all_day",
+                    "attendees",
+                    "company",
+                    "completed_at",
+                    "contact",
+                    "created_at",
+                    "deal",
+                    "description",
+                    "direction",
+                    "duration_minutes",
+                    "end_at",
+                    "id",
+                    "is_overdue",
+                    "kind",
+                    "location",
+                    "meeting_url",
+                    "outcome",
+                    "owner",
+                    "priority",
+                    "reminder_minutes",
+                    "start_at",
+                    "status",
+                    "timezone",
+                    "title",
+                    "updated_at",
+                    "version"
+                ]
+            },
+            "ActivityKindEnum": {
+                "enum": [
+                    "task",
+                    "call",
+                    "meeting"
+                ],
+                "type": "string",
+                "description": "* `task` - Task\n* `call` - Call\n* `meeting` - Meeting"
+            },
+            "ActivityStatusEnum": {
+                "enum": [
+                    "open",
+                    "in_progress",
+                    "completed",
+                    "cancelled"
+                ],
+                "type": "string",
+                "description": "* `open` - Open\n* `in_progress` - In progress\n* `completed` - Completed\n* `cancelled` - Cancelled"
+            },
             "ActorTypeEnum": {
                 "enum": [
                     "user",
@@ -4729,6 +6300,51 @@
                         "readOnly": true,
                         "default": 0
                     },
+                    "open_deal_amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,16}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "default": "0.00"
+                    },
+                    "won_deal_amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,16}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "default": "0.00"
+                    },
+                    "last_activity_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "next_activity_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "next_activity_title": {
+                        "type": "string",
+                        "readOnly": true,
+                        "default": ""
+                    },
+                    "lifecycle_stage": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/LifecycleStageEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "lifecycle_changed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
                     "version": {
                         "type": "integer",
                         "readOnly": true
@@ -4761,7 +6377,13 @@
                     "description",
                     "id",
                     "industry",
+                    "last_activity_at",
+                    "lifecycle_changed_at",
+                    "lifecycle_stage",
                     "name",
+                    "next_activity_at",
+                    "next_activity_title",
+                    "open_deal_amount",
                     "open_deal_count",
                     "owner",
                     "phone",
@@ -4770,7 +6392,8 @@
                     "tags",
                     "updated_at",
                     "version",
-                    "website"
+                    "website",
+                    "won_deal_amount"
                 ]
             },
             "CompanyRef": {
@@ -4870,6 +6493,45 @@
                         "readOnly": true,
                         "nullable": true
                     },
+                    "next_activity_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "next_activity_title": {
+                        "type": "string",
+                        "readOnly": true,
+                        "default": ""
+                    },
+                    "lifecycle_stage": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/LifecycleStageEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "lifecycle_changed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "whatsapp_opt_in": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "whatsapp_opt_in_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "lead_score": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
                     "version": {
                         "type": "integer",
                         "readOnly": true
@@ -4905,13 +6567,20 @@
                     "job_title",
                     "last_activity_at",
                     "last_name",
+                    "lead_score",
+                    "lifecycle_changed_at",
+                    "lifecycle_stage",
+                    "next_activity_at",
+                    "next_activity_title",
                     "open_deal_count",
                     "owner",
                     "phone",
                     "source",
                     "tags",
                     "updated_at",
-                    "version"
+                    "version",
+                    "whatsapp_opt_in",
+                    "whatsapp_opt_in_at"
                 ]
             },
             "ContactRef": {
@@ -4925,14 +6594,9 @@
                     "name": {
                         "type": "string",
                         "readOnly": true
-                    },
-                    "email": {
-                        "type": "string",
-                        "readOnly": true
                     }
                 },
                 "required": [
-                    "email",
                     "id",
                     "name"
                 ]
@@ -5087,6 +6751,15 @@
                         "type": "integer",
                         "readOnly": true
                     },
+                    "probability_overridden": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "weighted_amount_base": {
+                        "type": "string",
+                        "description": "Deal value x probability, computed on the server so no client arithmetic is authoritative.",
+                        "readOnly": true
+                    },
                     "expected_close_date": {
                         "type": "string",
                         "format": "date",
@@ -5116,6 +6789,27 @@
                         "format": "date-time",
                         "readOnly": true
                     },
+                    "last_activity_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "next_activity_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "next_activity_title": {
+                        "type": "string",
+                        "readOnly": true,
+                        "default": ""
+                    },
+                    "risk_level": {
+                        "type": "string",
+                        "readOnly": true
+                    },
                     "description": {
                         "type": "string",
                         "readOnly": true
@@ -5137,6 +6831,11 @@
                         "readOnly": true
                     },
                     "line_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "contact_count": {
                         "type": "integer",
                         "readOnly": true,
                         "default": 0
@@ -5175,6 +6874,7 @@
                     "archived_at",
                     "closed_at",
                     "company",
+                    "contact_count",
                     "created_at",
                     "currency",
                     "custom_data",
@@ -5182,20 +6882,347 @@
                     "exchange_rate",
                     "expected_close_date",
                     "id",
+                    "last_activity_at",
                     "line_count",
                     "lost_reason",
                     "name",
+                    "next_activity_at",
+                    "next_activity_title",
                     "owner",
                     "pipeline",
                     "primary_contact",
                     "probability",
+                    "probability_overridden",
                     "products_total",
+                    "risk_level",
                     "stage",
                     "stage_entered_at",
                     "status",
                     "tags",
                     "updated_at",
-                    "version"
+                    "version",
+                    "weighted_amount_base"
+                ]
+            },
+            "DirectionEnum": {
+                "enum": [
+                    "inbound",
+                    "outbound"
+                ],
+                "type": "string",
+                "description": "* `inbound` - Inbound\n* `outbound` - Outbound"
+            },
+            "EmailAccount": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "provider": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ProviderEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "email_address": {
+                        "type": "string",
+                        "format": "email",
+                        "readOnly": true
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EmailAccountStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "error_message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "last_sync_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "connected_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "membership": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MembershipRef"
+                            }
+                        ],
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "connected_at",
+                    "display_name",
+                    "email_address",
+                    "error_message",
+                    "id",
+                    "last_sync_at",
+                    "membership",
+                    "provider",
+                    "status"
+                ]
+            },
+            "EmailAccountStatusEnum": {
+                "enum": [
+                    "connected",
+                    "error",
+                    "disconnected"
+                ],
+                "type": "string",
+                "description": "* `connected` - Connected\n* `error` - Needs attention\n* `disconnected` - Disconnected"
+            },
+            "EmailAttachment": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "filename": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "content_type": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "size_bytes": {
+                        "type": "integer",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "content_type",
+                    "filename",
+                    "id",
+                    "size_bytes"
+                ]
+            },
+            "EmailMessage": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "direction": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DirectionEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EmailMessageStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "from_address": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "to_addresses": {
+                        "readOnly": true
+                    },
+                    "cc_addresses": {
+                        "readOnly": true
+                    },
+                    "bcc_addresses": {
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "body_text": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "snippet": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "provider_thread_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "contact": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ContactRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "company": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Ref"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "deal": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Ref"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "sent_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MembershipRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "error_message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "ai_assisted": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EmailAttachment"
+                        },
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "ai_assisted",
+                    "attachments",
+                    "bcc_addresses",
+                    "body_text",
+                    "cc_addresses",
+                    "company",
+                    "contact",
+                    "created_at",
+                    "deal",
+                    "direction",
+                    "error_message",
+                    "from_address",
+                    "id",
+                    "provider_thread_id",
+                    "received_at",
+                    "sent_at",
+                    "sent_by",
+                    "snippet",
+                    "status",
+                    "subject",
+                    "to_addresses"
+                ]
+            },
+            "EmailMessageStatusEnum": {
+                "enum": [
+                    "queued",
+                    "sent",
+                    "failed",
+                    "received"
+                ],
+                "type": "string",
+                "description": "* `queued` - Queued\n* `sent` - Sent\n* `failed` - Failed\n* `received` - Received"
+            },
+            "EmailTemplate": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "body": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "is_shared": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "created_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MembershipRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "body",
+                    "created_at",
+                    "created_by",
+                    "id",
+                    "is_shared",
+                    "name",
+                    "subject",
+                    "updated_at"
                 ]
             },
             "EntityTypeEnum": {
@@ -5476,7 +7503,7 @@
                     "status"
                 ]
             },
-            "KindEnum": {
+            "KindCffEnum": {
                 "enum": [
                     "open",
                     "won",
@@ -5484,6 +7511,17 @@
                 ],
                 "type": "string",
                 "description": "* `open` - Open\n* `won` - Won\n* `lost` - Lost"
+            },
+            "LifecycleStageEnum": {
+                "enum": [
+                    "lead",
+                    "prospect",
+                    "qualified",
+                    "customer",
+                    "inactive"
+                ],
+                "type": "string",
+                "description": "* `lead` - Lead\n* `prospect` - Prospect\n* `qualified` - Qualified\n* `customer` - Customer\n* `inactive` - Inactive"
             },
             "Membership": {
                 "type": "object",
@@ -5571,6 +7609,14 @@
                 "type": "string",
                 "description": "* `active` - Active\n* `disabled` - Disabled"
             },
+            "MessageTypeEnum": {
+                "enum": [
+                    "text",
+                    "template"
+                ],
+                "type": "string",
+                "description": "* `text` - Text\n* `template` - Template"
+            },
             "Note": {
                 "type": "object",
                 "properties": {
@@ -5632,6 +7678,115 @@
                     "pinned",
                     "updated_at"
                 ]
+            },
+            "Notification": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/NotificationKindEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "body": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "entity_type": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "entity_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "read_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "body",
+                    "created_at",
+                    "entity_id",
+                    "entity_type",
+                    "id",
+                    "kind",
+                    "read_at",
+                    "title"
+                ]
+            },
+            "NotificationKindEnum": {
+                "enum": [
+                    "task_due",
+                    "meeting_soon",
+                    "call_soon",
+                    "deal_assigned",
+                    "deal_inactive",
+                    "customer_replied",
+                    "ai_high_risk"
+                ],
+                "type": "string",
+                "description": "* `task_due` - Task due\n* `meeting_soon` - Meeting approaching\n* `call_soon` - Call scheduled\n* `deal_assigned` - Deal assigned to you\n* `deal_inactive` - Deal inactivity warning\n* `customer_replied` - Customer replied\n* `ai_high_risk` - Deal at high risk"
+            },
+            "OutcomeEnum": {
+                "enum": [
+                    "connected",
+                    "no_answer",
+                    "voicemail",
+                    "busy",
+                    "interested",
+                    "not_interested",
+                    "follow_up_required"
+                ],
+                "type": "string",
+                "description": "* `connected` - Connected\n* `no_answer` - No answer\n* `voicemail` - Voicemail\n* `busy` - Busy\n* `interested` - Interested\n* `not_interested` - Not interested\n* `follow_up_required` - Follow-up required"
+            },
+            "PaginatedActivityList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Activity"
+                        }
+                    }
+                }
             },
             "PaginatedAuditEventList": {
                 "type": "object",
@@ -5759,6 +7914,84 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Deal"
+                        }
+                    }
+                }
+            },
+            "PaginatedEmailAccountList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EmailAccount"
+                        }
+                    }
+                }
+            },
+            "PaginatedEmailMessageList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EmailMessage"
+                        }
+                    }
+                }
+            },
+            "PaginatedEmailTemplateList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EmailTemplate"
                         }
                     }
                 }
@@ -5893,6 +8126,32 @@
                     }
                 }
             },
+            "PaginatedNotificationList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Notification"
+                        }
+                    }
+                }
+            },
             "PaginatedPipelineList": {
                 "type": "object",
                 "required": [
@@ -5997,7 +8256,7 @@
                     }
                 }
             },
-            "PaginatedWidgetList": {
+            "PaginatedWhatsAppMessageList": {
                 "type": "object",
                 "required": [
                     "results"
@@ -6018,7 +8277,33 @@
                     "results": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/components/schemas/Widget"
+                            "$ref": "#/components/schemas/WhatsAppMessage"
+                        }
+                    }
+                }
+            },
+            "PaginatedWhatsAppTemplateList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WhatsAppTemplate"
                         }
                     }
                 }
@@ -6035,16 +8320,6 @@
                         "type": "string",
                         "format": "uuid",
                         "nullable": true
-                    }
-                }
-            },
-            "PatchedWidgetRequest": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
                     }
                 }
             },
@@ -6103,6 +8378,16 @@
                     "updated_at",
                     "version"
                 ]
+            },
+            "PriorityEnum": {
+                "enum": [
+                    "low",
+                    "normal",
+                    "high",
+                    "urgent"
+                ],
+                "type": "string",
+                "description": "* `low` - Low\n* `normal` - Normal\n* `high` - High\n* `urgent` - Urgent"
             },
             "Product": {
                 "type": "object",
@@ -6217,6 +8502,14 @@
                 "type": "string",
                 "description": "* `active` - Active\n* `inactive` - Inactive"
             },
+            "ProviderEnum": {
+                "enum": [
+                    "gmail",
+                    "microsoft"
+                ],
+                "type": "string",
+                "description": "* `gmail` - Gmail\n* `microsoft` - Microsoft 365"
+            },
             "Ref": {
                 "type": "object",
                 "properties": {
@@ -6276,7 +8569,7 @@
                     "kind": {
                         "allOf": [
                             {
-                                "$ref": "#/components/schemas/KindEnum"
+                                "$ref": "#/components/schemas/KindCffEnum"
                             }
                         ],
                         "readOnly": true
@@ -6477,7 +8770,7 @@
                     "id"
                 ]
             },
-            "Widget": {
+            "WhatsAppMessage": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -6485,13 +8778,91 @@
                         "format": "uuid",
                         "readOnly": true
                     },
-                    "name": {
-                        "type": "string",
-                        "maxLength": 80
+                    "direction": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DirectionEnum"
+                            }
+                        ],
+                        "readOnly": true
                     },
-                    "owner_id": {
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WhatsAppMessageStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "wa_id": {
                         "type": "string",
-                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "message_type": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MessageTypeEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "body": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "template": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WhatsAppTemplate"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "template_params": {
+                        "readOnly": true
+                    },
+                    "contact": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ContactRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "deal": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Ref"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "sent_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MembershipRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "error_message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "ai_assisted": {
+                        "type": "boolean",
                         "readOnly": true
                     },
                     "created_at": {
@@ -6501,23 +8872,83 @@
                     }
                 },
                 "required": [
+                    "ai_assisted",
+                    "body",
+                    "contact",
                     "created_at",
+                    "deal",
+                    "direction",
+                    "error_message",
                     "id",
-                    "name",
-                    "owner_id"
+                    "message_type",
+                    "received_at",
+                    "sent_at",
+                    "sent_by",
+                    "status",
+                    "template",
+                    "template_params",
+                    "wa_id"
                 ]
             },
-            "WidgetRequest": {
+            "WhatsAppMessageStatusEnum": {
+                "enum": [
+                    "queued",
+                    "sent",
+                    "delivered",
+                    "read",
+                    "failed",
+                    "received"
+                ],
+                "type": "string",
+                "description": "* `queued` - Queued\n* `sent` - Sent\n* `delivered` - Delivered\n* `read` - Read\n* `failed` - Failed\n* `received` - Received"
+            },
+            "WhatsAppTemplate": {
                 "type": "object",
                 "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
                     "name": {
                         "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
+                        "readOnly": true
+                    },
+                    "language": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "category": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "body": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "parameter_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
                     }
                 },
                 "required": [
-                    "name"
+                    "body",
+                    "category",
+                    "created_at",
+                    "id",
+                    "language",
+                    "name",
+                    "parameter_count",
+                    "status"
                 ]
             }
         },
