@@ -1,0 +1,130 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Map Keel tokens onto the Tailwind theme so utilities like bg-surface / text-fg work. */
+@theme inline {
+  --color-bg: var(--kl-bg);
+  --color-bg-subtle: var(--kl-bg-subtle);
+  --color-surface: var(--kl-surface);
+  --color-surface-raised: var(--kl-surface-raised);
+  --color-surface-sunken: var(--kl-surface-sunken);
+  --color-border: var(--kl-border);
+  --color-border-strong: var(--kl-border-strong);
+  --color-fg: var(--kl-fg);
+  --color-fg-muted: var(--kl-fg-muted);
+  --color-fg-subtle: var(--kl-fg-subtle);
+  --color-primary: var(--kl-primary);
+  --color-primary-hover: var(--kl-primary-hover);
+  --color-primary-soft: var(--kl-primary-soft);
+  --color-primary-fg: var(--kl-primary-fg);
+  --color-accent: var(--kl-accent);
+  --color-accent-hover: var(--kl-accent-hover);
+  --color-accent-soft: var(--kl-accent-soft);
+  --color-accent-fg: var(--kl-accent-fg);
+  --color-ring: var(--kl-ring);
+  --color-success: var(--kl-success);
+  --color-success-soft: var(--kl-success-soft);
+  --color-warning: var(--kl-warning);
+  --color-warning-soft: var(--kl-warning-soft);
+  --color-danger: var(--kl-danger);
+  --color-danger-hover: var(--kl-danger-hover);
+  --color-danger-soft: var(--kl-danger-soft);
+  --color-danger-fg: var(--kl-danger-fg);
+  --color-overlay: var(--kl-overlay);
+
+  --radius-sm: var(--kl-radius-sm);
+  --radius-md: var(--kl-radius-md);
+  --radius-lg: 14px;
+
+  --shadow-sm: var(--kl-shadow-sm);
+  --shadow-md: var(--kl-shadow-md);
+  --shadow-lg: var(--kl-shadow-lg);
+
+  --font-sans: var(--kl-font-sans);
+  --font-mono: var(--kl-font-mono);
+}
+
+@layer base {
+  * {
+    border-color: var(--kl-border);
+  }
+  html {
+    font-family: var(--kl-font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-color: var(--kl-bg);
+    color: var(--kl-fg);
+    font-size: var(--kl-text-sm);
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid var(--kl-ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--kl-primary-soft);
+  }
+}
+
+@keyframes kl-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes kl-pop-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes kl-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes kl-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes kl-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@utility animate-fade-in {
+  animation: kl-fade-in 150ms ease-out;
+}
+@utility animate-pop-in {
+  animation: kl-pop-in 160ms ease-out;
+}
+@utility animate-slide-in-right {
+  animation: kl-slide-in-right 200ms ease-out;
+}
+@utility animate-slide-in-left {
+  animation: kl-slide-in-left 200ms ease-out;
+}
+@utility animate-shimmer {
+  background: linear-gradient(90deg, var(--kl-bg-subtle) 25%, var(--kl-border) 50%, var(--kl-bg-subtle) 75%);
+  background-size: 200% 100%;
+  animation: kl-shimmer 1.4s linear infinite;
+}

@@ -1,0 +1,90 @@
+rules:
+  - id: keel-unscoped-manager-outside-system-code
+    message: >-
+      `all_objects` bypasses tenant scoping. It is allowed only inside reviewed system code that runs
+      under `system_context(reason=...)`. Move this call into a service that binds a system context.
+    severity: ERROR
+    languages: [python]
+    pattern: $MODEL.all_objects
+    paths:
+      exclude:
+        - "**/apps/core/**"
+        - "**/apps/accounts/services.py"
+        - "**/apps/privacy/**"
+        - "**/tests/**"
+        - "**/migrations/**"
+
+  - id: keel-raw-sql
+    message: Raw SQL is forbidden outside apps/core (use the ORM; parameterised helpers live in core).
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: $Q.raw(...)
+      - pattern: $Q.extra(...)
+      - pattern: RawSQL(...)
+      - pattern: cursor.execute($SQL % ..., ...)
+      - pattern: cursor.execute($SQL.format(...), ...)
+      - pattern: cursor.execute(f"...", ...)
+    paths:
+      exclude:
+        - "**/apps/core/**"
+        - "**/migrations/**"
+        - "**/tests/**"
+
+  - id: keel-mark-safe
+    message: mark_safe / |safe is forbidden (XSS). The API returns JSON only; templates are plain text.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: mark_safe(...)
+      - pattern: django.utils.safestring.mark_safe(...)
+
+  - id: keel-model-serializer-all-fields
+    message: Explicit field lists only. `fields = "__all__"` / `exclude` enables mass assignment.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: |
+          class $S(...):
+              class Meta:
+                  fields = "__all__"
+      - pattern: |
+          class $S(...):
+              class Meta:
+                  exclude = ...
+
+  - id: keel-csrf-exempt
+    message: CSRF protection must never be disabled per view.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: "@csrf_exempt"
+      - pattern: csrf_exempt(...)
+
+  - id: keel-allow-any
+    message: AllowAny is only permitted on the reviewed public endpoints listed in the route coverage test.
+    severity: WARNING
+    languages: [python]
+    pattern: AllowAny
+    paths:
+      exclude:
+        - "**/apps/accounts/api/views.py"
+        - "**/config/api_v1.py"
+        - "**/tests/**"
+
+  - id: keel-eval-exec
+    message: eval/exec on any input is forbidden.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+
+  - id: keel-pickle-yaml-load
+    message: Insecure deserialisation. Use json or yaml.safe_load.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: yaml.load(...)

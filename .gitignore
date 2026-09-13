@@ -1,0 +1,41 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+backend/staticfiles/
+backend/media/
+
+# Node
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+
+# Tooling
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
+
+# Reports
+security/reports/
+sbom/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

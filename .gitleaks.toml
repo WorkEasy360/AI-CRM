@@ -1,0 +1,26 @@
+title = "keel-crm gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "keel-personal-access-token"
+description = "Keel personal access token"
+regex = '''keel_pat_[A-Za-z0-9]{32,}'''
+tags = ["key", "keel"]
+
+[allowlist]
+description = "Known non-secret values and third-party trees"
+paths = [
+  '''\.env\.example$''',
+  '''docs/.*\.md$''',
+  '''pnpm-lock\.yaml$''',
+  '''uv\.lock$''',
+  '''(^|/)\.venv/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+  '''(^|/)\.git/''',
+]
+regexes = [
+  '''dev-only-insecure-secret-key-do-not-use-in-production''',
+]
