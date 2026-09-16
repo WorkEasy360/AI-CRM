@@ -17,9 +17,8 @@ rules:
         - "**/apps/messaging/tasks.py"
         - "**/apps/activities/tasks.py"
         - "**/apps/notifications/tasks.py"
-        # rag.drain_pending: system-wide sweep of the indexing outbox, then one tenant-bound task
-        # per row. It reads only outbox bookkeeping columns -- never chunk text or CRM data.
-        - "**/apps/rag/tasks.py"
+        # apps/rag/tasks.py is NOT excluded: only the two `all_objects` reads inside
+        # rag.drain_pending carry a line-level `nosemgrep` with their justification.
         - "**/tests/**"
         - "**/migrations/**"
 

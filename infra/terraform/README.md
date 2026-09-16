@@ -232,9 +232,10 @@ failover), single-AZ RDS is not offered by this module on purpose.
 ## 7. Security posture summary
 
 * **Edge only**: the ALB security group admits traffic solely from the
-  CloudFront origin-facing managed prefix list, and every listener rule also
-  requires the `X-Origin-Verify` header that CloudFront injects. Direct hits
-  get a 403. `/admin/*` is answered 404 at the ALB.
+  CloudFront origin-facing managed prefix list on 443 (there is no HTTP
+  listener), and every listener rule also requires the `X-Origin-Verify`
+  header that CloudFront injects. Direct hits get a 403. `/admin/*` is
+  answered 404 at the ALB.
 * **WAF** (CloudFront scope): IP reputation, Core rule set (body size check in
   count mode for CSV imports), Known Bad Inputs, SQLi, and rate limits for
   login (100/5 min), API (1500/5 min) and global (3000/5 min) per IP.
@@ -244,8 +245,29 @@ failover), single-AZ RDS is not offered by this module on purpose.
   (TLS13-1-2-2021-06), HTTPS-only to the origin, `rds.force_ssl=1` with
   `verify-full` on the client, Redis in-transit encryption required.
 * **Network**: tasks in private app subnets, data tier in subnets with no
-  default route, security groups referencing each other rather than CIDRs,
-  VPC flow logs retained `log_retention_days`.
+  default route, one security group per workload referencing each other
+  rather than CIDRs, egress limited per workload to the ports it needs
+  (`security_groups.tf`, `local.service_profiles`), VPC flow logs retained
+  `log_retention_days`.
+* **Encryption**: one customer-managed KMS key (`alias/<project>-<env>`) for
+  RDS, the private S3 bucket, Secrets Manager and the alarm SNS topic, plus a
+  us-east-1 key for the edge alarm topic. The ALB access-log bucket is SSE-S3
+  because ELB log delivery supports nothing else.
+
+### Accepted IaC scanner findings
+
+CI runs `trivy config` (HIGH/CRITICAL) on this directory. The exceptions
+below are inline `#trivy:ignore:<id>:exp:<date>` comments on the single
+resource they cover; each carries the reason, compensating controls, owner
+and review date next to it, and CI fails again on the expiry date until the
+risk is re-accepted or the design changes.
+
+| Rule | Resource | Why | Review |
+|---|---|---|---|
+| AVD-AWS-0053 public ALB | `aws_lb.this` | CloudFront classic custom origin must be public; move to CloudFront VPC Origins to remove | 2027-03-16 |
+| AVD-AWS-0104 public egress | `service_internet_https` (api, web, worker-critical, worker-heavy) | third-party HTTPS APIs are not IP-enumerable; TCP 443 only | 2027-03-16 |
+| AVD-AWS-0104 public egress | `service_internet_smtp` (worker-critical) | `EMAIL_URL` SMTP submission; TCP 587 only; SES interface endpoint would remove it | 2027-03-16 |
+| AVD-AWS-0132 S3 CMK | `alb_logs` encryption config | ELB access logs support SSE-S3 only | 2027-09-16 |
 * **Containers**: non-root images, `readonlyRootFilesystem`, ephemeral
   `/tmp`, init process, no `execute-command`, immutable image tags with
   scan-on-push.

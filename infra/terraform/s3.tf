@@ -163,6 +163,17 @@ resource "aws_s3_bucket_ownership_controls" "alb_logs" {
   }
 }
 
+# ACCEPTED FINDING  AVD-AWS-0132 (aws-s3-encryption-customer-key)
+#   Resource : aws_s3_bucket_server_side_encryption_configuration.alb_logs
+#   Reason   : Elastic Load Balancing access-log delivery only supports SSE-S3 (AES256);
+#              enabling SSE-KMS on this bucket makes the ALB fail to write logs. The private
+#              CRM bucket above does use the project CMK and is not exempted.
+#   Controls : Block Public Access on all four settings, BucketOwnerEnforced, TLS-only bucket
+#              policy, PutObject limited to the regional ELB account / log-delivery service on
+#              one prefix, 30-day expiry, no application access; logs contain no request bodies.
+#   Owner    : Keel platform owner (staging readiness review, 2026-09-16).
+#   Review   : expires 2027-09-16; re-check whether ELB log delivery has gained SSE-KMS support.
+#trivy:ignore:AVD-AWS-0132:exp:2027-09-16
 resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
   bucket = aws_s3_bucket.alb_logs.id
 

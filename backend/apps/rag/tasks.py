@@ -58,9 +58,12 @@ def drain_pending() -> int:
     """
     now = timezone.now()
     stuck_before = now - dt.timedelta(seconds=STUCK_AFTER_SECONDS)
+    # Cross-tenant on purpose: a system sweep of the indexing outbox that reads only
+    # bookkeeping columns (organization_id, source_type, source_id, status, timestamps),
+    # never chunk text or CRM data, and hands each row to a tenant-bound task.
     with system_context("rag.drain_pending"):
         rows = list(
-            IndexEvent.all_objects.filter(
+            IndexEvent.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
                 Q(status=IndexStatus.PENDING, available_at__isnull=True)
                 | Q(status=IndexStatus.PENDING, available_at__lte=now)
                 | Q(status=IndexStatus.PROCESSING, updated_at__lt=stuck_before)
@@ -68,7 +71,9 @@ def drain_pending() -> int:
             .order_by("updated_at")
             .values_list("organization_id", "source_type", "source_id")[:SWEEP_BATCH]
         )
-        pending_total = IndexEvent.all_objects.filter(status=IndexStatus.PENDING).count()
+        pending_total = IndexEvent.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
+            status=IndexStatus.PENDING
+        ).count()
     metrics.publish([{"name": "RagIndexQueueDepth", "value": pending_total, "unit": "Count"}])
     for organization_id, source_type, source_id in rows:
         index_source.delay(organization_id=str(organization_id), source_type=source_type, source_id=str(source_id))

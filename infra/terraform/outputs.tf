@@ -53,9 +53,9 @@ output "task_subnet_ids" {
   value       = aws_subnet.app[*].id
 }
 
-output "worker_security_group_id" {
-  description = "Security group for worker/migrate tasks (used by `aws ecs run-task`)."
-  value       = aws_security_group.worker.id
+output "migrate_security_group_id" {
+  description = "Security group for the one-off migrate task (PostgreSQL + AWS endpoints only; used by `aws ecs run-task`)."
+  value       = aws_security_group.service["migrate"].id
 }
 
 output "secret_arns" {

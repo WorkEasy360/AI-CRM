@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # Customer-managed KMS key: RDS storage, S3 private bucket, Secrets Manager,
-# RDS master secret, Performance Insights.
+# RDS master secret, Performance Insights, alarm SNS topic.
 # ---------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "kms" {
@@ -46,10 +46,32 @@ data "aws_iam_policy_document" "kms" {
       values   = [local.account_id]
     }
   }
+
+  # CloudWatch alarms publish to the SSE-KMS alarm topic (alarms.tf); SNS
+  # encrypts with the publisher's permissions, so the alarm service principal
+  # needs these two actions on the key.
+  statement {
+    sid    = "AllowCloudWatchAlarmsPublishToEncryptedTopic"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey*",
+    ]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account_id]
+    }
+  }
 }
 
 resource "aws_kms_key" "this" {
-  description             = "${local.name}: RDS, S3, Secrets Manager"
+  description             = "${local.name}: RDS, S3, Secrets Manager, SNS"
   deletion_window_in_days = 30
   enable_key_rotation     = true
   policy                  = data.aws_iam_policy_document.kms.json
@@ -60,6 +82,59 @@ resource "aws_kms_key" "this" {
 resource "aws_kms_alias" "this" {
   name          = "alias/${local.name}"
   target_key_id = aws_kms_key.this.key_id
+}
+
+# KMS keys are regional. The CloudFront/WAF alarm topic lives in us-east-1
+# (alarms.tf), so it gets its own key there with the same two-statement shape;
+# nothing else uses it.
+data "aws_iam_policy_document" "kms_edge" {
+  statement {
+    sid       = "EnableRootAndIAMPolicies"
+    effect    = "Allow"
+    actions   = ["kms:*"]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:${local.partition}:iam::${local.account_id}:root"]
+    }
+  }
+
+  statement {
+    sid    = "AllowCloudWatchAlarmsPublishToEncryptedTopic"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey*",
+    ]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account_id]
+    }
+  }
+}
+
+resource "aws_kms_key" "edge" {
+  provider = aws.us_east_1
+
+  description             = "${local.name}: edge alarm SNS topic (us-east-1)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.kms_edge.json
+
+  tags = { Name = "${local.name}-cmk-edge" }
+}
+
+resource "aws_kms_alias" "edge" {
+  provider = aws.us_east_1
+
+  name          = "alias/${local.name}-edge"
+  target_key_id = aws_kms_key.edge.key_id
 }
 
 # ---------------------------------------------------------------------------

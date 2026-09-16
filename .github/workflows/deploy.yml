@@ -119,6 +119,12 @@ jobs:
           set -euo pipefail
           NETCFG=$(aws ecs describe-services --cluster "$CLUSTER" --services "$CLUSTER-api" \
             --query 'services[0].networkConfiguration' --output json)
+          # Same private subnets as api, but the migrate task's own security group
+          # (PostgreSQL + AWS endpoints only, no internet; see infra/terraform/security_groups.tf).
+          MIGRATE_SG=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$CLUSTER-migrate" \
+            --query 'SecurityGroups[0].GroupId' --output text)
+          [ -n "$MIGRATE_SG" ] && [ "$MIGRATE_SG" != "None" ]
+          NETCFG=$(jq -c --arg sg "$MIGRATE_SG" '.awsvpcConfiguration.securityGroups = [$sg]' <<<"$NETCFG")
           TASK=$(aws ecs run-task --cluster "$CLUSTER" --launch-type FARGATE \
             --task-definition "${{ steps.taskdefs.outputs.migrate }}" \
             --network-configuration "$NETCFG" --query 'tasks[0].taskArn' --output text)

@@ -7,11 +7,14 @@
 # tune in tfvars-driven follow-ups rather than muting alarms.
 # ---------------------------------------------------------------------------
 
-# Topics are deliberately unencrypted: CloudWatch alarms cannot publish to
-# topics encrypted with the AWS-managed aws/sns key, and alarm payloads carry
-# no sensitive data (metric names, thresholds, resource ids).
+# Both topics are SSE-KMS encrypted with customer-managed keys whose policies
+# let cloudwatch.amazonaws.com Decrypt / GenerateDataKey (secrets.tf). The
+# AWS-managed aws/sns key cannot be used: its policy cannot be edited to grant
+# CloudWatch alarms that access. Email subscriptions need nothing extra; SNS
+# decrypts on delivery.
 resource "aws_sns_topic" "alarms" {
-  name = "${local.name}-alarms"
+  name              = "${local.name}-alarms"
+  kms_master_key_id = aws_kms_key.this.arn
 }
 
 resource "aws_sns_topic_subscription" "alarms_email" {
@@ -27,7 +30,8 @@ resource "aws_sns_topic_subscription" "alarms_email" {
 resource "aws_sns_topic" "alarms_us_east_1" {
   provider = aws.us_east_1
 
-  name = "${local.name}-alarms-edge"
+  name              = "${local.name}-alarms-edge"
+  kms_master_key_id = aws_kms_key.edge.arn
 }
 
 resource "aws_sns_topic_subscription" "alarms_us_east_1_email" {

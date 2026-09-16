@@ -259,6 +259,14 @@ data "aws_iam_policy_document" "deploy" {
     ]
   }
 
+  # The pipeline resolves the migrate task's security group by name; the API has
+  # no resource-level permissions.
+  statement {
+    sid       = "ResolveMigrateSecurityGroup"
+    actions   = ["ec2:DescribeSecurityGroups"]
+    resources = ["*"]
+  }
+
   statement {
     sid       = "RunMigrate"
     actions   = ["ecs:RunTask"]

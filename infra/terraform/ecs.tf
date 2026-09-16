@@ -369,7 +369,7 @@ resource "aws_ecs_service" "api" {
 
   network_configuration {
     subnets          = aws_subnet.app[*].id
-    security_groups  = [aws_security_group.app.id]
+    security_groups  = [aws_security_group.service["api"].id]
     assign_public_ip = false
   }
 
@@ -410,7 +410,7 @@ resource "aws_ecs_service" "web" {
 
   network_configuration {
     subnets          = aws_subnet.app[*].id
-    security_groups  = [aws_security_group.app.id]
+    security_groups  = [aws_security_group.service["web"].id]
     assign_public_ip = false
   }
 
@@ -450,7 +450,7 @@ resource "aws_ecs_service" "worker_critical" {
 
   network_configuration {
     subnets          = aws_subnet.app[*].id
-    security_groups  = [aws_security_group.worker.id]
+    security_groups  = [aws_security_group.service["worker-critical"].id]
     assign_public_ip = false
   }
 
@@ -499,7 +499,7 @@ resource "aws_ecs_service" "worker_heavy" {
 
   network_configuration {
     subnets          = aws_subnet.app[*].id
-    security_groups  = [aws_security_group.worker.id]
+    security_groups  = [aws_security_group.service["worker-heavy"].id]
     assign_public_ip = false
   }
 
@@ -537,7 +537,7 @@ resource "aws_ecs_service" "beat" {
 
   network_configuration {
     subnets          = aws_subnet.app[*].id
-    security_groups  = [aws_security_group.worker.id]
+    security_groups  = [aws_security_group.service["beat"].id]
     assign_public_ip = false
   }
 

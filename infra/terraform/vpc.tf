@@ -157,20 +157,14 @@ resource "aws_security_group" "vpc_endpoints" {
   description = "Interface VPC endpoints: HTTPS from inside the VPC"
   vpc_id      = aws_vpc.this.id
 
+  # Endpoint ENIs only answer connections; return traffic is stateful, so the
+  # group deliberately has no egress rule.
   ingress {
     description = "HTTPS from VPC"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
-  }
-
-  egress {
-    description = "Allow all egress"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = { Name = "${local.name}-vpce" }

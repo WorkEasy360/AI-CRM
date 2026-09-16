@@ -4,8 +4,25 @@
 # Internet-facing but reachable only from CloudFront (security group prefix
 # list) AND only for requests carrying the X-Origin-Verify header that
 # CloudFront injects. Anything else hits the default 403 action.
+#
+# ACCEPTED FINDING  AVD-AWS-0053 (aws-elb-alb-not-public)
+#   Resource : aws_lb.this (internal = false)
+#   Reason   : the approved edge is Internet -> CloudFront -> WAF -> ALB -> ECS with the ALB
+#              as a classic custom origin. A custom origin must be publicly resolvable and
+#              reachable, so the load balancer cannot be internal without moving to
+#              CloudFront VPC Origins (a separate architecture change, tracked as a follow-up).
+#   Controls : security group admits only the CloudFront origin-facing managed prefix list on
+#              TCP 443 (no port 80 listener); every listener rule requires the X-Origin-Verify
+#              secret CloudFront injects, otherwise a fixed 403; CloudFront reaches the origin
+#              HTTPS-only; WAF (managed rule groups + rate limits) is attached to the
+#              distribution; targets are private-subnet tasks with no public IP; /admin/* and
+#              /health/* are never forwarded; access logs retained 30 days.
+#   Owner    : Keel platform owner (staging readiness review, 2026-09-16).
+#   Review   : the exception expires 2027-03-16; CI fails then until it is re-accepted or the
+#              ALB is moved behind a CloudFront VPC Origin.
 # ---------------------------------------------------------------------------
 
+#trivy:ignore:AVD-AWS-0053:exp:2027-03-16
 resource "aws_lb" "this" {
   name               = "${local.name}-alb"
   load_balancer_type = "application"
@@ -90,21 +107,8 @@ resource "aws_lb_target_group" "web" {
 # Listeners
 # ---------------------------------------------------------------------------
 
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.this.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
-}
-
+# No HTTP listener: CloudFront reaches the origin HTTPS-only and the security
+# group does not open port 80, so a redirect listener would be dead surface.
 resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.this.arn
   port              = 443

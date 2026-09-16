@@ -32,14 +32,19 @@ origin-facing IP ranges carrying the origin-verify header. PostgreSQL and Redis 
 
 ### Security groups (least privilege)
 
+One security group per workload (`infra/terraform/security_groups.tf`, `local.service_profiles`).
+
 | From | To | Port |
 |---|---|---|
-| CloudFront origin-facing prefix list | ALB | 443 (80 redirects) |
+| CloudFront origin-facing prefix list | ALB | 443 only (no HTTP listener) |
 | ALB | api tasks | 8000 |
 | ALB | web tasks | 3000 |
-| api, worker tasks | RDS (or RDS Proxy) | 5432 |
-| api, worker tasks | ElastiCache | 6379 (TLS) |
-| tasks | internet via NAT, or VPC endpoints for S3/ECR/Logs/Secrets/CloudWatch | 443 |
+| api, worker-critical, worker-heavy, beat, migrate | RDS (or RDS Proxy) | 5432 |
+| api, worker-critical, worker-heavy, beat, migrate | ElastiCache | 6379 (TLS) |
+| every task | interface VPC endpoints (ECR, Logs, Secrets Manager, CloudWatch) and the S3 gateway prefix list | 443 |
+| api, web, worker-critical, worker-heavy | internet via NAT (LLM, OAuth, WhatsApp, embeddings; web reaches the app domain through CloudFront) | TCP 443 only |
+| worker-critical | internet via NAT (`EMAIL_URL` SMTP submission) | TCP 587 only |
+| beat, migrate | internet | none |
 
 ## 2. Stateless application tier
 

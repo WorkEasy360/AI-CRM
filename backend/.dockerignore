@@ -11,3 +11,5 @@ staticfiles
 media
 .env
 *.log
+# Local filesystem private storage (imports, exports, customer files). Production uses S3.
+private/
