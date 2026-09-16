@@ -157,7 +157,7 @@ export function NotificationsMenu() {
           <span className="min-w-0 flex-1">
             <span className={cn("block truncate text-sm", isUnread ? "font-medium text-fg" : "text-fg-muted")}>{notification.title}</span>
             {notification.body ? <span className="line-clamp-2 text-xs text-fg-muted">{notification.body}</span> : null}
-            <span className="block text-[11px] text-fg-subtle">{relativeTime(notification.created_at)}</span>
+            <span className="block text-[12px] text-fg-subtle">{relativeTime(notification.created_at)}</span>
           </span>
           {isUnread ? <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden /> : null}
         </DropdownMenuItem>
@@ -173,7 +173,7 @@ export function NotificationsMenu() {
           {unread > 0 ? (
             <span
               aria-hidden
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-fg"
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-fg"
             >
               {badge}
             </span>

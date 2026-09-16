@@ -24,15 +24,16 @@ from typing import Any, Protocol
 
 from django.conf import settings
 
-_KEY_RE = re.compile(r"^[0-9a-f-]{36}/(imports|exports|email)/[0-9a-f]{32}\.(csv|bin)$")
+_KEY_RE = re.compile(r"^[0-9a-f-]{36}/(imports|exports|email|files)/[0-9a-f]{32}\.(csv|bin)$")
 _FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]")
 CONTENT_TYPE = "text/csv; charset=utf-8"
+OPAQUE_KINDS = frozenset({"email", "files"})
 
 
 def new_key(organization_id: uuid.UUID, kind: str) -> str:
-    if kind not in {"imports", "exports", "email"}:
+    if kind not in {"imports", "exports", *OPAQUE_KINDS}:
         raise ValueError(kind)
-    ext = "bin" if kind == "email" else "csv"
+    ext = "bin" if kind in OPAQUE_KINDS else "csv"
     return f"{organization_id}/{kind}/{secrets.token_hex(16)}.{ext}"
 
 
@@ -50,11 +51,11 @@ def organization_of(key: str) -> uuid.UUID:
 class Backend(Protocol):
     supports_signed_urls: bool
 
-    def write(self, key: str, data: bytes) -> int: ...
+    def write(self, key: str, data: bytes, content_type: str = CONTENT_TYPE) -> int: ...
     def read(self, key: str) -> bytes: ...
     def exists(self, key: str) -> bool: ...
     def delete(self, key: str) -> None: ...
-    def signed_download_url(self, key: str, filename: str) -> str: ...
+    def signed_download_url(self, key: str, filename: str, content_type: str = CONTENT_TYPE) -> str: ...
 
 
 # ----------------------------------------------------------------------------- filesystem
@@ -75,7 +76,7 @@ class FilesystemBackend:
             raise ValueError("Invalid storage key.")
         return path
 
-    def write(self, key: str, data: bytes) -> int:
+    def write(self, key: str, data: bytes, content_type: str = CONTENT_TYPE) -> int:
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
@@ -94,7 +95,7 @@ class FilesystemBackend:
         with contextlib.suppress(ValueError):
             self._path(key).unlink(missing_ok=True)
 
-    def signed_download_url(self, key: str, filename: str) -> str:
+    def signed_download_url(self, key: str, filename: str, content_type: str = CONTENT_TYPE) -> str:
         raise NotImplementedError("The filesystem backend streams downloads through the API.")
 
 
@@ -139,9 +140,9 @@ class S3Backend:
             return {"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": settings.PRIVATE_STORAGE_KMS_KEY_ID}
         return {"ServerSideEncryption": "aws:kms"}  # bucket default key
 
-    def write(self, key: str, data: bytes) -> int:
+    def write(self, key: str, data: bytes, content_type: str = CONTENT_TYPE) -> int:
         validate_key(key)
-        self.client().put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=CONTENT_TYPE, **self._encryption())
+        self.client().put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type, **self._encryption())
         return len(data)
 
     def read(self, key: str) -> bytes:
@@ -169,7 +170,7 @@ class S3Backend:
             validate_key(key)
             self.client().delete_object(Bucket=self.bucket, Key=key)
 
-    def signed_download_url(self, key: str, filename: str) -> str:
+    def signed_download_url(self, key: str, filename: str, content_type: str = CONTENT_TYPE) -> str:
         validate_key(key)
         safe_name = _FILENAME_RE.sub("_", filename)[:120] or "export.csv"
         return self.client().generate_presigned_url(
@@ -178,7 +179,7 @@ class S3Backend:
                 "Bucket": self.bucket,
                 "Key": key,
                 "ResponseContentDisposition": f'attachment; filename="{safe_name}"',
-                "ResponseContentType": CONTENT_TYPE,
+                "ResponseContentType": content_type,
                 "ResponseCacheControl": "no-store",
             },
             ExpiresIn=settings.PRIVATE_STORAGE_URL_TTL_SECONDS,
@@ -207,8 +208,8 @@ def reset_backend_cache() -> None:
     _backends.clear()
 
 
-def write(key: str, data: bytes) -> int:
-    return backend().write(key, data)
+def write(key: str, data: bytes, content_type: str = CONTENT_TYPE) -> int:
+    return backend().write(key, data, content_type)
 
 
 def read(key: str) -> bytes:
@@ -227,5 +228,5 @@ def supports_signed_urls() -> bool:
     return backend().supports_signed_urls
 
 
-def signed_download_url(key: str, filename: str) -> str:
-    return backend().signed_download_url(key, filename)
+def signed_download_url(key: str, filename: str, content_type: str = CONTENT_TYPE) -> str:
+    return backend().signed_download_url(key, filename, content_type)

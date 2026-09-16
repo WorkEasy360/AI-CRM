@@ -81,11 +81,11 @@ export function RevenueTrend({ data, currency }: { data: DashboardSummary; curre
               <title>{`${monthLabel(t.month, true)}: ${formatMoney(t.amount, currency)} from ${plural(t.count, "won deal")}`}</title>
               <rect x={x} y={y} width={bar} height={h} rx={3} className="fill-primary" />
               {i === peak && max > 0 ? (
-                <text x={x + bar / 2} y={y - 5} textAnchor="middle" className="fill-fg text-[10px] font-medium">
+                <text x={x + bar / 2} y={y - 5} textAnchor="middle" className="fill-fg text-[11px] font-medium">
                   {formatMoney(value, currency)}
                 </text>
               ) : null}
-              <text x={x + bar / 2} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[10px]">
+              <text x={x + bar / 2} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[11px]">
                 {monthLabel(t.month)}
               </text>
             </g>
@@ -146,11 +146,11 @@ export function ForecastBars({ data, currency }: { data: DashboardSummary; curre
               <rect x={x + 0.5} y={height - bottom - hOpen + 0.5} width={bar - 1} height={Math.max(0, hOpen - 1)} rx={3} className="fill-primary/10 stroke-primary" strokeWidth={1} />
               <rect x={x} y={height - bottom - hWeighted} width={bar} height={hWeighted} rx={3} className="fill-primary" />
               {hOpen > 0 ? (
-                <text x={x + bar / 2} y={height - bottom - hOpen - 5} textAnchor="middle" className="fill-fg text-[10px] font-medium">
+                <text x={x + bar / 2} y={height - bottom - hOpen - 5} textAnchor="middle" className="fill-fg text-[11px] font-medium">
                   {formatMoney(m.weighted, currency)}
                 </text>
               ) : null}
-              <text x={x + bar / 2} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[10px]">
+              <text x={x + bar / 2} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[11px]">
                 {monthLabel(m.month)}
               </text>
             </g>
@@ -185,7 +185,7 @@ export function ForecastBars({ data, currency }: { data: DashboardSummary; curre
 
 export function ChartLegend({ items }: { items: { label: string; swatch: "hollow" | "solid" | "success" }[] }) {
   return (
-    <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-fg-muted" aria-label="Legend">
+    <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-fg-muted" aria-label="Legend">
       {items.map((item) => (
         <li key={item.label} className="inline-flex items-center gap-1.5">
           <span
@@ -220,14 +220,14 @@ export function DealsByOwner({ data, currency, pipeline }: { data: DashboardSumm
               <span className="mt-1 block h-2 overflow-hidden rounded-sm bg-bg-subtle" aria-hidden>
                 <span className="block h-full rounded-sm bg-primary" style={{ width: `${(Number(o.amount || 0) / max) * 100}%` }} />
               </span>
-              <span className="mt-0.5 block text-[11px] text-fg-subtle">
+              <span className="mt-0.5 block text-[12px] text-fg-subtle">
                 {plural(o.count, "deal")} · {formatMoney(o.weighted, currency)} weighted
               </span>
             </Link>
           </li>
         ))}
       </ol>
-      {owners.length > rows.length ? <p className="mt-2 text-[11px] text-fg-subtle">Top {rows.length} of {owners.length} salespeople.</p> : null}
+      {owners.length > rows.length ? <p className="mt-2 text-[12px] text-fg-subtle">Top {rows.length} of {owners.length} salespeople.</p> : null}
     </div>
   );
 }

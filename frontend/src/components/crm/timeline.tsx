@@ -156,7 +156,7 @@ function ActivityLine({ event }: { event: TimelineEvent }) {
   return (
     <>
       <Who name={who} /> {verb} — {link(detail)}
-      {priority === "high" || priority === "urgent" ? <span className="ml-1.5 rounded-full bg-danger-soft px-1.5 text-[10px] font-medium uppercase text-danger">{priority}</span> : null}
+      {priority === "high" || priority === "urgent" ? <span className="ml-1.5 rounded-full bg-danger-soft px-1.5 text-[11px] font-medium uppercase text-danger">{priority}</span> : null}
       {description ? <span className="mt-0.5 line-clamp-2 block text-xs text-fg-subtle">{description}</span> : null}
     </>
   );
@@ -175,7 +175,7 @@ function EmailLine({ event }: { event: TimelineEvent }) {
   return (
     <>
       <span className={status === "failed" ? "text-danger" : undefined}>{lead}</span> — <Strong>{subject}</Strong>
-      {d.ai_assisted ? <span className="ml-1.5 rounded-full border border-border px-1.5 text-[10px] font-medium uppercase tracking-wide text-fg-subtle">AI-assisted</span> : null}
+      {d.ai_assisted ? <span className="ml-1.5 rounded-full border border-border px-1.5 text-[11px] font-medium uppercase tracking-wide text-fg-subtle">AI-assisted</span> : null}
       {!inbound && event.actor ? <span className="text-fg-subtle"> · by {event.actor.display_name}</span> : null}
       {snippet ? (
         <>
@@ -270,7 +270,7 @@ function describe(event: TimelineEvent, entity: EntityType): React.ReactNode {
       return (
         <>
           <span className={status === "failed" ? "text-danger" : undefined}>{inbound ? "WhatsApp received" : status === "failed" ? "WhatsApp failed" : "WhatsApp sent"}</span>
-          {template ? <span className="ml-1.5 rounded-full border border-border px-1.5 text-[10px] font-medium uppercase tracking-wide text-fg-subtle">template</span> : null}
+          {template ? <span className="ml-1.5 rounded-full border border-border px-1.5 text-[11px] font-medium uppercase tracking-wide text-fg-subtle">template</span> : null}
           {!inbound && event.actor ? <span className="text-fg-subtle"> · by {who}</span> : null}
           {body ? <span className="mt-0.5 line-clamp-3 block whitespace-pre-wrap break-words text-fg">{body}</span> : null}
         </>
@@ -372,7 +372,7 @@ export function Timeline({ entity, recordId, initialKinds = [], showFilters = tr
         <div className={cn("flex flex-col gap-4 transition-opacity", query.isPlaceholderData && "opacity-70")} aria-busy={query.isPlaceholderData || undefined}>
           {groups.map((group) => (
             <section key={group.key} aria-label={group.label}>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">{group.label}</h3>
+              <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-fg-subtle">{group.label}</h3>
               <ol className="relative flex flex-col gap-3 border-l border-border pl-6">
                 {group.events.map((event) => (
                   <li key={event.id} className="relative">

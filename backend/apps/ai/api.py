@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from rest_framework import serializers
 from rest_framework.response import Response
 
@@ -110,3 +112,90 @@ class AIUsageView(TenantAPIView):
 
     def get(self, request):
         return Response(budgets.usage_summary(request.actor))
+
+
+class AISettingsSerializer(serializers.Serializer):
+    """Everything an administrator can change about AI for this workspace."""
+
+    ai_enabled = serializers.BooleanField(required=False)
+    monthly_budget_usd = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=0, required=False, allow_null=True
+    )
+    user_requests_per_hour = serializers.IntegerField(min_value=0, max_value=10_000, required=False)
+
+
+class AISettingsView(TenantAPIView):
+    """Workspace AI policy and the health of the knowledge index.
+
+    ``ai_enabled = false`` is a supported operating mode, not a kill switch: Ask Keel keeps answering
+    from structured CRM data and the knowledge index, it simply stops sending anything to a model.
+    """
+
+    permission_map = {"GET": "ai.settings.manage", "PUT": "ai.settings.manage"}
+    throttle_scope = "admin"
+
+    def get(self, request):
+        return Response(self._payload(request.actor))
+
+    def put(self, request):
+        from apps.ai import orgsettings
+        from apps.audit import service as audit
+
+        ser = AISettingsSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = ser.validated_data
+        orgsettings.update(
+            request.actor,
+            enabled=data.get("ai_enabled"),
+            monthly_budget_usd=data.get("monthly_budget_usd"),
+            user_requests_per_hour=data.get("user_requests_per_hour"),
+        )
+        audit.record(
+            "ai.settings_updated",
+            request=request._request,
+            user=request.user,
+            metadata={"fields": sorted(data.keys())},
+        )
+        return Response(self._payload(request.actor))
+
+    @staticmethod
+    def _payload(actor):
+        from django.conf import settings as django_settings
+        from django.db.models import Count, Max
+
+        from apps.ai import orgsettings
+        from apps.rag.embeddings import current_model
+        from apps.rag.models import IndexEvent, IndexStatus, KnowledgeChunk
+
+        policy = orgsettings.policy(actor)
+        by_status = {
+            row["status"]: row["total"]
+            for row in IndexEvent.objects.values("status").annotate(total=Count("id")).order_by()
+        }
+        by_source = {
+            row["source_type"]: row["total"]
+            for row in KnowledgeChunk.objects.values("source_type").annotate(total=Count("id")).order_by()
+        }
+        last_failure = (
+            IndexEvent.objects.filter(status=IndexStatus.FAILED).exclude(last_error="").order_by("-updated_at").first()
+        )
+        return {
+            "ai_enabled": policy.enabled,
+            "monthly_budget_usd": str(policy.monthly_budget_usd),
+            "month_to_date_usd": str(budgets.month_to_date_cost(actor).quantize(Decimal("0.01"))),
+            "user_requests_per_hour": policy.user_requests_per_hour,
+            "provider": django_settings.AI_PROVIDER_BACKEND,
+            "model_strong": django_settings.AI_MODEL_STRONG,
+            "model_fast": django_settings.AI_MODEL_FAST,
+            "model_fallback": django_settings.AI_FALLBACK_MODEL,
+            "knowledge": {
+                "embedding_backend": django_settings.RAG_EMBEDDING_BACKEND,
+                "embedding_model": current_model(),
+                "semantic": django_settings.RAG_EMBEDDING_BACKEND != "local",
+                "chunks": sum(by_source.values()),
+                "by_source": by_source,
+                "status": {status: by_status.get(status, 0) for status in IndexStatus.values},
+                "last_indexed_at": IndexEvent.objects.aggregate(latest=Max("indexed_at"))["latest"],
+                "last_error": last_failure.last_error if last_failure else "",
+            },
+        }

@@ -35,7 +35,7 @@ function Card({ title, icon, aside, children, className }: { title: string; icon
 export function RiskCard({ risk, compact = false, className }: { risk: DealInsights["risk"]; compact?: boolean; className?: string }) {
   return (
     <Card title="Risk" icon={<ShieldAlert />} aside={<RiskBadge level={risk.level} />} className={className}>
-      <p className="mb-2 text-[11px] text-fg-subtle">
+      <p className="mb-2 text-[12px] text-fg-subtle">
         {risk.label || "Rules-based risk"} · score {risk.score}
       </p>
       {risk.reasons.length > 0 ? (
@@ -55,7 +55,7 @@ export function RiskCard({ risk, compact = false, className }: { risk: DealInsig
       {!compact && risk.signals.length > 0 ? (
         <ul className="mt-2 flex flex-wrap gap-1" aria-label="Risk signals">
           {risk.signals.map((s, i) => (
-            <li key={i} className="rounded-full border border-border px-2 py-px text-[11px] text-fg-muted">
+            <li key={i} className="rounded-full border border-border px-2 py-px text-[12px] text-fg-muted">
               {humanize(s.signal)}
               {s.days !== undefined ? ` · ${s.days} d` : ""}
               <span className="text-fg-subtle"> +{s.weight}</span>
@@ -76,7 +76,7 @@ export function NextBestActionCard({ nba, className }: { nba: DealInsights["next
       aside={
         nba ? (
           <>
-            {nba.kind ? <span className="text-[11px] text-fg-subtle">{humanize(nba.kind)}</span> : null}
+            {nba.kind ? <span className="text-[12px] text-fg-subtle">{humanize(nba.kind)}</span> : null}
             <Badge variant={CONFIDENCE_VARIANT[nba.confidence] ?? "neutral"}>{nba.confidence} confidence</Badge>
           </>
         ) : null
@@ -98,7 +98,7 @@ export function NextBestActionCard({ nba, className }: { nba: DealInsights["next
       ) : (
         <p className="text-sm text-fg-muted">No suggestion right now — the deal looks on track. Keep the next activity scheduled.</p>
       )}
-      <p className="mt-2 text-[11px] text-fg-subtle">Rules-based suggestion; you decide.</p>
+      <p className="mt-2 text-[12px] text-fg-subtle">Rules-based suggestion; you decide.</p>
     </Card>
   );
 }
@@ -159,7 +159,7 @@ export function DealInsightsPanel({
               <Card title="Lead score" icon={<Lightbulb />} aside={insights.lead_score ? <span className="text-sm font-semibold tabular-nums">{insights.lead_score.value}/100</span> : null}>
                 {insights.lead_score ? (
                   <>
-                    <p className="mb-1 text-[11px] text-fg-subtle">{insights.lead_score.label || "Rules-based"} · primary contact</p>
+                    <p className="mb-1 text-[12px] text-fg-subtle">{insights.lead_score.label || "Rules-based"} · primary contact</p>
                     {insights.lead_score.reasons.length > 0 ? (
                       <ul className="list-disc pl-4 text-sm" aria-label="Lead score reasons">
                         {insights.lead_score.reasons.map((r, i) => (

@@ -9,7 +9,7 @@ export interface AvatarProps extends React.ComponentPropsWithoutRef<typeof Avata
   size?: "sm" | "md" | "lg";
 }
 
-const sizes = { sm: "size-7 text-[11px]", md: "size-9 text-xs", lg: "size-12 text-sm" };
+const sizes = { sm: "size-7 text-[12px]", md: "size-9 text-xs", lg: "size-12 text-sm" };
 
 export const Avatar = React.forwardRef<React.ComponentRef<typeof AvatarPrimitive.Root>, AvatarProps>(function Avatar(
   { className, name, size = "md", ...props },

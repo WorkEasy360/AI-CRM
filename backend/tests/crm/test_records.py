@@ -250,11 +250,14 @@ def test_deal_exposes_primary_contact_phone_only_within_contact_scope(
     assert listed[str(foreign_contact_deal.pk)]["primary_contact"]["phone"] is None
     assert listed[str(own_deal.pk)]["primary_contact"]["phone"] == "+1 555 0100 111"
 
-    # The owner (contacts.view: all) sees both; the board payload follows the same rule.
+    # The owner (contacts.view: all) sees both on the record itself.
     assert (
         owner_client.get(f"/api/v1/deals/{foreign_contact_deal.pk}/").json()["primary_contact"]["phone"]
         == "+1 555 0100 222"
     )
+    # The board goes further than scoping and omits the contact's phone entirely: a Kanban card shows
+    # a name, so the card carries a name. Nothing weaker than the rule above - strictly less.
     board = owner_client.get("/api/v1/deals/board/").json()
     cards = {d["id"]: d for s in board["stages"] for d in s["deals"]}
-    assert cards[str(foreign_contact_deal.pk)]["primary_contact"]["phone"] == "+1 555 0100 222"
+    card_contact = cards[str(foreign_contact_deal.pk)]["primary_contact"]
+    assert card_contact["name"] and set(card_contact) == {"id", "name"}

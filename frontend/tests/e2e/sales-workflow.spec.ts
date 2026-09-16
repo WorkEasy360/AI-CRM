@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { RUN_ID, dialog, expectToast, inboundTextEvent, login, pickSelect, postWhatsAppWebhook, tileValue, users } from "./helpers";
+import { RUN_ID, dialog, expectToast, inboundTextEvent, login, pickRecord, pickSelect, postWhatsAppWebhook, tileValue, users } from "./helpers";
 
 /**
  * The critical business workflow, driven through the browser against a live stack (see helpers.ts):
@@ -72,10 +72,10 @@ test("4. create a contact linked to the company, with WhatsApp consent", async (
 test("5. create a deal and see it on the board", async () => {
   await page.goto("/pipeline");
   await page.getByRole("button", { name: "Deal" }).click();
-  const d = dialog(page, "New deal");
+  const d = dialog(page, "Create Deal");
   await d.getByLabel("Deal name").fill(deal.name);
-  await pickSelect(d, "Company", company);
-  await pickSelect(d, "Primary contact", `${contact.first} ${contact.last}`);
+  await pickRecord(d, "Company", company);
+  await pickRecord(d, "Primary contact", `${contact.first} ${contact.last}`);
   await d.getByLabel("Amount").fill(deal.amount);
   await d.getByRole("button", { name: "Create deal" }).click();
   await expect(d).toBeHidden();

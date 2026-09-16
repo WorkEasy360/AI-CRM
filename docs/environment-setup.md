@@ -8,7 +8,7 @@
 ## First run
 ```bash
 cp .env.example .env                      # local-only values; never commit .env
-docker compose up -d postgres redis mailpit
+docker compose up -d --wait postgres redis mailpit   # --wait blocks until the health checks pass
 cd backend
 uv sync                                   # creates .venv from uv.lock
 uv run python manage.py migrate
@@ -31,8 +31,63 @@ overrides the location) and are only reachable through the authenticated downloa
 
 Mailpit UI: http://localhost:8025 (verification, invitation and reset emails land here).
 
-PostgreSQL is published on host port **5433** (5432 is often taken locally). The init script creates the
-`crm_app` role as **non-superuser without RLS bypass**, so Row Level Security is exercised in dev and tests.
+PostgreSQL is published on host port **5433** (5432 is often taken locally). The image is
+`pgvector/pgvector:pg16` — stock PostgreSQL 16 plus the `vector` extension that the Ask Keel knowledge
+index needs. The init scripts create the `crm_app` role as **non-superuser without RLS bypass** (so Row
+Level Security is exercised in dev and tests) and install `vector` into `template1` and `keel`, which
+means Django's `test_keel` inherits it and migrations only have to run `CREATE EXTENSION IF NOT EXISTS
+vector` as a no-op.
+
+### Coming from the old `postgres:16-alpine` image
+The data volume carries over unchanged (same major version), but the collation provider differs
+(musl -> glibc), so reindex once after the switch:
+
+```bash
+docker compose up -d --wait postgres
+docker exec keel-postgres-1 psql -U postgres -d template1 -c "CREATE EXTENSION IF NOT EXISTS vector;"
+docker exec keel-postgres-1 psql -U postgres -d keel     -c "CREATE EXTENSION IF NOT EXISTS vector;"
+docker exec keel-postgres-1 psql -U postgres -d keel     -c "REINDEX DATABASE keel; REINDEX SYSTEM keel;"
+docker exec keel-postgres-1 psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS test_keel;"
+```
+
+## Ask Keel: embeddings and the knowledge index
+The assistant answers structured questions with SQL and unstructured ones from a pgvector index over
+notes, emails, WhatsApp messages, meeting and call write-ups and deal descriptions.
+
+Embeddings default to `RAG_EMBEDDING_BACKEND=local`: deterministic, offline, free, and **lexical rather
+than semantic** — it finds the wording, not the meaning. That makes a fresh checkout work with no
+credentials and no bill. For semantic recall, set `RAG_EMBEDDING_BACKEND=voyage` with `VOYAGE_API_KEY`
+(or `openai` with `OPENAI_API_KEY`) and rebuild the index; Anthropic publishes no embeddings API, which
+is why the reasoning provider and the embedding provider are configured separately.
+
+Indexing runs on its own `rag_indexing` Celery queue (`make worker-heavy`), driven by a transactional
+outbox, so a CRM write is never delayed by an embedding call and an embedding failure never affects CRM
+data. To build or rebuild:
+
+```bash
+make rag-index                                              # every workspace, queued
+cd backend && uv run python manage.py rebuild_rag_index --organization <uuid> --inline   # no worker needed
+```
+
+The command is tenant-scoped, batched, resume-safe and idempotent: sources whose content hash is
+unchanged are skipped without an embedding call, so re-running it costs queries, not money.
+
+## `connection timeout expired ... port 5433`
+
+That error means nothing is listening on 5433 — the Postgres container is not running, almost always
+because the Docker engine was stopped or the machine rebooted. Two things prevent it:
+
+- `postgres`, `redis` and `mailpit` declare `restart: unless-stopped`, so they come back on their own
+  as soon as the Docker engine starts. Containers stopped deliberately with `docker compose down` or
+  `docker stop` stay stopped, as intended.
+- On Windows, start the backend with `pwsh -File scripts/dev.ps1` (add `-Port 8001` to use another
+  port). It launches Docker Desktop if the engine is down, waits for the Postgres health check, then
+  runs `migrate` and `runserver`. `scripts/ensure-services.ps1` does the dependency half alone and is
+  safe to run when everything is already up.
+
+If Docker Desktop itself is not running and you are not using the script, start it from
+`%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe` (it is a per-user install on Windows, so
+it is not under `Program Files`), then re-run `docker compose up -d --wait postgres redis mailpit`.
 
 ## Tests and checks
 ```bash

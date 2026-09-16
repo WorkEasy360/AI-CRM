@@ -1,9 +1,10 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { StageTarget } from "@/components/crm/deals/move-stage-dialog";
 import { daysUntil, isPastClose, relativeDayLabel } from "@/components/crm/deals/deal-helpers";
 import { StageBadge } from "@/components/crm/pipeline/deals-list";
+import { Button } from "@/components/ui/button";
 import { RiskBadge } from "@/components/crm/risk-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Deal, DealInsights, PipelineStage } from "@/lib/api/crm-types";
@@ -100,12 +101,110 @@ export function StageProgress({
   );
 }
 
+/**
+ * The full-width stage track that sits under the deal header: one segment per open stage, named and
+ * clickable ("Move to X"), with the pipeline's won/lost stages as the two buttons that close the deal.
+ */
+export function StageTrack({
+  stages,
+  current,
+  status,
+  canMove,
+  busy,
+  onSelect,
+}: {
+  stages: PipelineStage[];
+  current: Deal["stage"];
+  status: Deal["status"];
+  canMove: boolean;
+  busy: boolean;
+  onSelect: (stage: StageTarget) => void;
+}) {
+  const open = stages.filter((s) => s.kind === "open");
+  const won = stages.find((s) => s.kind === "won") ?? null;
+  const lost = stages.find((s) => s.kind === "lost") ?? null;
+  if (open.length === 0) return null;
+  const currentIndex = open.findIndex((s) => s.id === current.id);
+  const closed = status !== "open";
+
+  return (
+    <div className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-md border border-border bg-surface px-3 py-2.5">
+      <ol className="flex min-w-0 flex-1 basis-64 items-end gap-1" aria-label="Stage progress">
+        {open.map((stage, index) => {
+          const isCurrent = stage.id === current.id;
+          const reached = !closed && currentIndex >= 0 && index < currentIndex;
+          const clickable = canMove && !isCurrent;
+          const bar = cn(
+            "block h-1.5 w-full rounded-full transition-colors",
+            closed ? (status === "won" ? "bg-success/70" : "bg-danger/40") : isCurrent ? "bg-primary" : reached ? "bg-primary/45" : "bg-border-strong",
+            clickable && "group-hover:bg-primary/70",
+          );
+          const label = cn(
+            "mt-1.5 block truncate text-center text-xs transition-colors",
+            isCurrent ? "font-semibold text-fg" : "text-fg-muted",
+            clickable && "group-hover:text-primary",
+          );
+          const inner = (
+            <>
+              <span className={bar} aria-hidden />
+              <span className={label}>{stage.name}</span>
+            </>
+          );
+          return (
+            <li key={stage.id} className="min-w-0 flex-1">
+              {clickable ? (
+                <button type="button" className="group w-full cursor-pointer" onClick={() => onSelect(stage)} disabled={busy} aria-label={`Move to ${stage.name}`} title={`Move to ${stage.name}`}>
+                  {inner}
+                </button>
+              ) : (
+                <span className="block w-full" aria-current={isCurrent ? "step" : undefined} title={stage.name}>
+                  {inner}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {won || lost ? (
+        <div className="flex shrink-0 items-center gap-1.5 pb-0.5">
+          {won ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className={status === "won" ? "border-success/50 bg-success-soft text-success" : undefined}
+              disabled={!canMove || busy || status === "won"}
+              onClick={() => onSelect(won)}
+              aria-label={status === "won" ? "Already won" : `Mark as won (${won.name})`}
+              title={status === "won" ? "This deal is won" : `Mark as won (${won.name})`}
+            >
+              <ThumbsUp /> {status === "won" ? "Won" : "Win"}
+            </Button>
+          ) : null}
+          {lost ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className={status === "lost" ? "border-danger/50 bg-danger-soft text-danger" : undefined}
+              disabled={!canMove || busy || status === "lost"}
+              onClick={() => onSelect(lost)}
+              aria-label={status === "lost" ? "Already lost" : `Mark as lost (${lost.name})`}
+              title={status === "lost" ? "This deal is lost" : `Mark as lost (${lost.name})`}
+            >
+              <ThumbsDown /> {status === "lost" ? "Lost" : "Lose"}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ metric tiles */
 
 function Tile({ label, children, sub, tone, className }: { label: string; children: React.ReactNode; sub?: React.ReactNode; tone?: "danger"; className?: string }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-0.5 rounded-md border border-border bg-surface px-3 py-2", tone === "danger" && "border-danger/40 bg-danger-soft/40", className)}>
-      <dt className="truncate text-[11px] font-medium uppercase tracking-wide text-fg-subtle">{label}</dt>
+      <dt className="truncate text-[12px] font-medium uppercase tracking-wide text-fg-subtle">{label}</dt>
       <dd className={cn("min-w-0 text-sm font-semibold leading-tight text-fg", tone === "danger" && "text-danger")}>{children}</dd>
       {sub ? <div className="min-w-0 truncate text-xs text-fg-muted">{sub}</div> : null}
     </div>
@@ -172,7 +271,7 @@ export function DealMetrics({
       <Tile label="Probability" sub={stageDefault !== undefined ? `Stage default ${stageDefault}%` : "Stage default"}>
         <span className="tabular-nums">{deal.probability}%</span>
         {deal.probability_overridden ? (
-          <span className="ml-1.5 rounded-sm border border-border-strong px-1 text-[10px] font-medium uppercase tracking-wide text-fg-muted" title="Set by hand; the stage default no longer applies.">
+          <span className="ml-1.5 rounded-sm border border-border-strong px-1 text-[11px] font-medium uppercase tracking-wide text-fg-muted" title="Set by hand; the stage default no longer applies.">
             manual
           </span>
         ) : null}

@@ -1,7 +1,7 @@
-.PHONY: dev worker worker-heavy beat seed-loadtest services stop test test-backend test-frontend lint typecheck security rls-check schema
+.PHONY: dev worker worker-heavy beat seed-loadtest services stop test test-backend test-frontend lint typecheck security rls-check schema rag-index
 
 services:
-	docker compose up -d postgres redis mailpit
+	docker compose up -d --wait postgres redis mailpit
 
 stop:
 	docker compose down
@@ -13,10 +13,13 @@ worker: services
 	cd backend && uv run celery -A config.celery worker -l info -Q default,notifications -c 4
 
 worker-heavy: services
-	cd backend && uv run celery -A config.celery worker -l info -Q imports,exports,reports -c 2
+	cd backend && uv run celery -A config.celery worker -l info -Q imports,exports,reports,rag_indexing -c 2
 
 beat: services
 	cd backend && uv run celery -A config.celery beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+rag-index:
+	cd backend && uv run python manage.py rebuild_rag_index --all
 
 seed-loadtest:
 	cd backend && uv run python manage.py seed_loadtest --out ../loadtest/users.json

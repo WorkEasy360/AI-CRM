@@ -3,34 +3,39 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Archive, ArrowLeft, ArrowRightLeft, Building2, Pencil, RotateCcw, User } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Globe, Mail, Pencil, Phone, RotateCcw, Trash2 } from "lucide-react";
 import { RecordActivities } from "@/components/activities/record-activities";
 import { CustomFieldsSummary, useCustomFields } from "@/components/crm/custom-fields-form";
-import { DealCommunication } from "@/components/crm/deals/deal-communication";
 import { DealContactsSection } from "@/components/crm/deals/deal-contacts-section";
-import { DealFormDialog } from "@/components/crm/deals/deal-form-dialog";
 import { relativeDayLabel } from "@/components/crm/deals/deal-helpers";
-import { DealHistorySection } from "@/components/crm/deals/deal-history-section";
-import { DealInsightsPanel, NextBestActionCard, RiskCard } from "@/components/crm/deals/deal-insights-panel";
 import { DealLinesSection } from "@/components/crm/deals/deal-lines-section";
-import { DealMetrics } from "@/components/crm/deals/deal-metrics";
+import { DealMetrics, StageTrack } from "@/components/crm/deals/deal-metrics";
 import { DealSummaryCard } from "@/components/crm/deals/deal-summary-card";
 import { useMoveStage, type StageTarget } from "@/components/crm/deals/move-stage-dialog";
-import { NotesPanel } from "@/components/crm/notes-panel";
 import { StatusBadge } from "@/components/crm/pipeline/deals-list";
 import { QuickActions } from "@/components/crm/quick-actions";
 import { Facts, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
 import { TagPicker } from "@/components/crm/tag-picker";
-import { Timeline } from "@/components/crm/timeline";
 import { useArchiveRestore } from "@/components/crm/use-record-mutations";
+import dynamic from "next/dynamic";
+
+// Everything below lives behind a tab or a button. Radix already unmounts the inactive tabs, so the
+// only thing still paid for on arrival was their code; these load when the member opens the tab.
+// The summary the page lands on (facts, metrics, stage track) stays in the route chunk.
+const DealCommunication = dynamic(() => import("@/components/crm/deals/deal-communication").then((m) => m.DealCommunication), { ssr: false });
+const DealFormDialog = dynamic(() => import("@/components/crm/deals/deal-form-dialog").then((m) => m.DealFormDialog), { ssr: false });
+const DealHistorySection = dynamic(() => import("@/components/crm/deals/deal-history-section").then((m) => m.DealHistorySection), { ssr: false });
+const DealInsightsPanel = dynamic(() => import("@/components/crm/deals/deal-insights-panel").then((m) => m.DealInsightsPanel), { ssr: false });
+const FilesPanel = dynamic(() => import("@/components/crm/files-panel").then((m) => m.FilesPanel), { ssr: false });
+const NotesPanel = dynamic(() => import("@/components/crm/notes-panel").then((m) => m.NotesPanel), { ssr: false });
+const Timeline = dynamic(() => import("@/components/crm/timeline").then((m) => m.Timeline), { ssr: false });
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { SkeletonRows } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getDeal, getDealInsights, listPipelines } from "@/lib/api/crm";
+import { getCompany, getDeal, getDealInsights, listPipelines } from "@/lib/api/crm";
 import type { PipelineStage } from "@/lib/api/crm-types";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
@@ -52,11 +57,13 @@ export function DealDetailPage({ id }: { id: string }) {
   const deal = useQuery({ queryKey: crmKeys.record("deals", id), queryFn: () => getDeal(id) });
   const pipelines = useQuery({ queryKey: crmKeys.pipelines, queryFn: () => listPipelines(), staleTime: 60_000 });
   const insights = useQuery({ queryKey: crmKeys.dealInsights(id), queryFn: () => getDealInsights(id), enabled: deal.isSuccess, staleTime: 60_000 });
+  const companyId = deal.data?.company?.id ?? null;
+  const company = useQuery({ queryKey: crmKeys.record("companies", companyId ?? ""), queryFn: () => getCompany(companyId as string), enabled: Boolean(companyId), staleTime: 60_000 });
   const { definitions } = useCustomFields("deal");
-  const { archive, restore } = useArchiveRestore("deal");
+  const { archive, restore } = useArchiveRestore("deal", "delete");
   const move = useMoveStage();
   const [editing, setEditing] = React.useState(false);
-  const [confirmArchive, setConfirmArchive] = React.useState(false);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
 
   if (deal.isPending) return <RecordPageSkeleton />;
   if (deal.isError) return <RecordPageError error={deal.error} backHref={BACK.href} backLabel="Pipeline" />;
@@ -64,13 +71,14 @@ export function DealDetailPage({ id }: { id: string }) {
   const archived = Boolean(record.archived_at);
   const editable = !archived && canEditRecord(active, "deals", record.owner?.id);
   const canMove = !archived && can(active, "deals.change_stage");
-  const canArchive = !archived && can(active, "deals.delete");
+  const canDelete = !archived && can(active, "deals.delete");
   const canRestore = archived && can(active, "deals.restore");
   const canViewScores = can(active, "ai.scores.view");
   const canUseCopilot = can(active, "ai.copilot.use");
   const showActivities = can(active, "activities.view");
   const showCommunication = can(active, "email.view") || can(active, "whatsapp.view");
   const showInsights = canViewScores || canUseCopilot;
+  const showFiles = can(active, "files.view");
   const pipeline = pipelines.data?.results.find((p) => p.id === record.pipeline.id) ?? null;
   const stages: PipelineStage[] = pipeline ? pipeline.stages.filter((s) => !s.archived_at) : [];
   const moveTargets: StageTarget[] = stages.filter((s) => s.id !== record.stage.id);
@@ -98,27 +106,11 @@ export function DealDetailPage({ id }: { id: string }) {
       label: "Overview",
       content: (
         <div className="flex flex-col gap-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            {insights.isPending ? (
-              <SkeletonRows rows={2} className="lg:col-span-2" />
-            ) : insightsData ? (
-              <>
-                <NextBestActionCard nba={insightsData.next_best_action} />
-                {canViewScores && record.status === "open" ? <RiskCard risk={insightsData.risk} compact /> : null}
-              </>
-            ) : null}
-          </div>
           <DealSummaryCard dealId={record.id} />
           <details open className="rounded-md border border-border bg-surface">
             <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold">Details</summary>
             <div className="flex flex-col gap-4 border-t border-border px-4 py-4">
               <Facts items={facts} />
-              {record.description ? (
-                <div>
-                  <h3 className="mb-1 text-xs text-fg-subtle">Description</h3>
-                  <p className="whitespace-pre-wrap break-words text-sm">{record.description}</p>
-                </div>
-              ) : null}
               {definitions.length > 0 ? (
                 <div>
                   <h3 className="mb-2 text-xs text-fg-subtle">Custom fields</h3>
@@ -163,6 +155,7 @@ export function DealDetailPage({ id }: { id: string }) {
       ? [{ value: "insights", label: "AI Insights", content: <DealInsightsPanel deal={record} insights={insightsData} isPending={insights.isPending} error={insights.error} contact={contactRef} /> }]
       : []),
     { value: "notes", label: "Notes", content: <NotesPanel entity="deal" recordId={record.id} /> },
+    ...(showFiles ? [{ value: "files", label: "Files", content: <FilesPanel entity="deal" recordId={record.id} disabled={archived} /> }] : []),
   ];
 
   return (
@@ -175,28 +168,19 @@ export function DealDetailPage({ id }: { id: string }) {
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h1 className="truncate text-xl font-semibold tracking-tight">{record.name}</h1>
-              {archived ? <Badge variant="warning">Archived</Badge> : null}
+              <span className="text-lg font-semibold tabular-nums text-fg-muted">· {formatMoney(record.amount, record.currency)}</span>
+              {archived ? <Badge variant="warning">Deleted</Badge> : null}
               <StatusBadge status={record.status} />
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
-              {record.company ? (
-                <Link href={`/companies/${enc(record.company.id)}`} className="inline-flex items-center gap-1 hover:text-primary hover:underline">
-                  <Building2 className="size-3.5" aria-hidden /> {record.company.name}
-                </Link>
-              ) : null}
-              {record.primary_contact ? (
-                <Link href={`/contacts/${enc(record.primary_contact.id)}`} className="inline-flex items-center gap-1 hover:text-primary hover:underline">
-                  <User className="size-3.5" aria-hidden /> {record.primary_contact.name}
-                </Link>
-              ) : (
-                <span className="text-fg-subtle">No primary contact</span>
-              )}
               <span className="inline-flex items-center gap-1.5">
-                {record.owner ? <Avatar name={record.owner.display_name} size="sm" className="size-5 text-[9px]" /> : null}
+                {record.owner ? <Avatar name={record.owner.display_name} size="sm" className="size-5 text-[10px]" /> : null}
                 {record.owner ? record.owner.display_name : "Unassigned"}
               </span>
+              <span>{record.pipeline.name}</span>
+              <span>Closing {formatDate(record.expected_close_date)}</span>
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -223,9 +207,9 @@ export function DealDetailPage({ id }: { id: string }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
-            {canArchive ? (
-              <Button variant="ghost" size="sm" onClick={() => setConfirmArchive(true)}>
-                <Archive /> Archive
+            {canDelete ? (
+              <Button variant="danger-ghost" size="sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 /> Delete
               </Button>
             ) : null}
             {canRestore ? (
@@ -236,6 +220,8 @@ export function DealDetailPage({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      <StageTrack stages={stages} current={record.stage} status={record.status} canMove={canMove} busy={move.isPending} onSelect={(s) => move.requestMove(record, s)} />
 
       <DealMetrics
         deal={record}
@@ -250,36 +236,61 @@ export function DealDetailPage({ id }: { id: string }) {
       />
       {!archived ? <QuickActions deal={record} /> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <Tabs defaultValue="overview" className="min-w-0">
-          <div className="-mx-1 overflow-x-auto px-1 pb-0.5">
-            <TabsList className="w-max">
-              {tabs.map((t) => (
-                <TabsTrigger key={t.value} value={t.value}>
-                  {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-          {tabs.map((t) => (
-            <TabsContent key={t.value} value={t.value}>
-              {t.content}
-            </TabsContent>
-          ))}
-        </Tabs>
-        <aside className="flex flex-col gap-4">
-          <Section title="Owner">
-            {record.owner ? (
-              <div className="flex items-center gap-2">
-                <Avatar name={record.owner.display_name} size="sm" />
-                <span className="truncate text-sm">{record.owner.display_name}</span>
+      <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+        <aside className="flex flex-col gap-4 xl:order-first">
+          <Section title="Related contact">
+            {record.primary_contact ? (
+              <div className="flex flex-col gap-1.5">
+                <Link href={`/contacts/${enc(record.primary_contact.id)}`} className="flex items-center gap-2 hover:text-primary">
+                  <Avatar name={record.primary_contact.name} size="sm" />
+                  <span className="truncate text-sm font-medium">{record.primary_contact.name}</span>
+                </Link>
+                {record.primary_contact.email ? (
+                  <a href={`mailto:${record.primary_contact.email}`} className="inline-flex min-w-0 items-center gap-1.5 text-sm text-fg-muted hover:text-primary">
+                    <Mail className="size-3.5 shrink-0" aria-hidden /> <span className="truncate">{record.primary_contact.email}</span>
+                  </a>
+                ) : null}
+                {record.primary_contact.phone ? (
+                  <a href={`tel:${record.primary_contact.phone}`} className="inline-flex min-w-0 items-center gap-1.5 text-sm text-fg-muted hover:text-primary">
+                    <Phone className="size-3.5 shrink-0" aria-hidden /> <span className="truncate">{record.primary_contact.phone}</span>
+                  </a>
+                ) : null}
               </div>
             ) : (
-              <p className="text-sm text-fg-subtle">Unassigned</p>
+              <p className="text-sm text-fg-subtle">No primary contact. Link one so the deal has someone to chase.</p>
+            )}
+          </Section>
+          <Section title="Related company">
+            {record.company ? (
+              <div className="flex flex-col gap-1.5">
+                <Link href={`/companies/${enc(record.company.id)}`} className="flex items-center gap-2 hover:text-primary">
+                  <Avatar name={record.company.name} size="sm" />
+                  <span className="truncate text-sm font-medium">{record.company.name}</span>
+                </Link>
+                {company.data?.website ? (
+                  <a href={company.data.website} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 items-center gap-1.5 text-sm text-fg-muted hover:text-primary">
+                    <Globe className="size-3.5 shrink-0" aria-hidden /> <span className="truncate">{company.data.website}</span>
+                  </a>
+                ) : null}
+                {company.data?.phone ? (
+                  <a href={`tel:${company.data.phone}`} className="inline-flex min-w-0 items-center gap-1.5 text-sm text-fg-muted hover:text-primary">
+                    <Phone className="size-3.5 shrink-0" aria-hidden /> <span className="truncate">{company.data.phone}</span>
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-fg-subtle">No company linked.</p>
             )}
           </Section>
           <Section title="Tags">
             <TagPicker entity="deal" recordId={record.id} current={record.tags} disabled={!editable} />
+          </Section>
+          <Section title="Description">
+            {record.description ? (
+              <p className="whitespace-pre-wrap break-words text-sm">{record.description}</p>
+            ) : (
+              <p className="text-sm text-fg-subtle">No description yet.</p>
+            )}
           </Section>
           <Section title="Key dates">
             <Facts
@@ -301,24 +312,40 @@ export function DealDetailPage({ id }: { id: string }) {
                 },
                 { label: "Created", value: formatDateTime(record.created_at) },
                 { label: "Updated", value: formatDateTime(record.updated_at) },
-                ...(record.archived_at ? [{ label: "Archived", value: formatDateTime(record.archived_at) }] : []),
+                ...(record.archived_at ? [{ label: "Deleted", value: formatDateTime(record.archived_at) }] : []),
               ]}
             />
           </Section>
         </aside>
+        <Tabs defaultValue="overview" className="min-w-0">
+          <div className="-mx-1 overflow-x-auto px-1 pb-0.5">
+            <TabsList className="w-max">
+              {tabs.map((t) => (
+                <TabsTrigger key={t.value} value={t.value}>
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          {tabs.map((t) => (
+            <TabsContent key={t.value} value={t.value}>
+              {t.content}
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
 
       {move.dialog}
       <DealFormDialog open={editing} onOpenChange={setEditing} deal={record} pipelines={pipelines.data?.results ?? []} />
       <ConfirmDialog
-        open={confirmArchive}
-        onOpenChange={setConfirmArchive}
-        title={`Archive ${record.name}?`}
-        description="The deal disappears from the board and lists. You can restore it later."
-        confirmLabel="Archive"
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete ${record.name}?`}
+        description="The deal disappears from the board and lists. Nothing is erased: a manager can restore it."
+        confirmLabel="Delete"
         destructive
         loading={archive.isPending}
-        onConfirm={() => archive.mutate(record.id, { onSuccess: () => setConfirmArchive(false) })}
+        onConfirm={() => archive.mutate(record.id, { onSuccess: () => setConfirmDelete(false) })}
       />
     </div>
   );

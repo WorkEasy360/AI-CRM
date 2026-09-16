@@ -20,3 +20,8 @@ GRANT USAGE ON SCHEMA public TO crm_app;
 --   REVOKE UPDATE, DELETE ON deals_dealstagehistory FROM crm_app;   -- from Phase 2
 ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app;
+
+-- pgvector: required by the RAG knowledge index (apps.rag). `vector` is not a trusted extension,
+-- so a superuser (rds_superuser on RDS) installs it once; migrations then run
+-- `CREATE EXTENSION IF NOT EXISTS vector` as a no-op under crm_migrator.
+CREATE EXTENSION IF NOT EXISTS vector;

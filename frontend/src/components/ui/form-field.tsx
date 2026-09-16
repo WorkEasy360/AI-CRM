@@ -22,6 +22,7 @@ export interface FormFieldRenderProps<TValue> {
   disabled?: boolean;
   "aria-invalid": boolean | undefined;
   "aria-describedby": string | undefined;
+  "aria-required": true | undefined;
 }
 
 export interface FormFieldProps<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>> {
@@ -30,6 +31,14 @@ export interface FormFieldProps<TFieldValues extends FieldValues, TName extends 
   label?: React.ReactNode;
   description?: React.ReactNode;
   className?: string;
+  /**
+   * "horizontal" puts the label in a left column beside the control, which is how the
+   * record slide-overs read; the default stacks it above for narrow dialogs and forms.
+   * Both collapse to stacked below the `sm` breakpoint.
+   */
+  orientation?: "vertical" | "horizontal";
+  /** Adds the asterisk and `aria-required`; validation itself stays with the schema. */
+  required?: boolean;
   /** Server-side error for this field (takes precedence over client validation when present). */
   serverError?: string;
   children: (field: FormFieldRenderProps<TFieldValues[TName]>) => React.ReactNode;
@@ -41,6 +50,8 @@ export function FormField<TFieldValues extends FieldValues, TName extends FieldP
   label,
   description,
   className,
+  orientation = "vertical",
+  required,
   serverError,
   children,
 }: FormFieldProps<TFieldValues, TName>) {
@@ -48,6 +59,7 @@ export function FormField<TFieldValues extends FieldValues, TName extends FieldP
   const id = `${name}-${reactId}`;
   const errorId = `${id}-error`;
   const descId = `${id}-desc`;
+  const horizontal = orientation === "horizontal";
   return (
     <Controller
       control={control}
@@ -56,9 +68,20 @@ export function FormField<TFieldValues extends FieldValues, TName extends FieldP
         const message = serverError ?? fieldState.error?.message;
         const invalid = Boolean(message);
         const describedBy = [description ? descId : null, message ? errorId : null].filter(Boolean).join(" ") || undefined;
-        return (
-          <div className={cn("flex flex-col gap-1.5", className)}>
-            {label ? <Label htmlFor={id}>{label}</Label> : null}
+        // The asterisk sits outside <label> so it never lands in the control's accessible name;
+        // `aria-required` on the control is what actually announces the requirement.
+        const labelNode = label ? (
+          <div className={cn("flex items-baseline gap-0.5", horizontal && "sm:justify-end sm:pt-2")}>
+            <Label htmlFor={id}>{label}</Label>
+            {required ? (
+              <span className="text-danger" aria-hidden>
+                *
+              </span>
+            ) : null}
+          </div>
+        ) : null;
+        const control = (
+          <div className="flex min-w-0 flex-col gap-1.5">
             {children({
               id,
               name: field.name,
@@ -70,6 +93,7 @@ export function FormField<TFieldValues extends FieldValues, TName extends FieldP
               disabled: field.disabled,
               "aria-invalid": invalid || undefined,
               "aria-describedby": describedBy,
+              "aria-required": required || undefined,
             })}
             {description ? (
               <p id={descId} className="text-xs text-fg-subtle">
@@ -81,6 +105,17 @@ export function FormField<TFieldValues extends FieldValues, TName extends FieldP
                 {message}
               </p>
             ) : null}
+          </div>
+        );
+        return (
+          <div
+            className={cn(
+              horizontal ? "grid gap-1.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start sm:gap-x-4" : "flex flex-col gap-1.5",
+              className,
+            )}
+          >
+            {labelNode}
+            {control}
           </div>
         );
       }}

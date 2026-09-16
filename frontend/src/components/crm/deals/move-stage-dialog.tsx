@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { isVersionConflict } from "@/components/crm/use-record-mutations";
 import { moveDealStage } from "@/lib/api/crm";
-import type { Deal, StageKind } from "@/lib/api/crm-types";
+import type { Deal, DealCard, StageKind } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { crmKeys } from "@/lib/crm/keys";
 
@@ -21,7 +21,9 @@ export interface StageTarget {
 }
 
 export interface MoveStageVars {
-  deal: Deal;
+  /** A board card is enough: the move needs id, version, name and the current stage. A full `Deal`
+      (from the deal page) satisfies `DealCard`, so both callers pass their own object unchanged. */
+  deal: DealCard;
   stage: StageTarget;
   lostReason?: string;
 }
@@ -115,7 +117,7 @@ export function useMoveStage(options?: {
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [prompt, setPrompt] = React.useState<{ deal: Deal; stage: StageTarget } | null>(null);
+  const [prompt, setPrompt] = React.useState<{ deal: DealCard; stage: StageTarget } | null>(null);
   const optionsRef = React.useRef(options);
   optionsRef.current = options;
 
@@ -154,7 +156,7 @@ export function useMoveStage(options?: {
   });
 
   const requestMove = React.useCallback(
-    (deal: Deal, stage: StageTarget) => {
+    (deal: DealCard, stage: StageTarget) => {
       if (stage.id === deal.stage.id) return;
       if (stage.kind === "lost") {
         setPrompt({ deal, stage });

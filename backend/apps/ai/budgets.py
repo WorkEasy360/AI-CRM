@@ -176,3 +176,53 @@ def tokens_used_today(organization_id: uuid.UUID) -> int:
         return int(cache.get(f"ai:tok:{organization_id}:{timezone.now().strftime('%Y%m%d')}") or 0)
     except Exception:
         return 0
+
+
+# --------------------------------------------------------------------------- assistant gating
+#
+# Ask Keel must never answer "you are over quota" and stop there: it degrades to CRM + RAG instead.
+# So alongside ``check_quota`` (which raises, for the draft/summary features where refusing is the
+# only sensible outcome) there is a non-raising check the assistant consults before reaching for a
+# model. Same limits, different failure mode.
+
+GENERATIVE_OK = ""
+REASON_DISABLED = "ai_disabled"
+REASON_USER_QUOTA = "user_quota"
+REASON_ORG_QUOTA = "org_quota"
+REASON_BUDGET = "monthly_budget"
+
+
+def month_to_date_cost(actor: Actor) -> Decimal:
+    """Estimated spend this calendar month, from the durable ledger (survives a cache restart)."""
+    from django.db.models import Sum
+
+    first = timezone.now().date().replace(day=1)
+    total = AIUsage.objects.filter(day__gte=first).aggregate(cost=Sum("estimated_cost_usd"))["cost"]
+    return total or Decimal("0")
+
+
+def generative_reason(actor: Actor, *, consume: bool = True) -> str:
+    """Empty string when a model call is allowed; otherwise why it is not.
+
+    ``consume`` counts the request against the per-member hourly limit, exactly as ``check_quota``
+    does, so an assistant question and a draft draw on the same budget.
+    """
+    from apps.ai import orgsettings
+
+    policy = orgsettings.policy(actor)
+    if not policy.enabled:
+        return REASON_DISABLED
+    if policy.has_budget_limit and month_to_date_cost(actor) >= policy.monthly_budget_usd:
+        return REASON_BUDGET
+    limit = policy.user_requests_per_hour
+    if limit > 0:
+        used = _incr(_user_key(actor), 1, HOUR) if consume else int(cache.get(_user_key(actor)) or 0)
+        if used > limit:
+            return REASON_USER_QUOTA
+    try:
+        tokens_today = int(cache.get(_org_key(actor)) or 0)
+    except Exception:
+        tokens_today = 0
+    if settings.AI_ORG_TOKENS_PER_DAY > 0 and tokens_today >= settings.AI_ORG_TOKENS_PER_DAY:
+        return REASON_ORG_QUOTA
+    return GENERATIVE_OK

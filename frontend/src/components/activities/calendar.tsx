@@ -80,7 +80,7 @@ function EventChip({ activity, onSelect, className, style }: { activity: Activit
       title={`${time} ${activity.title}`}
       style={style}
       className={cn(
-        "flex w-full items-baseline gap-1 overflow-hidden rounded-sm border px-1 text-left text-[11px] leading-5 hover:brightness-95 focus-visible:outline-2 focus-visible:outline-ring/40",
+        "flex w-full items-baseline gap-1 overflow-hidden rounded-sm border px-1 text-left text-[12px] leading-5 hover:brightness-95 focus-visible:outline-2 focus-visible:outline-ring/40",
         kindColorClasses(activity.kind),
         done && "opacity-60 line-through",
         className,
@@ -199,7 +199,7 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
       {view === "month" ? (
         <div className="grid flex-1 grid-cols-7 grid-rows-[auto_repeat(6,minmax(5.5rem,1fr))]" role="grid" aria-label="Month" aria-busy={events.isPending || undefined}>
           {weekdays.map((d) => (
-            <div key={d} role="columnheader" className="border-b border-border px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
+            <div key={d} role="columnheader" className="border-b border-border px-2 py-1 text-[12px] font-medium uppercase tracking-wide text-fg-subtle">
               {d}
             </div>
           ))}
@@ -227,7 +227,7 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
                   <EventChip key={a.id} activity={a} onSelect={onSelect} />
                 ))}
                 {extra > 0 ? (
-                  <button type="button" onClick={() => openDay(day)} className="self-start px-1 text-[11px] font-medium text-fg-muted hover:text-fg">
+                  <button type="button" onClick={() => openDay(day)} className="self-start px-1 text-[12px] font-medium text-fg-muted hover:text-fg">
                     +{extra} more
                   </button>
                 ) : null}
@@ -246,7 +246,7 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
               </div>
             ))}
             {/* all-day row */}
-            <div className="border-b border-border pr-2 pt-0.5 text-right text-[11px] text-fg-subtle">all day</div>
+            <div className="border-b border-border pr-2 pt-0.5 text-right text-[12px] text-fg-subtle">all day</div>
             {days.map((day) => {
               const list = (byDay.get(toDateInput(day)) ?? []).filter((a) => a.all_day);
               return (
@@ -260,7 +260,7 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
             {/* hour rows: the time gutter plus one relatively-positioned column per day holding its timed events */}
             <div className="contents">
               {HOURS.map((hour) => (
-                <div key={hour} className="col-start-1 h-11 border-b border-border pr-2 pt-0.5 text-right text-[11px] tabular-nums text-fg-subtle">{`${String(hour).padStart(2, "0")}:00`}</div>
+                <div key={hour} className="col-start-1 h-11 border-b border-border pr-2 pt-0.5 text-right text-[12px] tabular-nums text-fg-subtle">{`${String(hour).padStart(2, "0")}:00`}</div>
               ))}
             </div>
             {days.map((day, col) => {

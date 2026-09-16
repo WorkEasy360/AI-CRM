@@ -42,11 +42,11 @@ export function ForecastSeriesChart({ series, currency }: { series: Forecast["se
               <rect x={x0} y={base - hWeighted} width={bar} height={hWeighted} rx={3} className="fill-primary" />
               <rect x={x0 + bar + 4} y={base - hWon} width={bar} height={hWon} rx={3} className="fill-success" />
               {i === peak && weighted[i]! > 0 ? (
-                <text x={x0 + bar / 2} y={base - Math.max(hOpen, hWeighted) - 5} textAnchor="middle" className="fill-fg text-[10px] font-medium">
+                <text x={x0 + bar / 2} y={base - Math.max(hOpen, hWeighted) - 5} textAnchor="middle" className="fill-fg text-[11px] font-medium">
                   {formatMoney(m.weighted, currency)}
                 </text>
               ) : null}
-              <text x={x0 + group / 2} y={height - 7} textAnchor="middle" className="fill-fg-subtle text-[10px]">
+              <text x={x0 + group / 2} y={height - 7} textAnchor="middle" className="fill-fg-subtle text-[11px]">
                 {monthLabel(m.month, withYear)}
               </text>
             </g>

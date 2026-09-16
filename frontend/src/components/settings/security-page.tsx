@@ -294,7 +294,7 @@ function MfaCard() {
                 {setup.totp_url ? (
                   <div className="grid gap-1">
                     <Label>Setup URL</Label>
-                    <code className="break-all rounded-sm bg-bg-subtle px-2 py-1.5 font-mono text-[11px] text-fg-muted">{setup.totp_url}</code>
+                    <code className="break-all rounded-sm bg-bg-subtle px-2 py-1.5 font-mono text-[12px] text-fg-muted">{setup.totp_url}</code>
                   </div>
                 ) : null}
               </div>

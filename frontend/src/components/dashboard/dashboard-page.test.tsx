@@ -13,6 +13,10 @@ vi.mock("@/lib/api/endpoints", () => ({
 
 vi.mock("@/lib/api/crm", () => ({
   listPipelines: vi.fn(),
+  // The dashboard now hosts Ask Keel; its calls are stubbed out so these tests stay about the numbers.
+  getAssistantHome: vi.fn(),
+  askKeel: vi.fn(),
+  deleteAssistantConversation: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -21,7 +25,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(""),
 }));
 
-import { listPipelines } from "@/lib/api/crm";
+import { getAssistantHome, listPipelines } from "@/lib/api/crm";
 import { getDashboard, getSession } from "@/lib/api/endpoints";
 
 const organization = {
@@ -122,6 +126,12 @@ describe("DashboardPage", () => {
     vi.mocked(getDashboard).mockReset();
     vi.mocked(listPipelines).mockReset();
     vi.mocked(listPipelines).mockResolvedValue({ next: null, previous: null, results: [pipeline("p1", "Sales pipeline")] });
+    vi.mocked(getAssistantHome).mockResolvedValue({
+      suggestions: ["Which deals need attention?"],
+      generative_available: true,
+      knowledge_available: true,
+      recent: [],
+    });
   });
 
   it("renders the KPI tiles from the summary endpoint", async () => {

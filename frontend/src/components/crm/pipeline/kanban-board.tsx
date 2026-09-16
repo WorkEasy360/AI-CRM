@@ -9,7 +9,7 @@ import { RiskBadge } from "@/components/crm/risk-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { Board, BoardStage, Deal } from "@/lib/api/crm-types";
+import type { Board, BoardStage, DealCard } from "@/lib/api/crm-types";
 import { formatMoney, stageDotClass } from "@/lib/crm/format";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -20,10 +20,10 @@ export type BoardSort = "recent" | "amount" | "close" | "name";
 
 interface PendingMove {
   stageId: string;
-  deal: Deal;
+  deal: DealCard;
 }
 
-function sortDeals(deals: Deal[], sort: BoardSort): Deal[] {
+function sortDeals(deals: DealCard[], sort: BoardSort): DealCard[] {
   if (sort === "recent") return deals;
   const copy = [...deals];
   if (sort === "amount") copy.sort((a, b) => Number(b.amount_base || 0) - Number(a.amount_base || 0));
@@ -107,7 +107,7 @@ export function KanbanBoard({
   const stages = React.useMemo(() => applyPending(board, pending).map((s) => ({ ...s, deals: sortDeals(s.deals, sort) })), [board, pending, sort]);
   const targets: StageTarget[] = React.useMemo(() => board.stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), [board.stages]);
   const dealsById = React.useMemo(() => {
-    const map = new Map<string, Deal>();
+    const map = new Map<string, DealCard>();
     for (const stage of stages) for (const deal of stage.deals) map.set(deal.id, deal);
     return map;
   }, [stages]);
@@ -160,12 +160,12 @@ export function KanbanBoard({
                   <h3 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-fg" title={stage.name}>
                     {stage.name}
                   </h3>
-                  <span className="rounded-full bg-surface px-1.5 py-0.5 text-[11px] font-medium text-fg-muted" aria-label={`${stage.deal_count} deals`}>
+                  <span className="rounded-full bg-surface px-1.5 py-0.5 text-[12px] font-medium text-fg-muted" aria-label={`${stage.deal_count} deals`}>
                     {stage.deal_count}
                   </span>
                 </div>
                 <p className="mt-0.5 text-xs font-medium tabular-nums text-fg-muted">{formatMoney(stage.total_amount_base, baseCurrency)}</p>
-                {weighted !== null ? <p className="text-[11px] tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
+                {weighted !== null ? <p className="text-[12px] tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
               </header>
               <ul className="flex min-h-20 flex-1 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5" aria-label={`${stage.name} deals`}>
                 {stage.deals.map((deal) => (
@@ -193,7 +193,7 @@ export function KanbanBoard({
                 {stage.deals.length === 0 ? <li className="py-5 text-center text-xs text-fg-subtle">No deals</li> : null}
               </ul>
               {stage.has_more ? (
-                <p className="border-t border-border px-2.5 py-1.5 text-[11px] text-fg-subtle">
+                <p className="border-t border-border px-2.5 py-1.5 text-[12px] text-fg-subtle">
                   +{Math.max(stage.deal_count - stage.deals.length, 1)} more in the list view
                 </p>
               ) : null}
@@ -217,7 +217,7 @@ function DealCard({
   onDragEnd,
   onMove,
 }: {
-  deal: Deal;
+  deal: DealCard;
   stages: StageTarget[];
   canMove: boolean;
   showRisk: boolean;
@@ -282,12 +282,12 @@ function DealCard({
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <span className="flex items-baseline gap-1 truncate">
           <span className="text-sm font-semibold tabular-nums">{formatMoney(deal.amount, deal.currency)}</span>
-          <span className="text-[11px] tabular-nums text-fg-muted" title={deal.probability_overridden ? "Probability set by hand" : "Probability"}>
+          <span className="text-[12px] tabular-nums text-fg-muted" title={deal.probability_overridden ? "Probability set by hand" : "Probability"}>
             {deal.probability}%
           </span>
         </span>
         {deal.expected_close_date ? (
-          <span className={cn("inline-flex shrink-0 items-center gap-1 text-[11px]", overdue ? "text-danger" : "text-fg-subtle")} title={overdue ? "Past the expected close date" : "Expected close"}>
+          <span className={cn("inline-flex shrink-0 items-center gap-1 text-[12px]", overdue ? "text-danger" : "text-fg-subtle")} title={overdue ? "Past the expected close date" : "Expected close"}>
             <CalendarDays className="size-3" aria-hidden />
             <time dateTime={deal.expected_close_date}>{formatDate(deal.expected_close_date)}</time>
           </span>
@@ -295,12 +295,12 @@ function DealCard({
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
         {deal.next_activity_title ? (
-          <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-fg-muted" title={`Next: ${deal.next_activity_title}`}>
+          <span className="inline-flex min-w-0 items-center gap-1 text-[12px] text-fg-muted" title={`Next: ${deal.next_activity_title}`}>
             <CalendarClock className="size-3 shrink-0" aria-hidden />
             <span className="truncate">{deal.next_activity_title}</span>
           </span>
         ) : open ? (
-          <span className="inline-flex items-center gap-1 text-[11px] text-danger/80">
+          <span className="inline-flex items-center gap-1 text-[12px] text-danger/80">
             <CalendarClock className="size-3 shrink-0" aria-hidden />
             No next step
           </span>
@@ -311,7 +311,7 @@ function DealCard({
           {showRisk && open ? <RiskBadge compact level={deal.risk_level} /> : null}
           {deal.owner ? (
             <span title={deal.owner.display_name}>
-              <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[9px]" aria-label={`Owner: ${deal.owner.display_name}`} />
+              <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[10px]" aria-label={`Owner: ${deal.owner.display_name}`} />
             </span>
           ) : null}
         </span>

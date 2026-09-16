@@ -16,6 +16,7 @@ export const crmKeys = {
   customFields: (entity?: EntityType, archived = false) => ["crm", "custom-fields", entity ?? "all", archived] as const,
   tags: ["crm", "tags"] as const,
   notes: (entity: EntityType, id: string) => ["crm", "notes", entity, id] as const,
+  files: (entity: EntityType, id: string) => ["crm", "files", entity, id] as const,
   timeline: (entity: EntityType, id: string, kinds?: string[]) => ["crm", "timeline", entity, id, kinds ?? []] as const,
   search: (q: string) => ["crm", "search", q] as const,
   imports: (entity: string) => ["crm", "imports", entity] as const,
@@ -44,4 +45,8 @@ export const crmKeys = {
   // forecast / ai
   forecast: (params: Record<string, string | undefined>) => ["forecast", params] as const,
   aiUsage: ["ai", "usage"] as const,
+  aiSettings: ["ai", "settings"] as const,
+  // assistant
+  assistantHome: ["assistant", "home"] as const,
+  assistantConversation: (id: string) => ["assistant", "conversation", id] as const,
 };

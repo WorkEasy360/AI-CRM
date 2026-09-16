@@ -17,9 +17,20 @@ import { crmKeys } from "@/lib/crm/keys";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { queryKeys, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { DealsByOwner, DealsByStage, ForecastBars, RevenueTrend, TopCompanies } from "./charts";
 import { DashboardTabs } from "./dashboard-tabs";
 import { Panel, PanelLink, StatTile, fmtCount, fmtPercent } from "./stat-tile";
+
+import dynamic from "next/dynamic";
+
+// The numbers are the dashboard; the assistant and the charts are what you read next. Both load as
+// their own chunks so the stat tiles paint without waiting for the assistant's answer view or the
+// chart code, and a member who never opens the dashboard's lower half never downloads either.
+const AskKeelCard = dynamic(() => import("@/components/assistant/ask-keel").then((m) => m.AskKeelCard), { ssr: false });
+const DealsByOwner = dynamic(() => import("./charts").then((m) => m.DealsByOwner), { ssr: false });
+const DealsByStage = dynamic(() => import("./charts").then((m) => m.DealsByStage), { ssr: false });
+const ForecastBars = dynamic(() => import("./charts").then((m) => m.ForecastBars), { ssr: false });
+const RevenueTrend = dynamic(() => import("./charts").then((m) => m.RevenueTrend), { ssr: false });
+const TopCompanies = dynamic(() => import("./charts").then((m) => m.TopCompanies), { ssr: false });
 
 const PERIOD_LABELS: Record<DashboardPeriod, string> = { "7d": "Last 7 days", "30d": "Last 30 days", "90d": "Last 90 days", "365d": "Last 12 months" };
 const ALL_PIPELINES = "__all__";
@@ -172,6 +183,10 @@ export function DashboardPage() {
               href={`/pipeline?view=list&status=won${pipelineQs}`}
             />
           </section>
+
+          {/* Between the numbers and the charts: close enough to the figures to be the obvious next
+              question, small enough that the dashboard is still a dashboard. */}
+          <AskKeelCard />
 
           <section aria-label="Charts" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Panel title="Deals by stage" subtitle={data?.deals_by_stage?.pipeline?.name ?? "Open deals right now"}>

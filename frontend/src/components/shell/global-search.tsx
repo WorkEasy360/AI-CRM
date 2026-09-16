@@ -199,7 +199,7 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
       <ul ref={listRef} id={listId} role="listbox" aria-label="Search results" className={cn("flex flex-col gap-1", state.status === "loading" && "opacity-60")}>
         {groups.map((group) => (
           <li key={group.type} role="presentation">
-            <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">{ENTITY_LABELS[group.type].plural}</div>
+            <div className="px-2 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-wide text-fg-subtle">{ENTITY_LABELS[group.type].plural}</div>
             <ul role="group" aria-label={ENTITY_LABELS[group.type].plural} className="flex flex-col">
               {group.hits.map((item) => {
                 index += 1;
@@ -251,7 +251,7 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
         >
           <Search className="size-4" aria-hidden />
           <span className="flex-1 text-left">Search…</span>
-          <kbd className="rounded-sm border border-border bg-surface px-1.5 font-mono text-[10px] text-fg-subtle">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
+          <kbd className="rounded-sm border border-border bg-surface px-1.5 font-mono text-[11px] text-fg-subtle">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
         </button>
       ) : null}
 
@@ -282,11 +282,11 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
             {state.status === "loading" ? (
               <Loader2 className="size-4 shrink-0 animate-spin text-fg-subtle" aria-label="Searching" />
             ) : (
-              <kbd className="hidden rounded-sm border border-border bg-surface px-1.5 font-mono text-[10px] text-fg-subtle sm:block">Esc</kbd>
+              <kbd className="hidden rounded-sm border border-border bg-surface px-1.5 font-mono text-[11px] text-fg-subtle sm:block">Esc</kbd>
             )}
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2">{body}</div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2 text-[11px] text-fg-subtle">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2 text-[12px] text-fg-subtle">
             <span>
               <kbd className="font-mono">↑</kbd> <kbd className="font-mono">↓</kbd> to move
             </span>

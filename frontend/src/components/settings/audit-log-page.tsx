@@ -138,7 +138,7 @@ export function AuditLogPage() {
                   {ev.metadata && typeof ev.metadata === "object" && Object.keys(ev.metadata as object).length > 0 ? (
                     <details className="mt-1">
                       <summary className="cursor-pointer text-xs text-primary">Details</summary>
-                      <pre className="mt-1 max-w-md overflow-x-auto rounded-sm bg-bg-subtle p-2 font-mono text-[11px] text-fg-muted">
+                      <pre className="mt-1 max-w-md overflow-x-auto rounded-sm bg-bg-subtle p-2 font-mono text-[12px] text-fg-muted">
                         {JSON.stringify(ev.metadata, null, 2)}
                       </pre>
                     </details>
@@ -156,12 +156,12 @@ export function AuditLogPage() {
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <span className="text-xs">{ev.resource_type}</span>
-                  <span className="block truncate font-mono text-[11px] text-fg-subtle" title={ev.resource_id}>
+                  <span className="block truncate font-mono text-[12px] text-fg-subtle" title={ev.resource_id}>
                     {ev.resource_id}
                   </span>
                 </TableCell>
                 <TableCell className="hidden font-mono text-xs text-fg-muted lg:table-cell">{ev.ip ?? "—"}</TableCell>
-                <TableCell className="hidden font-mono text-[11px] text-fg-subtle xl:table-cell">{ev.request_id}</TableCell>
+                <TableCell className="hidden font-mono text-[12px] text-fg-subtle xl:table-cell">{ev.request_id}</TableCell>
               </TableRow>
             ))}
           </TableBody>

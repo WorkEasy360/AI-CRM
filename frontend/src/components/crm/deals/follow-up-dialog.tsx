@@ -145,7 +145,7 @@ export function FollowUpDialog({ open, onOpenChange, deal, contact }: { open: bo
                     Some source text was flagged and left out. Read the draft carefully before using it.
                   </p>
                 ) : null}
-                <p className="text-[11px] text-fg-subtle">AI-generated draft — check names, numbers and promises before sending.</p>
+                <p className="text-[12px] text-fg-subtle">AI-generated draft — check names, numbers and promises before sending.</p>
               </div>
             ) : null}
 

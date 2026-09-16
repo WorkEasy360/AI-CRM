@@ -1,15 +1,17 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Bot, ShieldAlert } from "lucide-react";
+import * as React from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bot, Database, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAIUsage } from "@/lib/api/crm";
-import type { AIUsage } from "@/lib/api/crm-types";
+import { Switch } from "@/components/ui/switch";
+import { getAISettings, getAIUsage, updateAISettings } from "@/lib/api/crm";
+import type { AISettings, AIUsage } from "@/lib/api/crm-types";
 import { errorMessage } from "@/lib/api/problem";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
@@ -27,6 +29,7 @@ export function AISettingsPage() {
   const active = session?.active ?? null;
   const canManage = hasPermission(active, "ai.settings.manage");
   const usage = useQuery({ queryKey: crmKeys.aiUsage, queryFn: getAIUsage, enabled: canManage, staleTime: 60_000 });
+  const config = useQuery({ queryKey: crmKeys.aiSettings, queryFn: getAISettings, enabled: canManage, staleTime: 60_000 });
 
   if (!canManage) {
     return (
@@ -54,15 +57,17 @@ export function AISettingsPage() {
         />
       ) : (
         <div className="grid gap-6">
+          {config.data ? <PolicyCard settings={config.data} /> : null}
           <UsageTiles usage={usage.data} />
           <div className="grid gap-6 lg:grid-cols-2">
             <ByFeature rows={usage.data.by_feature} />
             <ByMember rows={usage.data.by_member} />
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
-            <ModelsCard limits={usage.data.limits} />
-            <HowItWorksCard />
+            <ModelsCard limits={usage.data.limits} settings={config.data} />
+            {config.data ? <KnowledgeCard knowledge={config.data.knowledge} /> : null}
           </div>
+          <HowItWorksCard />
         </div>
       )}
     </div>
@@ -187,7 +192,7 @@ function ByMember({ rows }: { rows: AIUsage["by_member"] }) {
   );
 }
 
-function ModelsCard({ limits }: { limits: AIUsage["limits"] }) {
+function ModelsCard({ limits, settings }: { limits: AIUsage["limits"]; settings?: AISettings }) {
   return (
     <Card>
       <CardHeader>
@@ -203,6 +208,10 @@ function ModelsCard({ limits }: { limits: AIUsage["limits"] }) {
           <div>
             <dt className="text-xs text-fg-subtle">Strong model (summaries)</dt>
             <dd className="font-mono text-xs">{limits.model_strong || "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-fg-subtle">Fallback model (used if the others are unavailable)</dt>
+            <dd className="font-mono text-xs">{settings?.model_fallback || "None configured"}</dd>
           </div>
           <div>
             <dt className="text-xs text-fg-subtle">Requests per member per hour</dt>
@@ -233,6 +242,142 @@ function HowItWorksCard() {
           <li>Lead scores and deal risk are rules-based calculations, not AI predictions, and are labelled as such in the app.</li>
           <li>Messages sent from an AI draft are marked “AI-assisted” in the record history.</li>
         </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The two decisions an administrator makes that the server environment cannot.
+ *
+ * Turning AI off does not turn Ask Keel off: it keeps answering from CRM records and the knowledge
+ * index, and simply stops sending anything to an external model. The copy says so plainly, because
+ * an admin who believes this is a kill switch will never reach for it.
+ */
+function PolicyCard({ settings }: { settings: AISettings }) {
+  const queryClient = useQueryClient();
+  const [budget, setBudget] = React.useState(settings.monthly_budget_usd);
+  const mutation = useMutation({
+    mutationFn: updateAISettings,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(crmKeys.aiSettings, updated);
+      setBudget(updated.monthly_budget_usd);
+    },
+  });
+  const spent = Number(settings.month_to_date_usd);
+  const limit = Number(settings.monthly_budget_usd);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>AI policy</CardTitle>
+        <CardDescription>What this workspace allows the assistant to do.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-fg">Generative AI</p>
+            <p className="mt-0.5 max-w-prose text-xs text-fg-muted">
+              When this is off, no customer text leaves your workspace. Ask Keel keeps working: it answers from your CRM
+              records and past conversations, without written analysis or drafts.
+            </p>
+          </div>
+          <Switch
+            checked={settings.ai_enabled}
+            disabled={mutation.isPending}
+            onCheckedChange={(checked) => mutation.mutate({ ai_enabled: checked })}
+            aria-label="Generative AI enabled"
+          />
+        </div>
+
+        <form
+          className="grid gap-1.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            mutation.mutate({ monthly_budget_usd: budget });
+          }}
+        >
+          <label htmlFor="ai-budget" className="text-sm font-medium text-fg">
+            Monthly budget
+          </label>
+          <p className="text-xs text-fg-muted">
+            Estimated spend this month: {formatMoney(settings.month_to_date_usd, "USD")}
+            {limit > 0 ? ` of ${formatMoney(settings.monthly_budget_usd, "USD")}` : " (no limit set)"}. Reaching the
+            budget switches Ask Keel to CRM answers for the rest of the month rather than failing.
+          </p>
+          <div className="flex gap-2">
+            <input
+              id="ai-budget"
+              type="number"
+              min={0}
+              step="1"
+              value={budget}
+              onChange={(event) => setBudget(event.target.value)}
+              className="h-9 w-32 rounded-sm border border-border bg-surface px-3 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <Button type="submit" variant="secondary" size="sm" disabled={mutation.isPending}>
+              Save
+            </Button>
+          </div>
+          {limit > 0 && spent >= limit ? (
+            <p className="text-xs text-warning">The budget for this month has been reached.</p>
+          ) : null}
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** How much of the team's conversation history Ask Keel can search, and whether indexing is healthy. */
+function KnowledgeCard({ knowledge }: { knowledge: AISettings["knowledge"] }) {
+  const pending = (knowledge.status.pending ?? 0) + (knowledge.status.processing ?? 0);
+  const failed = knowledge.status.failed ?? 0;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Database className="size-4 text-primary" aria-hidden /> Knowledge search
+        </CardTitle>
+        <CardDescription>Notes, emails, WhatsApp messages and meeting write-ups Ask Keel can search.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-fg-subtle">Indexed passages</dt>
+            <dd className="tabular-nums">{knowledge.chunks.toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-fg-subtle">Waiting to be indexed</dt>
+            <dd className="tabular-nums">{pending.toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-fg-subtle">Last updated</dt>
+            <dd>{knowledge.last_indexed_at ? formatDateTime(knowledge.last_indexed_at) : "Not yet"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-fg-subtle">Matching</dt>
+            <dd>{knowledge.semantic ? "Meaning and wording" : "Wording"}</dd>
+          </div>
+        </dl>
+        {Object.keys(knowledge.by_source).length > 0 ? (
+          <ul className="flex flex-wrap gap-1.5">
+            {Object.entries(knowledge.by_source).map(([source, count]) => (
+              <li key={source} className="rounded-full border border-border px-2.5 py-1 text-xs text-fg-muted">
+                {humanize(source)} · {count.toLocaleString()}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-fg-muted">
+            Nothing has been indexed yet. Notes, emails and meeting write-ups are added automatically as your team
+            records them.
+          </p>
+        )}
+        {failed > 0 ? (
+          <p className="text-xs text-danger">
+            {failed.toLocaleString()} record(s) could not be indexed. {knowledge.last_error}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

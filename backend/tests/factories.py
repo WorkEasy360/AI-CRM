@@ -10,11 +10,13 @@ import uuid
 from dataclasses import dataclass
 
 from allauth.account.models import EmailAddress
+from django.contrib.postgres.search import SearchVector
 
 from apps.accounts import services as account_services
 from apps.accounts.models import Invitation, Membership, Organization, User
 from apps.activities.models import Activity
 from apps.ai.models import AIUsage
+from apps.assistant.models import Conversation, ConversationTurn
 from apps.audit import service as audit
 from apps.audit.models import AuditEvent
 from apps.authz.models import Role
@@ -23,6 +25,7 @@ from apps.contacts.models import Contact
 from apps.core.tenancy.context import tenant_context
 from apps.customfields.models import CustomFieldDefinition
 from apps.deals.models import Deal, DealStageHistory
+from apps.files.models import FileAttachment
 from apps.importexport.models import ExportJob, ImportJob
 from apps.lifecycle.models import LifecycleHistory
 from apps.messaging.models import (
@@ -38,6 +41,7 @@ from apps.notifications.models import Notification, NotificationPreference
 from apps.pipelines.models import Pipeline, PipelineStage
 from apps.pipelines.services import ensure_default_pipeline
 from apps.products.models import Product
+from apps.rag.models import IndexEvent, KnowledgeChunk
 from apps.tagging.models import Tag
 from apps.teams.models import Team
 from tests.testapp.models import Widget
@@ -212,6 +216,22 @@ def make_note(bundle: OrgBundle, *, record=None, author: Membership | None = Non
         )
 
 
+def make_file_attachment(bundle: OrgBundle, *, record=None, uploaded_by: Membership | None = None) -> FileAttachment:
+    """Writes the row only; the blob is irrelevant to tenant-isolation checks."""
+    record = record or make_contact(bundle)
+    entity_type = type(record).__name__.lower()
+    with _ctx(bundle, "test.make_file_attachment"):
+        return FileAttachment.objects.create(
+            entity_type=entity_type,
+            entity_id=record.pk,
+            filename="brief.pdf",
+            content_type="application/pdf",
+            size_bytes=3,
+            storage_key=f"{bundle.org.pk}/files/{uuid.uuid4().hex}.bin",
+            uploaded_by=uploaded_by or bundle.owner_membership,
+        )
+
+
 def make_import_job(bundle: OrgBundle, entity_type: str = "contact") -> ImportJob:
     with _ctx(bundle, "test.make_import_job"):
         return ImportJob.objects.create(
@@ -302,18 +322,16 @@ def make_email_template(bundle: OrgBundle) -> EmailTemplate:
         )
 
 
-def make_email_message(bundle: OrgBundle, *, contact: Contact | None = None) -> EmailMessage:
+def make_email_message(bundle: OrgBundle, *, contact: Contact | None = None, **extra) -> EmailMessage:
     contact = contact or make_contact(bundle)
     with _ctx(bundle, "test.make_email_message"):
+        extra.setdefault("direction", "outbound")
+        extra.setdefault("status", "sent")
+        extra.setdefault("subject", "Hello")
+        extra.setdefault("body_text", "Body")
+        extra.setdefault("sent_by", bundle.owner_membership)
         return EmailMessage.objects.create(
-            direction="outbound",
-            status="sent",
-            from_address="me@example.com",
-            to_addresses=[contact.email],
-            subject="Hello",
-            body_text="Body",
-            contact=contact,
-            sent_by=bundle.owner_membership,
+            from_address="me@example.com", to_addresses=[contact.email], contact=contact, **extra
         )
 
 
@@ -338,17 +356,14 @@ def make_whatsapp_template(bundle: OrgBundle) -> WhatsAppTemplate:
         )
 
 
-def make_whatsapp_message(bundle: OrgBundle, *, contact: Contact | None = None) -> WhatsAppMessage:
+def make_whatsapp_message(bundle: OrgBundle, *, contact: Contact | None = None, **extra) -> WhatsAppMessage:
     contact = contact or make_contact(bundle, phone="+15550100")
     with _ctx(bundle, "test.make_whatsapp_message"):
-        return WhatsAppMessage.objects.create(
-            direction="outbound",
-            status="sent",
-            wa_id="15550100",
-            body="Hi",
-            contact=contact,
-            sent_by=bundle.owner_membership,
-        )
+        extra.setdefault("direction", "outbound")
+        extra.setdefault("status", "sent")
+        extra.setdefault("body", "Hi")
+        extra.setdefault("sent_by", bundle.owner_membership)
+        return WhatsAppMessage.objects.create(wa_id="15550100", contact=contact, **extra)
 
 
 def make_ai_usage(bundle: OrgBundle) -> AIUsage:
@@ -358,6 +373,59 @@ def make_ai_usage(bundle: OrgBundle) -> AIUsage:
         return AIUsage.objects.create(
             membership=bundle.owner_membership, day=timezone.now().date(), feature="followup", model="fake", requests=1
         )
+
+
+# ----------------------------------------------------------------------------- knowledge index / assistant
+
+
+def make_knowledge_chunk(bundle: OrgBundle, *, record=None, content: str = "Customer asked about pricing.", **extra):
+    """A chunk written directly, bypassing the indexer: used to assert retrieval scoping in isolation."""
+    from apps.rag.embeddings import current_model, get_embedder
+    from apps.rag.models import KnowledgeChunk, SourceType
+
+    record = record or make_contact(bundle)
+    entity_type = type(record).__name__.lower()
+    with _ctx(bundle, "test.make_knowledge_chunk"):
+        extra.setdefault("source_type", SourceType.NOTE)
+        extra.setdefault("source_id", uuid.uuid4())
+        extra.setdefault("entity_type", entity_type)
+        extra.setdefault("entity_id", record.pk)
+        extra.setdefault("entity_owner", getattr(record, "owner", None))
+        extra.setdefault("source_owner", bundle.owner_membership)
+        extra.setdefault("content_hash", uuid.uuid4().hex)
+        extra.setdefault("embedding", get_embedder().embed([content])[0])
+        extra.setdefault("embedding_model", current_model())
+        chunk = KnowledgeChunk.objects.create(content=content, **extra)
+        KnowledgeChunk.objects.filter(pk=chunk.pk).update(search_vector=SearchVector("content", config="english"))
+        return chunk
+
+
+def make_index_event(bundle: OrgBundle, **extra):
+    from apps.rag.models import IndexEvent, SourceType
+
+    with _ctx(bundle, "test.make_index_event"):
+        extra.setdefault("source_type", SourceType.NOTE)
+        extra.setdefault("source_id", uuid.uuid4())
+        return IndexEvent.objects.create(**extra)
+
+
+def make_conversation(bundle: OrgBundle, *, membership: Membership | None = None, **extra):
+    from apps.assistant.models import Conversation
+
+    with _ctx(bundle, "test.make_conversation"):
+        extra.setdefault("title", "What happened with ABC Corp?")
+        return Conversation.objects.create(membership=membership or bundle.owner_membership, **extra)
+
+
+def make_conversation_turn(bundle: OrgBundle, *, conversation=None, **extra):
+    from apps.assistant.models import ConversationTurn
+
+    conversation = conversation or make_conversation(bundle)
+    with _ctx(bundle, "test.make_conversation_turn"):
+        extra.setdefault("position", 1)
+        extra.setdefault("question", "What happened?")
+        extra.setdefault("answer", "Something happened.")
+        return ConversationTurn.objects.create(conversation=conversation, **extra)
 
 
 # model -> callable(bundle) -> instance, used by tests/tenant_isolation/test_generated.py
@@ -387,6 +455,11 @@ CROSS_TENANT_FACTORIES = {
     CustomFieldDefinition: lambda bundle: make_custom_field(bundle),
     Tag: lambda bundle: make_tag(bundle),
     Note: lambda bundle: make_note(bundle),
+    FileAttachment: lambda bundle: make_file_attachment(bundle),
     ImportJob: lambda bundle: make_import_job(bundle),
     ExportJob: lambda bundle: make_export_job(bundle),
+    KnowledgeChunk: lambda bundle: make_knowledge_chunk(bundle),
+    IndexEvent: lambda bundle: make_index_event(bundle),
+    Conversation: lambda bundle: make_conversation(bundle),
+    ConversationTurn: lambda bundle: make_conversation_turn(bundle),
 }

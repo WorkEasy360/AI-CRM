@@ -3,8 +3,8 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-from django.db.models import Count, F, IntegerField, OuterRef, Subquery, Sum, Value, Window, prefetch_related_objects
-from django.db.models.functions import Coalesce, RowNumber
+from django.db.models import Count, IntegerField, OuterRef, Subquery, Sum, Value, prefetch_related_objects
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
 from rest_framework.decorators import action
@@ -123,6 +123,56 @@ class DealSerializer(CrmReadSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+
+class DealCardSerializer(serializers.Serializer):
+    """The Kanban card, and only the Kanban card.
+
+    ``DealSerializer`` carries everything the deal detail page needs (35 fields, nested tags, custom
+    data, the pipeline reference, the free-text description). A board renders 6 x
+    ``BOARD_DEALS_PER_STAGE`` of them, so every field is paid for 300 times: on a 12k-deal tenant the
+    full serializer produced a 374 KB payload in 109 ms, of which the card rendered about a third.
+    This serializer emits exactly the fields ``kanban-board.tsx`` reads (plus ``version``, which the
+    stage-move request sends back as the optimistic-concurrency token).
+
+    Deliberately absent, and each for a reason:
+    - ``pipeline`` - a board is one pipeline; the reference was 5% of the payload and repeated 300x.
+    - ``description``/``custom_data``/``tags`` - never on a card, and ``description`` is up to 5000
+      characters per deal, so it is the field most able to make a board payload explode.
+    - the contact's ``email``/``phone``/``whatsapp_opt_in`` - unrendered, and dropping them stops a
+      board disclosing contact details the card never shows (two scope checks per card as well).
+    """
+
+    id = serializers.UUIDField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    stage = StageRefSerializer(read_only=True)
+    company = RefSerializer(read_only=True)
+    primary_contact = serializers.SerializerMethodField()
+    owner = MembershipRefSerializer(read_only=True)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
+    currency = serializers.CharField(read_only=True)
+    amount_base = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
+    weighted_amount_base = serializers.SerializerMethodField()
+    probability = serializers.IntegerField(read_only=True)
+    probability_overridden = serializers.BooleanField(read_only=True)
+    expected_close_date = serializers.DateField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    next_activity_title = serializers.CharField(read_only=True, default="")
+    risk_level = serializers.SerializerMethodField()
+    version = serializers.IntegerField(read_only=True)
+
+    def get_primary_contact(self, obj: Deal) -> dict[str, str] | None:
+        """Name only: the card shows a name, so the board ships a name."""
+        contact = obj.primary_contact
+        return None if contact is None else {"id": str(contact.pk), "name": contact.display_name}
+
+    def get_weighted_amount_base(self, obj: Deal) -> str:
+        return str(services.weighted_amount(obj.amount_base, obj.probability))
+
+    def get_risk_level(self, obj: Deal) -> str:
+        from apps.ai.risk import assess_deal
+
+        return assess_deal(obj, contact_count=getattr(obj, "contact_count", None)).level
 
 
 def _active_pipelines():
@@ -332,6 +382,11 @@ class DealViewSet(CrmViewSet):
         from apps.activities.queries import next_activity_title_subquery
 
         lines = DealProduct.objects.filter(deal=OuterRef("pk")).order_by().values("deal")
+        # Only the deal's own columns are restricted. The select_related rows (company, contact,
+        # membership, user) come back whole on purpose: TenantModel.__init__ reads ``organization_id``,
+        # so a deferred column on a joined tenant row makes instantiating that row refresh_from_db
+        # itself, and that recurses until the stack ends. Those rows are one per card and small; the
+        # 300x cost of a board is the deal rows, and those this does trim.
         contacts = DealContact.objects.filter(deal=OuterRef("pk")).order_by().values("deal")
         # ``pipeline`` and ``stage`` are prefetched (one small query each per page) instead of
         # select_related: an INNER JOIN to those tiny RLS-filtered tables invites the planner to drive
@@ -397,6 +452,51 @@ class DealViewSet(CrmViewSet):
         )
         return Response({"results": StageHistorySerializer(qs, many=True).data})
 
+    def board_queryset(self):
+        """Cards only: the columns ``DealCardSerializer`` emits, plus the ones risk scoring reads.
+
+        The list queryset annotates four correlated subqueries and loads every deal column; a board
+        needs neither. ``contact_count`` stays because ``assess_deal`` uses it for the risk dot, and
+        the deferred-but-loaded columns (``last_activity_at``, ``stage_entered_at``, ``created_at``,
+        ``next_activity_at``) are what that same assessment reads. ``pipeline`` is not joined or
+        prefetched at all - the board is already one pipeline.
+        """
+        from apps.activities.queries import next_activity_title_subquery
+
+        contacts = DealContact.objects.filter(deal=OuterRef("pk")).order_by().values("deal")
+        return (
+            Deal.objects.select_related("owner__user", "company", "primary_contact")
+            .prefetch_related("stage")  # see base_queryset: a join here wrecks the planner's estimate
+            .only(
+                "id",
+                "organization",
+                "version",
+                "name",
+                "amount",
+                "currency",
+                "amount_base",
+                "probability",
+                "probability_overridden",
+                "expected_close_date",
+                "status",
+                "stage_id",
+                "company_id",
+                "primary_contact_id",
+                "owner_id",
+                # read by assess_deal, not serialized
+                "last_activity_at",
+                "next_activity_at",
+                "stage_entered_at",
+                "created_at",
+            )
+            .annotate(
+                contact_count=Coalesce(
+                    Subquery(contacts.annotate(n=Count("id")).values("n"), output_field=IntegerField()), Value(0)
+                ),
+                next_activity_title=next_activity_title_subquery("deal"),
+            )
+        )
+
     @action(detail=False, methods=["get"])
     def board(self, request):
         """Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals."""
@@ -423,7 +523,7 @@ class DealViewSet(CrmViewSet):
         # of ids back to the database. Stages are few; deals are not.
         annotated, _ = self.filterset.apply(
             scope(
-                request.actor, "deals.view", self.base_queryset().filter(pipeline=pipeline, archived_at__isnull=True)
+                request.actor, "deals.view", self.board_queryset().filter(pipeline=pipeline, archived_at__isnull=True)
             ),
             params,
             actor=request.actor,
@@ -438,19 +538,10 @@ class DealViewSet(CrmViewSet):
         }
         all_deals = [d for bucket in by_stage.values() for d in bucket]
         # One prefetch for the whole board rather than one per stage bucket.
-        prefetch_related_objects(all_deals, "pipeline", "stage")
-        # Tags for exactly the rendered deals, resolved in the database (window function) rather than
-        # via a several-hundred-id IN list.
-        rendered_ids = (
-            base.annotate(
-                board_rank=Window(
-                    RowNumber(), partition_by=[F("stage_id")], order_by=[F("stage_entered_at").desc(), F("id").desc()]
-                )
-            )
-            .filter(board_rank__lte=BOARD_DEALS_PER_STAGE)
-            .values("pk")
-        )
-        ctx = self._read_context(all_deals, ids=rendered_ids)
+        prefetch_related_objects(all_deals, "stage")
+        # Cards carry no tags and no custom data, so the board needs neither the tag window query that
+        # ranked the rendered ids nor the custom-field definitions - two queries and a window scan gone.
+        ctx = dict(self.get_serializer_context())
         payload = []
         for stage in stages:
             agg = totals.get(stage.pk, {})
@@ -459,7 +550,7 @@ class DealViewSet(CrmViewSet):
                     **StageSerializer(stage).data,
                     "deal_count": agg.get("count", 0),
                     "total_amount_base": str(agg.get("total") or Decimal("0.00")),
-                    "deals": DealSerializer(by_stage[stage.pk], many=True, context=ctx).data,
+                    "deals": DealCardSerializer(by_stage[stage.pk], many=True, context=ctx).data,
                     "has_more": agg.get("count", 0) > len(by_stage[stage.pk]),
                 }
             )

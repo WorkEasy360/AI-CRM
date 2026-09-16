@@ -19,7 +19,7 @@ const TABS = [
 /** What the mobile "New" tab offers, in order: the quick wins on the road. */
 export const MOBILE_NEW_KINDS: readonly QuickCreateKind[] = ["task", "call", "contact", "deal"];
 
-const TAB_CLASS = "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium leading-none";
+const TAB_CLASS = "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[12px] font-medium leading-none";
 
 /**
  * Bottom tab bar for phones and small tablets (hidden from `lg`). The sheet in the header keeps

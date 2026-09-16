@@ -112,7 +112,7 @@ export function DealsList({
         className: "text-right whitespace-nowrap",
         render: (d) => (
           <span className="tabular-nums" title={d.probability_overridden ? "Set by hand" : "Stage default"}>
-            {d.probability}%{d.probability_overridden ? <span className="ml-1 text-[10px] uppercase text-fg-subtle">manual</span> : null}
+            {d.probability}%{d.probability_overridden ? <span className="ml-1 text-[11px] uppercase text-fg-subtle">manual</span> : null}
           </span>
         ),
       },

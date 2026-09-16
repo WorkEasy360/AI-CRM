@@ -42,6 +42,21 @@
 
   --font-sans: var(--kl-font-sans);
   --font-mono: var(--kl-font-mono);
+
+  /* The type scale. Without these, `text-sm` and friends fall back to Tailwind's own sizes and
+     `text-md` is not generated at all, so the ramp above would only ever reach the body element. */
+  --text-xs: var(--kl-text-xs);
+  --text-xs--line-height: var(--kl-leading-xs);
+  --text-sm: var(--kl-text-sm);
+  --text-sm--line-height: var(--kl-leading-sm);
+  --text-md: var(--kl-text-md);
+  --text-md--line-height: var(--kl-leading-md);
+  --text-lg: var(--kl-text-lg);
+  --text-lg--line-height: var(--kl-leading-lg);
+  --text-xl: var(--kl-text-xl);
+  --text-xl--line-height: var(--kl-leading-xl);
+  --text-2xl: var(--kl-text-2xl);
+  --text-2xl--line-height: var(--kl-leading-2xl);
 }
 
 @layer base {

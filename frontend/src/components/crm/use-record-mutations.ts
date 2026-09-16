@@ -27,17 +27,23 @@ export function isVersionConflict(error: unknown): boolean {
   return isApiError(error) && error.status === 409 && error.type === "version_conflict";
 }
 
-export function useArchiveRestore(entity: EntityType) {
+/**
+ * Archive/restore for a record. The API soft-deletes, so a surface that calls the action "Delete"
+ * (the deal page) passes `wording: "delete"` and gets matching toasts; everything else says archive.
+ */
+export function useArchiveRestore(entity: EntityType, wording: "archive" | "delete" = "archive") {
   const { toast } = useToast();
+  const archivedTitle = wording === "delete" ? "Deleted" : "Archived";
+  const archiveFailure = wording === "delete" ? "Could not delete" : "Could not archive";
   const invalidate = useInvalidateRecord(entity);
   const path = ENTITY_PATHS[entity];
   const archive = useMutation({
     mutationFn: (id: string) => archiveRecord(path, id),
     onSuccess: async (_data, id) => {
       await invalidate(id);
-      toast({ tone: "success", title: "Archived", description: "The record is hidden from lists and can be restored." });
+      toast({ tone: "success", title: archivedTitle, description: "The record is hidden from lists and can be restored." });
     },
-    onError: (err) => toast({ tone: "error", title: "Could not archive", description: errorMessage(err) }),
+    onError: (err) => toast({ tone: "error", title: archiveFailure, description: errorMessage(err) }),
   });
   const restore = useMutation({
     mutationFn: (id: string) => restoreRecord(path, id),

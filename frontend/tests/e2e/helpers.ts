@@ -47,6 +47,18 @@ export async function pickSelect(scope: Page | Locator, trigger: string, option:
   await page.getByRole("option", { name: option }).click();
 }
 
+/**
+ * Choose a record in a search-as-you-type picker (deal panel's Company / Primary contact).
+ * Unlike `pickSelect` the options load from the server, so the name is typed to narrow them first.
+ */
+export async function pickRecord(scope: Page | Locator, label: string, name: string): Promise<void> {
+  const input = scope.getByRole("combobox", { name: label });
+  await input.click();
+  await input.fill(name);
+  const page = "page" in scope ? scope.page() : scope;
+  await page.getByRole("option", { name, exact: true }).first().click();
+}
+
 export function dialog(page: Page, name: string | RegExp): Locator {
   return page.getByRole("dialog", { name });
 }

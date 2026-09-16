@@ -24,7 +24,7 @@ test.beforeAll(async ({ browser }) => {
   const page = await ownerPage(browser);
   await page.goto("/pipeline");
   await page.getByRole("button", { name: "Deal" }).click();
-  const d = dialog(page, "New deal");
+  const d = dialog(page, "Create Deal");
   await d.getByLabel("Deal name").fill(dealName);
   await d.getByLabel("Amount").fill("1200");
   await d.getByRole("button", { name: "Create deal" }).click();
@@ -123,8 +123,8 @@ test("concurrent edits: the second writer is told the deal changed and nothing i
   await b.goto(dealUrl);
   await a.getByRole("button", { name: "Edit", exact: true }).click();
   await b.getByRole("button", { name: "Edit", exact: true }).click();
-  const da = dialog(a, "Edit deal");
-  const db = dialog(b, "Edit deal");
+  const da = dialog(a, "Edit Deal");
+  const db = dialog(b, "Edit Deal");
   await da.getByLabel("Deal name").fill(`${dealName} (renamed by A)`);
   await da.getByRole("button", { name: "Save changes" }).click();
   await expect(da).toBeHidden();

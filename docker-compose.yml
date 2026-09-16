@@ -2,7 +2,13 @@ name: keel
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector build of PostgreSQL 16: same major version (the data volume carries over) plus the
+    # `vector` extension the RAG knowledge index needs. Debian-based, so the collation provider
+    # differs from the old alpine image; the switch was followed by a REINDEX (docs/environment-setup.md).
+    image: pgvector/pgvector:pg16
+    # Comes back automatically after a Docker Desktop restart or reboot, so the
+    # local backend never hits "connection timeout expired" on port 5433.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_dev_password
@@ -20,6 +26,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Comes back automatically after a Docker Desktop restart or reboot, so the
+    # local dev stack is never left with this dependency down.
+    restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
       - "6379:6379"
@@ -31,6 +40,9 @@ services:
 
   mailpit:
     image: axllent/mailpit:latest
+    # Comes back automatically after a Docker Desktop restart or reboot, so the
+    # local dev stack is never left with this dependency down.
+    restart: unless-stopped
     ports:
       - "1025:1025"
       - "8025:8025"

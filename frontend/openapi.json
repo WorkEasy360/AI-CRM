@@ -394,12 +394,144 @@
                 }
             }
         },
+        "/api/v1/ai/settings/": {
+            "get": {
+                "operationId": "ai_settings_retrieve",
+                "description": "Workspace AI policy and the health of the knowledge index.\n\n``ai_enabled = false`` is a supported operating mode, not a kill switch: Ask Keel keeps answering\nfrom structured CRM data and the knowledge index, it simply stops sending anything to a model.",
+                "tags": [
+                    "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "ai_settings_update",
+                "description": "Workspace AI policy and the health of the knowledge index.\n\n``ai_enabled = false`` is a supported operating mode, not a kill switch: Ask Keel keeps answering\nfrom structured CRM data and the knowledge index, it simply stops sending anything to a model.",
+                "tags": [
+                    "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
         "/api/v1/ai/usage/": {
             "get": {
                 "operationId": "ai_usage_retrieve",
                 "description": "Organization AI usage and limits (administrators).",
                 "tags": [
                     "ai"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/assistant/ask/": {
+            "post": {
+                "operationId": "assistant_ask_create",
+                "description": "POST a question; always answers, with or without a model behind it.\n\nThe response shape is identical in every mode -- ``mode`` says which one produced it, so the UI\ncan show \"Knowledge search mode\" without ever exposing a provider name or status code.",
+                "tags": [
+                    "assistant"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/assistant/conversations/{conversation_id}/": {
+            "get": {
+                "operationId": "assistant_conversations_retrieve",
+                "description": "One thread of the caller's own. Another member's id simply reads as empty.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "conversation_id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "assistant"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "assistant_conversations_destroy",
+                "description": "One thread of the caller's own. Another member's id simply reads as empty.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "conversation_id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "assistant"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/assistant/home/": {
+            "get": {
+                "operationId": "assistant_home_retrieve",
+                "description": "What the dashboard card needs before anyone types: prompts, and whether AI is available.",
+                "tags": [
+                    "assistant"
                 ],
                 "security": [
                     {
@@ -3097,6 +3229,175 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ExportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/files/": {
+            "get": {
+                "operationId": "files_list",
+                "description": "Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;\ndeleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "files"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedFileAttachmentList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "files_create",
+                "description": "Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;\ndeleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).",
+                "tags": [
+                    "files"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileAttachment"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/files/{id}/": {
+            "get": {
+                "operationId": "files_retrieve",
+                "description": "Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;\ndeleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "files"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileAttachment"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "files_destroy",
+                "description": "Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;\ndeleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "files"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/files/{id}/download/": {
+            "get": {
+                "operationId": "files_download_retrieve",
+                "description": "Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;\ndeleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "files"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileAttachment"
                                 }
                             }
                         },
@@ -7342,6 +7643,60 @@
                 "type": "string",
                 "description": "* `text` - Text\n* `textarea` - Long text\n* `integer` - Whole number\n* `number` - Decimal number\n* `currency` - Currency amount\n* `percent` - Percent\n* `date` - Date\n* `datetime` - Date and time\n* `checkbox` - Checkbox\n* `dropdown` - Dropdown\n* `multi_select` - Multi-select\n* `email` - Email\n* `phone` - Phone\n* `url` - URL"
             },
+            "FileAttachment": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "entity_type": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "entity_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "filename": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "content_type": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "size_bytes": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "uploaded_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MembershipRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "content_type",
+                    "created_at",
+                    "entity_id",
+                    "entity_type",
+                    "filename",
+                    "id",
+                    "size_bytes",
+                    "uploaded_by"
+                ]
+            },
             "ImportJob": {
                 "type": "object",
                 "properties": {
@@ -8018,6 +8373,32 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/ExportJob"
+                        }
+                    }
+                }
+            },
+            "PaginatedFileAttachmentList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FileAttachment"
                         }
                     }
                 }

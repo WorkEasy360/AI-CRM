@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.pipelines",
     "apps.deals",
     "apps.notes",
+    "apps.files",
     "apps.search",
     "apps.importexport",
     "apps.dashboards",
@@ -63,6 +64,8 @@ INSTALLED_APPS = [
     "apps.forecasting",
     "apps.messaging",
     "apps.ai",
+    "apps.rag",
+    "apps.assistant",
 ]
 
 MIDDLEWARE = [
@@ -285,6 +288,9 @@ REST_FRAMEWORK = {
         "sensitive": "30/min",
         "invitation_public": "20/min",
         "search": "120/min",
+        # Ask Keel: a question costs a retrieval and possibly a model call, so it is limited
+        # well below the general user rate, per member and (in apps.ai.budgets) per workspace.
+        "assistant": "20/min",
     },
     "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.DefaultCursorPagination",
     "PAGE_SIZE": 50,
@@ -366,11 +372,13 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 }
 # Queue isolation (docs/architecture/scaling.md, "Celery"): heavy work never shares a worker with the
 # work the interactive product depends on. Worker services consume:
-#   worker-critical: default, notifications      worker-heavy: imports, exports, reports
+#   worker-critical: default, notifications      worker-heavy: imports, exports, reports, rag_indexing
 #   (ai is declared for Phase 5 and has no consumer yet)
+# Embedding work is slow and bursty (a CSV import can queue thousands of sources), so it gets its own
+# queue: a full knowledge rebuild must never delay a meeting reminder or a customer email.
 CELERY_TASK_QUEUES = {
     name: {"exchange": name, "routing_key": name}
-    for name in ("default", "imports", "exports", "notifications", "reports", "ai")
+    for name in ("default", "imports", "exports", "notifications", "reports", "ai", "rag_indexing")
 }
 CELERY_TASK_ROUTES = {
     "importexport.run_import": {"queue": "imports"},
@@ -384,6 +392,10 @@ CELERY_TASK_ROUTES = {
     "messaging.send_whatsapp_message": {"queue": "notifications"},
     "messaging.sync_email_accounts": {"queue": "default"},
     "messaging.sync_email_account": {"queue": "default"},
+    "rag.index_source": {"queue": "rag_indexing"},
+    "rag.rebuild_organization": {"queue": "rag_indexing"},
+    "rag.drain_pending": {"queue": "rag_indexing"},
+    "rag.purge_organization": {"queue": "rag_indexing"},
 }
 CELERY_BEAT_SCHEDULE = {
     "observability.publish_celery_metrics": {
@@ -399,6 +411,9 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 300.0,
         "options": {"expires": 280},
     },
+    # Safety net behind transaction.on_commit: re-enqueues sources whose job was lost and retries
+    # failures that have waited out their backoff.
+    "rag.drain_pending": {"task": "rag.drain_pending", "schedule": 120.0, "options": {"expires": 110}},
 }
 # Emails are queued (notifications queue) unless a deployment opts out; tests run tasks eagerly.
 EMAIL_ASYNC = env.bool("EMAIL_ASYNC", default=True)
@@ -446,9 +461,48 @@ AI_MODEL_FAST = env("AI_MODEL_FAST", default="claude-haiku-4-5")
 AI_MODEL_STRONG = env("AI_MODEL_STRONG", default="claude-opus-5")
 AI_MAX_TOKENS_DRAFT = env.int("AI_MAX_TOKENS_DRAFT", default=1200)
 AI_MAX_TOKENS_SUMMARY = env.int("AI_MAX_TOKENS_SUMMARY", default=1500)
+AI_MAX_TOKENS_ANSWER = env.int("AI_MAX_TOKENS_ANSWER", default=1200)
 AI_REQUEST_TIMEOUT_SECONDS = env.float("AI_REQUEST_TIMEOUT_SECONDS", default=45.0)
 AI_USER_REQUESTS_PER_HOUR = env.int("AI_USER_REQUESTS_PER_HOUR", default=60)
 AI_ORG_TOKENS_PER_DAY = env.int("AI_ORG_TOKENS_PER_DAY", default=2_000_000)
+# Monthly ceiling on estimated spend per workspace. 0 disables the check. Enforced from the durable
+# ledger (apps.ai.budgets), not from a cache counter, so it survives a Redis restart.
+AI_ORG_MONTHLY_BUDGET_USD = env.float("AI_ORG_MONTHLY_BUDGET_USD", default=0.0)
+# Hard cap on the prompt a single assistant answer may send, whatever the retrieval returned.
+AI_MAX_PROMPT_CHARS = env.int("AI_MAX_PROMPT_CHARS", default=28_000)
+# Level 2 of the provider chain: a cheaper model tried when the primary one is unavailable. Empty
+# disables the level, and the assistant drops straight to retrieval-only.
+AI_FALLBACK_MODEL = env("AI_FALLBACK_MODEL", default="claude-haiku-4-5")
+# Circuit breaker: after this many consecutive provider failures, stop calling it for the cool-off
+# period and answer from CRM + RAG instead of making every user wait for the same timeout.
+AI_BREAKER_FAILURES = env.int("AI_BREAKER_FAILURES", default=4)
+AI_BREAKER_COOLDOWN_SECONDS = env.int("AI_BREAKER_COOLDOWN_SECONDS", default=120)
+
+# ----------------------------------------------------------------------------- RAG (knowledge index)
+# Unstructured customer text (notes, emails, WhatsApp, meeting and call write-ups, deal descriptions)
+# is chunked, embedded and stored in PostgreSQL with pgvector. Structured facts are never retrieved
+# this way: SQL answers them exactly (apps.assistant.crm_tools).
+#
+# `local` is the default embedding backend: deterministic, offline, free, and lexical rather than
+# semantic. Set RAG_EMBEDDING_BACKEND=voyage (or openai) with the matching key for semantic recall;
+# every chunk records the model that produced it, so switching providers degrades recall until the
+# index is rebuilt rather than returning nonsense.
+RAG_EMBEDDING_BACKEND = env("RAG_EMBEDDING_BACKEND", default="local")  # local | voyage | openai
+RAG_EMBEDDING_MODEL = env("RAG_EMBEDDING_MODEL", default="")
+RAG_EMBEDDING_TIMEOUT_SECONDS = env.float("RAG_EMBEDDING_TIMEOUT_SECONDS", default=30.0)
+RAG_EMBEDDING_USD_PER_MTOK = env.float("RAG_EMBEDDING_USD_PER_MTOK", default=0.02)
+VOYAGE_API_KEY = env("VOYAGE_API_KEY", default="")
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+# Retrieval limits. These bound both latency and the prompt: never "send the CRM to the model".
+RAG_MAX_CHUNKS = env.int("RAG_MAX_CHUNKS", default=8)
+RAG_MAX_RECORDS = env.int("RAG_MAX_RECORDS", default=8)
+
+# ----------------------------------------------------------------------------- Ask Keel (assistant)
+# Bounded conversation memory: enough for "and what should I do next?" to know what "it" is,
+# never an unbounded transcript growing into every prompt.
+ASSISTANT_HISTORY_TURNS = env.int("ASSISTANT_HISTORY_TURNS", default=6)
+ASSISTANT_HISTORY_CHARS = env.int("ASSISTANT_HISTORY_CHARS", default=2000)
+ASSISTANT_CONVERSATION_TTL_DAYS = env.int("ASSISTANT_CONVERSATION_TTL_DAYS", default=30)
 # USD per million input / output tokens, used for the usage ledger's cost estimate.
 AI_MODEL_RATES_USD_PER_MTOK = {
     "claude-opus-5": (5.0, 25.0),

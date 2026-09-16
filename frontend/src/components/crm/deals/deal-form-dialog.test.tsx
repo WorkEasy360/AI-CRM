@@ -1,6 +1,6 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DealFormDialog } from "@/components/crm/deals/deal-form-dialog";
@@ -11,9 +11,15 @@ import type { RoleRef, Session } from "@/lib/api/types";
 vi.mock("@/lib/api/crm", () => ({
   createDeal: vi.fn(),
   updateDeal: vi.fn(),
+  createCompany: vi.fn(),
+  createContact: vi.fn(),
+  archiveRecord: vi.fn(async () => undefined),
+  restoreRecord: vi.fn(async () => undefined),
   listCompanies: vi.fn(async () => ({ next: null, previous: null, results: [] })),
   listContacts: vi.fn(async () => ({ next: null, previous: null, results: [] })),
+  listDeals: vi.fn(async () => ({ next: null, previous: null, results: [] })),
   listCustomFields: vi.fn(async () => ({ next: null, previous: null, results: [] })),
+  findContactDuplicates: vi.fn(async () => ({ results: [] })),
 }));
 
 vi.mock("@/lib/api/endpoints", () => ({
@@ -30,7 +36,7 @@ const session: Session = {
     membership_id: "m1",
     organization: { id: "o1", name: "Keel", slug: "keel", base_currency: "USD", timezone: "UTC", plan: "free", status: "active", require_mfa: false, created_at: "2026-01-01T00:00:00Z" },
     role: { key: "sales_rep", name: "Sales Rep" } as RoleRef,
-    permissions: { "deals.create": "own", "deals.update": "own" },
+    permissions: { "deals.create": "own", "deals.update": "own", "deals.delete": "own" },
     mfa_required: false,
   },
 };
@@ -40,7 +46,7 @@ vi.mock("@/lib/session", async (importOriginal) => {
   return { ...actual, useSession: () => ({ data: session }) };
 });
 
-import { createDeal, updateDeal } from "@/lib/api/crm";
+import { archiveRecord, createCompany, createContact, createDeal, updateDeal } from "@/lib/api/crm";
 
 const pipelines: Pipeline[] = [
   {
@@ -113,6 +119,9 @@ describe("DealFormDialog", () => {
   beforeEach(() => {
     vi.mocked(createDeal).mockReset();
     vi.mocked(updateDeal).mockReset();
+    vi.mocked(createCompany).mockReset();
+    vi.mocked(createContact).mockReset();
+    vi.mocked(archiveRecord).mockClear();
   });
 
   it("requires a name and a well-formed amount before calling the API", async () => {
@@ -134,15 +143,9 @@ describe("DealFormDialog", () => {
     vi.mocked(createDeal).mockResolvedValue({ ...existingDeal, id: "d9", name: "Globex pilot" });
     const { onOpenChange } = renderDialog();
 
-    // Probability lives under "More details", collapsed for new deals, with the stage default explained.
-    expect(screen.queryByLabelText("Probability (%)")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "More details" }));
-    expect(screen.getByText(/Stage default is 20%/)).toBeInTheDocument();
-
     await user.type(screen.getByLabelText("Deal name"), "Globex pilot");
     await user.clear(screen.getByLabelText("Amount"));
     await user.type(screen.getByLabelText("Amount"), "1500");
-    await user.type(screen.getByLabelText("Probability (%)"), "40");
     await user.type(screen.getByLabelText("Expected close"), "2026-12-31");
     await user.click(screen.getByRole("button", { name: "Create deal" }));
 
@@ -153,13 +156,14 @@ describe("DealFormDialog", () => {
       pipeline_id: "p1",
       amount: "1500",
       currency: "USD",
-      probability: 40,
       expected_close_date: "2026-12-31",
       company_id: null,
       primary_contact_id: null,
       custom_data: {},
     });
+    // Stage and probability are the pipeline's business now, so the form never sends either.
     expect(payload).not.toHaveProperty("stage_id");
+    expect(payload).not.toHaveProperty("probability");
     expect(payload).not.toHaveProperty("exchange_rate");
     expect(payload).not.toHaveProperty("owner_id");
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -170,8 +174,10 @@ describe("DealFormDialog", () => {
     vi.mocked(createDeal).mockResolvedValue(existingDeal);
     renderDialog({ defaults: { company: { id: "c1", name: "Acme" }, contact: { id: "k1", name: "Hank Scorpio" } } });
 
-    expect(screen.getByLabelText("Company")).toHaveTextContent("Acme");
-    expect(screen.getByLabelText("Primary contact")).toHaveTextContent("Hank Scorpio");
+    // A chosen record shows as a chip with a clear button, not as combobox text.
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+    expect(screen.getByText("Hank Scorpio")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Acme" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Deal name"), "Acme onboarding");
     await user.click(screen.getByRole("button", { name: "Create deal" }));
@@ -187,7 +193,7 @@ describe("DealFormDialog", () => {
     await user.type(screen.getByLabelText("Deal name"), "Paris expansion");
     await user.clear(screen.getByLabelText("Currency"));
     await user.type(screen.getByLabelText("Currency"), "eur");
-    // A foreign currency reveals "More details" so the rate is never silently defaulted.
+    // A foreign currency adds the rate row so it is never silently defaulted.
     const rate = await screen.findByLabelText("Rate to USD");
     await user.type(rate, "-2");
     await user.click(screen.getByRole("button", { name: "Create deal" }));
@@ -202,16 +208,14 @@ describe("DealFormDialog", () => {
     expect(vi.mocked(createDeal).mock.calls[0]![0]).toMatchObject({ currency: "EUR", exchange_rate: "1.08" });
   });
 
-  it("edits with the record version, keeps the stage-default probability and never sends pipeline or stage", async () => {
+  it("edits with the record version and never sends pipeline, stage or probability", async () => {
     const user = userEvent.setup();
     vi.mocked(updateDeal).mockResolvedValue({ ...existingDeal, version: 8 });
     renderDialog({ deal: existingDeal });
 
     expect(screen.queryByLabelText("Pipeline")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Deal name")).toHaveValue("Acme renewal");
-    // "More details" is open when editing; a non-overridden probability stays blank (stage default).
     expect(screen.getByLabelText("Rate to USD")).toHaveValue("1.08000000");
-    expect(screen.getByLabelText("Probability (%)")).toHaveValue("");
 
     await user.clear(screen.getByLabelText("Deal name"));
     await user.type(screen.getByLabelText("Deal name"), "Acme renewal 2027");
@@ -228,8 +232,138 @@ describe("DealFormDialog", () => {
     expect(createDeal).not.toHaveBeenCalled();
   });
 
-  it("shows a hand-set probability when editing an overridden deal", () => {
-    renderDialog({ deal: { ...existingDeal, probability: 65, probability_overridden: true } });
-    expect(screen.getByLabelText("Probability (%)")).toHaveValue("65");
+  it("starts the amount blank and sends 0 when the user leaves it alone", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createDeal).mockResolvedValue(existingDeal);
+    renderDialog();
+
+    expect(screen.getByLabelText("Amount")).toHaveValue("");
+
+    await user.type(screen.getByLabelText("Deal name"), "Amount left blank");
+    await user.click(screen.getByRole("button", { name: "Create deal" }));
+
+    await waitFor(() => expect(createDeal).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createDeal).mock.calls[0]![0]).toMatchObject({ amount: "0" });
+  });
+
+  it("puts every field on the panel, enabled, with no disclosure to expand", () => {
+    renderDialog();
+
+    expect(screen.getByRole("dialog", { name: "Create Deal" })).toBeInTheDocument();
+    for (const label of ["Deal name", "Company", "Primary contact", "Amount", "Currency", "Expected close", "Description"]) {
+      const control = screen.getByLabelText(label);
+      expect(control).toBeInTheDocument();
+      expect(control).toBeEnabled();
+    }
+    expect(screen.queryByRole("button", { name: "More details" })).not.toBeInTheDocument();
+  });
+
+  it("leaves stage and probability off the form entirely", () => {
+    renderDialog();
+    expect(screen.queryByLabelText("Stage")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Probability (%)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pipeline")).not.toBeInTheDocument();
+  });
+
+  it("lets the user type into every text field rather than filling any of them in for them", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createDeal).mockResolvedValue(existingDeal);
+    renderDialog();
+
+    await user.type(screen.getByLabelText("Deal name"), "Initech rollout");
+    await user.clear(screen.getByLabelText("Amount"));
+    await user.type(screen.getByLabelText("Amount"), "2500.50");
+    await user.type(screen.getByLabelText("Expected close"), "2027-03-01");
+    await user.type(screen.getByLabelText("Description"), "Rolling out to both sites.");
+    await user.click(screen.getByRole("button", { name: "Create deal" }));
+
+    await waitFor(() => expect(createDeal).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createDeal).mock.calls[0]![0]).toMatchObject({
+      name: "Initech rollout",
+      amount: "2500.50",
+      expected_close_date: "2027-03-01",
+      description: "Rolling out to both sites.",
+    });
+  });
+  it("creates a company that does not exist yet from the picker and links it to the deal", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createCompany).mockResolvedValue({ id: "co9", name: "Globex" } as never);
+    vi.mocked(createDeal).mockResolvedValue(existingDeal);
+    renderDialog();
+
+    await user.type(screen.getByLabelText("Company"), "Globex");
+    await user.click(await screen.findByRole("option", { name: /Create company/ }));
+
+    await waitFor(() => expect(createCompany).toHaveBeenCalledWith({ name: "Globex" }));
+    // The new company comes back as the chosen record, so the deal links to it rather than to text.
+    expect(await screen.findByRole("button", { name: "Remove Globex" })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Deal name"), "Globex pilot");
+    await user.click(screen.getByRole("button", { name: "Create deal" }));
+    await waitFor(() => expect(createDeal).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createDeal).mock.calls[0]![0]).toMatchObject({ company_id: "co9" });
+  });
+
+  it("saves a person typed into the contact picker as a real contact, with the details entered here", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createContact).mockResolvedValue({ id: "k9", display_name: "Hank Scorpio", email: "hank@globex.com" } as never);
+    vi.mocked(createDeal).mockResolvedValue(existingDeal);
+    renderDialog();
+
+    await user.type(screen.getByLabelText("Primary contact"), "Hank Scorpio");
+    await user.click(await screen.findByRole("option", { name: /Create contact/ }));
+
+    // The typed name seeds the form; email and phone are captured here and stored on the contact.
+    const form = screen.getByRole("group", { name: "New contact" });
+    expect(within(form).getByLabelText("First name")).toHaveValue("Hank");
+    expect(within(form).getByLabelText("Last name")).toHaveValue("Scorpio");
+    await user.type(within(form).getByLabelText("Email"), "hank@globex.com");
+    await user.type(within(form).getByLabelText("Phone"), "+1 555 0100");
+    await user.click(within(form).getByRole("button", { name: "Add contact" }));
+
+    await waitFor(() => expect(createContact).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createContact).mock.calls[0]![0]).toMatchObject({
+      first_name: "Hank",
+      last_name: "Scorpio",
+      email: "hank@globex.com",
+      phone: "+1 555 0100",
+    });
+
+    await user.type(screen.getByLabelText("Deal name"), "Globex pilot");
+    await user.click(screen.getByRole("button", { name: "Create deal" }));
+    await waitFor(() => expect(createDeal).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createDeal).mock.calls[0]![0]).toMatchObject({ primary_contact_id: "k9" });
+  });
+
+  it("will not create a contact without a name", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText("Primary contact"), "x");
+    await user.click(await screen.findByRole("option", { name: /Create contact/ }));
+
+    const form = screen.getByRole("group", { name: "New contact" });
+    await user.clear(within(form).getByLabelText("First name"));
+    await user.click(within(form).getByRole("button", { name: "Add contact" }));
+
+    expect(await within(form).findByText("Enter at least a first or last name.")).toBeInTheDocument();
+    expect(createContact).not.toHaveBeenCalled();
+  });
+
+  it("deletes an existing deal after confirming, and never offers it while creating", async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = renderDialog({ deal: existingDeal });
+
+    await user.click(screen.getByRole("button", { name: /Delete/ }));
+    expect(await screen.findByText("Delete this deal?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete deal" }));
+
+    await waitFor(() => expect(archiveRecord).toHaveBeenCalledWith("deals", "d1"));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it("offers no delete while creating a deal", () => {
+    renderDialog();
+    expect(screen.queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
   });
 });

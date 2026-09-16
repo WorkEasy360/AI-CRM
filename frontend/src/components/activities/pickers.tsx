@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { listCompanies, listContacts, listDeals } from "@/lib/api/crm";
@@ -46,6 +46,9 @@ export function RecordChip({ name, onClear, disabled, label }: { name: string; o
 /**
  * Searchable single-record picker (contact / company / deal). Renders the chosen record as a chip;
  * otherwise a combobox that searches by name as you type. Keyboard: arrows, Enter, Escape.
+ *
+ * Pass `onCreate` to offer what was typed as a new record when nothing matches it: the picker
+ * only reports the text, the caller decides what creating actually means.
  */
 export function RecordPicker({
   id,
@@ -54,6 +57,12 @@ export function RecordPicker({
   onChange,
   disabled,
   placeholder,
+  className,
+  ariaInvalid,
+  ariaDescribedBy,
+  onCreate,
+  createLabel,
+  creating = false,
 }: {
   id?: string;
   entity: RelatedEntityType;
@@ -61,6 +70,15 @@ export function RecordPicker({
   onChange: (next: NamedRef | null) => void;
   disabled?: boolean;
   placeholder?: string;
+  className?: string;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
+  /** Called with the trimmed query when the user picks the "create" row. */
+  onCreate?: (query: string) => void;
+  /** Verb shown on that row, e.g. "Create company". Defaults to `Create <entity>`. */
+  createLabel?: string;
+  /** Keeps the create row in a pending state while the caller is saving. */
+  creating?: boolean;
 }) {
   const [query, setQuery] = React.useState("");
   const [open, setOpen] = React.useState(false);
@@ -84,6 +102,19 @@ export function RecordPicker({
     setOpen(false);
   };
 
+  const trimmed = query.trim();
+  // Offer creation only for text that is not already one of the results, so the row never
+  // invites a duplicate of something the user can simply pick.
+  const canCreate = Boolean(onCreate) && trimmed.length > 0 && !options.some((o) => o.name.trim().toLowerCase() === trimmed.toLowerCase());
+  const createIndex = canCreate ? options.length : -1;
+  const rowCount = options.length + (canCreate ? 1 : 0);
+  const createId = `${listId}-create`;
+  const startCreate = () => {
+    if (!canCreate || creating) return;
+    onCreate?.(trimmed);
+    setOpen(false);
+  };
+
   if (value) return <RecordChip name={value.name} onClear={disabled ? undefined : () => onChange(null)} disabled={disabled} />;
 
   return (
@@ -94,12 +125,14 @@ export function RecordPicker({
         aria-expanded={open}
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-activedescendant={open && options[highlight] ? `${listId}-${options[highlight].id}` : undefined}
+        aria-activedescendant={open ? (highlight === createIndex ? createId : options[highlight] ? `${listId}-${options[highlight].id}` : undefined) : undefined}
+        aria-invalid={ariaInvalid || undefined}
+        aria-describedby={ariaDescribedBy}
         placeholder={placeholder ?? `Search ${LABELS[entity].toLowerCase()}s…`}
         value={query}
         disabled={disabled}
         autoComplete="off"
-        className="h-8"
+        className={cn("h-8", className)}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
@@ -110,13 +143,18 @@ export function RecordPicker({
           if (e.key === "ArrowDown") {
             e.preventDefault();
             setOpen(true);
-            setHighlight((h) => Math.min(h + 1, Math.max(0, options.length - 1)));
+            setHighlight((h) => Math.min(h + 1, Math.max(0, rowCount - 1)));
           } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setHighlight((h) => Math.max(h - 1, 0));
-          } else if (e.key === "Enter" && open && options[highlight]) {
-            e.preventDefault();
-            choose(options[highlight]);
+          } else if (e.key === "Enter" && open) {
+            if (options[highlight]) {
+              e.preventDefault();
+              choose(options[highlight]);
+            } else if (highlight === createIndex) {
+              e.preventDefault();
+              startCreate();
+            }
           } else if (e.key === "Escape") {
             setOpen(false);
           }
@@ -135,7 +173,7 @@ export function RecordPicker({
             </li>
           ) : results.isError ? (
             <li className="px-2 py-1.5 text-xs text-danger">Could not load {LABELS[entity].toLowerCase()}s. Try again.</li>
-          ) : options.length === 0 ? (
+          ) : options.length === 0 && !canCreate ? (
             <li className="px-2 py-1.5 text-xs text-fg-subtle">No {LABELS[entity].toLowerCase()}s match.</li>
           ) : (
             options.map((option, i) => (
@@ -153,6 +191,26 @@ export function RecordPicker({
               </li>
             ))
           )}
+          {canCreate && !results.isPending && !results.isError ? (
+            <li
+              id={createId}
+              role="option"
+              aria-selected={highlight === createIndex}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={startCreate}
+              onMouseEnter={() => setHighlight(createIndex)}
+              className={cn(
+                "flex cursor-default items-center gap-1.5 rounded-sm px-2 py-1.5 text-sm text-primary",
+                options.length > 0 && "mt-1 border-t border-border pt-2",
+                highlight === createIndex && "bg-bg-subtle",
+              )}
+            >
+              {creating ? <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden /> : <Plus className="size-3.5 shrink-0" aria-hidden />}
+              <span className="truncate">
+                {createLabel ?? `Create ${LABELS[entity].toLowerCase()}`} “{trimmed}”
+              </span>
+            </li>
+          ) : null}
         </ul>
       ) : null}
     </div>

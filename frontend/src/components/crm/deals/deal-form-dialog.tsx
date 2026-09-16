@@ -1,48 +1,47 @@
 "use client";
 
 import * as React from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { z } from "zod";
+import { RecordPicker } from "@/components/activities/pickers";
 import { CustomFieldsForm, useCustomFields } from "@/components/crm/custom-fields-form";
+import { InlineContactForm } from "@/components/crm/deals/inline-contact-form";
 import { OwnerSelect } from "@/components/crm/owner-select";
-import { isVersionConflict, useInvalidateRecord } from "@/components/crm/use-record-mutations";
+import { isVersionConflict, useArchiveRestore, useInvalidateRecord } from "@/components/crm/use-record-mutations";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { Input, Textarea } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
-import { createDeal, listCompanies, listContacts, updateDeal } from "@/lib/api/crm";
+import { createCompany, createDeal, updateDeal } from "@/lib/api/crm";
 import type { CustomData, Deal, DealInput, NamedRef, Pipeline } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
-import { crmKeys } from "@/lib/crm/keys";
-import { canReassign } from "@/lib/crm/permissions";
+import { can, canReassign } from "@/lib/crm/permissions";
 import { useSession } from "@/lib/session";
 
-const NONE = "__none__";
 const DECIMAL = /^\d{1,16}(\.\d{1,2})?$/;
 const RATE = /^\d{1,10}(\.\d{1,8})?$/;
+
+const recordRef = z.object({ id: z.string(), name: z.string() }).nullable();
 
 const dealSchema = z.object({
   name: z.string().trim().min(1, "Deal name is required.").max(160, "Deal name is too long."),
   pipeline_id: z.string(),
-  stage_id: z.string(),
-  company_id: z.string(),
-  primary_contact_id: z.string(),
-  amount: z.string().trim().regex(DECIMAL, "Enter an amount like 1500 or 1500.50."),
+  company: recordRef,
+  primary_contact: recordRef,
+  amount: z.string().trim().refine((v) => v === "" || DECIMAL.test(v), "Enter an amount like 1500 or 1500.50."),
   currency: z
     .string()
     .trim()
     .toUpperCase()
     .regex(/^[A-Z]{3}$/, "Use a 3-letter currency code."),
   exchange_rate: z.string().trim().refine((v) => v === "" || (RATE.test(v) && Number(v) > 0), "Enter a positive rate (up to 8 decimals)."),
-  probability: z
-    .string()
-    .trim()
-    .refine((v) => v === "" || (/^\d{1,3}$/.test(v) && Number(v) <= 100), "Enter a whole number from 0 to 100."),
   expected_close_date: z.string().trim().refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), "Use the YYYY-MM-DD format."),
   description: z.string().max(5000, "Description is too long."),
   owner_id: z.string(),
@@ -55,29 +54,44 @@ export interface DealFormDefaults {
   contact?: { id: string; name: string } | null;
 }
 
-function defaultsFor(deal: Deal | null, pipelines: Pipeline[], defaultPipelineId: string | undefined, baseCurrency: string, defaults: DealFormDefaults | undefined): DealFormValues {
+function defaultsFor(
+  deal: Deal | null,
+  pipelines: Pipeline[],
+  defaultPipelineId: string | undefined,
+  baseCurrency: string,
+  defaults: DealFormDefaults | undefined,
+  selfMembershipId: string,
+): DealFormValues {
   const pipeline = pipelines.find((p) => p.id === defaultPipelineId) ?? pipelines.find((p) => p.is_default) ?? pipelines[0];
+  const contact = deal ? deal.primary_contact : (defaults?.contact ?? null);
   return {
     name: deal?.name ?? "",
     pipeline_id: deal?.pipeline.id ?? pipeline?.id ?? "",
-    stage_id: deal?.stage.id ?? "",
-    company_id: deal ? (deal.company?.id ?? NONE) : (defaults?.company?.id ?? NONE),
-    primary_contact_id: deal ? (deal.primary_contact?.id ?? NONE) : (defaults?.contact?.id ?? NONE),
-    amount: deal?.amount ?? "0",
+    company: deal ? (deal.company ?? null) : (defaults?.company ?? null),
+    primary_contact: contact ? { id: contact.id, name: contact.name } : null,
+    amount: deal?.amount ?? "",
     currency: deal?.currency ?? baseCurrency,
     exchange_rate: deal ? (deal.currency === baseCurrency ? "" : deal.exchange_rate) : "",
-    // Only a hand-set probability is shown as a value; otherwise the stage default applies.
-    probability: deal?.probability_overridden ? String(deal.probability) : "",
     expected_close_date: deal?.expected_close_date ?? "",
     description: deal?.description ?? "",
-    owner_id: deal?.owner?.id ?? "",
+    owner_id: deal?.owner?.id ?? selfMembershipId,
   };
 }
 
+/** Section heading inside the panel body. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-md font-semibold text-fg">{children}</h3>;
+}
+
 /**
- * Create or edit a deal. The basics (name, who, how much, when, stage) sit up front; probability
- * override, exchange rate, owner, description and custom fields live under "More details".
- * Pipeline and stage are chosen on create only (the API rejects them on update; use the stage move flow).
+ * Create or edit a deal in a right-hand slide-over. Every field is typed by the user: company and
+ * primary contact are search-as-you-type pickers that can also create what they did not find, so a
+ * company or person named here becomes a real record in Companies/Contacts rather than a label that
+ * exists only on the deal.
+ *
+ * Stage and probability are deliberately absent: a new deal starts in the pipeline's first open stage
+ * and follows that stage's probability, and both change afterwards through the stage move flow, which
+ * is what records stage history.
  */
 export function DealFormDialog({
   open,
@@ -87,6 +101,7 @@ export function DealFormDialog({
   defaultPipelineId,
   defaults,
   onSaved,
+  onDeleted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -96,84 +111,75 @@ export function DealFormDialog({
   defaultPipelineId?: string;
   defaults?: DealFormDefaults;
   onSaved?: (deal: Deal) => void;
+  onDeleted?: (id: string) => void;
 }) {
   const { data: session } = useSession();
   const active = session?.active ?? null;
   const baseCurrency = active?.organization.base_currency ?? "USD";
   const allowReassign = canReassign(active, "deals");
+  const selfMembershipId = active?.membership_id ?? "";
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateRecord("deal");
+  const { archive } = useArchiveRestore("deal");
   const { definitions } = useCustomFields("deal");
   const [customData, setCustomData] = React.useState<CustomData>({});
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+  /** Non-null while the inline "new contact" form is open; holds the text typed into the picker. */
+  const [contactDraft, setContactDraft] = React.useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
   const existing = deal ?? null;
   const isNew = existing === null;
-  const [moreOpen, setMoreOpen] = React.useState(!isNew);
-  const moreId = React.useId();
+  const ownerId = React.useId();
+  const canDelete = !isNew && can(active, "deals.delete") && !existing.archived_at;
 
   const form = useForm<DealFormValues>({
     resolver: zodResolver(dealSchema),
-    defaultValues: defaultsFor(existing, pipelines, defaultPipelineId, baseCurrency, defaults),
+    defaultValues: defaultsFor(existing, pipelines, defaultPipelineId, baseCurrency, defaults, selfMembershipId),
   });
 
   React.useEffect(() => {
     if (open) {
-      form.reset(defaultsFor(existing, pipelines, defaultPipelineId, baseCurrency, defaults));
+      form.reset(defaultsFor(existing, pipelines, defaultPipelineId, baseCurrency, defaults, selfMembershipId));
       setCustomData(existing?.custom_data ?? {});
       setFieldErrors({});
-      setMoreOpen(!isNew);
+      setContactDraft(null);
+      setConfirmDelete(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, existing, pipelines, defaultPipelineId, baseCurrency, defaults]);
+  }, [open, existing, pipelines, defaultPipelineId, baseCurrency, defaults, selfMembershipId]);
 
-  const pipelineId = form.watch("pipeline_id");
-  const stageId = form.watch("stage_id");
-  const companyId = form.watch("company_id");
+  const company = form.watch("company");
   const currency = form.watch("currency");
-  const stages = React.useMemo(() => (pipelines.find((p) => p.id === pipelineId)?.stages ?? []).filter((s) => !s.archived_at), [pipelines, pipelineId]);
-  const selectedStage = React.useMemo(() => {
-    if (!isNew) return pipelines.flatMap((p) => p.stages).find((s) => s.id === existing.stage.id) ?? null;
-    return stages.find((s) => s.id === stageId) ?? stages.find((s) => s.kind === "open") ?? null;
-  }, [isNew, existing, pipelines, stages, stageId]);
-
   const foreignCurrency = Boolean(currency) && currency.toUpperCase() !== baseCurrency;
-  // The exchange rate matters as soon as the currency differs from the base one: surface the section.
-  React.useEffect(() => {
-    if (foreignCurrency) setMoreOpen(true);
-  }, [foreignCurrency]);
 
-  const companies = useQuery({
-    queryKey: crmKeys.list("companies", { sort: "name", picker: "deal" }),
-    queryFn: () => listCompanies({ sort: "name" }),
-    enabled: open,
-    staleTime: 60_000,
-  });
-  const contactParams = React.useMemo(() => ({ sort: "name", ...(companyId && companyId !== NONE ? { company: companyId } : {}) }), [companyId]);
-  const contacts = useQuery({
-    queryKey: crmKeys.list("contacts", { ...contactParams, picker: "deal" }),
-    queryFn: () => listContacts(contactParams),
-    enabled: open,
-    staleTime: 60_000,
+  // "Create company X" from the picker: the company is saved first, then linked to this deal.
+  const companyCreate = useMutation({
+    mutationFn: (name: string) => createCompany({ name }),
+    onSuccess: async (created) => {
+      await queryClient.invalidateQueries({ queryKey: ["crm", "companies"] });
+      form.setValue("company", { id: created.id, name: created.name }, { shouldDirty: true });
+      toast({ tone: "success", title: "Company created", description: created.name });
+    },
+    onError: (err) => toast({ tone: "error", title: "Could not create company", description: errorMessage(err) }),
   });
 
   const mutation = useMutation({
     mutationFn: (values: DealFormValues) => {
       const input: DealInput = {
         name: values.name,
-        company_id: values.company_id === NONE ? null : values.company_id,
-        primary_contact_id: values.primary_contact_id === NONE ? null : values.primary_contact_id,
-        amount: values.amount,
+        company_id: values.company?.id ?? null,
+        primary_contact_id: values.primary_contact?.id ?? null,
+        amount: values.amount || "0",
         currency: values.currency,
         expected_close_date: values.expected_close_date || null,
         description: values.description,
         custom_data: customData,
       };
       if (values.currency !== baseCurrency) input.exchange_rate = values.exchange_rate || "1";
-      if (values.probability !== "" && (isNew || existing?.status === "open")) input.probability = Number(values.probability);
       if (allowReassign && values.owner_id) input.owner_id = values.owner_id;
       if (isNew) {
         if (values.pipeline_id) input.pipeline_id = values.pipeline_id;
-        if (values.stage_id) input.stage_id = values.stage_id;
         return createDeal(input);
       }
       return updateDeal(existing.id, existing.version, input);
@@ -186,23 +192,30 @@ export function DealFormDialog({
     },
     onError: (err) => {
       if (isVersionConflict(err)) {
-        setFieldErrors({ non_field_errors: "Someone else changed this deal since you opened it. Close this dialog and reload to see the latest version." });
+        setFieldErrors({ non_field_errors: "Someone else changed this deal since you opened it. Close this panel and reload to see the latest version." });
       } else if (isApiError(err) && err.isValidation) {
         setFieldErrors(err.fieldErrors());
-        setMoreOpen(true);
       } else {
         toast({ tone: "error", title: "Could not save deal", description: errorMessage(err) });
       }
     },
   });
 
-  const onSubmit = form.handleSubmit(
-    (values) => {
-      setFieldErrors({});
-      mutation.mutate(values);
-    },
-    () => setMoreOpen(true),
-  );
+  const onSubmit = form.handleSubmit((values) => {
+    setFieldErrors({});
+    mutation.mutate(values);
+  });
+
+  const onDelete = () => {
+    if (isNew) return;
+    archive.mutate(existing.id, {
+      onSuccess: () => {
+        setConfirmDelete(false);
+        onDeleted?.(existing.id);
+        onOpenChange(false);
+      },
+    });
+  };
 
   const customErrors = React.useMemo(() => {
     const out: Record<string, string> = {};
@@ -210,194 +223,201 @@ export function DealFormDialog({
     return out;
   }, [fieldErrors]);
 
-  const companyOptions = companies.data?.results ?? [];
-  const contactOptions = contacts.data?.results ?? [];
-  const presetCompany = existing?.company ?? (isNew ? defaults?.company : null) ?? null;
-  const presetContact = existing?.primary_contact ?? (isNew ? defaults?.contact : null) ?? null;
-  const probabilityLocked = !isNew && existing?.status !== "open";
-  const stageDefault = selectedStage?.default_probability;
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto">
-        <form onSubmit={onSubmit} className="grid gap-4" noValidate>
-          <DialogHeader>
-            <DialogTitle>{isNew ? "New deal" : "Edit deal"}</DialogTitle>
-            <DialogDescription>{isNew ? "Add a deal to the pipeline." : "Update the deal details. Move stages from the board or the deal page."}</DialogDescription>
-          </DialogHeader>
-          <FormError message={fieldErrors.non_field_errors ?? fieldErrors.detail} />
-
-          <FormField control={form.control} name="name" label="Deal name" serverError={fieldErrors.name}>
-            {(field) => <Input {...field} autoFocus maxLength={160} placeholder="Acme renewal" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-          </FormField>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField control={form.control} name="company_id" label="Company" serverError={fieldErrors.company_id}>
-              {(field) => (
-                <Select
-                  value={field.value}
-                  onValueChange={(v) => {
-                    field.onChange(v);
-                    form.setValue("primary_contact_id", NONE);
-                  }}
-                >
-                  <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
-                    <SelectValue placeholder={companies.isPending ? "Loading…" : "No company"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>No company</SelectItem>
-                    {presetCompany && !companyOptions.some((c) => c.id === presetCompany.id) ? <SelectItem value={presetCompany.id}>{presetCompany.name || "Selected company"}</SelectItem> : null}
-                    {companyOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </FormField>
-            <FormField control={form.control} name="primary_contact_id" label="Primary contact" serverError={fieldErrors.primary_contact_id}>
-              {(field) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
-                    <SelectValue placeholder={contacts.isPending ? "Loading…" : "No contact"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>No contact</SelectItem>
-                    {presetContact && !contactOptions.some((c) => c.id === presetContact.id) ? <SelectItem value={presetContact.id}>{presetContact.name || "Selected contact"}</SelectItem> : null}
-                    {contactOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.display_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </FormField>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <FormField control={form.control} name="amount" label="Amount" serverError={fieldErrors.amount}>
-              {(field) => <Input {...field} inputMode="decimal" placeholder="0.00" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
-            <FormField control={form.control} name="currency" label="Currency" serverError={fieldErrors.currency}>
-              {(field) => <Input {...field} maxLength={3} placeholder={baseCurrency} className="uppercase" value={field.value} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />}
-            </FormField>
-            <FormField control={form.control} name="expected_close_date" label="Expected close" serverError={fieldErrors.expected_close_date}>
-              {(field) => <Input {...field} type="date" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-            </FormField>
-          </div>
-
-          {isNew ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {pipelines.length > 1 ? (
-                <FormField control={form.control} name="pipeline_id" label="Pipeline" serverError={fieldErrors.pipeline_id}>
-                  {(field) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(v) => {
-                        field.onChange(v);
-                        form.setValue("stage_id", "");
-                      }}
-                    >
-                      <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
-                        <SelectValue placeholder="Choose a pipeline" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {pipelines.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </FormField>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-[min(46rem,100%)] p-0">
+          <form onSubmit={onSubmit} className="flex h-full min-h-0 flex-col" noValidate>
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-6 py-4 pr-12">
+              <div className="flex flex-col gap-1">
+                <SheetTitle className="text-lg font-semibold leading-tight text-fg">{isNew ? "Create Deal" : "Edit Deal"}</SheetTitle>
+                <SheetDescription className="text-sm text-fg-muted">
+                  {isNew ? "Add a deal to the pipeline." : "Update the deal details. Move stages from the board or the deal page."}
+                </SheetDescription>
+              </div>
+              {allowReassign ? (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={ownerId}>Owner</Label>
+                  <div className="flex w-52 flex-col gap-1">
+                    <OwnerSelect id={ownerId} value={form.watch("owner_id")} onChange={(v) => form.setValue("owner_id", v)} ariaInvalid={Boolean(fieldErrors.owner_id)} />
+                    {fieldErrors.owner_id ? (
+                      <p role="alert" className="text-xs text-danger">
+                        {fieldErrors.owner_id}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
-              <FormField control={form.control} name="stage_id" label="Stage" serverError={fieldErrors.stage_id} description="Defaults to the first open stage.">
-                {(field) => (
-                  <Select value={field.value || NONE} onValueChange={(v) => field.onChange(v === NONE ? "" : v)}>
-                    <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
-                      <SelectValue placeholder="First open stage" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>First open stage</SelectItem>
-                      {stages.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </FormField>
             </div>
-          ) : null}
 
-          <div className="border-t border-border pt-3">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-sm font-medium text-fg-muted hover:text-fg"
-              aria-expanded={moreOpen}
-              aria-controls={moreId}
-              onClick={() => setMoreOpen((v) => !v)}
-            >
-              {moreOpen ? <ChevronUp className="size-4" aria-hidden /> : <ChevronDown className="size-4" aria-hidden />}
-              More details
-            </button>
-          </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+              <FormError message={fieldErrors.non_field_errors ?? fieldErrors.detail} />
 
-          {moreOpen ? (
-            <div id={moreId} className="grid gap-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <SectionTitle>Deal Information</SectionTitle>
+
+              <div className="grid gap-4">
+                <FormField control={form.control} name="name" label="Deal name" orientation="horizontal" required serverError={fieldErrors.name}>
+                  {(field) => <Input {...field} autoFocus maxLength={160} placeholder="Acme renewal" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                </FormField>
+
                 <FormField
                   control={form.control}
-                  name="probability"
-                  label="Probability (%)"
-                  serverError={fieldErrors.probability}
-                  description={probabilityLocked ? "Fixed for closed deals." : stageDefault !== undefined ? `Stage default is ${stageDefault}%. Leave blank to follow the stage.` : "Leave blank to follow the stage default."}
+                  name="company"
+                  label="Company"
+                  orientation="horizontal"
+                  serverError={fieldErrors.company_id}
+                  description="Type to search, or add one that does not exist yet."
                 >
                   {(field) => (
-                    <Input
-                      {...field}
-                      inputMode="numeric"
-                      placeholder={stageDefault !== undefined ? String(stageDefault) : "Stage default"}
+                    <RecordPicker
+                      id={field.id}
+                      entity="company"
                       value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      disabled={probabilityLocked}
+                      onChange={field.onChange}
+                      className="h-9"
+                      placeholder="Search companies…"
+                      ariaInvalid={field.invalid}
+                      ariaDescribedBy={field["aria-describedby"]}
+                      onCreate={(name) => companyCreate.mutate(name)}
+                      createLabel="Create company"
+                      creating={companyCreate.isPending}
                     />
                   )}
                 </FormField>
+
+                <FormField
+                  control={form.control}
+                  name="primary_contact"
+                  label="Primary contact"
+                  orientation="horizontal"
+                  serverError={fieldErrors.primary_contact_id}
+                  description="Type to search, or add a new person — they are saved to Contacts."
+                >
+                  {(field) => (
+                    <RecordPicker
+                      id={field.id}
+                      entity="contact"
+                      value={field.value}
+                      onChange={(next) => {
+                        field.onChange(next);
+                        setContactDraft(null);
+                      }}
+                      className="h-9"
+                      placeholder="Search contacts…"
+                      ariaInvalid={field.invalid}
+                      ariaDescribedBy={field["aria-describedby"]}
+                      onCreate={(name) => setContactDraft(name)}
+                      createLabel="Create contact"
+                    />
+                  )}
+                </FormField>
+
+                {/* Sits below the field rather than inside it, so the field's hint stays next to the picker. */}
+                {contactDraft !== null ? (
+                  <div className="sm:pl-[calc(10rem+1rem)]">
+                    <InlineContactForm
+                      initialName={contactDraft}
+                      companyId={company?.id ?? null}
+                      onCancel={() => setContactDraft(null)}
+                      onCreated={(contact) => {
+                        form.setValue("primary_contact", contact, { shouldDirty: true });
+                        setContactDraft(null);
+                        toast({ tone: "success", title: "Contact created", description: contact.name });
+                      }}
+                    />
+                  </div>
+                ) : null}
+
+                <FormField control={form.control} name="amount" label="Amount" orientation="horizontal" serverError={fieldErrors.amount}>
+                  {(field) => <Input {...field} inputMode="decimal" placeholder="0.00" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                </FormField>
+
+                <FormField control={form.control} name="currency" label="Currency" orientation="horizontal" required serverError={fieldErrors.currency}>
+                  {(field) => <Input {...field} maxLength={3} placeholder={baseCurrency} className="w-28 uppercase" value={field.value} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />}
+                </FormField>
+
                 {foreignCurrency ? (
-                  <FormField control={form.control} name="exchange_rate" label={`Rate to ${baseCurrency}`} serverError={fieldErrors.exchange_rate} description={`How many ${baseCurrency} one ${currency.toUpperCase()} is worth.`}>
-                    {(field) => <Input {...field} inputMode="decimal" placeholder="1" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                  <FormField
+                    control={form.control}
+                    name="exchange_rate"
+                    label={`Rate to ${baseCurrency}`}
+                    orientation="horizontal"
+                    serverError={fieldErrors.exchange_rate}
+                    description={`How many ${baseCurrency} one ${currency.toUpperCase()} is worth. Blank uses 1.`}
+                  >
+                    {(field) => <Input {...field} inputMode="decimal" placeholder="1" className="w-40" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
                   </FormField>
                 ) : null}
-                {allowReassign ? (
-                  <FormField control={form.control} name="owner_id" label="Owner" serverError={fieldErrors.owner_id}>
-                    {(field) => <OwnerSelect id={field.id} value={field.value} onChange={field.onChange} ariaInvalid={field.invalid} />}
-                  </FormField>
-                ) : null}
+
+                <FormField control={form.control} name="expected_close_date" label="Expected close" orientation="horizontal" serverError={fieldErrors.expected_close_date}>
+                  {(field) => <Input {...field} type="date" className="w-48" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                </FormField>
+
+                <FormField control={form.control} name="description" label="Description" orientation="horizontal" serverError={fieldErrors.description}>
+                  {(field) => <Textarea {...field} rows={3} maxLength={5000} placeholder="A few words about this deal" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                </FormField>
               </div>
 
-              <FormField control={form.control} name="description" label="Description" serverError={fieldErrors.description}>
-                {(field) => <Textarea {...field} rows={3} maxLength={5000} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-              </FormField>
+              {definitions.length > 0 ? (
+                <div className="grid gap-4 border-t border-border pt-5">
+                  <SectionTitle>Additional Information</SectionTitle>
+                  <CustomFieldsForm definitions={definitions} value={customData} onChange={setCustomData} errors={customErrors} disabled={mutation.isPending} />
+                </div>
+              ) : null}
 
-              <CustomFieldsForm definitions={definitions} value={customData} onChange={setCustomData} errors={customErrors} disabled={mutation.isPending} />
+              <div className="grid gap-2 border-t border-border pt-5">
+                <SectionTitle>Products</SectionTitle>
+                <p className="text-sm text-fg-muted">
+                  {isNew ? (
+                    "Line items are added on the deal once it exists, so pricing is versioned against a saved deal."
+                  ) : (
+                    <Link href={`/deals/${existing.id}`} className="text-primary underline-offset-4 hover:underline">
+                      Manage line items on the deal
+                    </Link>
+                  )}
+                </p>
+              </div>
             </div>
-          ) : null}
 
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={mutation.isPending}>
-              {isNew ? "Create deal" : "Save changes"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface px-6 py-3">
+              <div className="flex items-center gap-4">
+                <Link href="/settings/custom-fields" className="text-sm text-primary underline-offset-4 hover:underline">
+                  Customize Fields
+                </Link>
+                {canDelete ? (
+                  <Button type="button" variant="danger-ghost" size="sm" onClick={() => setConfirmDelete(true)}>
+                    <Trash2 /> Delete
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={mutation.isPending}>
+                  {isNew ? "Create deal" : "Save changes"}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this deal?"
+        description={
+          <>
+            <strong>{existing?.name}</strong> is removed from the pipeline and every list. It is kept as an archived record, so it
+            can be restored — nothing is erased.
+          </>
+        }
+        confirmLabel="Delete deal"
+        destructive
+        loading={archive.isPending}
+        onConfirm={onDelete}
+      />
+    </>
   );
 }

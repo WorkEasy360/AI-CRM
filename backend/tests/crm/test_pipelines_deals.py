@@ -6,6 +6,7 @@ import threading
 
 import pytest
 from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.audit.models import AuditEvent
 from apps.core.tenancy.context import tenant_context
@@ -334,3 +335,62 @@ def test_board_is_scoped_and_aggregated(org_a, crm, make_member, client_for):
         == 404
     )
     assert client_for(rep.user, rep).get("/api/v1/deals/board/?bogus=1").status_code == 400
+
+
+def test_board_card_carries_only_what_the_card_draws(org_a, crm, owner_client):
+    """The Kanban card is a deliberate subset of the deal.
+
+    Two things are being held in place. Payload: a board renders up to 300 cards, so a field added
+    here is paid for 300 times - ``description`` alone is 5000 characters per deal. Disclosure: the
+    card shows a contact's name, so the board ships a name and not the contact's email or phone.
+    """
+    pipeline = crm.make_pipeline(org_a)
+    contact = crm.make_contact(org_a, email="buyer@example.com", phone="+15550001111")
+    crm.make_deal(org_a, contact=contact, description="x" * 5000)
+    card = owner_client.get(f"/api/v1/deals/board/?pipeline={pipeline.pk}").json()["stages"][0]["deals"][0]
+
+    assert set(card) == {
+        "id",
+        "name",
+        "stage",
+        "company",
+        "primary_contact",
+        "owner",
+        "amount",
+        "currency",
+        "amount_base",
+        "weighted_amount_base",
+        "probability",
+        "probability_overridden",
+        "expected_close_date",
+        "status",
+        "next_activity_title",
+        "risk_level",
+        "version",
+    }
+    assert set(card["primary_contact"]) == {"id", "name"}
+    assert "buyer@example.com" not in str(card) and "+15550001111" not in str(card)
+
+
+def test_board_query_count_does_not_grow_with_the_number_of_deals(org_a, crm, owner_client):
+    """Query budget: the board costs a fixed number of statements per stage, not per deal.
+
+    It is a budget, not a measurement of speed - it fails when someone reintroduces an N+1 (a nested
+    serializer, a per-card lookup), which is the regression that actually hurts a large tenant.
+    """
+    pipeline = crm.make_pipeline(org_a)
+    proposal = crm.stage_named(pipeline, "Proposal")
+    for i in range(3):
+        crm.make_deal(org_a, name=f"small {i}", stage=proposal)
+    owner_client.get(f"/api/v1/deals/board/?pipeline={pipeline.pk}")  # warm caches
+    with CaptureQueriesContext(connection) as few:
+        owner_client.get(f"/api/v1/deals/board/?pipeline={pipeline.pk}")
+
+    for i in range(25):
+        crm.make_deal(org_a, name=f"many {i}", stage=proposal)
+    with CaptureQueriesContext(connection) as many:
+        resp = owner_client.get(f"/api/v1/deals/board/?pipeline={pipeline.pk}")
+
+    assert resp.status_code == 200
+    assert sum(len(s["deals"]) for s in resp.json()["stages"]) == 28
+    assert len(many.captured_queries) == len(few.captured_queries)

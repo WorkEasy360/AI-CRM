@@ -172,4 +172,121 @@ Shipped in `apps/ai/`:
 - `features.py` — deal summary (strong model, cached per deal version), follow-up drafts and email drafts (fast model); every call audited (`ai.*`).
 - `scoring.py`, `risk.py`, `nba.py`, `insights.py` — rules-based lead score, deal risk and next best action, no LLM involved, always labelled "Rules-based".
 
-Model routing defaults: `AI_MODEL_FAST=claude-haiku-4-5` (drafting, rewrites, follow-ups), `AI_MODEL_STRONG=claude-opus-5` (deal summaries). Deferred: copilot chat with tools, natural-language analytics, proposed actions, pgvector retrieval, predictive scoring (data gate in §8.2).
+Model routing defaults: `AI_MODEL_FAST=claude-haiku-4-5` (drafting, rewrites, follow-ups), `AI_MODEL_STRONG=claude-opus-5` (deal summaries). Deferred: proposed actions, predictive scoring (data gate in §8.2).
+
+## 14. Ask Keel: one assistant (2026-09-14)
+
+Ask Keel is the single user-facing AI entry point, on the Dashboard. A salesperson types a question;
+the system decides for itself whether to answer from SQL, from retrieved conversations, from a model,
+or from all three. There is no separate "AI search", "RAG search" or "chat" to choose between.
+
+```
+question
+  -> authentication -> tenant context -> RBAC
+  -> intent router (deterministic regex, apps/assistant/intent.py)
+  -> structured CRM facts (SQL, exact)      +      knowledge retrieval (pgvector + full text)
+  -> context builder (permitted, delimited, capped)
+  -> provider router:  primary model -> cheaper model -> no model
+  -> typed answer: facts / analysis / recommendation / sections / citations
+```
+
+### 14.1 Two sources of truth, deliberately separated
+
+| Question | Answered by | Why |
+|---|---|---|
+| "What is my pipeline value?" | `apps/assistant/crm_tools.py` — SQL through `authz.scope` | Exact. A model asked to add up money eventually adds it up wrong. |
+| "What did they say about pricing?" | `apps/rag/retrieval.py` — pgvector + full text | The answer is in prose nobody put in a column. |
+| "Why is this deal at risk?" | Both, plus the model | Rules supply the signals; the model explains them. |
+
+**The model never authors a fact.** `facts` is computed server-side and handed to the model as
+evidence; the model returns only `analysis` and `recommendation`, and the response is assembled from
+the server's facts regardless of what comes back. There is no field in which a hallucinated number can
+reach a user.
+
+### 14.2 The knowledge index (`apps/rag/`)
+
+`KnowledgeChunk` holds chunked unstructured CRM text — notes, email bodies, WhatsApp messages, meeting
+and call write-ups, deal descriptions — with a `vector(1024)` embedding (pgvector, HNSW/cosine) and a
+tsvector. Both tables carry `organization_id` under forced RLS, like every other tenant table.
+
+- **Identity, not topic.** Every write and delete is keyed on `(organization, source_type, source_id,
+  chunk_index)`. No code path removes a vector because its text resembles another.
+- **Transactional outbox.** `IndexEvent` is written inside the CRM transaction; the Celery job is
+  scheduled on COMMIT (`rag_indexing` queue) and a beat sweeper re-drains anything lost. An embedding
+  failure leaves the row pending with a backoff and never touches CRM data.
+- **No wasted embeddings.** An unchanged `content_hash` with the same embedding model finishes without
+  a single provider call.
+- **Lost-update safe.** The worker captures `revision` at start and refuses to mark a row indexed if a
+  write landed meanwhile.
+- **Embeddings are pluggable.** Anthropic publishes no embeddings API, so the embedding provider is
+  configured separately (`RAG_EMBEDDING_BACKEND`). The default `local` backend is deterministic,
+  offline, free and *lexical* rather than semantic; `voyage` and `openai` adapters give semantic recall.
+
+### 14.3 Retrieval is inside the authorization boundary
+
+Authorization is part of the query, not a filter on its results:
+
+1. tenant manager + RLS — the organization boundary, in SQL and in the database;
+2. RBAC scope predicate — own/team/all as SQL over `entity_owner` and `source_owner`, requiring the
+   caller to clear *both* the parent record's view permission and the permission for that kind of text
+   (exactly what the record timeline already enforces);
+3. ranking — over rows the caller may already read, so an out-of-scope chunk never contributes a
+   similarity score;
+4. verification — the surviving candidates' records are re-resolved against live CRM state, which is
+   what makes a stale denormalised owner column harmless and drops archived or deleted records at once;
+5. citations — built from the CRM rows, never from indexed text.
+
+Retrieved text is untrusted input. It goes through the existing `apps/ai/safety.crm_block`: escaped,
+delimited, flagged `untrusted="high"` when it looks like an injection attempt, and the system prompt
+states that content inside those blocks is evidence and never instruction.
+
+### 14.4 Degradation is a product mode, not an error
+
+| State | What the user gets |
+|---|---|
+| AI available | CRM facts + retrieved evidence + written analysis and advice |
+| Primary model unavailable | The same, written by `AI_FALLBACK_MODEL` |
+| Every model unavailable | The same facts, sections and citations, rendered deterministically by `apps/assistant/fallback.py`, with an honest notice |
+| `ai_enabled = false` for the workspace | Identical to the above; nothing is sent to a vendor |
+| Budget or quota exhausted | Identical to the above, with the reason stated |
+| Knowledge index unavailable | Structured CRM answers only |
+
+Fallback triggers only on conditions that mean "the provider could not serve this request": timeouts,
+connection failures, 5xx, 429, quota, explicitly disabled. A refusal is a decision, not an outage, and
+is never retried on a cheaper model. A circuit breaker (`AI_BREAKER_FAILURES`) stops an outage from
+costing every user the same timeout.
+
+The UI never shows a provider name or a status code — at most a quiet "Knowledge search mode" badge.
+
+### 14.5 Component layout
+
+```
+rag/
+  models.py        # KnowledgeChunk (vector + tsvector), IndexEvent (outbox + state)
+  sources.py       # what may be indexed, its CRM record, its owner, its permission
+  chunking.py      # per-source-type chunking; email quote/signature stripping
+  embeddings/      # EmbeddingProvider protocol; local (default), voyage, openai
+  events.py        # transactional outbox: enqueue, owner refresh, entity purge
+  signals.py       # CRM write -> outbox row (covers API, webhooks, sync, imports)
+  indexing.py      # chunk, embed, replace by exact identity; backoff; revision guard
+  retrieval.py     # scope predicate -> hybrid RRF ranking -> verification -> citations
+  tasks.py         # rag_indexing queue: index_source, rebuild_organization, drain_pending
+assistant/
+  intent.py        # deterministic router (nine intents, entity/time/amount extraction)
+  crm_tools.py     # structured answers: pipeline, risk, my day, deal lists, quiet customers
+  retrieval        # (via apps.rag.retrieval)
+  prompts.py       # system prompt, context builder, model routing, output parsing
+  orchestrator.py  # the pipeline above; degradation; metering; auditing
+  fallback.py      # deterministic answer templates (no LLM)
+  memory.py        # bounded, tenant- and member-isolated conversation memory
+  models.py        # Conversation, ConversationTurn (RLS)
+  api.py           # POST /api/v1/assistant/ask/, /home/, /conversations/<id>/
+```
+
+### 14.6 Measured (2026-09-14, dev hardware)
+
+- Hybrid retrieval over a 20,000-chunk index: **43 ms median, 46 ms p95** (full text 26 ms, HNSW vector
+  9 ms — `EXPLAIN` confirms `ragchunk_embedding_idx` is used — verification 6 ms, 3 SQL statements).
+- Indexing: ~130 sources/s inline with the local embedder; 0.6 ms per chunk to embed.
+- Assistant end to end excluding model latency: 40–150 ms depending on intent.
+

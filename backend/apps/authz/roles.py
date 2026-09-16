@@ -48,8 +48,10 @@ _COMMON_READ = {
     "customfields.view": SCOPE_ALL,
     "tags.view": SCOPE_ALL,
     "notes.view": SCOPE_ALL,
+    "files.view": SCOPE_ALL,
     "search.use": SCOPE_ALL,
     "ai.scores.view": SCOPE_ALL,
+    "ai.assistant.use": SCOPE_ALL,
     "dashboards.view": SCOPE_ALL,
     "notifications.view": SCOPE_ALL,
     "email.view": SCOPE_ALL,
@@ -78,7 +80,7 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
             **{
                 p: SCOPE_ALL
                 for p in PERMISSIONS
-                if p.split(".")[0] in {"contacts", "companies", "deals", "activities", "notes"}
+                if p.split(".")[0] in {"contacts", "companies", "deals", "activities", "notes", "files"}
             },
             "pipelines.manage": SCOPE_ALL,
             "tags.manage": SCOPE_ALL,
@@ -120,6 +122,8 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
             "notes.create": SCOPE_ALL,
             "notes.update": SCOPE_OWN,
             "notes.delete": SCOPE_OWN,
+            "files.upload": SCOPE_ALL,
+            "files.delete": SCOPE_OWN,
             "dashboards.manage_own": SCOPE_ALL,
             "reports.view": SCOPE_TEAM,
             "ai.copilot.use": SCOPE_ALL,

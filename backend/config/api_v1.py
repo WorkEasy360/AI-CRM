@@ -11,10 +11,12 @@ from apps.activities.api import ActivityViewSet
 from apps.ai.api import (
     AIEmailDraftView,
     AIFollowUpView,
+    AISettingsView,
     AIUsageView,
     ContactScoreView,
     DealSummaryView,
 )
+from apps.assistant.api import AskKeelView, AssistantHomeView, ConversationView
 from apps.audit.api import AuditEventViewSet
 from apps.authz.api import RolesView
 from apps.companies.api import CompanyViewSet
@@ -22,6 +24,7 @@ from apps.contacts.api import ContactViewSet
 from apps.customfields.api import CustomFieldDefinitionViewSet
 from apps.dashboards.api import DashboardSummaryView
 from apps.deals.api import DealViewSet
+from apps.files.api import FileAttachmentViewSet
 from apps.forecasting.api import ForecastView
 from apps.importexport.api import (
     CompanyExportViewSet,
@@ -66,6 +69,7 @@ router.register("deals", DealViewSet, basename="deal")
 router.register("custom-fields", CustomFieldDefinitionViewSet, basename="custom-field")
 router.register("tags", TagViewSet, basename="tag")
 router.register("notes", NoteViewSet, basename="note")
+router.register("files", FileAttachmentViewSet, basename="file")
 router.register("imports/contacts", ContactImportViewSet, basename="import-contact")
 router.register("imports/companies", CompanyImportViewSet, basename="import-company")
 router.register("imports/products", ProductImportViewSet, basename="import-product")
@@ -104,6 +108,15 @@ urlpatterns = [
     path("ai/follow-up/", AIFollowUpView.as_view(), name="ai-follow-up"),
     path("ai/email/", AIEmailDraftView.as_view(), name="ai-email"),
     path("ai/usage/", AIUsageView.as_view(), name="ai-usage"),
+    path("ai/settings/", AISettingsView.as_view(), name="ai-settings"),
+    # Ask Keel: the single assistant entry point. One endpoint answers in every mode.
+    path("assistant/ask/", AskKeelView.as_view(), name="assistant-ask"),
+    path("assistant/home/", AssistantHomeView.as_view(), name="assistant-home"),
+    path(
+        "assistant/conversations/<uuid:conversation_id>/",
+        ConversationView.as_view(),
+        name="assistant-conversation",
+    ),
     path("schema/", SpectacularAPIView.as_view(permission_classes=_schema_permission), name="schema"),
     path(
         "docs/",

@@ -44,8 +44,8 @@ export function DealSummaryCard({ dealId, className }: { dealId: string; classNa
         <h2 id={`deal-summary-${dealId}`} className="text-sm font-semibold">
           AI summary
         </h2>
-        <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-fg-subtle">{summary?.label || "AI-generated draft"}</span>
-        {summary?.cached ? <span className="text-[11px] text-fg-subtle">Cached</span> : null}
+        <span className="rounded-full border border-border px-1.5 py-px text-[11px] font-medium uppercase tracking-wide text-fg-subtle">{summary?.label || "AI-generated draft"}</span>
+        {summary?.cached ? <span className="text-[12px] text-fg-subtle">Cached</span> : null}
         <div className="ml-auto flex items-center gap-1">
           {summary ? (
             <Button size="sm" variant="ghost" onClick={() => generate.mutate(true)} loading={generate.isPending}>
@@ -96,7 +96,7 @@ export function DealSummaryCard({ dealId, className }: { dealId: string; classNa
               </dd>
             </div>
           </dl>
-          <p className="text-[11px] text-fg-subtle">
+          <p className="text-[12px] text-fg-subtle">
             AI drafts can be wrong — verify before acting.
             {summary.sources.length > 0 ? ` Based on: ${summary.sources.join(", ")}.` : ""}
           </p>

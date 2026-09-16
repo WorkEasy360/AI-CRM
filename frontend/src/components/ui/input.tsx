@@ -24,11 +24,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
   );
 });
 
-export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  function Textarea({ className, ...props }, ref) {
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean };
+
+export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  function Textarea({ className, invalid, ...props }, ref) {
     return (
       <textarea
         ref={ref}
+        aria-invalid={invalid || props["aria-invalid"] || undefined}
         className={cn(
           "flex min-h-20 w-full rounded-sm border border-border-strong bg-surface px-3 py-2 text-sm text-fg shadow-sm",
           "placeholder:text-fg-subtle focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring/40 focus-visible:outline-offset-0",

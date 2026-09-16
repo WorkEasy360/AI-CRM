@@ -53,6 +53,9 @@ PERMISSIONS: frozenset[str] = frozenset(
         "notes.create",
         "notes.update",
         "notes.delete",
+        "files.view",
+        "files.upload",
+        "files.delete",
         "notifications.view",
         "dashboards.view",
         "dashboards.manage_own",
@@ -61,6 +64,10 @@ PERMISSIONS: frozenset[str] = frozenset(
         "reports.export",
         "search.use",
         # AI (Phase 4)
+        # Asking Ask Keel at all. Deliberately separate from ``ai.copilot.use``: everyone who can
+        # read CRM records may ask questions and get structured/retrieved answers, while generative
+        # narrative stays behind the copilot permission.
+        "ai.assistant.use",
         "ai.copilot.use",
         "ai.actions.confirm",
         "ai.scores.view",

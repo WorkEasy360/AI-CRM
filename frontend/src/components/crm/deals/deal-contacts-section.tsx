@@ -94,7 +94,7 @@ export function DealContactsSection({ deal, editable }: { deal: Deal; editable: 
                 </Link>
                 <div className="truncate text-xs text-fg-subtle">{[link.role_label, link.contact.email].filter(Boolean).join(" · ")}</div>
               </div>
-              {deal.primary_contact?.id === link.contact.id ? <span className="text-[11px] font-medium uppercase tracking-wide text-fg-subtle">Primary</span> : null}
+              {deal.primary_contact?.id === link.contact.id ? <span className="text-[12px] font-medium uppercase tracking-wide text-fg-subtle">Primary</span> : null}
               {editable ? (
                 <Button
                   variant="danger-ghost"

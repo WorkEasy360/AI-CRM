@@ -2,9 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { KanbanSquare, List, Plus, Search, Settings2, X } from "lucide-react";
-import { DealFormDialog } from "@/components/crm/deals/deal-form-dialog";
 import { DealsList } from "@/components/crm/pipeline/deals-list";
 import { KanbanBoard, type BoardSort } from "@/components/crm/pipeline/kanban-board";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import dynamic from "next/dynamic";
 import { getBoard, getCompany, getContact, listPipelines } from "@/lib/api/crm";
 import type { ListParams, Pipeline } from "@/lib/api/crm-types";
 import { errorMessage } from "@/lib/api/problem";
@@ -21,6 +21,9 @@ import { can } from "@/lib/crm/permissions";
 import { useDebounced, useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+
+// The new-deal form is a click away, not part of the board: it loads when it is first opened.
+const DealFormDialog = dynamic(() => import("@/components/crm/deals/deal-form-dialog").then((m) => m.DealFormDialog), { ssr: false });
 
 const ALL = "__all__";
 const URL_KEYS = ["pipeline", "view", "new", "company", "contact", "q", "owner", "status", "stage", "sort", "archived"] as const;
@@ -91,25 +94,17 @@ export function PipelinePage() {
     return out;
   }, [params]);
 
+  // The board does not wait for the pipeline list: both requests leave together, saving a round trip
+  // on the CRM's most-opened page. It is keyed on the *URL* pipeline rather than the resolved one so
+  // that the key does not change when the list arrives - keying on `pipelineId` would start with
+  // `undefined`, then refetch the identical board under a new key a moment later. With no `?pipeline=`
+  // the API picks the default pipeline exactly as `selectedPipeline` does below.
   const board = useQuery({
-    queryKey: crmKeys.board(pipelineId, boardParams),
-    queryFn: () => getBoard(pipelineId, boardParams),
-    enabled: view === "board" && pipelines.isSuccess,
+    queryKey: crmKeys.board(params.pipeline, boardParams),
+    queryFn: () => getBoard(params.pipeline, boardParams),
+    enabled: view === "board",
     placeholderData: (prev) => prev,
   });
-
-  // Board cards carry the full deal payload: seed the detail cache so opening a card is instant.
-  const queryClient = useQueryClient();
-  const { data: boardData, dataUpdatedAt: boardUpdatedAt, isPlaceholderData: boardIsPlaceholder } = board;
-  React.useEffect(() => {
-    if (!boardData || boardIsPlaceholder) return;
-    for (const stage of boardData.stages) {
-      for (const deal of stage.deals) {
-        const key = crmKeys.record("deals", deal.id);
-        if ((queryClient.getQueryState(key)?.dataUpdatedAt ?? 0) < boardUpdatedAt) queryClient.setQueryData(key, deal, { updatedAt: boardUpdatedAt });
-      }
-    }
-  }, [boardData, boardUpdatedAt, boardIsPlaceholder, queryClient]);
 
   const summary = React.useMemo(() => {
     if (!board.data) return null;

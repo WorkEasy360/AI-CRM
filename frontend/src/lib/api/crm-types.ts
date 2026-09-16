@@ -379,10 +379,40 @@ export interface StageHistoryEntry {
   source: string;
 }
 
+/**
+ * What `/deals/board/` puts on a Kanban card — a deliberate subset of `Deal`.
+ *
+ * The board renders up to 300 of these, so it ships only the fields the card draws (plus `version`,
+ * the concurrency token a stage move sends back). A full `Deal` satisfies this shape, so the server
+ * copy returned by a stage move can stand in for a card without a conversion. It does NOT work the
+ * other way round: a card has no description, tags, custom data or pipeline, so never seed the deal
+ * detail cache from one — the detail page fetches the whole record.
+ */
+export interface DealCard {
+  id: string;
+  name: string;
+  stage: StageRef;
+  company: NamedRef | null;
+  primary_contact: NamedRef | null;
+  owner: MembershipRef | null;
+  amount: string;
+  currency: string;
+  amount_base: string;
+  /** amount_base x probability, computed on the server. */
+  weighted_amount_base: string;
+  probability: number;
+  probability_overridden: boolean;
+  expected_close_date: string | null;
+  status: DealStatus;
+  next_activity_title: string;
+  risk_level: RiskLevel;
+  version: number;
+}
+
 export interface BoardStage extends PipelineStage {
   deal_count: number;
   total_amount_base: string;
-  deals: Deal[];
+  deals: DealCard[];
   has_more: boolean;
 }
 
@@ -422,6 +452,17 @@ export interface LeadScore {
 }
 
 /* ------------------------------------------------------------------ notes / timeline */
+
+export interface FileAttachment {
+  id: string;
+  entity_type: EntityType;
+  entity_id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  uploaded_by: MembershipRef | null;
+  created_at: string;
+}
 
 export interface Note {
   id: string;
@@ -948,6 +989,108 @@ export interface AIUsage {
   by_member: { membership_id: string; display_name: string; requests: number; cost: string }[];
   tokens_today: number;
   limits: { user_requests_per_hour: number; org_tokens_per_day: number; model_fast: string; model_strong: string };
+}
+
+/* ------------------------------------------------------------------ Ask Keel */
+
+/**
+ * How an answer was produced. The salesperson is never shown a provider name or a status code, only
+ * whether Keel wrote the answer ("ai"/"ai_fallback") or assembled it straight from the CRM
+ * ("retrieval", surfaced in the UI as "Knowledge search mode").
+ */
+export type AssistantMode = "ai" | "ai_fallback" | "retrieval";
+
+export type AssistantAnswerType = "summary" | "deal_risk" | "next_action" | "crm_results" | "timeline" | "forecast" | "draft" | "answer";
+
+/** One row inside an answer section. The shape varies by the section's `kind`. */
+export interface AssistantItem {
+  id?: string;
+  type?: string;
+  label?: string;
+  title?: string;
+  subtitle?: string;
+  meta?: string;
+  snippet?: string;
+  occurred_at?: string | null;
+  href?: string;
+  /** Money, already scoped and computed server-side; formatted client-side for the viewer's locale. */
+  amount?: string | null;
+  currency?: string;
+  count?: number | null;
+  hint?: string;
+}
+
+export interface AssistantSection {
+  title: string;
+  kind: "records" | "events" | "metrics";
+  items: AssistantItem[];
+  hint: string;
+}
+
+/** A citation. Every source here was resolved inside the caller's permission scope. */
+export interface AssistantSource {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string;
+  occurred_at: string | null;
+  href: string;
+}
+
+export interface AssistantAnswer {
+  conversation_id: string;
+  question: string;
+  intent: string;
+  mode: AssistantMode;
+  answer_type: AssistantAnswerType;
+  headline: string;
+  /** Computed from CRM data by the server. Never written by the model. */
+  facts: string[];
+  /** The model's interpretation. Empty in retrieval mode. */
+  analysis: string;
+  recommendation: string;
+  sections: AssistantSection[];
+  sources: AssistantSource[];
+  suggestions: string[];
+  /** Shown verbatim when Keel could not write the answer itself. */
+  notice: string;
+  knowledge_search_only: boolean;
+  degraded_retrieval?: boolean;
+  flagged_input?: boolean;
+}
+
+export interface AssistantHome {
+  suggestions: string[];
+  generative_available: boolean;
+  knowledge_available: boolean;
+  recent: { id: string; title: string; last_message_at: string | null }[];
+}
+
+export interface AssistantConversation {
+  id: string | null;
+  title?: string;
+  turns: { position: number; question: string; answer: string; mode: AssistantMode; created_at: string }[];
+}
+
+export interface AISettings {
+  ai_enabled: boolean;
+  monthly_budget_usd: string;
+  month_to_date_usd: string;
+  user_requests_per_hour: number;
+  provider: string;
+  model_strong: string;
+  model_fast: string;
+  model_fallback: string;
+  knowledge: {
+    embedding_backend: string;
+    embedding_model: string;
+    semantic: boolean;
+    chunks: number;
+    by_source: Record<string, number>;
+    status: Record<string, number>;
+    last_indexed_at: string | null;
+    last_error: string;
+  };
 }
 
 /** Query-string parameters accepted by every list endpoint (plus entity-specific filters). */

@@ -12,7 +12,11 @@ import type {
   AIEmailPurpose,
   AIStyle,
   AITone,
+  AISettings,
   AIUsage,
+  AssistantAnswer,
+  AssistantConversation,
+  AssistantHome,
   Board,
   BulkResult,
   Company,
@@ -43,6 +47,7 @@ import type {
   EmailTemplateInput,
   EntityType,
   ExportJob,
+  FileAttachment,
   FollowUpDraft,
   Forecast,
   ForecastGroupBy,
@@ -203,6 +208,21 @@ export const createNote = (input: { entity_type: EntityType; entity_id: string; 
   api.post<Note>("/api/v1/notes/", input);
 export const updateNote = (id: string, input: { body?: string; pinned?: boolean }) => api.patch<Note>(`/api/v1/notes/${enc(id)}/`, input);
 export const deleteNote = (id: string) => api.delete(`/api/v1/notes/${enc(id)}/`);
+
+/* ------------------------------------------------------------------ files */
+
+export const listFiles = (entity_type: EntityType, entity_id: string) =>
+  api.get<Paginated<FileAttachment>>("/api/v1/files/", { entity_type, entity_id });
+export const uploadFile = (input: { entity_type: EntityType; entity_id: string; file: File }) => {
+  const form = new FormData();
+  form.append("entity_type", input.entity_type);
+  form.append("entity_id", input.entity_id);
+  form.append("file", input.file);
+  return requestForm<FileAttachment>("/api/v1/files/", form);
+};
+export const deleteFile = (id: string) => api.delete(`/api/v1/files/${enc(id)}/`);
+/** Authenticated, audited download; the API always answers with an attachment disposition. */
+export const fileDownloadUrl = (id: string) => `/api/v1/files/${enc(id)}/download/`;
 /** `kinds` narrows the feed to event families (see TIMELINE_FILTERS), e.g. ["note", "activity"]. */
 export const getTimeline = (entity_type: EntityType, entity_id: string, kinds?: string[]) =>
   api.get<{ results: TimelineEvent[] }>("/api/v1/timeline/", { entity_type, entity_id, kinds: kinds?.length ? kinds.join(",") : undefined });
@@ -310,6 +330,19 @@ export const draftEmailWithAI = (input: {
   instructions?: string;
 }) => api.post<EmailDraft>("/api/v1/ai/email/", input);
 export const getAIUsage = () => api.get<AIUsage>("/api/v1/ai/usage/");
+export const getAISettings = () => api.get<AISettings>("/api/v1/ai/settings/");
+export const updateAISettings = (input: { ai_enabled?: boolean; monthly_budget_usd?: string; user_requests_per_hour?: number }) =>
+  api.put<AISettings>("/api/v1/ai/settings/", input);
+
+/* ------------------------------------------------------------------ Ask Keel (one assistant, every mode) */
+
+/** Always answers: with a model when one is available, from CRM + knowledge retrieval otherwise. */
+export const askKeel = (input: { question: string; conversation_id?: string | null }) =>
+  api.post<AssistantAnswer>("/api/v1/assistant/ask/", input);
+export const getAssistantHome = () => api.get<AssistantHome>("/api/v1/assistant/home/");
+export const getAssistantConversation = (id: string) =>
+  api.get<AssistantConversation>(`/api/v1/assistant/conversations/${enc(id)}/`);
+export const deleteAssistantConversation = (id: string) => api.delete(`/api/v1/assistant/conversations/${enc(id)}/`);
 
 /* ------------------------------------------------------------------ import / export */
 
