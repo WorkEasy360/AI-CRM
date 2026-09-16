@@ -382,3 +382,34 @@ variable "github_repository" {
     error_message = "github_repository must look like org/repo."
   }
 }
+
+# ---------------------------------------------------------------------------
+# Optional provider integrations
+#
+# Each flag controls one OPTIONAL FEATURE SECRET group. The application treats an
+# unset credential as "feature not configured" and keeps working (README.md, section 3),
+# so these default to false: the secret is not created, not injected, and the task role is
+# not granted read access to it. Turn a flag on, then fill the placeholder value in Secrets
+# Manager out of band -- Terraform never holds the real value.
+#
+# MESSAGING_ENCRYPTION_KEYS is deliberately NOT a flag: config.settings.prod refuses to start
+# without it, so it is always created (see secrets.tf).
+# ---------------------------------------------------------------------------
+
+variable "enable_ai_provider" {
+  description = "Create and inject ANTHROPIC_API_KEY (api only). Without it the assistant answers retrieval-only."
+  type        = bool
+  default     = false
+}
+
+variable "enable_whatsapp" {
+  description = "Create and inject WHATSAPP_APP_SECRET / WHATSAPP_VERIFY_TOKEN (api only, inbound webhook)."
+  type        = bool
+  default     = false
+}
+
+variable "enable_email_oauth" {
+  description = "Create and inject the Google/Microsoft mailbox OAuth client credentials (api + worker-critical)."
+  type        = bool
+  default     = false
+}

@@ -2,7 +2,7 @@
 #
 #   k6 -> lb (nginx, ALB path rules) -> backend-a | backend-b (gunicorn, prod-like flags)
 #                                     -> frontend (Next.js standalone)
-#   worker (default,notifications) / worker-heavy (imports,exports,reports) / beat
+#   worker (default,notifications) / worker-heavy (imports,exports,reports,rag_indexing) / beat
 #
 #   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml --profile full --profile loadtest up -d --build
 #

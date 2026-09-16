@@ -53,13 +53,29 @@ locals {
     { name = "DB_SSLROOTCERT", value = "/etc/ssl/certs/ca-certificates.crt" },
   ]
 
-  api_secrets = [
+  # Secrets every Django process needs: the four infrastructure URLs plus the Fernet key
+  # ring, without which config.settings.prod refuses to start (see secrets.tf).
+  base_secrets = concat([
     { name = "SECRET_KEY", valueFrom = aws_secretsmanager_secret.secret_key.arn },
     { name = "DATABASE_URL", valueFrom = aws_secretsmanager_secret.database_url.arn },
     { name = "REDIS_URL", valueFrom = aws_secretsmanager_secret.redis_url.arn },
     { name = "CELERY_BROKER_URL", valueFrom = aws_secretsmanager_secret.celery_broker_url.arn },
     { name = "EMAIL_URL", valueFrom = aws_secretsmanager_secret.email_url.arn },
-  ]
+  ], local.boot_secrets)
+
+  # Per-service composition (least privilege; see the table in secrets.tf).
+  # api serves the assistant, the OAuth connect flow and the WhatsApp webhook.
+  api_secrets = concat(local.base_secrets, local.ai_secrets, local.whatsapp_secrets, local.email_oauth_secrets)
+
+  # worker-critical runs messaging.send_* and messaging.sync_email_account*, which refresh
+  # mailbox OAuth tokens. It never calls the model and never verifies a webhook signature.
+  worker_critical_secrets = concat(local.base_secrets, local.email_oauth_secrets)
+
+  # worker-heavy (imports, exports, reports, rag_indexing), beat and migrate need nothing
+  # beyond the base set.
+  worker_heavy_secrets = local.base_secrets
+  beat_secrets         = local.base_secrets
+  migrate_secrets      = local.base_secrets
 
   web_environment = [
     { name = "NODE_ENV", value = "production" },
@@ -104,11 +120,14 @@ locals {
       command = ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "default,notifications", "-c", "4", "--max-tasks-per-child", "500"]
       cpu     = var.worker_cpu
       memory  = var.worker_memory
+      secrets = local.worker_critical_secrets
     }
     "worker-heavy" = {
-      command = ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "imports,exports,reports", "-c", "2", "--max-tasks-per-child", "100"]
+      # rag_indexing carries rag.purge_organization (tenant erasure): it must always have a consumer.
+      command = ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "imports,exports,reports,rag_indexing", "-c", "2", "--max-tasks-per-child", "100"]
       cpu     = var.worker_cpu
       memory  = var.worker_memory
+      secrets = local.worker_heavy_secrets
     }
   }
 }
@@ -228,7 +247,7 @@ resource "aws_ecs_task_definition" "worker" {
       essential              = true
       command                = each.value.command
       environment            = local.api_environment
-      secrets                = local.api_secrets
+      secrets                = each.value.secrets
       readonlyRootFilesystem = true
       mountPoints            = local.tmp_mount
       linuxParameters        = { initProcessEnabled = true }
@@ -266,7 +285,7 @@ resource "aws_ecs_task_definition" "beat" {
       essential              = true
       command                = ["celery", "-A", "config.celery", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
       environment            = local.api_environment
-      secrets                = local.api_secrets
+      secrets                = local.beat_secrets
       readonlyRootFilesystem = true
       mountPoints            = local.tmp_mount
       linuxParameters        = { initProcessEnabled = true }
@@ -307,7 +326,7 @@ resource "aws_ecs_task_definition" "migrate" {
       essential              = true
       command                = ["python", "manage.py", "migrate", "--no-input"]
       environment            = local.api_environment
-      secrets                = local.api_secrets
+      secrets                = local.migrate_secrets
       readonlyRootFilesystem = true
       mountPoints            = local.tmp_mount
       linuxParameters        = { initProcessEnabled = true }

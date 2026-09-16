@@ -239,3 +239,52 @@ def test_an_unrecognised_scope_retrieves_nothing(org_a, crm, make_member):
         )
         assert retrieval.scope_predicate(broken) is None
         assert retrieval.search(broken, "renewal pricing").chunks == []
+
+
+# --------------------------------------------------------------------------- tenant erasure
+
+
+def test_purging_an_organization_removes_every_chunk_and_event(org_a, crm):
+    """Tenant deletion / privacy erasure must leave no indexed text behind.
+
+    `rag.purge_organization` is the only thing that erases the knowledge index. Nothing else deletes
+    a whole tenant's chunks, so if it silently does not run the text survives the deletion request.
+    """
+    from apps.rag.tasks import purge_organization
+
+    deal = crm.make_deal(org_a, name="Acquisition")
+    crm.make_note(org_a, record=deal, body=SECRET)
+    index_all(org_a.org)
+
+    with tenant_context(org_a.org.pk, reason="test"):
+        assert KnowledgeChunk.objects.count() > 0
+        assert IndexEvent.objects.count() > 0
+
+    purge_organization(organization_id=str(org_a.org.pk))
+
+    with tenant_context(org_a.org.pk, reason="test"):
+        assert KnowledgeChunk.objects.count() == 0
+        assert IndexEvent.objects.count() == 0
+
+
+def test_purging_one_organization_leaves_the_other_untouched(org_a, org_b, crm):
+    """The purge job is tenant-scoped: Org A's erasure must not reach into Org B's index."""
+    from apps.rag.tasks import purge_organization
+
+    deal_a = crm.make_deal(org_a, name="Acquisition")
+    crm.make_note(org_a, record=deal_a, body=SECRET)
+    deal_b = crm.make_deal(org_b, name="Project Falcon")
+    crm.make_note(org_b, record=deal_b, body="Org B renewal terms stay indexed.")
+    index_all(org_a.org)
+    index_all(org_b.org)
+
+    with tenant_context(org_b.org.pk, reason="test"):
+        before = KnowledgeChunk.objects.count()
+    assert before > 0
+
+    purge_organization(organization_id=str(org_a.org.pk))
+
+    with tenant_context(org_a.org.pk, reason="test"):
+        assert KnowledgeChunk.objects.count() == 0
+    with tenant_context(org_b.org.pk, reason="test"):
+        assert KnowledgeChunk.objects.count() == before

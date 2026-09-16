@@ -113,6 +113,56 @@ aws secretsmanager put-secret-value \
 Running tasks read secrets only at start; force a new deployment
 (`aws ecs update-service --force-new-deployment`) after changing a value.
 
+### Required to boot vs optional feature secrets
+
+`config.settings.prod` refuses to start when a **required** secret is missing, so every Django
+task (api, workers, beat, migrate) crash-loops without it. An **optional** secret only enables one
+integration: while it is absent the application reports that feature as "not configured" and the
+rest of the CRM keeps working.
+
+| Secret | Class | Created | Injected into | Absent means |
+|---|---|---|---|---|
+| `SECRET_KEY` | required to boot | always (generated) | api, workers, beat, migrate | no start |
+| `DATABASE_URL` | required to boot | always (operator fills) | api, workers, beat, migrate | no start |
+| `REDIS_URL`, `CELERY_BROKER_URL` | required to boot | always (generated) | api, workers, beat, migrate | no start |
+| `EMAIL_URL` | required to boot | always (operator fills) | api, workers, beat, migrate | no start |
+| `MESSAGING_ENCRYPTION_KEYS` | required to boot | always (generated) | api, workers, beat, migrate | no start |
+| `ANTHROPIC_API_KEY` | optional | `enable_ai_provider` | api | assistant answers retrieval-only |
+| `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` | optional | `enable_whatsapp` | api | webhook rejects every call (403) |
+| `EMAIL_OAUTH_{GOOGLE,MICROSOFT}_CLIENT_{ID,SECRET}` | optional | `enable_email_oauth` | api, worker-critical | mailbox connection unavailable |
+
+Optional secrets follow least privilege: when a flag is off the secret is not created, not injected
+and not in the execution role's policy. The AI key reaches only the api because no Celery task calls
+the model; the WhatsApp secrets reach only the api because they verify the inbound webhook (sending
+uses each account's own stored token); mailbox OAuth credentials also reach worker-critical because
+it refreshes tokens while sending and syncing. worker-heavy, beat and migrate receive only the
+required set. The execution role is shared by all services, so the per-service boundary is the task
+definition's `secrets` list, not IAM.
+
+After enabling a flag and applying, fill each placeholder:
+
+```bash
+aws secretsmanager put-secret-value --secret-id keel-production/ANTHROPIC_API_KEY --secret-string '<key>'
+```
+
+### `MESSAGING_ENCRYPTION_KEYS` rotation
+
+Terraform generates the first valid Fernet key, so a fresh stack boots. The value is a
+comma-separated key ring (`apps/core/crypto.py`): the **first** key encrypts, **every** key decrypts.
+Rotate without downtime by prepending, never replacing:
+
+```bash
+NEW=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+OLD=$(aws secretsmanager get-secret-value --secret-id keel-production/MESSAGING_ENCRYPTION_KEYS \
+        --query SecretString --output text)
+aws secretsmanager put-secret-value --secret-id keel-production/MESSAGING_ENCRYPTION_KEYS \
+  --secret-string "$NEW,$OLD"
+```
+
+Redeploy, let stored tokens be re-encrypted, and only then drop the old key. Removing a key that
+still encrypts a stored token makes that mailbox or WhatsApp connection undecryptable. The secret
+has `ignore_changes`, so Terraform never reverts a rotation. Never commit a key.
+
 ## 4. How the deploy pipeline uses the outputs
 
 GitHub Actions on `main` assumes `deploy_role_arn` through OIDC
@@ -169,7 +219,7 @@ Numbers are order-of-magnitude, USD, September 2026 list prices, low traffic
 | CloudFront (PriceClass_200) | requests + egress | 15 |
 | WAF: 1 web ACL, 4 managed groups, 3 rate rules | fixed + requests | 15 |
 | CloudWatch: logs, Container Insights, ~45 alarms, custom metrics | ingestion + alarms | 30 |
-| Secrets Manager (7 secrets), KMS (1 key) | fixed | 5 |
+| Secrets Manager (8 secrets + optional integrations), KMS (1 key) | fixed | 5 |
 | S3, ECR | storage | 5 |
 | **Total** | | **~600** |
 
@@ -201,7 +251,8 @@ failover), single-AZ RDS is not offered by this module on purpose.
   scan-on-push.
 * **Identity**: distinct execution / api / worker / web task roles; S3 access
   limited to the private bucket, metrics limited to the `Keel` namespace,
-  secrets readable only by the execution role and only the five app secrets.
+  secrets readable only by the execution role and only the app secrets that exist
+  (the required set plus any enabled optional integration; see section 3).
   CI deploys via GitHub OIDC on `main`, scoped to these repositories, services
   and task roles. No long-lived cloud keys.
 * **Data**: one customer-managed KMS key with rotation for RDS storage, the

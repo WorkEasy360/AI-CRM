@@ -186,13 +186,178 @@ resource "aws_secretsmanager_secret_version" "origin_verify" {
   secret_string = random_password.origin_verify.result
 }
 
+# ---------------------------------------------------------------------------
+# MESSAGING_ENCRYPTION_KEYS -- REQUIRED TO BOOT
+#
+# Fernet keys for provider tokens at rest (OAuth refresh tokens, WhatsApp access
+# tokens). config.settings.prod raises at import time when this is empty, so every
+# Django task -- api, workers, beat and the one-off migrate task -- fails to start
+# without it. It is therefore generated here rather than left as a placeholder: an
+# unfilled placeholder would boot and then fail on the first mailbox connection,
+# because apps.core.crypto validates the key lazily.
+#
+# Format (apps/core/crypto.py): comma-separated urlsafe-base64 32-byte keys, the
+# first encrypts and every key may decrypt. Rotation is "prepend the new key,
+# re-encrypt lazily, drop the old one later" and is performed directly in Secrets
+# Manager -- ignore_changes keeps Terraform from reverting it.
+#
+# random_bytes emits standard base64; Fernet requires the urlsafe alphabet, so the
+# two differing characters are translated. The byte value is unchanged.
+# ---------------------------------------------------------------------------
+
+resource "random_bytes" "messaging_encryption_key" {
+  length = 32
+}
+
+resource "aws_secretsmanager_secret" "messaging_encryption_keys" {
+  name                    = "${local.name}/MESSAGING_ENCRYPTION_KEYS"
+  description             = "Fernet key ring for stored provider tokens (required to boot; rotate in place)"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = local.secret_recovery_window_days
+}
+
+resource "aws_secretsmanager_secret_version" "messaging_encryption_keys" {
+  secret_id     = aws_secretsmanager_secret.messaging_encryption_keys.id
+  secret_string = replace(replace(random_bytes.messaging_encryption_key.base64, "+", "-"), "/", "_")
+
+  lifecycle {
+    ignore_changes = [secret_string] # rotation happens in Secrets Manager, not here
+  }
+}
+
+# ---------------------------------------------------------------------------
+# OPTIONAL FEATURE SECRETS
+#
+# Created only when the matching feature flag is on (see variables.tf). Values are
+# placeholders filled by operators out of band; Terraform never stores the real
+# credential. While a feature is off the application reports it as "not configured"
+# and the rest of the CRM is unaffected.
+# ---------------------------------------------------------------------------
+
+resource "aws_secretsmanager_secret" "anthropic_api_key" {
+  count                   = var.enable_ai_provider ? 1 : 0
+  name                    = "${local.name}/ANTHROPIC_API_KEY"
+  description             = "Anthropic API key (optional; absent = assistant answers retrieval-only)"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = local.secret_recovery_window_days
+}
+
+resource "aws_secretsmanager_secret_version" "anthropic_api_key" {
+  count         = var.enable_ai_provider ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.anthropic_api_key[0].id
+  secret_string = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+resource "aws_secretsmanager_secret" "whatsapp_app_secret" {
+  count                   = var.enable_whatsapp ? 1 : 0
+  name                    = "${local.name}/WHATSAPP_APP_SECRET"
+  description             = "Meta app secret; verifies X-Hub-Signature-256 on the inbound webhook"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = local.secret_recovery_window_days
+}
+
+resource "aws_secretsmanager_secret_version" "whatsapp_app_secret" {
+  count         = var.enable_whatsapp ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.whatsapp_app_secret[0].id
+  secret_string = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+resource "aws_secretsmanager_secret" "whatsapp_verify_token" {
+  count                   = var.enable_whatsapp ? 1 : 0
+  name                    = "${local.name}/WHATSAPP_VERIFY_TOKEN"
+  description             = "Token echoed during Meta's webhook verification handshake"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = local.secret_recovery_window_days
+}
+
+resource "aws_secretsmanager_secret_version" "whatsapp_verify_token" {
+  count         = var.enable_whatsapp ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.whatsapp_verify_token[0].id
+  secret_string = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+# Mailbox OAuth client credentials. The client ids are not secret, but they are kept
+# beside their secrets so a deployment configures one coherent thing.
 locals {
+  email_oauth_secret_names = var.enable_email_oauth ? [
+    "EMAIL_OAUTH_GOOGLE_CLIENT_ID",
+    "EMAIL_OAUTH_GOOGLE_CLIENT_SECRET",
+    "EMAIL_OAUTH_MICROSOFT_CLIENT_ID",
+    "EMAIL_OAUTH_MICROSOFT_CLIENT_SECRET",
+  ] : []
+}
+
+resource "aws_secretsmanager_secret" "email_oauth" {
+  for_each                = toset(local.email_oauth_secret_names)
+  name                    = "${local.name}/${each.key}"
+  description             = "Mailbox OAuth credential ${each.key} (filled by operators)"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = local.secret_recovery_window_days
+}
+
+resource "aws_secretsmanager_secret_version" "email_oauth" {
+  for_each      = aws_secretsmanager_secret.email_oauth
+  secret_id     = each.value.id
+  secret_string = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+locals {
+  # Secret injection per service, least privilege: a task definition receives only the
+  # secrets that service actually reads.
+  #
+  #   MESSAGING_ENCRYPTION_KEYS  every Django process (required to boot)
+  #   ANTHROPIC_API_KEY          api only        -- no Celery task calls the model
+  #   WHATSAPP_APP_SECRET/TOKEN  api only        -- inbound webhook signature check
+  #   EMAIL_OAUTH_*              api + worker-critical -- connect flow, then token refresh
+  #                                                       and send/sync on default+notifications
+  boot_secrets = [
+    { name = "MESSAGING_ENCRYPTION_KEYS", valueFrom = aws_secretsmanager_secret.messaging_encryption_keys.arn },
+  ]
+
+  ai_secrets = var.enable_ai_provider ? [
+    { name = "ANTHROPIC_API_KEY", valueFrom = aws_secretsmanager_secret.anthropic_api_key[0].arn },
+  ] : []
+
+  whatsapp_secrets = var.enable_whatsapp ? [
+    { name = "WHATSAPP_APP_SECRET", valueFrom = aws_secretsmanager_secret.whatsapp_app_secret[0].arn },
+    { name = "WHATSAPP_VERIFY_TOKEN", valueFrom = aws_secretsmanager_secret.whatsapp_verify_token[0].arn },
+  ] : []
+
+  email_oauth_secrets = [
+    for name in local.email_oauth_secret_names :
+    { name = name, valueFrom = aws_secretsmanager_secret.email_oauth[name].arn }
+  ]
+
   # Secrets the ECS execution role may read (api + workers).
-  app_secret_arns = [
+  app_secret_arns = concat([
     aws_secretsmanager_secret.secret_key.arn,
     aws_secretsmanager_secret.database_url.arn,
     aws_secretsmanager_secret.email_url.arn,
     aws_secretsmanager_secret.redis_url.arn,
     aws_secretsmanager_secret.celery_broker_url.arn,
-  ]
+    aws_secretsmanager_secret.messaging_encryption_keys.arn,
+    ],
+    var.enable_ai_provider ? [aws_secretsmanager_secret.anthropic_api_key[0].arn] : [],
+    var.enable_whatsapp ? [
+      aws_secretsmanager_secret.whatsapp_app_secret[0].arn,
+      aws_secretsmanager_secret.whatsapp_verify_token[0].arn,
+    ] : [],
+    [for name in local.email_oauth_secret_names : aws_secretsmanager_secret.email_oauth[name].arn],
+  )
 }
