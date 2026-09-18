@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 import environ
@@ -89,6 +90,9 @@ MIDDLEWARE = [
     "apps.accounts.middleware.ThrottledUserSessionsMiddleware",
     # API credentials (Authorization: Bearer keel_...) for external software; never a session.
     "apps.integrations.machine_auth.MachineCredentialMiddleware",
+    # No-op unless AUTO_LOGIN_ENABLED (development only). Must sit after machine auth so it never
+    # overrides an API credential, and before TenantMiddleware so the session it opens resolves.
+    "apps.accounts.middleware.AutoLoginMiddleware",
     "apps.core.tenancy.middleware.TenantMiddleware",
 ]
 
@@ -113,12 +117,39 @@ TEMPLATES = [
 # ----------------------------------------------------------------------------- database / cache
 # Per-connection server settings. Every value is a hard stop that turns a hung query into an error the
 # client sees, instead of a thread that waits forever (statement_timeout also bounds RLS-heavy queries).
-# The one-off migrate task raises DB_STATEMENT_TIMEOUT_MS; nothing else should.
+#
+# Migrations need their own numbers. Serving traffic wants a 15 s statement timeout; building an index
+# over a large table legitimately takes minutes, and inheriting the request-path limits means a
+# deployment fails halfway through a schema change -- the worst possible outcome. But "migrations get
+# no timeout" is equally wrong: an unbounded ALTER that queues behind a long-running transaction holds
+# an ACCESS EXCLUSIVE lock and stalls every query behind it, which is a full outage.
+#
+# So migrations get generous-but-bounded statement time and a *short* lock wait. Failing fast on a lock
+# is the safe behaviour during a rolling deploy: the migration aborts having changed nothing, the old
+# containers keep serving, and the deployment retries when the blocking transaction is gone.
+# See docs/operations/migrations.md for the expand -> migrate -> contract strategy this supports.
+DB_MIGRATION_MODE = env.bool("DB_MIGRATION_MODE", default=False)
+DB_MIGRATION_STATEMENT_TIMEOUT_MS = env.int("DB_MIGRATION_STATEMENT_TIMEOUT_MS", default=600_000)  # 10 min
+DB_MIGRATION_LOCK_TIMEOUT_MS = env.int("DB_MIGRATION_LOCK_TIMEOUT_MS", default=10_000)  # 10 s
+DB_STATEMENT_TIMEOUT_MS = env.int("DB_STATEMENT_TIMEOUT_MS", default=15000)
+DB_LOCK_TIMEOUT_MS = env.int("DB_LOCK_TIMEOUT_MS", default=5000)
+DB_IDLE_IN_TRANSACTION_TIMEOUT_MS = env.int("DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", default=60000)
+
+if DB_MIGRATION_MODE:
+    _statement_timeout = DB_MIGRATION_STATEMENT_TIMEOUT_MS
+    _lock_timeout = DB_MIGRATION_LOCK_TIMEOUT_MS
+    # A migration legitimately sits in one long transaction; the request-path idle guard would kill it.
+    _idle_timeout = env.int("DB_MIGRATION_IDLE_TIMEOUT_MS", default=DB_MIGRATION_STATEMENT_TIMEOUT_MS)
+else:
+    _statement_timeout = DB_STATEMENT_TIMEOUT_MS
+    _lock_timeout = DB_LOCK_TIMEOUT_MS
+    _idle_timeout = DB_IDLE_IN_TRANSACTION_TIMEOUT_MS
+
 _DB_OPTIONS_FLAGS = " ".join(
     [
-        f"-c statement_timeout={env.int('DB_STATEMENT_TIMEOUT_MS', default=15000)}",
-        f"-c lock_timeout={env.int('DB_LOCK_TIMEOUT_MS', default=5000)}",
-        f"-c idle_in_transaction_session_timeout={env.int('DB_IDLE_IN_TRANSACTION_TIMEOUT_MS', default=60000)}",
+        f"-c statement_timeout={_statement_timeout}",
+        f"-c lock_timeout={_lock_timeout}",
+        f"-c idle_in_transaction_session_timeout={_idle_timeout}",
     ]
 )
 # Connection strategy (docs/architecture/scaling.md, "Database connections"):
@@ -192,6 +223,12 @@ SILENCED_SYSTEM_CHECKS = ["auth.W004"]
 AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
+# Development-only: open the CRM straight away by signing every visitor in as one fixed account,
+# so there is no sign-in page. apps.accounts.middleware.AutoLoginMiddleware refuses to act when
+# ENVIRONMENT is production/staging, and config.settings.prod forces the flag off.
+AUTO_LOGIN_ENABLED = env.bool("AUTO_LOGIN_ENABLED", default=False)
+AUTO_LOGIN_EMAIL = env("AUTO_LOGIN_EMAIL", default="owner@keel.local")
+AUTO_LOGIN_NAME = env("AUTO_LOGIN_NAME", default="Keel")
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
@@ -376,9 +413,15 @@ CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_CONNECTION_MAX_RETRIES = None  # keep reconnecting; the worker must outlive a Redis failover
+# The longest a task may be parked in the broker as a countdown. Anything that needs to wait longer
+# holds its wait in the database (a ``next_attempt_at`` column) and is re-enqueued by a sweeper, because
+# a message sitting in Redis past visibility_timeout is redelivered to a *second* worker while the first
+# still holds it. ``apps.core.checks.check_broker_visibility_timeout`` enforces the relationship:
+#     longest task limit + max countdown + margin  <  visibility_timeout
+CELERY_MAX_COUNTDOWN_SECONDS = env.int("CELERY_MAX_COUNTDOWN_SECONDS", default=900)
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     # Redis has no real acks: an unacked message is redelivered after visibility_timeout. It must exceed
-    # the longest task's hard limit (imports: 1h) or a slow import would be started twice.
+    # the longest task's hard limit (imports: 1h) plus any countdown, or work is started twice.
     "visibility_timeout": env.int("CELERY_VISIBILITY_TIMEOUT", default=2 * 3600),
     "socket_timeout": 30,
     "socket_connect_timeout": 5,
@@ -401,8 +444,11 @@ CELERY_TASK_ROUTES = {
     "importexport.run_export": {"queue": "exports"},
     "importexport.purge_expired": {"queue": "default"},
     "importexport.fail_stale_jobs": {"queue": "default"},
+    "importexport.resume_stalled_imports": {"queue": "default"},
+    "messaging.reconcile_stuck_sends": {"queue": "notifications"},
     "accounts.send_email": {"queue": "notifications"},
     "observability.publish_celery_metrics": {"queue": "default"},
+    "observability.publish_dependency_health": {"queue": "default"},
     "activities.send_reminders": {"queue": "notifications"},
     "notifications.deal_health_sweep": {"queue": "reports"},
     "messaging.send_email_message": {"queue": "notifications"},
@@ -424,16 +470,34 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 30.0,
         "options": {"expires": 25},  # a stale metrics tick is worthless; drop it rather than queue it
     },
+    # Dependency health is a monitoring signal now that the ALB probes liveness only.
+    "observability.publish_dependency_health": {
+        "task": "observability.publish_dependency_health",
+        "schedule": 60.0,
+        "options": {"expires": 55},
+    },
     "importexport.purge_expired": {"task": "importexport.purge_expired", "schedule": 6 * 3600.0},
     "importexport.fail_stale_jobs": {
         "task": "importexport.fail_stale_jobs",
         "schedule": 900.0,
         "options": {"expires": 850},
     },
+    # Resumes imports whose worker died mid-run, from their last committed batch.
+    "importexport.resume_stalled_imports": {
+        "task": "importexport.resume_stalled_imports",
+        "schedule": 300.0,
+        "options": {"expires": 280},
+    },
     "activities.send_reminders": {"task": "activities.send_reminders", "schedule": 60.0, "options": {"expires": 55}},
     "notifications.deal_health_sweep": {"task": "notifications.deal_health_sweep", "schedule": 24 * 3600.0},
     "messaging.sync_email_accounts": {
         "task": "messaging.sync_email_accounts",
+        "schedule": 300.0,
+        "options": {"expires": 280},
+    },
+    # Settles sends whose worker died between calling the provider and recording the answer.
+    "messaging.reconcile_stuck_sends": {
+        "task": "messaging.reconcile_stuck_sends",
         "schedule": 300.0,
         "options": {"expires": 280},
     },
@@ -464,11 +528,26 @@ DASHBOARD_CACHE_SECONDS = env.int("DASHBOARD_CACHE_SECONDS", default=60)
 LIST_COUNT_CAP = env.int("LIST_COUNT_CAP", default=10_000)
 # Import/export fairness: an organization may have at most this many jobs pending or running at once.
 MAX_ACTIVE_JOBS_PER_ORG = env.int("MAX_ACTIVE_JOBS_PER_ORG", default=3)
+# The import task's hard time limit. In settings because apps.core.checks needs it to verify the
+# broker's visibility timeout, and a core primitive must not import a business module to find out.
+IMPORT_TASK_TIME_LIMIT = env.int("IMPORT_TASK_TIME_LIMIT", default=3600)
+# Rows per import transaction. Bounds how long any one transaction holds locks and a snapshot, and how
+# much work a crash can cost (at most one batch is replayed). See apps/importexport/service.py.
+IMPORT_BATCH_SIZE = env.int("IMPORT_BATCH_SIZE", default=200)
+# A RUNNING import untouched for this long has lost its worker and is resumed from its checkpoint.
+IMPORT_RESUME_AFTER = dt.timedelta(minutes=env.int("IMPORT_RESUME_AFTER_MINUTES", default=15))
+# How many times a job may be resumed before it is failed for good, so a row that reliably kills the
+# worker cannot make the job immortal.
+IMPORT_MAX_ATTEMPTS = env.int("IMPORT_MAX_ATTEMPTS", default=5)
 
 # ----------------------------------------------------------------------------- communication (email / WhatsApp)
 # Provider credentials come only from the environment. Without them the UI shows "not configured" and
 # nothing can be connected; provider tokens are stored encrypted with MESSAGING_ENCRYPTION_KEYS.
 MESSAGING_PROVIDER_BACKEND = env("MESSAGING_PROVIDER_BACKEND", default="live")  # live | fake (dev/tests)
+# How long a send may sit claimed (status SENDING) before the reconciliation sweeper treats its worker
+# as dead. Must comfortably exceed the send task's hard time limit (90 s) so a slow-but-alive send is
+# never reconciled underneath itself.
+MESSAGING_SEND_RECONCILE_AFTER = dt.timedelta(minutes=env.int("MESSAGING_SEND_RECONCILE_MINUTES", default=15))
 MESSAGING_ENCRYPTION_KEYS = env("MESSAGING_ENCRYPTION_KEYS", default="")
 EMAIL_OAUTH_GOOGLE_CLIENT_ID = env("EMAIL_OAUTH_GOOGLE_CLIENT_ID", default="")
 EMAIL_OAUTH_GOOGLE_CLIENT_SECRET = env("EMAIL_OAUTH_GOOGLE_CLIENT_SECRET", default="")

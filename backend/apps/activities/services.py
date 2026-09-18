@@ -26,6 +26,7 @@ from apps.authz.catalogue import SCOPE_ALL
 from apps.authz.service import check
 from apps.core import validators
 from apps.core.concurrency import save_with_version
+from apps.core.domain_events import RecordChanged, publish
 from apps.core.exceptions import DomainError
 from apps.dashboards import cache as dashboard_cache
 
@@ -311,6 +312,20 @@ def update_activity(
         return activity
     activity.updated_by = actor.membership
     save_with_version(activity, expected_version, [*dict.fromkeys(changed), "updated_by"])
+    if "status" in changed and activity.status == Activity.Status.COMPLETED and activity.kind == "task":
+        # save_with_version() is a QuerySet.update(), so the post_save receiver that normally emits
+        # task.completed never sees this. Ticking a task off in the UI is exactly the event most
+        # automations subscribe to, so it is announced explicitly here.
+        publish(
+            RecordChanged(
+                organization_id=activity.organization_id,
+                entity_type="activity",
+                entity_ids=(activity.pk,),
+                change="completed",
+                owner_id=activity.owner_id,
+                fields=("status",),
+            )
+        )
     _touch(activity, previous)
     audit.record(
         "activities.completed"

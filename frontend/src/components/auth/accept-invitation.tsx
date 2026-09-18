@@ -59,7 +59,7 @@ export function AcceptInvitation() {
       <div>
         <AuthHeading title="Invitation link incomplete" description="This link is missing its invitation token. Ask the sender for a new one." />
         <Button asChild variant="secondary" className="w-full">
-          <Link href="/login">Go to sign in</Link>
+          <Link href="/pipeline">Go to the CRM</Link>
         </Button>
       </div>
     );
@@ -80,7 +80,7 @@ export function AcceptInvitation() {
       <div>
         <AuthHeading title="Invitation unavailable" description="This invitation is invalid, was already used or has expired. Ask the sender for a new one." />
         <Button asChild variant="secondary" className="w-full">
-          <Link href="/login">Go to sign in</Link>
+          <Link href="/pipeline">Go to the CRM</Link>
         </Button>
       </div>
     );
@@ -88,7 +88,6 @@ export function AcceptInvitation() {
 
   const invitation = preview.data;
   const authenticated = Boolean(session.data?.user);
-  const selfPath = `/invitations/accept?token=${encodeURIComponent(token)}`;
   const emailMismatch = authenticated && session.data?.user.email.toLowerCase() !== invitation.email.toLowerCase();
 
   return (
@@ -118,14 +117,9 @@ export function AcceptInvitation() {
           <Button className="w-full" loading={accept.isPending} onClick={() => accept.mutate()} disabled={Boolean(emailMismatch)}>
             Accept invitation
           </Button>
-          {emailMismatch ? (
-            <Button asChild variant="secondary" className="w-full">
-              <Link href={`/login?next=${encodeURIComponent(selfPath)}`}>Sign in with a different account</Link>
-            </Button>
-          ) : null}
         </div>
       ) : (
-        <CreateAccountForm token={token} invitation={invitation} signInHref={`/login?next=${encodeURIComponent(selfPath)}`} onDone={enterCrm} />
+        <CreateAccountForm token={token} invitation={invitation} onDone={enterCrm} />
       )}
     </div>
   );
@@ -134,12 +128,10 @@ export function AcceptInvitation() {
 function CreateAccountForm({
   token,
   invitation,
-  signInHref,
   onDone,
 }: {
   token: string;
   invitation: InvitationPreview;
-  signInHref: string;
   onDone: () => Promise<void>;
 }) {
   const [error, setError] = React.useState<string | null>(null);
@@ -169,9 +161,9 @@ function CreateAccountForm({
   if (accountExists) {
     return (
       <div className="grid gap-3">
-        <FormError message={`${invitation.email} already has a Keel account. Sign in to accept the invitation.`} />
+        <FormError message={`${invitation.email} already has a Keel account and does not need to be created again.`} />
         <Button asChild className="w-full">
-          <Link href={signInHref}>Sign in to accept</Link>
+          <Link href="/pipeline">Go to the CRM</Link>
         </Button>
       </div>
     );
@@ -199,12 +191,6 @@ function CreateAccountForm({
       <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
         Create account and join
       </Button>
-      <p className="text-center text-sm text-fg-muted">
-        Already have a Keel account?{" "}
-        <Link href={signInHref} className="font-medium text-primary hover:underline">
-          Sign in
-        </Link>
-      </p>
     </form>
   );
 }

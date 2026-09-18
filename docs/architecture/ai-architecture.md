@@ -296,3 +296,42 @@ assistant/
 - Indexing: ~130 sources/s inline with the local embedder; 0.6 ms per chunk to embed.
 - Assistant end to end excluding model latency: 40–150 ms depending on intent.
 
+
+### 14.7 Response model: why Ask Keel stays synchronous (2026-09-18)
+
+The question was whether Ask Keel should move to SSE streaming or to an async job with polling. It was
+answered by measuring, not by preference. `orchestrator.ask` now times each phase separately and
+publishes them as `AssistantPhaseLatency` (dimensions `structured`, `rag`, `provider`); the same
+numbers land in the audit record for every answer.
+
+**Measured** — 100 answers over a tenant with 400 contacts, 200 notes and 150 deals, dev hardware:
+
+| Phase | p50 | p95 | p99 |
+|---|---|---|---|
+| structured (SQL via `crm_tools`) | 2 ms | 13 ms | 13 ms |
+| RAG (hybrid retrieval) | 6 ms | 7 ms | 7 ms |
+| provider (fallback path, no model call) | 2 ms | 3 ms | 5 ms |
+| **total** | **13 ms** | **25 ms** | **25 ms** |
+
+Everything Keel does itself costs **~20 ms at p95**. With a real model call the provider is seconds,
+so it is not the dominant term — it is essentially the *only* term.
+
+**Decision: A, keep the synchronous request.** Not implementing B or C, because:
+
+- There is nothing left to optimise on our side. Streaming cannot make the CRM's 20 ms faster, and an
+  async job would add a queue hop and a polling loop to save none of it.
+- SSE improves *perceived* time-to-first-token, not completion time. That is a real UX gain, but it is
+  the only gain, and it is bought with: streaming responses through CloudFront and the ALB, a
+  fallback path that has to work half-way through a stream that has already been partly rendered, and
+  persistence/auditing that currently happens exactly once against a complete answer.
+- The availability requirement — core CRM must never depend on AI responsiveness — is already met
+  without streaming, by machinery that exists and is tested: a 40 s interactive deadline inside the
+  60 s ALB/CloudFront limits, a per-process bulkhead (`AI_MAX_CONCURRENT_CALLS_PER_PROCESS`) so a slow
+  provider cannot occupy every request thread, a circuit breaker after `AI_BREAKER_FAILURES`
+  consecutive failures, a cheaper fallback model, and retrieval-only answers when all of that fails.
+  Ask Keel is its own endpoint; no CRM page waits on it.
+
+**Revisit when** production `AssistantPhaseLatency{Phase=provider}` p95 is known. If it exceeds roughly
+5 s for typical questions, streaming becomes worth its cost — and the phase metric is now there to say
+so with evidence rather than impression. Nothing in this design blocks that change: the orchestrator
+already separates "build the answer's inputs" from "ask the model".

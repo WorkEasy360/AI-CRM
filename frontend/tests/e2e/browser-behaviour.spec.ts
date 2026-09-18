@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { RUN_ID, apiFromPage, dialog, login, signOut, totp, users } from "./helpers";
+import { ALLAUTH, RUN_ID, apiFromPage, dialog, login, signOut, totp, users } from "./helpers";
 
 /**
  * Browser behaviour that unit tests cannot cover: server-side session loss, MFA enrolment + login,
@@ -35,7 +35,7 @@ test.beforeAll(async ({ browser }) => {
   await page.context().close();
 });
 
-test("session expiry: a session revoked server-side bounces the browser to login with a return path", async ({ browser }) => {
+test("session expiry: a session revoked server-side stops rendering the CRM", async ({ browser }) => {
   const a = await (await browser.newContext()).newPage();
   await login(a, U.rep, U.password);
   await a.goto("/contacts");
@@ -47,14 +47,15 @@ test("session expiry: a session revoked server-side bounces the browser to login
   await b.getByRole("button", { name: "Sign out other sessions" }).click();
   await expect(b.getByRole("button", { name: "Sign out other sessions" })).toBeDisabled({ timeout: 15_000 });
 
+  // There is no sign-in page to bounce to, so the gate shows its retryable message instead.
   await a.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Companies" }).click();
-  await a.waitForURL(/\/login\?next=%2Fcompanies/, { timeout: 20_000 });
-  await expect(a.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(a.getByText("We couldn't load your session")).toBeVisible({ timeout: 20_000 });
+  await expect(a.getByRole("heading", { name: "Contacts" })).toHaveCount(0);
   await a.context().close();
   await b.context().close();
 });
 
-test("MFA: enrol a TOTP authenticator, sign in with a code, then disable it", async ({ browser }) => {
+test("MFA: enrol a TOTP authenticator, re-authenticate with a code, then disable it", async ({ browser }) => {
   const page = await (await browser.newContext()).newPage();
   await login(page, U.mfa, U.password);
   await page.goto("/settings/security");
@@ -66,16 +67,14 @@ test("MFA: enrol a TOTP authenticator, sign in with a code, then disable it", as
   await expect(page.getByText("Enabled", { exact: true })).toBeVisible({ timeout: 15_000 });
 
   await signOut(page);
-  await page.getByLabel("Email").fill(U.mfa);
-  await page.getByLabel("Password", { exact: true }).fill(U.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Two-factor authentication" })).toBeVisible();
-  await page.getByLabel("Authentication code").fill("000000");
-  await page.getByRole("button", { name: "Verify" }).click();
-  await expect(page.getByText(/not accepted|invalid|incorrect/i).first()).toBeVisible();
-  await page.getByLabel("Authentication code").fill(totp(secret));
-  await page.getByRole("button", { name: "Verify" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  // The password alone must not be enough: allauth answers 401 with the second factor pending.
+  const passwordOnly = await apiFromPage(page, "POST", `${ALLAUTH}/auth/login`, { email: U.mfa, password: U.password });
+  expect(passwordOnly.status).toBe(401);
+  const wrongCode = await apiFromPage(page, "POST", `${ALLAUTH}/auth/2fa/authenticate`, { code: "000000" });
+  expect(wrongCode.status).toBe(400);
+  const rightCode = await apiFromPage(page, "POST", `${ALLAUTH}/auth/2fa/authenticate`, { code: totp(secret) });
+  expect(rightCode.status).toBe(200);
+  await page.goto("/pipeline");
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
 
   await page.goto("/settings/security");
@@ -205,14 +204,9 @@ for (const device of [
   });
 }
 
-test("keyboard navigation: sign in, open search with Ctrl+K, drive the quick-add menu and dialogs without a mouse", async ({ browser }) => {
+test("keyboard navigation: open search with Ctrl+K, drive the quick-add menu and dialogs without a mouse", async ({ browser }) => {
   const page = await (await browser.newContext()).newPage();
-  await page.goto("/login");
-  await page.keyboard.type(U.owner); // Email is auto-focused
-  await page.keyboard.press("Tab");
-  await page.keyboard.type(U.password);
-  await page.keyboard.press("Enter");
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  await login(page, U.owner, U.password);
 
   await page.keyboard.press("Control+k");
   const search = page.getByRole("dialog", { name: "Search" });

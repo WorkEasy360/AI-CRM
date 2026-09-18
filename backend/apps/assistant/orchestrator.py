@@ -21,9 +21,11 @@ or AI is switched off for the workspace, the same facts, sections and citations 
 
 from __future__ import annotations
 
+import contextlib
 import re
 import time
 import uuid
+from collections.abc import Iterator
 from typing import Any
 
 import structlog
@@ -55,20 +57,42 @@ fallback.NOTICES[REASON_NO_PERMISSION] = (
 )
 
 
+@contextlib.contextmanager
+def _phase(timings: dict[str, int], name: str) -> Iterator[None]:
+    """Time one stage of the answer into ``timings``.
+
+    The stages are measured separately because they behave completely differently: the structured and
+    knowledge lookups are our own database work (bounded, cacheable, and what a timeout should protect),
+    while the model call is someone else's network service and dominates the total. Deciding between a
+    synchronous response, streaming and an async job without that split is guesswork -- see
+    docs/architecture/ai-architecture.md.
+    """
+    started = time.monotonic()
+    try:
+        yield
+    finally:
+        timings[name] = int((time.monotonic() - started) * 1000)
+
+
 def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: Any = None) -> dict[str, Any]:
     """Answer one question. Never raises for "AI is unavailable" -- that is a supported mode."""
     check(actor, "ai.assistant.use")
     question = (question or "").strip()[:MAX_QUESTION_CHARS]
     started = time.monotonic()
+    timings: dict[str, int] = {}
 
-    history = memory.load(actor, conversation_id)
+    with _phase(timings, "memory_ms"):
+        history = memory.load(actor, conversation_id)
     parsed = intent_module.classify(question)
-    records = _resolve_focus(actor, parsed, history)
-    tools = _run_tools(actor, parsed, records)
-    chunks, retrieval_ok = _retrieve(actor, parsed, records, history)
+    with _phase(timings, "structured_ms"):
+        records = _resolve_focus(actor, parsed, history)
+        tools = _run_tools(actor, parsed, records)
+    with _phase(timings, "rag_ms"):
+        chunks, retrieval_ok = _retrieve(actor, parsed, records, history)
 
     reason = _generative_reason(actor)
     if reason:
+        timings["provider_ms"] = 0
         payload = fallback.build(
             question=question,
             intent=parsed,
@@ -79,9 +103,10 @@ def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: An
         )
         model_used, level = "", ""
     else:
-        payload, model_used, level = _generate(
-            actor, question=question, parsed=parsed, tools=tools, chunks=chunks, history=history, request=request
-        )
+        with _phase(timings, "provider_ms"):
+            payload, model_used, level = _generate(
+                actor, question=question, parsed=parsed, tools=tools, chunks=chunks, history=history, request=request
+            )
         payload["degraded_retrieval"] = not retrieval_ok
 
     payload["intent"] = parsed.name
@@ -96,14 +121,35 @@ def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: An
     payload["conversation_id"] = str(conversation.pk)
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
+    timings["total_ms"] = elapsed_ms
     metrics.publish(
         [
             {"name": "AssistantRequest", "value": 1, "unit": "Count", "dimensions": {"Mode": payload["mode"]}},
             {"name": "AssistantLatency", "value": elapsed_ms, "unit": "Milliseconds"},
             {"name": "AssistantChunks", "value": len(chunks), "unit": "Count"},
+            # Per-phase, so "Ask Keel is slow" can be answered with which part.
+            {
+                "name": "AssistantPhaseLatency",
+                "value": timings.get("structured_ms", 0),
+                "unit": "Milliseconds",
+                "dimensions": {"Phase": "structured"},
+            },
+            {
+                "name": "AssistantPhaseLatency",
+                "value": timings.get("rag_ms", 0),
+                "unit": "Milliseconds",
+                "dimensions": {"Phase": "rag"},
+            },
+            {
+                "name": "AssistantPhaseLatency",
+                "value": timings.get("provider_ms", 0),
+                "unit": "Milliseconds",
+                "dimensions": {"Phase": "provider"},
+            },
         ],
         wait=False,  # a request thread: never wait on CloudWatch
     )
+    payload["timings_ms"] = timings
     audit.record(
         "ai.assistant",
         request=request,
@@ -118,6 +164,9 @@ def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: An
             "records": len(records),
             "chunks": len(chunks),
             "latency_ms": elapsed_ms,
+            "structured_ms": timings.get("structured_ms"),
+            "rag_ms": timings.get("rag_ms"),
+            "provider_ms": timings.get("provider_ms"),
             "flagged_input": payload.get("flagged_input", False),
         },
     )

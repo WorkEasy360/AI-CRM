@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_NEXT, isSafeNextPath, loginUrlFor, safeNext } from "@/lib/safe-next";
+import { DEFAULT_NEXT, isSafeNextPath, safeNext } from "@/lib/safe-next";
 
 describe("isSafeNextPath", () => {
   it("accepts same-origin relative paths", () => {
@@ -48,20 +48,9 @@ describe("safeNext", () => {
   });
 
   it("never redirects back into the auth pages", () => {
-    expect(safeNext("/login")).toBe(DEFAULT_NEXT);
-    expect(safeNext("/login?next=/dashboard")).toBe(DEFAULT_NEXT);
-    expect(safeNext("/signup")).toBe(DEFAULT_NEXT);
-    expect(safeNext("/loginish")).toBe("/loginish");
-  });
-});
-
-describe("loginUrlFor", () => {
-  it("encodes the current path into next", () => {
-    expect(loginUrlFor("/settings/members?tab=pending")).toBe("/login?next=%2Fsettings%2Fmembers%3Ftab%3Dpending");
-  });
-
-  it("omits next for unsafe or auth paths", () => {
-    expect(loginUrlFor("//evil")).toBe("/login");
-    expect(loginUrlFor("/login")).toBe("/login");
+    expect(safeNext("/forgot-password")).toBe(DEFAULT_NEXT);
+    expect(safeNext("/reset-password?key=abc")).toBe(DEFAULT_NEXT);
+    expect(safeNext("/verify-email")).toBe(DEFAULT_NEXT);
+    expect(safeNext("/verify-emails")).toBe("/verify-emails");
   });
 });

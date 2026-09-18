@@ -429,6 +429,55 @@ resource "aws_cloudwatch_metric_alarm" "celery_task_failures" {
 }
 
 # ---------------------------------------------------------------------------
+# Dependency health (application's own view)
+#
+# The ALB health check deliberately probes liveness only (alb.tf), so a database
+# or Redis fault no longer expresses itself by evicting every target. It has to
+# page someone instead, which is what these alarms are for. The signal comes
+# from observability.publish_dependency_health, running once a minute on beat.
+#
+# database: paged quickly (2 minutes). Requests needing the database are failing.
+# cache:    slower (5 minutes). Redis down degrades to database-backed sessions
+#           and uncached reads; the application keeps serving, so this is not a
+#           middle-of-the-night page for a transient blip.
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_metric_alarm" "dependency_database" {
+  alarm_name          = "${local.name}-dependency-database"
+  alarm_description   = "The application could not reach PostgreSQL for 2 minutes"
+  namespace           = local.metrics_namespace
+  metric_name         = "DependencyHealthy"
+  statistic           = "Minimum"
+  period              = 60
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  # Missing data means beat is not publishing, which is itself a problem worth seeing.
+  treat_missing_data = "breaching"
+  alarm_actions      = local.alarm_actions
+  ok_actions         = local.alarm_actions
+  dimensions         = { Component = "database" }
+}
+
+resource "aws_cloudwatch_metric_alarm" "dependency_cache" {
+  alarm_name          = "${local.name}-dependency-cache"
+  alarm_description   = "The application could not reach Redis for 5 minutes (degraded, still serving)"
+  namespace           = local.metrics_namespace
+  metric_name         = "DependencyHealthy"
+  statistic           = "Minimum"
+  period              = 60
+  evaluation_periods  = 5
+  datapoints_to_alarm = 5
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+  dimensions          = { Component = "cache" }
+}
+
+# ---------------------------------------------------------------------------
 # WAF (us-east-1)
 # ---------------------------------------------------------------------------
 

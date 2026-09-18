@@ -18,12 +18,12 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.core import records
 from apps.core.api.filters import FilterSet
 from apps.core.api.serializers import BulkActionSerializer, TagIdsSerializer
 from apps.core.api.viewsets import TenantViewSet
 from apps.core.concurrency import expected_version
-from apps.core.records import RecordSpec
+from apps.crm import records
+from apps.crm.records import RecordSpec
 
 
 def crud_permission_map(module: str, **extra: str) -> dict[str, str]:

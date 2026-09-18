@@ -51,9 +51,9 @@ export function ResetPasswordForm() {
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-success-soft text-success">
           <CheckCircle2 className="size-6" aria-hidden />
         </div>
-        <AuthHeading title="Password updated" description="You can now sign in with your new password." />
+        <AuthHeading title="Password updated" description="Your new password is saved." />
         <Button asChild className="w-full">
-          <Link href="/login">Sign in</Link>
+          <Link href="/pipeline">Go to the CRM</Link>
         </Button>
       </div>
     );

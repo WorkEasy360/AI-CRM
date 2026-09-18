@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Lock, LogOut, Moon, Settings, Sun, SunMoon } from "lucide-react";
+import { Building2, Lock, Moon, Settings, Sun, SunMoon } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
-import { logout } from "@/lib/api/allauth";
 import { switchOrganization } from "@/lib/api/endpoints";
 import { errorMessage } from "@/lib/api/problem";
 import type { Session } from "@/lib/api/types";
@@ -37,15 +36,6 @@ export function UserMenu({ session }: { session: Session }) {
   const active = session.active;
   const name = session.user.display_name || session.user.email;
   const switchable = session.memberships.filter((m) => m.status === "active");
-
-  const logoutMutation = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
-      queryClient.clear();
-      router.replace("/login");
-    },
-    onError: (error) => toast({ tone: "error", title: "Sign out failed", description: errorMessage(error) }),
-  });
 
   const switchMutation = useMutation({
     mutationFn: switchOrganization,
@@ -113,10 +103,8 @@ export function UserMenu({ session }: { session: Session }) {
             </DropdownMenuRadioGroup>
           </>
         ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
-          <LogOut /> Sign out
-        </DropdownMenuItem>
+        {/* No "Sign out": there is no sign-in page to come back to, so signing out would only
+            hand the visitor the same session again on the next request. */}
       </DropdownMenuContent>
     </DropdownMenu>
   );

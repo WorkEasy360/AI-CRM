@@ -23,12 +23,30 @@ from apps.authz.actor import Actor
 from apps.authz.catalogue import SCOPE_ALL
 from apps.authz.service import check, scope
 from apps.core.concurrency import save_with_version
+from apps.core.domain_events import RecordChanged, publish
 from apps.core.exceptions import DomainError
 from apps.core.models import CrmRecord
-from apps.dashboards import cache as dashboard_cache
 
 MAX_BULK_IDS = 500
 BULK_ACTIONS = ("archive", "restore", "reassign", "add_tag", "remove_tag")
+
+
+def _announce(actor: Actor, spec: RecordSpec, *, ids, change: str, **kwargs) -> None:
+    """Tell the rest of the system a record changed, inside the caller's transaction.
+
+    Subscribers (integrations outbox, RAG index outbox, dashboard cache) are registered in
+    ``apps.core.domain_events``; this module neither knows nor imports them, which is what keeps the
+    core primitives below the services that consume them.
+    """
+    publish(
+        RecordChanged(
+            organization_id=actor.organization.pk,
+            entity_type=spec.entity_type,
+            entity_ids=tuple(ids),
+            change=change,
+            **kwargs,
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -70,7 +88,6 @@ def resolve_owner(
 def create(
     actor: Actor, spec: RecordSpec, data: dict[str, Any], *, request: Any = None, audit_extra: dict | None = None
 ):
-    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("create"))
     if "custom_data" not in data:
         # Required custom fields apply even when the client omits custom_data entirely.
@@ -80,6 +97,7 @@ def create(
     owner = resolve_owner(actor, spec, data.pop("owner", None), current=None) or actor.membership
     obj = spec.model(**data, owner=owner, created_by=actor.membership, updated_by=actor.membership)
     obj.save()
+    _announce(actor, spec, ids=[obj.pk], change="created", owner_id=owner.pk if owner else None, orm_signals_fired=True)
     audit.record(
         f"{spec.module}.created",
         request=request,
@@ -109,7 +127,6 @@ def update(
     request: Any = None,
     extra_update_fields: list[str] | None = None,
 ):
-    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("update"), obj)
     if obj.archived_at is not None:
         raise DomainError("Restore the record before editing it.", code="record_archived", status_code=409)
@@ -138,6 +155,18 @@ def update(
         return obj
     obj.updated_by = actor.membership
     save_with_version(obj, expected_version, [*changed, "updated_by"])
+    # NOT orm_signals_fired: save_with_version() writes with QuerySet.update() (it has to, to make
+    # the version check and the write one statement), so post_save does not fire for an edit either.
+    # This announcement is the only thing that tells the outboxes a record was edited at all.
+    _announce(
+        actor,
+        spec,
+        ids=[obj.pk],
+        change="reassigned" if "owner" in changed and len(changed) == 1 else "updated",
+        owner_id=obj.owner_id,
+        owner_changed="owner" in changed,
+        fields=tuple(sorted(changed)),
+    )
     metadata["fields"] = sorted(changed)
     audit.record(
         f"{spec.module}.reassigned" if "owner" in changed and len(changed) == 1 else f"{spec.module}.updated",
@@ -163,13 +192,13 @@ def update(
 
 @transaction.atomic
 def archive(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
-    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("delete"), obj)
     if obj.archived_at is not None:
         return obj
     obj.archived_at = timezone.now()
     obj.updated_by = actor.membership
     save_with_version(obj, None, ["archived_at", "updated_by"])
+    _announce(actor, spec, ids=[obj.pk], change="archived", owner_id=obj.owner_id)
     audit.record(
         f"{spec.module}.archived",
         request=request,
@@ -183,13 +212,13 @@ def archive(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
 
 @transaction.atomic
 def restore(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
-    dashboard_cache.invalidate(actor.organization.pk)
     check(actor, spec.perm("delete"), obj)
     if obj.archived_at is None:
         return obj
     obj.archived_at = None
     obj.updated_by = actor.membership
     save_with_version(obj, None, ["archived_at", "updated_by"])
+    _announce(actor, spec, ids=[obj.pk], change="restored", owner_id=obj.owner_id)
     audit.record(
         f"{spec.module}.restored",
         request=request,
@@ -213,7 +242,6 @@ def bulk(
 ) -> dict[str, Any]:
     """Apply one action to many records. Refuses the whole request if any id is outside the scope."""
     check(actor, spec.perm("bulk_update"))
-    dashboard_cache.invalidate(actor.organization.pk)
     if action not in BULK_ACTIONS:
         raise ValidationError({"action": f"Allowed actions: {', '.join(BULK_ACTIONS)}."})
     if len(ids) > MAX_BULK_IDS:
@@ -239,6 +267,8 @@ def bulk(
             updated_at=now,
             version=F("version") + 1,
         )
+        # QuerySet.update() emits no model signal, so the outboxes only learn about this here.
+        _announce(actor, spec, ids=[r.pk for r in records], change="archived" if action == "archive" else "restored")
     elif action == "reassign":
         owner_id = payload.get("owner_id")
         if not owner_id:
@@ -250,6 +280,15 @@ def bulk(
             raise ValidationError({"owner_id": "Unknown member."})
         affected = spec.model.objects.filter(pk__in=[r.pk for r in records]).update(
             owner=owner, updated_by=actor.membership, updated_at=now, version=F("version") + 1
+        )
+        _announce(
+            actor,
+            spec,
+            ids=[r.pk for r in records],
+            change="reassigned",
+            owner_id=owner.pk,
+            owner_changed=True,
+            fields=("owner",),
         )
         metadata["owner_to"] = str(owner.pk)
     elif action in {"add_tag", "remove_tag"}:
@@ -268,6 +307,7 @@ def bulk(
             affected, _ = TaggedItem.objects.filter(
                 tag=tag, entity_type=spec.entity_type, entity_id__in=[r.pk for r in records]
             ).delete()
+        _announce(actor, spec, ids=[r.pk for r in records], change="tagged" if action == "add_tag" else "untagged")
         metadata["tag_id"] = str(tag.pk)
     audit.record(f"{spec.module}.bulk_{action}", request=request, user=actor.user, metadata=metadata)
     return {"action": action, "requested": len(ids), "affected": affected}

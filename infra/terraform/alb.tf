@@ -60,8 +60,17 @@ resource "aws_lb_target_group" "api" {
 
   deregistration_delay = 30
 
+  # LIVENESS, not readiness. A readiness probe here couples target health to the database: during an
+  # RDS failover every API task answers 503 at the same moment, the ALB evicts the entire fleet, and a
+  # 30-second failover becomes a full outage that outlasts it -- the targets have to pass
+  # healthy_threshold checks again before any traffic returns, and there is nowhere to shift load to
+  # because every target failed for the same reason. The application processes were fine throughout.
+  #
+  # So the load balancer asks only "is this process serving?". Requests that need the database fail
+  # individually with a 503 and recover the instant the database does. Dependency health is a
+  # monitoring concern (see the readiness alarm in alarms.tf), not a reason to shoot the fleet.
   health_check {
-    path                = "/health/ready/"
+    path                = "/health/live/"
     protocol            = "HTTP"
     matcher             = "200"
     interval            = 15

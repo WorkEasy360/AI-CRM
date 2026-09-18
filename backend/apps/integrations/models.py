@@ -178,6 +178,11 @@ class SyncJob(TenantModel):
     )
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    # When a backed-off retry becomes due. The wait is held *here*, not as a Celery countdown: a
+    # message parked in the broker for hours outlives the Redis visibility timeout and gets delivered
+    # to a second worker while the first still holds it. ``integrations.drain`` re-enqueues due rows,
+    # exactly as it already does for OutboundDelivery.
+    next_attempt_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [

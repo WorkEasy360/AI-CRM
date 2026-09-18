@@ -288,7 +288,7 @@ def _differs(record: Any, crm_field: str, incoming: Any) -> bool:
 
 def _write(actor: IntegrationActor, entity_type: str, record: Any | None, values: dict[str, Any]) -> Any:
     """Validate with the module's write serializer and save through the CRM service layer."""
-    from apps.core import records
+    from apps.crm import records
 
     bind = binding(entity_type)
     data = _split_values(values)

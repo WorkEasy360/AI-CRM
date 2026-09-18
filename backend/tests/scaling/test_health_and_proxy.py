@@ -36,14 +36,39 @@ def test_probe_paths_are_get_only(db, anon_client):
 
 
 def test_ready_is_503_when_database_check_fails(db, anon_client, monkeypatch):
-    monkeypatch.setattr(health, "_check_database", lambda: False)
+    monkeypatch.setattr(health, "check_database", lambda: False)
     resp = anon_client.get("/health/ready/")
     assert resp.status_code == 503
     assert resp.json() == {"status": "unavailable"}  # which dependency failed is logged, not returned
 
 
+def test_liveness_never_touches_the_database(db, anon_client, monkeypatch):
+    """The load balancer probes this path. It must keep answering 200 through an RDS failover.
+
+    If liveness consulted the database, every API target would fail the same check at the same
+    moment and the ALB would evict the whole fleet over a fault the processes had no part in.
+    """
+
+    def boom():
+        raise AssertionError("liveness must not depend on the database")
+
+    monkeypatch.setattr(health, "check_database", boom)
+    monkeypatch.setattr(health, "check_cache", boom)
+    for path in ("/health/live/", "/health/"):
+        resp = anon_client.get(path)
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
+
+def test_dependency_status_reports_each_component(db, monkeypatch):
+    """Readiness degradation is a monitoring signal; it has to name the component that is down."""
+    monkeypatch.setattr(health, "check_database", lambda: False)
+    monkeypatch.setattr(health, "check_cache", lambda: True)
+    assert health.dependency_status() == {"database": False, "cache": True}
+
+
 def test_ready_stays_up_when_cache_is_down(db, anon_client, monkeypatch):
-    monkeypatch.setattr(health, "_check_cache", lambda: False)
+    monkeypatch.setattr(health, "check_cache", lambda: False)
     assert anon_client.get("/health/ready/").status_code == 200
 
 
@@ -54,7 +79,7 @@ def test_forwarded_ready_requests_do_not_touch_dependencies(db, anon_client, mon
     def boom():
         raise AssertionError("dependency check ran for a forwarded request")
 
-    monkeypatch.setattr(health, "_check_database", boom)
+    monkeypatch.setattr(health, "check_database", boom)
     resp = anon_client.get("/health/ready/", HTTP_X_FORWARDED_FOR="203.0.113.7")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}

@@ -14,6 +14,7 @@ from datetime import timedelta
 import structlog
 from celery import shared_task
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.exceptions import DomainError
@@ -84,13 +85,16 @@ def run_sync_job(*, job_id: str, organization_id, **kwargs) -> str:
     )
     if job is None:
         return "skipped"
+    if job.next_attempt_at and job.next_attempt_at > timezone.now():
+        return "not_due"
     connection = job.connection
     if connection.status == ConnectionStatus.DISABLED or connection.status == ConnectionStatus.DISCONNECTED:
         job.status, job.error_code, job.finished_at = SyncJob.Status.FAILED, "connection_inactive", timezone.now()
         job.save()
         return "cancelled"
     if job.status == SyncJob.Status.PENDING:
-        job.status, job.started_at = SyncJob.Status.PROCESSING, timezone.now()
+        job.status, job.started_at = SyncJob.Status.PROCESSING, job.started_at or timezone.now()
+        job.next_attempt_at = None
         IntegrationConnection.objects.filter(pk=connection.pk).update(status=ConnectionStatus.SYNCING)
         connection.status = ConnectionStatus.SYNCING
     try:
@@ -100,14 +104,15 @@ def run_sync_job(*, job_id: str, organization_id, **kwargs) -> str:
         if exc.retryable and retries < settings.INTEGRATIONS_MAX_DELIVERY_ATTEMPTS:
             from apps.integrations.delivery import backoff_seconds
 
-            job.state = {**(job.state or {}), "retries": retries + 1}
-            job.save()
             delay = backoff_seconds(retries + 1, exc.retry_after)
-            org = str(organization_id)
-            transaction.on_commit(
-                lambda: run_sync_job.apply_async(kwargs={"job_id": job_id, "organization_id": org}, countdown=delay)
-            )
-            return "retrying"
+            # The wait is recorded on the row, not parked in the broker. A backoff can reach hours;
+            # a Celery countdown that long exceeds the Redis visibility timeout, at which point the
+            # broker hands the same message to a second worker while the first still owns it.
+            job.state = {**(job.state or {}), "retries": retries + 1}
+            job.status = SyncJob.Status.PENDING
+            job.next_attempt_at = timezone.now() + timedelta(seconds=delay)
+            job.save()
+            return "retry_scheduled"
         sync.finish_job(job, error=exc)
         return "failed"
     if more:
@@ -162,11 +167,22 @@ def drain() -> dict[str, int]:
             .order_by("next_attempt_at")
             .values_list("pk", "organization_id")[:SWEEP_LIMIT]
         )
+        # Stale jobs *and* jobs whose backoff has come due. Q(next_attempt_at__gt=now) is excluded so
+        # a job deliberately waiting out a provider outage is not dragged back in after ten minutes.
         stale_jobs = list(
             SyncJob.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
                 status__in=[SyncJob.Status.PENDING, SyncJob.Status.PROCESSING],
                 updated_at__lt=now - timedelta(minutes=10),
-            ).values_list("pk", "organization_id")[:100]
+            )
+            .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
+            .values_list("pk", "organization_id")[:100]
+        )
+        due_retries = list(
+            SyncJob.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
+                status=SyncJob.Status.PENDING, next_attempt_at__lte=now
+            )
+            .order_by("next_attempt_at")
+            .values_list("pk", "organization_id")[:100]
         )
         due_connections = list(
             IntegrationConnection.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
@@ -179,7 +195,7 @@ def drain() -> dict[str, int]:
         dispatch_event.delay(event_id=str(pk), organization_id=str(org))
     for pk, org in due_deliveries:
         deliver.delay(delivery_id=str(pk), organization_id=str(org))
-    for pk, org in stale_jobs:
+    for pk, org in {*stale_jobs, *due_retries}:
         run_sync_job.delay(job_id=str(pk), organization_id=str(org))
     for pk, org in due_connections:
         schedule_sync.delay(connection_id=str(pk), organization_id=str(org))

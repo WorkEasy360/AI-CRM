@@ -13,7 +13,15 @@ import httpx
 from django.conf import settings
 from django.utils import timezone
 
-from apps.messaging.providers.base import IncomingEmail, OAuthTokens, OutgoingEmail, ProviderError, SentEmail
+from apps.messaging.providers.base import (
+    IncomingEmail,
+    OAuthTokens,
+    OutgoingEmail,
+    ProviderError,
+    SendCapabilities,
+    SentEmail,
+    rfc822_message_id,
+)
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"  # noqa: S105 - URL, not a secret  # nosec B105 - not a secret
@@ -90,6 +98,10 @@ class GmailProvider:
     def refresh(self, refresh_token: str) -> OAuthTokens:
         return self._tokens({"grant_type": "refresh_token", "refresh_token": refresh_token})
 
+    # Gmail/Graph do not de-duplicate a repeated send, but both preserve and index the
+    # Message-ID we stamp on it, so a lost result can be reconciled instead of resent.
+    capabilities = SendCapabilities(idempotent_send=False, lookup_by_key=True)
+
     def send(self, access_token: str, message: OutgoingEmail) -> SentEmail:
         mime = MimeMessage()
         mime["From"] = message.from_address
@@ -100,6 +112,10 @@ class GmailProvider:
             mime["Bcc"] = ", ".join(message.bcc)
         mime["Subject"] = message.subject
         mime["Date"] = email.utils.formatdate(localtime=False)
+        if message.idempotency_key:
+            # Gmail preserves a supplied Message-ID and indexes it for rfc822msgid: search, which is
+            # what ``find_sent`` uses to answer "did the send that crashed actually go out?".
+            mime["Message-ID"] = rfc822_message_id(message.idempotency_key)
         if message.in_reply_to:
             mime["In-Reply-To"] = message.in_reply_to
             mime["References"] = message.in_reply_to
@@ -116,6 +132,23 @@ class GmailProvider:
             _raise(resp, "send")
             payload = resp.json()
         return SentEmail(provider_message_id=payload.get("id", ""), provider_thread_id=payload.get("threadId", ""))
+
+    def find_sent(self, access_token: str, idempotency_key: str) -> SentEmail | None:
+        """Look the send up by the deterministic Message-ID stamped on it."""
+        if not idempotency_key:
+            return None
+        query = f"rfc822msgid:{rfc822_message_id(idempotency_key).strip('<>')}"
+        with httpx.Client(timeout=TIMEOUT) as client:
+            resp = client.get(
+                f"{API}/messages",
+                params={"q": query, "maxResults": 1},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            _raise(resp, "lookup")
+            found = resp.json().get("messages") or []
+        if not found:
+            return None
+        return SentEmail(provider_message_id=found[0].get("id", ""), provider_thread_id=found[0].get("threadId", ""))
 
     def fetch_recent(self, access_token: str, *, since: dt.datetime, cursor: str) -> tuple[list[IncomingEmail], str]:
         headers = {"Authorization": f"Bearer {access_token}"}

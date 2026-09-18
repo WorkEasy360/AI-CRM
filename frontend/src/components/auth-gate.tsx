@@ -1,26 +1,25 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { logout } from "@/lib/api/allauth";
 import { setUnauthenticatedHandler } from "@/lib/api/client";
 import { bootstrapSession } from "@/lib/api/endpoints";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import type { Session } from "@/lib/api/types";
-import { loginUrlFor } from "@/lib/safe-next";
 import { queryKeys, useSession } from "@/lib/session";
 
 /**
  * Client-side session gate.
  *
- * True server-side gating is not possible here: the Django session cookie is
- * only visible to the browser and to the backend behind the same-origin
- * proxy, not to the Next.js server. So the session is resolved client-side
- * on mount, a skeleton is rendered until it settles, and unauthenticated
- * visitors are bounced to /login?next=<validated path>.
+ * There is no sign-in page: the backend opens the session itself, so this
+ * only resolves it. The Django session cookie is visible to the browser and
+ * to the backend behind the same-origin proxy but not to the Next.js server,
+ * so the session is still fetched client-side on mount and a skeleton is
+ * rendered until it settles. When the session turns out to be missing there
+ * is nowhere to bounce to, so it is refetched (the backend opens a new one)
+ * and a retryable message is shown if that fails too.
  *
  * A signed-in session without an active organization is not a setup step
  * the user has to complete: the gate asks the backend to bootstrap it (the
@@ -29,24 +28,37 @@ import { queryKeys, useSession } from "@/lib/session";
  * permission; this only decides what to render.
  */
 export function AuthGate({ children, fallback }: { children: (session: Session) => React.ReactNode; fallback?: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const session = useSession();
 
-  const currentPath = React.useMemo(() => {
-    const qs = searchParams?.toString();
-    return qs ? `${pathname}?${qs}` : pathname;
-  }, [pathname, searchParams]);
-
-  // Any API call that discovers the session is gone bounces to login.
+  // Any API call that discovers the session is gone re-resolves it instead of redirecting.
+  //
+  // The re-entrancy guard is what makes that terminate. The re-resolve is itself an API call, so when
+  // the session really is gone it answers 401 and lands back in this handler; without the guard each
+  // failure schedules the next refetch, the query never settles, and the gate renders the stale
+  // session forever instead of reporting that it is gone.
+  const resolving = React.useRef(false);
   React.useEffect(() => {
-    setUnauthenticatedHandler(() => router.replace(loginUrlFor(currentPath)));
+    setUnauthenticatedHandler(() => {
+      if (resolving.current) return;
+      resolving.current = true;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session }).finally(() => {
+        resolving.current = false;
+      });
+    });
     return () => setUnauthenticatedHandler(null);
-  }, [router, currentPath]);
+  }, [queryClient]);
 
-  const unauthenticated = session.isError && isApiError(session.error) && session.error.isNotAuthenticated;
+  // Whether that re-resolve found a session. React Query keeps a query in the "success" state when a
+  // *refetch* fails but earlier data is still cached, so `isError` alone never fires here and the gate
+  // would keep rendering the CRM shell for a session the server has already revoked. The failed
+  // attempt is still reported, as `failureReason`, which is what this reads.
+  //
+  // Deliberately scoped to this query's own failure rather than to "any 401 the app saw": one
+  // endpoint answering 403 for its own reasons must not tear the whole shell down.
+  const sessionGone =
+    session.isError || (isApiError(session.failureReason) && session.failureReason.isNotAuthenticated);
+
   const needsBootstrap = session.isSuccess && session.data.active === null;
 
   const bootstrap = useMutation({
@@ -57,31 +69,19 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
   const attempted = React.useRef(false);
 
   React.useEffect(() => {
-    if (unauthenticated) router.replace(loginUrlFor(currentPath));
-  }, [unauthenticated, router, currentPath]);
-
-  React.useEffect(() => {
     if (needsBootstrap && !attempted.current) {
       attempted.current = true;
       runBootstrap();
     }
   }, [needsBootstrap, runBootstrap]);
 
-  const signOut = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
-      queryClient.clear();
-      router.replace("/login");
-    },
-  });
-
-  if (session.isPending || unauthenticated) {
+  if (session.isPending) {
     return <>{fallback ?? <GateSkeleton />}</>;
   }
 
-  if (session.isError) {
+  if (sessionGone) {
     return (
-      <GateMessage title="We couldn't load your session" description={errorMessage(session.error)}>
+      <GateMessage title="We couldn't load your session" description={errorMessage(session.error ?? session.failureReason)}>
         <Button variant="secondary" onClick={() => session.refetch()}>
           Try again
         </Button>
@@ -101,9 +101,6 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
           >
             Try again
           </Button>
-          <Button variant="ghost" onClick={() => signOut.mutate()} loading={signOut.isPending}>
-            Sign out
-          </Button>
         </GateMessage>
       );
     }
@@ -115,8 +112,8 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
           title="No workspace available"
           description={`${session.data.user.email} is not an active member of any organization. Ask your administrator to restore your access.`}
         >
-          <Button variant="secondary" onClick={() => signOut.mutate()} loading={signOut.isPending}>
-            Sign out
+          <Button variant="secondary" onClick={() => session.refetch()}>
+            Try again
           </Button>
         </GateMessage>
       );

@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from django.conf import settings
 
-from apps.messaging.providers.base import OutgoingWhatsApp, ProviderError
+from apps.messaging.providers.base import NO_IDEMPOTENCY, OutgoingWhatsApp, ProviderError
 
 TIMEOUT = httpx.Timeout(20.0, connect=5.0)
 
@@ -30,6 +30,11 @@ def _raise(resp: httpx.Response, what: str) -> None:
 
 
 class WhatsAppCloudProvider:
+    # The Cloud API has no idempotency key and no way to look a send up by one of ours. A send whose
+    # result we lost therefore ends as UNCONFIRMED and is never replayed: a duplicate WhatsApp message
+    # to a customer is worse than a status a human has to close out.
+    capabilities = NO_IDEMPOTENCY
+
     def send(self, access_token: str, phone_number_id: str, message: OutgoingWhatsApp) -> str:
         payload: dict[str, Any] = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": message.to}
         if message.template_name:

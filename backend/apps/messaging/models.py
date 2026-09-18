@@ -7,6 +7,7 @@ same rows.
 
 from __future__ import annotations
 
+import uuid
 from typing import ClassVar
 
 from django.db import models
@@ -23,6 +24,40 @@ class ConnectionStatus(models.TextChoices):
     CONNECTED = "connected", "Connected"
     ERROR = "error", "Needs attention"
     DISCONNECTED = "disconnected", "Disconnected"
+
+
+class SendState(models.TextChoices):
+    """The states an outbound message moves through. Shared by email and WhatsApp.
+
+    QUEUED -> SENDING is a single conditional UPDATE that commits *before* the provider is called,
+    so a redelivered Celery task (or a second worker) matches zero rows and sends nothing. SENDING
+    carries ``provider_attempted_at``: set, it means the provider call was started and may have
+    succeeded, so recovery reconciles instead of resending. UNCONFIRMED is the honest terminal state
+    for "the provider probably has it but we could not prove it" -- never resent automatically.
+    """
+
+    QUEUED = "queued", "Queued"
+    SENDING = "sending", "Sending"
+    SENT = "sent", "Sent"
+    FAILED = "failed", "Failed"
+    UNCONFIRMED = "unconfirmed", "Delivery unconfirmed"
+
+
+class IdempotentSendMixin(models.Model):
+    """Fields that make one outbound send happen at most once.
+
+    ``idempotency_key`` is minted when the message row is created and is unique per organization: it
+    is the key handed to providers that de-duplicate, and the key a sent message is looked up by
+    when a crash loses our record of the provider's answer.
+    """
+
+    idempotency_key = models.UUIDField(default=uuid.uuid4, editable=False)
+    send_attempts = models.PositiveSmallIntegerField(default=0)
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    provider_attempted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
 
 
 class EmailAccount(TenantModel):
@@ -84,18 +119,20 @@ class MessageDirection(models.TextChoices):
     INBOUND = "inbound", "Inbound"
 
 
-class EmailMessage(TenantModel):
+class EmailMessage(IdempotentSendMixin, TenantModel):
     class Status(models.TextChoices):
-        QUEUED = "queued", "Queued"
-        SENT = "sent", "Sent"
-        FAILED = "failed", "Failed"
+        QUEUED = SendState.QUEUED.value, SendState.QUEUED.label
+        SENDING = SendState.SENDING.value, SendState.SENDING.label
+        SENT = SendState.SENT.value, SendState.SENT.label
+        FAILED = SendState.FAILED.value, SendState.FAILED.label
+        UNCONFIRMED = SendState.UNCONFIRMED.value, SendState.UNCONFIRMED.label
         RECEIVED = "received", "Received"
 
     OWNER_FIELD: ClassVar[str | None] = "sent_by"
 
     account = models.ForeignKey(EmailAccount, null=True, blank=True, on_delete=models.SET_NULL, related_name="messages")
     direction = models.CharField(max_length=8, choices=MessageDirection.choices)
-    status = models.CharField(max_length=8, choices=Status.choices, default=Status.QUEUED)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED)
     from_address = models.CharField(max_length=254, blank=True)
     to_addresses = models.JSONField(default=list, blank=True)
     cc_addresses = models.JSONField(default=list, blank=True)
@@ -129,15 +166,21 @@ class EmailMessage(TenantModel):
             models.Index(fields=["organization", "company", "-created_at"], name="email_org_company_idx"),
             models.Index(fields=["organization", "sent_by", "-created_at"], name="email_org_sender_idx"),
             models.Index(fields=["organization", "provider_thread_id"], name="email_org_thread_idx"),
+            # The reconciliation sweeper reads exactly this: sends stuck mid-flight, oldest first.
+            models.Index(fields=["status", "claimed_at"], name="email_status_claimed_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["organization", "account", "provider_message_id"],
                 condition=~models.Q(provider_message_id=""),
                 name="uniq_email_provider_message",
-            )
+            ),
+            models.UniqueConstraint(fields=["organization", "idempotency_key"], name="uniq_email_idempotency_key"),
         ]
         ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.direction} email {self.status}: {self.subject[:40]}"
 
 
 class EmailAttachment(TenantModel):
@@ -189,13 +232,15 @@ class WhatsAppTemplate(TenantModel):
         ordering = ["name"]
 
 
-class WhatsAppMessage(TenantModel):
+class WhatsAppMessage(IdempotentSendMixin, TenantModel):
     class Status(models.TextChoices):
-        QUEUED = "queued", "Queued"
-        SENT = "sent", "Sent"
+        QUEUED = SendState.QUEUED.value, SendState.QUEUED.label
+        SENDING = SendState.SENDING.value, SendState.SENDING.label
+        SENT = SendState.SENT.value, SendState.SENT.label
         DELIVERED = "delivered", "Delivered"
         READ = "read", "Read"
-        FAILED = "failed", "Failed"
+        FAILED = SendState.FAILED.value, SendState.FAILED.label
+        UNCONFIRMED = SendState.UNCONFIRMED.value, SendState.UNCONFIRMED.label
         RECEIVED = "received", "Received"
 
     class Type(models.TextChoices):
@@ -208,7 +253,7 @@ class WhatsAppMessage(TenantModel):
         WhatsAppAccount, null=True, blank=True, on_delete=models.SET_NULL, related_name="messages"
     )
     direction = models.CharField(max_length=8, choices=MessageDirection.choices)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.QUEUED)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED)
     wa_id = models.CharField(max_length=32)  # customer phone in E.164 digits
     message_type = models.CharField(max_length=10, choices=Type.choices, default=Type.TEXT)
     body = models.TextField(blank=True)
@@ -237,12 +282,17 @@ class WhatsAppMessage(TenantModel):
             models.Index(fields=["organization", "wa_id", "-created_at"], name="wa_org_waid_idx"),
             models.Index(fields=["organization", "contact", "-created_at"], name="wa_org_contact_idx"),
             models.Index(fields=["organization", "deal", "-created_at"], name="wa_org_deal_idx"),
+            models.Index(fields=["status", "claimed_at"], name="wa_status_claimed_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["organization", "provider_message_id"],
                 condition=~models.Q(provider_message_id=""),
                 name="uniq_whatsapp_provider_message",
-            )
+            ),
+            models.UniqueConstraint(fields=["organization", "idempotency_key"], name="uniq_whatsapp_idempotency_key"),
         ]
         ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.direction} whatsapp {self.status} to {self.wa_id}"

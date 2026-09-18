@@ -92,9 +92,7 @@ test("forgot password gives a generic answer, resets securely and signs in", asy
   test.setTimeout(180_000); // the reset route may compile on first use in dev mode
   const { rep, password } = users();
 
-  await page.goto("/login");
-  await page.getByRole("link", { name: "Forgot password?" }).click();
-  await page.waitForURL(/\/forgot-password/);
+  await page.goto("/forgot-password");
   await fillEmail(page, `nobody-${RUN_ID}@e2e.keel.test`);
   await page.getByRole("button", { name: "Send reset link" }).click();
   const generic = "If an account exists for this email, password reset instructions have been sent.";

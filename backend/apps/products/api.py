@@ -9,7 +9,7 @@ from apps.core.api.crm import CrmViewSet, crud_permission_map
 from apps.core.api.filters import Filter, FilterSet
 from apps.core.api.serializers import CrmReadSerializer, CustomDataField, owner_field
 from apps.core.exceptions import ConflictError
-from apps.core.records import RecordSpec
+from apps.crm.records import RecordSpec
 from apps.products.models import Product
 
 SPEC = RecordSpec(module="products", entity_type="product", model=Product, display=lambda p: p.name)

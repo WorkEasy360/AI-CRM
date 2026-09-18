@@ -19,11 +19,12 @@ import uuid
 from base64 import urlsafe_b64encode
 from typing import Any
 
+import structlog
 from django.conf import settings
 from django.core.cache import cache
 from django.core.validators import EmailValidator
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -32,6 +33,7 @@ from apps.authz.actor import Actor
 from apps.authz.service import check, scope
 from apps.core import crypto, validators
 from apps.core.exceptions import DomainError
+from apps.core.tenancy.context import tenant_atomic
 from apps.messaging import providers
 from apps.messaging.models import (
     ConnectionStatus,
@@ -46,6 +48,8 @@ from apps.messaging.models import (
     WhatsAppTemplate,
 )
 from apps.messaging.providers.base import OutgoingEmail, OutgoingWhatsApp, ProviderError
+
+log = structlog.get_logger(__name__)
 
 MAX_RECIPIENTS = 20
 MAX_BODY = 50_000
@@ -479,17 +483,75 @@ def _store_attachment(message: EmailMessage, filename: str, content_type: str, b
     )
 
 
-def deliver_email(message: EmailMessage) -> None:
-    """Task body: send through the provider, record the result (never raises to the worker)."""
+# ----------------------------------------------------------------------------- idempotent delivery
+#
+# One logical send must reach the customer at most once, whatever Celery, the network or the
+# database do. The order of commits is the whole design:
+#
+#   1. CLAIM      QUEUED -> SENDING in a single conditional UPDATE, committed before anything else.
+#                 A redelivered task, a second worker, or a retry after a timeout all run the same
+#                 UPDATE and match zero rows, so exactly one caller ever proceeds to step 2.
+#   2. MARK       record ``provider_attempted_at`` and commit. From here on the honest answer to
+#                 "did this send go out?" is "maybe", so recovery reconciles and never resends.
+#   3. SEND       call the provider with no transaction open, carrying the idempotency key.
+#   4. SETTLE     SENDING -> SENT (or FAILED) and commit.
+#
+# A crash between 2 and 4 leaves a SENDING row for ``reconcile_stuck_sends``: it asks a provider
+# that can look a send up by key, and otherwise settles on UNCONFIRMED rather than risk a duplicate.
+# A crash between 1 and 2 leaves ``provider_attempted_at`` NULL, which is provably "never sent", so
+# that one is safely returned to QUEUED.
+#
+# Every step runs in ``tenant_atomic()``: these tasks are ``atomic=False`` because they must commit
+# as they go, so each transaction re-applies the RLS context it needs.
+
+
+def claim_email(message_id: uuid.UUID, *, actor_membership_id: uuid.UUID) -> EmailMessage | None:
+    """Take exclusive ownership of a queued send. None when someone else already owns it."""
+    now = timezone.now()
+    with tenant_atomic():
+        claimed = EmailMessage.objects.filter(
+            pk=message_id, status=EmailMessage.Status.QUEUED, sent_by_id=actor_membership_id
+        ).update(
+            status=EmailMessage.Status.SENDING,
+            claimed_at=now,
+            send_attempts=F("send_attempts") + 1,
+            updated_at=now,
+        )
+        if not claimed:
+            return None
+        return (
+            EmailMessage.objects.select_related("account", "contact", "company", "deal").filter(pk=message_id).first()
+        )
+
+
+def deliver_email(message: EmailMessage) -> str:
+    """Send a claimed message through the provider and settle it. Never raises to the worker."""
     from apps.importexport import storage
 
     account = message.account
     if account is None or not account.is_usable:
         _fail_email(message, "The mailbox is no longer connected.")
-        return
+        return "failed"
     try:
+        with tenant_atomic():
+            blobs = [(a.filename, a.content_type, storage.read(a.storage_key)) for a in message.attachments.all()]
         token = access_token_for(account)
-        blobs = [(a.filename, a.content_type, storage.read(a.storage_key)) for a in message.attachments.all()]
+    except crypto.DecryptionError:
+        mark_account_error(account, "Reconnect your mailbox.")
+        _fail_email(message, "Stored credentials could not be read.")
+        return "failed"
+    except ProviderError as exc:
+        if exc.status in {401, 403}:
+            mark_account_error(account, "Reconnect your mailbox: the provider rejected the credentials.")
+        _fail_email(message, exc.message)
+        return "failed"
+
+    # Commit "we are about to call the provider" before calling it. Everything past this point is
+    # recoverable only by reconciliation.
+    with tenant_atomic():
+        now = timezone.now()
+        EmailMessage.objects.filter(pk=message.pk).update(provider_attempted_at=now, updated_at=now)
+    try:
         result = providers.email_provider(account.provider).send(
             token,
             OutgoingEmail(
@@ -502,49 +564,69 @@ def deliver_email(message: EmailMessage) -> None:
                 in_reply_to=message.in_reply_to,
                 thread_id=message.provider_thread_id,
                 attachments=blobs,
+                idempotency_key=str(message.idempotency_key),
             ),
         )
     except ProviderError as exc:
         if exc.status in {401, 403}:
             mark_account_error(account, "Reconnect your mailbox: the provider rejected the credentials.")
         _fail_email(message, exc.message)
-        return
+        return "failed"
     except crypto.DecryptionError:
         mark_account_error(account, "Reconnect your mailbox.")
         _fail_email(message, "Stored credentials could not be read.")
-        return
+        return "failed"
+    settle_email_sent(message, result)
+    return "sent"
+
+
+def settle_email_sent(message: EmailMessage, result) -> None:
+    """Record a provider success. Guarded on the in-flight states so it is safe to replay."""
+    from apps.importexport import storage
+
     now = timezone.now()
-    EmailMessage.objects.filter(pk=message.pk).update(
-        status=EmailMessage.Status.SENT,
-        sent_at=now,
-        provider_message_id=result.provider_message_id[:255],
-        provider_thread_id=(result.provider_thread_id or message.provider_thread_id)[:255],
-        error_message="",
-        updated_at=now,
-    )
-    for a in message.attachments.all():
+    with tenant_atomic():
+        EmailMessage.objects.filter(
+            pk=message.pk, status__in=[EmailMessage.Status.SENDING, EmailMessage.Status.UNCONFIRMED]
+        ).update(
+            status=EmailMessage.Status.SENT,
+            sent_at=now,
+            provider_message_id=result.provider_message_id[:255],
+            provider_thread_id=(result.provider_thread_id or message.provider_thread_id)[:255],
+            error_message="",
+            updated_at=now,
+        )
+        touch_last_activity(contact=message.contact, company=message.company, deal=message.deal, when=now)
+        audit.record(
+            "email.sent",
+            organization_id=message.organization_id,
+            resource=message,
+            resource_type="email",
+            metadata={
+                "provider": message.account.provider if message.account else "",
+                "recipients": len(message.to_addresses),
+                "attempt": message.send_attempts,
+            },
+        )
+        attachments = list(message.attachments.all())
+    for a in attachments:
         storage.delete(a.storage_key)
-    touch_last_activity(contact=message.contact, company=message.company, deal=message.deal, when=now)
-    audit.record(
-        "email.sent",
-        organization_id=message.organization_id,
-        resource=message,
-        resource_type="email",
-        metadata={"provider": account.provider, "recipients": len(message.to_addresses)},
-    )
 
 
 def _fail_email(message: EmailMessage, reason: str) -> None:
-    EmailMessage.objects.filter(pk=message.pk).update(
-        status=EmailMessage.Status.FAILED, error_message=reason[:255], updated_at=timezone.now()
-    )
-    audit.record(
-        "email.failed",
-        organization_id=message.organization_id,
-        resource=message,
-        resource_type="email",
-        metadata={"reason": reason[:255]},
-    )
+    """Settle a claimed send as failed. Only a SENDING row is settled, so a late failure from a
+    superseded attempt can never overwrite a success recorded by the attempt that owns the row."""
+    with tenant_atomic():
+        EmailMessage.objects.filter(pk=message.pk, status=EmailMessage.Status.SENDING).update(
+            status=EmailMessage.Status.FAILED, error_message=reason[:255], updated_at=timezone.now()
+        )
+        audit.record(
+            "email.failed",
+            organization_id=message.organization_id,
+            resource=message,
+            resource_type="email",
+            metadata={"reason": reason[:255], "attempt": message.send_attempts},
+        )
 
 
 def can_view_message(actor: Actor, message: Any) -> bool:
@@ -855,13 +937,43 @@ def send_whatsapp(actor: Actor, data: dict[str, Any], *, request: Any = None) ->
     return message
 
 
-def deliver_whatsapp(message: WhatsAppMessage) -> None:
+def claim_whatsapp(message_id: uuid.UUID, *, actor_membership_id: uuid.UUID) -> WhatsAppMessage | None:
+    """Take exclusive ownership of a queued send. None when someone else already owns it."""
+    now = timezone.now()
+    with tenant_atomic():
+        claimed = WhatsAppMessage.objects.filter(
+            pk=message_id, status=WhatsAppMessage.Status.QUEUED, sent_by_id=actor_membership_id
+        ).update(
+            status=WhatsAppMessage.Status.SENDING,
+            claimed_at=now,
+            send_attempts=F("send_attempts") + 1,
+            updated_at=now,
+        )
+        if not claimed:
+            return None
+        return (
+            WhatsAppMessage.objects.select_related("account", "template", "contact", "company", "deal")
+            .filter(pk=message_id)
+            .first()
+        )
+
+
+def deliver_whatsapp(message: WhatsAppMessage) -> str:
+    """Same four-step contract as email. The Cloud API cannot de-duplicate or look a send up by our
+    key, so a lost result here always ends as UNCONFIRMED rather than being replayed."""
     account = message.account
     if account is None or account.status != ConnectionStatus.CONNECTED:
         _fail_whatsapp(message, "WhatsApp is no longer connected.")
-        return
+        return "failed"
     try:
         token = crypto.decrypt(account.access_token_enc)
+    except crypto.DecryptionError:
+        _fail_whatsapp(message, "Stored credentials could not be read.")
+        return "failed"
+    with tenant_atomic():
+        now = timezone.now()
+        WhatsAppMessage.objects.filter(pk=message.pk).update(provider_attempted_at=now, updated_at=now)
+    try:
         provider_id = providers.whatsapp_provider().send(
             token,
             account.phone_number_id,
@@ -871,40 +983,134 @@ def deliver_whatsapp(message: WhatsAppMessage) -> None:
                 template_name=message.template.name if message.template_id and message.template else "",
                 template_language=message.template.language if message.template_id and message.template else "en",
                 template_params=list(message.template_params),
+                idempotency_key=str(message.idempotency_key),
             ),
         )
     except (ProviderError, crypto.DecryptionError) as exc:
         _fail_whatsapp(message, getattr(exc, "message", "Could not send the message."))
-        return
+        return "failed"
+    settle_whatsapp_sent(message, provider_id)
+    return "sent"
+
+
+def settle_whatsapp_sent(message: WhatsAppMessage, provider_id: str) -> None:
     now = timezone.now()
-    WhatsAppMessage.objects.filter(pk=message.pk).update(
-        status=WhatsAppMessage.Status.SENT,
-        sent_at=now,
-        provider_message_id=provider_id[:255],
-        error_message="",
-        updated_at=now,
-    )
-    touch_last_activity(contact=message.contact, company=message.company, deal=message.deal, when=now)
-    audit.record(
-        "whatsapp.sent",
-        organization_id=message.organization_id,
-        resource=message,
-        resource_type="whatsapp",
-        metadata={"type": message.message_type},
-    )
+    with tenant_atomic():
+        WhatsAppMessage.objects.filter(
+            pk=message.pk, status__in=[WhatsAppMessage.Status.SENDING, WhatsAppMessage.Status.UNCONFIRMED]
+        ).update(
+            status=WhatsAppMessage.Status.SENT,
+            sent_at=now,
+            provider_message_id=provider_id[:255],
+            error_message="",
+            updated_at=now,
+        )
+        touch_last_activity(contact=message.contact, company=message.company, deal=message.deal, when=now)
+        audit.record(
+            "whatsapp.sent",
+            organization_id=message.organization_id,
+            resource=message,
+            resource_type="whatsapp",
+            metadata={"type": message.message_type, "attempt": message.send_attempts},
+        )
 
 
 def _fail_whatsapp(message: WhatsAppMessage, reason: str) -> None:
-    WhatsAppMessage.objects.filter(pk=message.pk).update(
-        status=WhatsAppMessage.Status.FAILED, error_message=reason[:255], updated_at=timezone.now()
-    )
-    audit.record(
-        "whatsapp.failed",
-        organization_id=message.organization_id,
-        resource=message,
-        resource_type="whatsapp",
-        metadata={"reason": reason[:255]},
-    )
+    with tenant_atomic():
+        WhatsAppMessage.objects.filter(pk=message.pk, status=WhatsAppMessage.Status.SENDING).update(
+            status=WhatsAppMessage.Status.FAILED, error_message=reason[:255], updated_at=timezone.now()
+        )
+        audit.record(
+            "whatsapp.failed",
+            organization_id=message.organization_id,
+            resource=message,
+            resource_type="whatsapp",
+            metadata={"reason": reason[:255], "attempt": message.send_attempts},
+        )
+
+
+# ----------------------------------------------------------------------------- crash reconciliation
+
+
+def reconcile_email(message: EmailMessage) -> str:
+    """Decide what really happened to one send that was claimed and never settled.
+
+    ``provider_attempted_at`` is NULL  -> the provider was never called. Provably not sent, so the
+                                         message goes back to QUEUED for a normal retry.
+    the provider can look a send up    -> ask it. Found means SENT (with the real identifiers);
+                                         not found means it never left, so QUEUED again.
+    otherwise                          -> UNCONFIRMED. Never resent: a duplicate message to a
+                                         customer is worse than a status someone has to close out.
+    """
+    account = message.account
+    if message.provider_attempted_at is None:
+        return _requeue_email(message, "the provider was never called")
+    if account is not None and account.is_usable:
+        adapter = providers.email_provider(account.provider)
+        if getattr(adapter, "capabilities", None) is not None and adapter.capabilities.lookup_by_key:
+            try:
+                found = adapter.find_sent(access_token_for(account), str(message.idempotency_key))
+            except Exception as exc:  # a provider lookup must never break the sweeper
+                log.warning("messaging.reconcile_lookup_failed", message_id=str(message.pk), error=str(exc)[:200])
+            else:
+                if found is not None:
+                    settle_email_sent(message, found)
+                    _audit_reconciled(message, "email", outcome="sent")
+                    return "sent"
+                return _requeue_email(message, "the provider has no record of it")
+    return _mark_email_unconfirmed(message)
+
+
+def _requeue_email(message: EmailMessage, reason: str) -> str:
+    with tenant_atomic():
+        EmailMessage.objects.filter(pk=message.pk, status=EmailMessage.Status.SENDING).update(
+            status=EmailMessage.Status.QUEUED, claimed_at=None, provider_attempted_at=None, updated_at=timezone.now()
+        )
+    _audit_reconciled(message, "email", outcome="requeued", reason=reason)
+    return "requeued"
+
+
+def _mark_email_unconfirmed(message: EmailMessage) -> str:
+    with tenant_atomic():
+        EmailMessage.objects.filter(pk=message.pk, status=EmailMessage.Status.SENDING).update(
+            status=EmailMessage.Status.UNCONFIRMED,
+            error_message="The provider accepted this message but the result was lost; it was not sent again.",
+            updated_at=timezone.now(),
+        )
+    _audit_reconciled(message, "email", outcome="unconfirmed")
+    return "unconfirmed"
+
+
+def reconcile_whatsapp(message: WhatsAppMessage) -> str:
+    if message.provider_attempted_at is None:
+        with tenant_atomic():
+            WhatsAppMessage.objects.filter(pk=message.pk, status=WhatsAppMessage.Status.SENDING).update(
+                status=WhatsAppMessage.Status.QUEUED,
+                claimed_at=None,
+                provider_attempted_at=None,
+                updated_at=timezone.now(),
+            )
+        _audit_reconciled(message, "whatsapp", outcome="requeued", reason="the provider was never called")
+        return "requeued"
+    with tenant_atomic():
+        WhatsAppMessage.objects.filter(pk=message.pk, status=WhatsAppMessage.Status.SENDING).update(
+            status=WhatsAppMessage.Status.UNCONFIRMED,
+            error_message="The provider accepted this message but the result was lost; it was not sent again.",
+            updated_at=timezone.now(),
+        )
+    _audit_reconciled(message, "whatsapp", outcome="unconfirmed")
+    return "unconfirmed"
+
+
+def _audit_reconciled(message: Any, channel: str, *, outcome: str, reason: str = "") -> None:
+    with tenant_atomic():
+        audit.record(
+            f"{channel}.send_reconciled",
+            organization_id=message.organization_id,
+            resource=message,
+            resource_type=channel,
+            metadata={"outcome": outcome, "reason": reason, "attempt": message.send_attempts},
+        )
 
 
 def record_inbound_whatsapp(

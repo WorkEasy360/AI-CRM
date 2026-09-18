@@ -14,9 +14,11 @@ from apps.audit import service as audit
 from apps.authz.actor import Actor
 from apps.authz.service import check
 from apps.contacts.models import Contact
-from apps.core import records, validators
+from apps.core import validators
+from apps.core.domain_events import RecordChanged, publish
 from apps.core.exceptions import ConflictError, DomainError
-from apps.core.records import RecordSpec
+from apps.crm import records
+from apps.crm.records import RecordSpec
 from apps.dashboards import cache as dashboard_cache
 from apps.deals.models import Deal, DealContact, DealProduct, DealStageHistory
 from apps.pipelines.models import Pipeline, PipelineStage
@@ -205,6 +207,18 @@ def move_stage(
         raise ConflictError("The deal was modified by someone else. Reload and try again.", code="version_conflict")
     deal.version = expected_version + 1
     deal.updated_at = now
+    # The stage move is a QuerySet.update(): no post_save fires, so webhooks and the knowledge index
+    # would never hear about the single most important event in the pipeline without this.
+    publish(
+        RecordChanged(
+            organization_id=deal.organization_id,
+            entity_type="deal",
+            entity_ids=(deal.pk,),
+            change="stage_changed",
+            owner_id=deal.owner_id,
+            fields=tuple(sorted(fields)),
+        )
+    )
     DealStageHistory.objects.create(
         deal=deal,
         from_stage=from_stage,

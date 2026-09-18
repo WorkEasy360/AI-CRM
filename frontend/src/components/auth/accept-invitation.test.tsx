@@ -105,7 +105,7 @@ describe("AcceptInvitation", () => {
     expect(registerWithInvitation).not.toHaveBeenCalled();
   });
 
-  it("asks existing account holders to sign in instead", async () => {
+  it("tells existing account holders the account is already there", async () => {
     const user = userEvent.setup();
     vi.mocked(registerWithInvitation).mockRejectedValue(
       new ApiError({ type: "account_exists", title: "Conflict", status: 409, detail: "An account already exists." }),
@@ -114,8 +114,8 @@ describe("AcceptInvitation", () => {
     await user.type(await screen.findByLabelText("Password"), "correct-horse-battery");
     await user.type(screen.getByLabelText("Confirm password"), "correct-horse-battery");
     await user.click(screen.getByRole("button", { name: "Create account and join" }));
-    const link = await screen.findByRole("link", { name: "Sign in to accept" });
-    expect(link).toHaveAttribute("href", `/login?next=${encodeURIComponent("/invitations/accept?token=tok_123")}`);
+    const link = await screen.findByRole("link", { name: "Go to the CRM" });
+    expect(link).toHaveAttribute("href", "/pipeline");
   });
 
   it("shows a generic message for invalid, used or expired links", async () => {

@@ -26,18 +26,32 @@ export function users(): E2EUsers {
 
 export const RUN_ID = Date.now().toString(36);
 
+export const ALLAUTH = "/_allauth/browser/v1";
+
+/**
+ * Sign in as a specific user. There is no sign-in page: the backend opens a session by itself,
+ * so this drops whatever session exists and authenticates through the headless allauth endpoint
+ * the removed form used to POST to. Users with MFA enrolled stop at 401 (second factor pending).
+ */
 export async function login(page: Page, email: string, password: string): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
+  await page.goto("/");
+  await apiFromPage(page, "GET", "/api/v1/session/"); // seeds the CSRF cookie
+  await signOut(page);
+  const res = await apiFromPage(page, "POST", `${ALLAUTH}/auth/login`, { email, password });
+  if (res.status !== 200) throw new Error(`login failed for ${email}: HTTP ${res.status}`);
+  await page.goto("/pipeline");
+  // Wait for the shell, not for a particular navigation: "Primary" is the desktop sidebar and is
+  // deliberately hidden behind the drawer at phone and tablet widths, so asserting it here would
+  // fail every mobile-viewport test that signs in.
+  await expect(
+    page.getByRole("navigation", { name: "Primary" }).or(page.getByRole("navigation", { name: "Quick navigation" })).first(),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
+/** Drop the current session. allauth answers 401 once it is gone; that is success. */
 export async function signOut(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
-  await page.waitForURL(/\/login/);
+  const res = await apiFromPage(page, "DELETE", `${ALLAUTH}/auth/session`);
+  if (res.status !== 200 && res.status !== 401) throw new Error(`sign out failed: HTTP ${res.status}`);
 }
 
 /** Pick an option in a Radix select whose trigger carries the given accessible name. */

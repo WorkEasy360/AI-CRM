@@ -27,6 +27,7 @@ from apps.authz.reauth import require_recent_auth
 from apps.authz.roles import ADMIN, ASSIGNABLE_BY_ADMIN, OWNER, SYSTEM_ROLES
 from apps.authz.service import check
 from apps.core import validators
+from apps.core.domain_events import OrganizationCreated, publish_bootstrap
 from apps.core.exceptions import ConflictError, DomainError
 from apps.core.tenancy.context import get_context, set_db_user, system_context, tenant_context
 from apps.core.tenancy.middleware import ACTIVE_MEMBERSHIP_KEY
@@ -115,10 +116,10 @@ def create_organization(
         audit.record(
             actions.ORG_CREATED, request=request, user=user, resource=org, metadata={"name": name, "source": source}
         )
-        # Every organization starts with a usable sales pipeline (Phase 2).
-        from apps.pipelines.services import ensure_default_pipeline
-
-        ensure_default_pipeline()
+        # Every organization starts with the seed state its modules need (a usable sales pipeline
+        # today). Announced rather than called: accounts must not depend on what a pipeline is.
+        # Subscribers register from their own AppConfig.ready(); see apps/core/domain_events.py.
+        publish_bootstrap(OrganizationCreated(organization_id=org.pk))
     if request is not None:
         request.session.cycle_key()
         set_active_membership(request, membership)

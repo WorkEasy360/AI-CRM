@@ -11,13 +11,14 @@ import csv
 import io
 import uuid
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
 import structlog
 from django.conf import settings
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
@@ -25,8 +26,9 @@ from apps.accounts.models import Membership
 from apps.audit import service as audit
 from apps.authz.actor import Actor, build_actor
 from apps.authz.service import check, scope
-from apps.core import records
 from apps.core.exceptions import DomainError
+from apps.core.tenancy.context import tenant_atomic
+from apps.crm import records
 from apps.dashboards import cache as dashboard_cache
 from apps.importexport import csvsafe, storage
 from apps.importexport.models import ExportJob, ImportJob, JobStatus
@@ -350,70 +352,188 @@ def _resolve_company(actor: Actor, name: str, *, create: bool) -> Any:
     return records.create(actor, COMPANY_SPEC, {"name": name}, request=None)
 
 
+# ----------------------------------------------------------------------------- importing
+#
+# An import is PARTIAL and RESUMABLE, never all-or-nothing. That choice is deliberate and is what the
+# UI, the API and the error report all promise:
+#
+#   - rows are processed in batches of ``settings.IMPORT_BATCH_SIZE``;
+#   - one batch is one transaction. Every row in it commits together, or none of it does;
+#   - a row that fails validation is *reported* and skipped (its own savepoint), so one bad row
+#     never discards the good rows around it;
+#   - the progress counters and the checkpoint are written **in the same transaction as the rows they
+#     describe**. What the progress bar shows is therefore exactly what is in the database -- there is
+#     no window in which a row exists but is uncounted, or is counted but rolled back;
+#   - a job whose worker dies is resumed from ``checkpoint_row`` by the sweeper. Rows inside already
+#     committed batches are skipped, so resuming can never create a record twice.
+#
+# The thing this replaces was one transaction around the whole file: progress was invisible until the
+# end, a 100k-row import held one transaction (and its locks and its snapshot) for minutes, and a
+# failure at row 99,000 threw away everything.
+
+
+def _import_batches(rows, batch_size: int):
+    """Group ``(row_number, row)`` pairs into lists of at most ``batch_size``."""
+    batch = []
+    for item in rows:
+        batch.append(item)
+        if len(batch) >= batch_size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
+
 def process_import(job: ImportJob, actor: Actor) -> ImportJob:
-    """Run inside the task's tenant context. Each row is its own savepoint so bad rows are reported, not fatal."""
+    """Run one import to completion, committing as it goes. Safe to call again after a crash."""
     spec, serializer_class = _spec_and_serializer(job.entity_type)
     permission = f"{_module_for(job.entity_type)}.import"
     check(actor, permission, job)
     if job.requested_by_id != actor.membership.pk:
         raise PermissionDenied(code="permission_denied")
-    job.status = JobStatus.RUNNING
-    job.started_at = timezone.now()
-    job.save(update_fields=["status", "started_at", "updated_at"])
+
+    with tenant_atomic():
+        started = job.started_at or timezone.now()
+        ImportJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.RUNNING, started_at=started, attempts=F("attempts") + 1, updated_at=timezone.now()
+        )
+        job.refresh_from_db()
     dashboard_cache.invalidate(job.organization_id)
+
     raw = storage.read(job.storage_key)
-    errors: list[dict[str, Any]] = []
-    created = processed = failed = 0
+    # Resume point: every row at or below this number is already committed.
+    resume_after = job.checkpoint_row
+    state = _ImportState(
+        processed=job.processed_rows, created=job.created_rows, failed=job.error_rows, errors=list(job.errors or [])
+    )
     company_cache: dict[str, Any] = {}
     create_companies = bool(job.options.get("create_companies", True)) and job.entity_type == "contact"
-    for row_no, row in csvsafe.iter_rows(raw, job.headers):
-        processed += 1
-        payload, company_name = _row_payload(job.entity_type, row, job.mapping)
-        try:
-            with transaction.atomic():
-                if company_name:
-                    key = company_name.lower()
-                    if key not in company_cache:
-                        company_cache[key] = _resolve_company(actor, company_name, create=create_companies)
-                    if company_cache[key] is not None:
-                        payload["company_id"] = company_cache[key].pk
-                ser = serializer_class(data=payload, context={"actor": actor})
-                ser.is_valid(raise_exception=True)
-                records.create(
-                    actor, spec, ser.validated_data, request=None, audit_extra={"import_job_id": str(job.pk)}
-                )
-            created += 1
-        except ValidationError as exc:
-            failed += 1
-            if len(errors) < MAX_IMPORT_ERRORS_STORED:
-                errors.append({"row": row_no, "errors": _flatten(exc.detail)})
-        except (DomainError, PermissionDenied) as exc:
-            failed += 1
-            if len(errors) < MAX_IMPORT_ERRORS_STORED:
-                errors.append(
-                    {
-                        "row": row_no,
-                        "errors": [{"field": "non_field_errors", "message": str(getattr(exc, "message", exc))[:200]}],
-                    }
-                )
-        if processed % 200 == 0:
-            ImportJob.objects.filter(pk=job.pk).update(
-                processed_rows=processed, created_rows=created, error_rows=failed, updated_at=timezone.now()
-            )
-    job.processed_rows, job.created_rows, job.error_rows, job.errors = processed, created, failed, errors
-    job.status = JobStatus.COMPLETED
-    job.finished_at = timezone.now()
-    job.save(
-        update_fields=["processed_rows", "created_rows", "error_rows", "errors", "status", "finished_at", "updated_at"]
-    )
+    batch_size = max(1, settings.IMPORT_BATCH_SIZE)
+
+    pending = ((n, row) for n, row in csvsafe.iter_rows(raw, job.headers) if n > resume_after)
+    for batch in _import_batches(pending, batch_size):
+        _run_batch(
+            job,
+            actor,
+            spec,
+            serializer_class,
+            batch,
+            state=state,
+            company_cache=company_cache,
+            create_companies=create_companies,
+        )
+
+    with tenant_atomic():
+        ImportJob.objects.filter(pk=job.pk).update(
+            processed_rows=state.processed,
+            created_rows=state.created,
+            error_rows=state.failed,
+            errors=state.errors,
+            status=JobStatus.COMPLETED,
+            finished_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        audit.record(
+            "imports.completed",
+            user=actor.user,
+            resource=job,
+            metadata={
+                "entity_type": job.entity_type,
+                "created": state.created,
+                "errors": state.failed,
+                "resumed_from_row": resume_after,
+            },
+        )
     storage.delete(job.storage_key)
-    audit.record(
-        "imports.completed",
-        user=actor.user,
-        resource=job,
-        metadata={"entity_type": job.entity_type, "created": created, "errors": failed},
-    )
+    job.refresh_from_db()
     return job
+
+
+@dataclass
+class _ImportState:
+    processed: int = 0
+    created: int = 0
+    failed: int = 0
+    errors: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _run_batch(
+    job: ImportJob,
+    actor: Actor,
+    spec,
+    serializer_class,
+    batch: list[tuple[int, dict[str, str]]],
+    *,
+    state: _ImportState,
+    company_cache: dict[str, Any],
+    create_companies: bool,
+) -> None:
+    """One bounded transaction: this batch's rows plus the checkpoint that describes them.
+
+    Counters are mutated on a copy first and only written back to ``state`` once the transaction has
+    committed, so a batch that is rolled back cannot leave the in-memory tally ahead of the database.
+    """
+    local = _ImportState(
+        processed=state.processed, created=state.created, failed=state.failed, errors=list(state.errors)
+    )
+    # A company created for a row that later rolls back must not stay in the cache as if it existed.
+    cache_before = dict(company_cache)
+    last_row = batch[-1][0]
+    try:
+        with tenant_atomic():
+            for row_no, row in batch:
+                local.processed += 1
+                payload, company_name = _row_payload(job.entity_type, row, job.mapping)
+                try:
+                    with transaction.atomic():  # savepoint: one bad row, not one bad batch
+                        if company_name:
+                            key = company_name.lower()
+                            if key not in company_cache:
+                                company_cache[key] = _resolve_company(actor, company_name, create=create_companies)
+                            if company_cache[key] is not None:
+                                payload["company_id"] = company_cache[key].pk
+                        ser = serializer_class(data=payload, context={"actor": actor})
+                        ser.is_valid(raise_exception=True)
+                        records.create(
+                            actor, spec, ser.validated_data, request=None, audit_extra={"import_job_id": str(job.pk)}
+                        )
+                    local.created += 1
+                except ValidationError as exc:
+                    local.failed += 1
+                    if len(local.errors) < MAX_IMPORT_ERRORS_STORED:
+                        local.errors.append({"row": row_no, "errors": _flatten(exc.detail)})
+                except (DomainError, PermissionDenied) as exc:
+                    local.failed += 1
+                    if len(local.errors) < MAX_IMPORT_ERRORS_STORED:
+                        local.errors.append(
+                            {
+                                "row": row_no,
+                                "errors": [
+                                    {"field": "non_field_errors", "message": str(getattr(exc, "message", exc))[:200]}
+                                ],
+                            }
+                        )
+            # Written inside the same transaction as the rows above: progress can never disagree
+            # with the data, in either direction.
+            ImportJob.objects.filter(pk=job.pk).update(
+                processed_rows=local.processed,
+                created_rows=local.created,
+                error_rows=local.failed,
+                errors=local.errors,
+                checkpoint_row=last_row,
+                updated_at=timezone.now(),
+            )
+    except Exception:
+        company_cache.clear()
+        company_cache.update(cache_before)
+        log.exception("importexport.batch_failed", job_id=str(job.pk), first_row=batch[0][0], last_row=last_row)
+        raise
+    state.processed, state.created, state.failed, state.errors = (
+        local.processed,
+        local.created,
+        local.failed,
+        local.errors,
+    )
 
 
 def _flatten(detail: Any, prefix: str = "") -> list[dict[str, str]]:
@@ -429,10 +549,39 @@ def _flatten(detail: Any, prefix: str = "") -> list[dict[str, str]]:
     return out[:20]
 
 
+def interrupt_import(job: ImportJob, message: str) -> None:
+    """Record that a run stopped part-way, and leave the job resumable.
+
+    Deliberately keeps the job RUNNING and keeps the uploaded file: the checkpoint plus the file are
+    the only things that let ``resume_stalled_imports`` carry on from where this run stopped. Deleting
+    the file here (which is what ``fail_import`` does) would make the job unresumable for good.
+    """
+    with tenant_atomic():
+        ImportJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.RUNNING, error_message=message[:255], updated_at=timezone.now()
+        )
+    log.warning("importexport.import_interrupted", job_id=str(job.pk), checkpoint_row=job.checkpoint_row)
+
+
 def fail_import(job: ImportJob, message: str) -> None:
-    ImportJob.objects.filter(pk=job.pk).update(
-        status=JobStatus.FAILED, error_message=message[:255], finished_at=timezone.now(), updated_at=timezone.now()
-    )
+    """Give up on a job for good. Rows already committed by earlier batches stay: the job reports how
+    far it got (``processed_rows`` / ``created_rows``) so the failure is explicit rather than silent.
+
+    Terminal, so the uploaded file is released here.
+    """
+    with tenant_atomic():
+        ImportJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.FAILED,
+            error_message=message[:255],
+            finished_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
+        audit.record(
+            "imports.failed",
+            organization_id=job.organization_id,
+            resource=job,
+            metadata={"reason": message[:255], "checkpoint_row": job.checkpoint_row},
+        )
     storage.delete(job.storage_key)
 
 

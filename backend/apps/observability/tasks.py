@@ -61,6 +61,28 @@ def collect() -> list[dict[str, Any]]:
     return points
 
 
+@shared_task(name="observability.publish_dependency_health", ignore_result=True, soft_time_limit=20, time_limit=25)
+def publish_dependency_health() -> int:
+    """Publish whether the application can actually reach its dependencies.
+
+    This is the signal that replaced the load balancer's readiness probe. The ALB now asks only
+    whether a process is alive (see apps/core/health.py), so degradation of the database or Redis has
+    to page someone here instead of silently expressing itself as a fleet-wide target eviction.
+    Emitted from one beat process, not from every request, so the checks themselves cost nothing.
+    """
+    from apps.core import health
+
+    status = health.dependency_status()
+    points = [
+        {"name": "DependencyHealthy", "value": 1 if ok else 0, "unit": "None", "dimensions": {"Component": name}}
+        for name, ok in status.items()
+    ]
+    if not all(status.values()):
+        log.warning("health.dependency_degraded", **{k: v for k, v in status.items()})
+    metrics.publish(points)
+    return len(points)
+
+
 @shared_task(name="observability.publish_celery_metrics", ignore_result=True, soft_time_limit=20, time_limit=25)
 def publish_celery_metrics() -> int:
     try:

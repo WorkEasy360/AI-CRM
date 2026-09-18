@@ -1,6 +1,6 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthGate } from "@/components/auth-gate";
 import { ToastProvider } from "@/components/ui/toast";
@@ -11,18 +11,29 @@ vi.mock("@/lib/api/endpoints", () => ({
   getSession: vi.fn(),
   bootstrapSession: vi.fn(),
 }));
-vi.mock("@/lib/api/allauth", () => ({
-  logout: vi.fn(),
-}));
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace, prefetch: vi.fn() }),
-  usePathname: () => "/pipeline",
-  useSearchParams: () => new URLSearchParams(""),
 }));
 
 import { bootstrapSession, getSession } from "@/lib/api/endpoints";
+
+/** Fire whatever handler the gate registered, as a real 401 from any API call would. */
+function unauthenticated(): void {
+  registered?.(new ApiError(parseProblem(401, { type: "not_authenticated", title: "Not authenticated", status: 401 })));
+}
+
+let registered: ((error: ApiError) => void) | null = null;
+vi.mock("@/lib/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/client")>();
+  return {
+    ...actual,
+    setUnauthenticatedHandler: (handler: ((error: ApiError) => void) | null) => {
+      registered = handler;
+    },
+  };
+});
 
 const organization = {
   id: "o1",
@@ -90,7 +101,7 @@ describe("AuthGate", () => {
     renderGate();
     expect(await screen.findByText("No workspace available")).toBeInTheDocument();
     expect(bootstrapSession).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
   it("offers a retry when bootstrapping fails", async () => {
@@ -101,10 +112,30 @@ describe("AuthGate", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
-  it("sends signed-out visitors to the login page with the current path", async () => {
+  it("stops rendering the CRM once the session is revoked server-side", async () => {
+    // The regression this guards: the gate had a live session cached, so when the re-resolve came
+    // back "not authenticated" React Query kept serving the stale session and the CRM shell stayed
+    // on screen for a session the server had already thrown away.
+    vi.mocked(getSession).mockResolvedValueOnce(withOrg);
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+
+    vi.mocked(getSession).mockRejectedValue(
+      new ApiError(parseProblem(401, { type: "not_authenticated", title: "Not authenticated", status: 401 })),
+    );
+    // What an API call discovering the dead session does (see setUnauthenticatedHandler in the gate).
+    unauthenticated();
+
+    expect(await screen.findByText("We couldn't load your session")).toBeInTheDocument();
+    expect(screen.queryByText("Welcome to Ada's workspace")).not.toBeInTheDocument();
+  });
+
+  it("offers a retry instead of redirecting when there is no session (no sign-in page to go to)", async () => {
     vi.mocked(getSession).mockRejectedValue(new ApiError(parseProblem(401, { type: "not_authenticated", title: "Not authenticated", status: 401 })));
     renderGate();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login?next=%2Fpipeline"));
+    expect(await screen.findByText("We couldn't load your session")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
     expect(bootstrapSession).not.toHaveBeenCalled();
   });
 });

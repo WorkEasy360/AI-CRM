@@ -15,6 +15,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.audit import service as audit
 from apps.authz.actor import Actor
+from apps.core.domain_events import RecordChanged, publish
 from apps.lifecycle.models import LifecycleHistory
 from apps.lifecycle.stages import LIFECYCLE_STAGES, STAGE_RANK, LifecycleStage
 
@@ -58,6 +59,18 @@ def set_stage(
     type(record).objects.filter(pk=record.pk).update(lifecycle_stage=stage, lifecycle_changed_at=now, updated_at=now)
     record.lifecycle_stage = stage
     record.lifecycle_changed_at = now
+    # Another QuerySet.update(): "this contact became a customer" is exactly the change an external
+    # system subscribes for, and it emitted nothing before.
+    publish(
+        RecordChanged(
+            organization_id=record.organization_id,
+            entity_type=entity_type,
+            entity_ids=(record.pk,),
+            change="lifecycle_changed",
+            owner_id=getattr(record, "owner_id", None),
+            fields=("lifecycle_stage",),
+        )
+    )
     LifecycleHistory.objects.create(
         entity_type=entity_type,
         entity_id=record.pk,

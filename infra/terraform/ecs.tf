@@ -77,6 +77,19 @@ locals {
   beat_secrets         = local.base_secrets
   migrate_secrets      = local.base_secrets
 
+  # Migrations run with their own database timeouts: the request path's 15 s statement timeout would
+  # abort a legitimate index build, while no timeout at all lets a blocked ALTER hold an
+  # ACCESS EXCLUSIVE lock and stall the running application. Generous statement time, short lock wait
+  # -- a migration that cannot get its lock fails fast, changes nothing, and the deploy retries.
+  # See docs/operations/migrations.md.
+  migrate_environment = concat(local.api_environment, [
+    { name = "DB_MIGRATION_MODE", value = "true" },
+    { name = "DB_MIGRATION_STATEMENT_TIMEOUT_MS", value = tostring(var.migration_statement_timeout_ms) },
+    { name = "DB_MIGRATION_LOCK_TIMEOUT_MS", value = tostring(var.migration_lock_timeout_ms) },
+    # One connection, no pool: a one-off task has nothing to pool for.
+    { name = "DB_POOL", value = "false" },
+  ])
+
   web_environment = [
     { name = "NODE_ENV", value = "production" },
     { name = "PORT", value = "3000" },
@@ -325,7 +338,7 @@ resource "aws_ecs_task_definition" "migrate" {
       image                  = local.api_image
       essential              = true
       command                = ["python", "manage.py", "migrate", "--no-input"]
-      environment            = local.api_environment
+      environment            = local.migrate_environment
       secrets                = local.migrate_secrets
       readonlyRootFilesystem = true
       mountPoints            = local.tmp_mount

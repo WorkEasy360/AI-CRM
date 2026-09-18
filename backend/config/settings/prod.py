@@ -28,9 +28,13 @@ if PRIVATE_STORAGE_BACKEND == "s3" and not PRIVATE_STORAGE_BUCKET:
     raise RuntimeError("PRIVATE_STORAGE_BUCKET must be set when PRIVATE_STORAGE_BACKEND=s3.")
 if not MESSAGING_ENCRYPTION_KEYS:
     raise RuntimeError("MESSAGING_ENCRYPTION_KEYS must be set (Fernet keys for stored provider tokens).")
+if env.bool("AUTO_LOGIN_ENABLED", default=False):
+    raise RuntimeError("AUTO_LOGIN_ENABLED is a development-only switch and must never be set in production.")
 if PRIVATE_STORAGE_BACKEND == "filesystem" and not env.bool("ALLOW_LOCAL_PRIVATE_STORAGE", default=False):
     # A second instance or a redeploy would lose in-flight imports/exports on a container filesystem.
     raise RuntimeError("PRIVATE_STORAGE_BACKEND=filesystem is single-instance only; use s3 in production.")
+
+AUTO_LOGIN_ENABLED = False
 
 # TLS termination happens at the load balancer; it strips client-supplied X-Forwarded-Proto.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

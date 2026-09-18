@@ -276,3 +276,33 @@ and are not the defaults. Scaling caps, log retention, S3 lifecycle and ECR rete
 
 `docker-compose.loadtest.yml` runs the same shape on a laptop: nginx with the ALB path rules in front of two
 gunicorn instances, split workers, beat and the Next.js standalone image; `loadtest/` holds the k6 suite.
+
+## Hard-navigation waterfall: measured, and left alone (2026-09-18)
+
+On a hard navigation (first load or refresh) the browser does: document → JS bundle →
+`GET /api/v1/session/` → page data. The last two are sequential, because `AuthGate` has to know which
+organization is active before it can ask for anything inside it. In-app navigation does not pay this:
+the session is already in the React Query cache.
+
+**Measured** (`manage.py profile_endpoints`, large tenant: 25k contacts, 12k deals, best of three runs
+of eight): `session` is **5.7 ms wall, 11 SQL statements**. Over the internet the real cost is one
+round trip on a connection the browser has already opened and is multiplexing over — tens of
+milliseconds, against a JS bundle download that costs considerably more.
+
+**Not optimising it.** The obvious fix is to resolve the session in a Next.js server component and hand
+it to the client as initial data. CloudFront's `all_viewer` origin request policy does forward the
+session cookie to the Next origin, so it is *possible*. It is not worth it:
+
+- it saves one round trip, on hard navigation only;
+- it moves per-user authenticated state into the SSR path. The default CloudFront behaviour is
+  `caching_disabled` today, so nothing would leak now — but the failure mode of getting this wrong
+  later is one user's session details rendered into HTML served to another. That is a bad trade
+  against tens of milliseconds;
+- the alternative of prefetching page data in parallel with the session means guessing the active
+  organization before the server has said what it is, which is exactly the "don't duplicate
+  authorization logic in the frontend" line.
+
+**Revisit if** real-user monitoring shows session resolution is a material share of time-to-interactive.
+The cheap, safe move at that point is an HTTP/2 server push or `<link rel="preload">` hint for the
+session call issued with the document, which shortens the waterfall without moving authentication
+state into the render path.

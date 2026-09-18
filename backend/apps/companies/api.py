@@ -11,11 +11,12 @@ from rest_framework.response import Response
 from apps.authz.service import scope
 from apps.companies.models import COMPANY_SIZES, Company
 from apps.contacts.models import Contact
-from apps.core import records, validators
+from apps.core import validators
 from apps.core.api.crm import CrmViewSet, crud_permission_map
 from apps.core.api.filters import Filter, FilterSet
 from apps.core.api.serializers import CrmReadSerializer, CustomDataField, owner_field
-from apps.core.records import RecordSpec
+from apps.crm import records
+from apps.crm.records import RecordSpec
 from apps.deals.models import Deal
 from apps.lifecycle import service as lifecycle
 from apps.lifecycle.stages import LIFECYCLE_STAGES, LifecycleStage

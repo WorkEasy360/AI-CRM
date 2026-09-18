@@ -25,8 +25,8 @@ const SAFE_METHODS: ReadonlySet<HttpMethod> = new Set(["GET"]);
 /**
  * Handler invoked when the API says the session is gone (401/403
  * not_authenticated). Registered by the authenticated app shell so that a
- * mid-session expiry bounces the user to /login; unregistered elsewhere so
- * the login page itself can probe the session without redirecting.
+ * mid-session expiry re-resolves the session; unregistered elsewhere so other
+ * trees can probe the session without side effects.
  */
 let unauthenticatedHandler: ((error: ApiError) => void) | null = null;
 

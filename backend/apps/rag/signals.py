@@ -14,6 +14,7 @@ from typing import Any
 
 from django.db.models.signals import post_delete, post_init, post_save
 
+from apps.core import domain_events
 from apps.rag import events
 from apps.rag.models import IndexEvent
 
@@ -73,8 +74,37 @@ def _make_entity_delete_receiver(entity_type: str):
     return receiver
 
 
+def _on_record_changed(event: domain_events.RecordChanged) -> None:
+    """Domain-event subscriber: re-index records changed by a bulk statement.
+
+    ``post_save`` covers instance writes. A bulk archive or a stage move is one UPDATE, so without
+    this the index would keep serving the pre-change text, and a bulk reassignment would leave the
+    retrieval pre-filter pointing at the old owner.
+    """
+    if event.orm_signals_fired:
+        return
+    if event.entity_type not in {t for _, t in _ENTITY_MODELS}:
+        return
+    for entity_id in event.entity_ids:
+        events.enqueue(
+            organization_id=event.organization_id,
+            source_type=event.entity_type,
+            source_id=entity_id,
+            operation=IndexEvent.Operation.UPSERT,
+        )
+        if event.owner_changed:
+            events.refresh_entity_owner(
+                organization_id=event.organization_id,
+                entity_type=event.entity_type,
+                entity_id=entity_id,
+                owner_id=event.owner_id,
+            )
+
+
 def connect() -> None:
     """Called once from ``RagConfig.ready()``."""
+    domain_events.subscribe(_on_record_changed, critical=True)
+
     from django.apps import apps as django_apps
 
     from apps.rag.sources import SOURCES

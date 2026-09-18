@@ -12,7 +12,15 @@ import httpx
 from django.conf import settings
 from django.utils import timezone
 
-from apps.messaging.providers.base import IncomingEmail, OAuthTokens, OutgoingEmail, ProviderError, SentEmail
+from apps.messaging.providers.base import (
+    IncomingEmail,
+    OAuthTokens,
+    OutgoingEmail,
+    ProviderError,
+    SendCapabilities,
+    SentEmail,
+    rfc822_message_id,
+)
 
 GRAPH = "https://graph.microsoft.com/v1.0"
 SCOPES = ["offline_access", "openid", "email", "profile", "User.Read", "Mail.Send", "Mail.Read"]
@@ -97,6 +105,10 @@ class MicrosoftProvider:
     def refresh(self, refresh_token: str) -> OAuthTokens:
         return self._tokens({"grant_type": "refresh_token", "refresh_token": refresh_token})
 
+    # Gmail/Graph do not de-duplicate a repeated send, but both preserve and index the
+    # Message-ID we stamp on it, so a lost result can be reconciled instead of resent.
+    capabilities = SendCapabilities(idempotent_send=False, lookup_by_key=True)
+
     def send(self, access_token: str, message: OutgoingEmail) -> SentEmail:
         def recipients(addresses: list[str]) -> list[dict[str, Any]]:
             return [{"emailAddress": {"address": a}} for a in addresses]
@@ -120,6 +132,9 @@ class MicrosoftProvider:
             },
             "saveToSentItems": True,
         }
+        if message.idempotency_key:
+            # Graph accepts internetMessageId on the outgoing message and can $filter on it later.
+            body["message"]["internetMessageId"] = rfc822_message_id(message.idempotency_key)
         headers = {"Authorization": f"Bearer {access_token}"}
         with httpx.Client(timeout=TIMEOUT) as client:
             if message.in_reply_to:
@@ -145,6 +160,25 @@ class MicrosoftProvider:
             _raise(resp, "send")
         # sendMail returns 202 with no body; the sent item is located by subject/time during sync.
         return SentEmail(provider_message_id="", provider_thread_id=message.thread_id)
+
+    def find_sent(self, access_token: str, idempotency_key: str) -> SentEmail | None:
+        """Look the send up in Sent Items by the internetMessageId stamped on it."""
+        if not idempotency_key:
+            return None
+        message_id = rfc822_message_id(idempotency_key).replace("'", "''")
+        with httpx.Client(timeout=TIMEOUT) as client:
+            resp = client.get(
+                f"{GRAPH}/me/messages",
+                params={"$filter": f"internetMessageId eq '{message_id}'", "$top": 1, "$select": "id,conversationId"},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            _raise(resp, "lookup")
+            found = resp.json().get("value") or []
+        if not found:
+            return None
+        return SentEmail(
+            provider_message_id=found[0].get("id", ""), provider_thread_id=found[0].get("conversationId", "")
+        )
 
     def fetch_recent(self, access_token: str, *, since: dt.datetime, cursor: str) -> tuple[list[IncomingEmail], str]:
         headers = {"Authorization": f"Bearer {access_token}"}

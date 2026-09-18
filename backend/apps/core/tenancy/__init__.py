@@ -4,6 +4,7 @@ from apps.core.tenancy.context import (
     get_context,
     require_context,
     system_context,
+    tenant_atomic,
     tenant_context,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "get_context",
     "require_context",
     "system_context",
+    "tenant_atomic",
     "tenant_context",
 ]

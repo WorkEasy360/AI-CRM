@@ -57,7 +57,7 @@ export function VerifyEmail() {
         </div>
         <AuthHeading title="Verification failed" description={state.message} />
         <Button asChild variant="secondary" className="w-full">
-          <Link href="/login">Back to sign in</Link>
+          <Link href="/pipeline">Back to the CRM</Link>
         </Button>
       </div>
     );
@@ -68,9 +68,9 @@ export function VerifyEmail() {
       <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-success-soft text-success">
         <CheckCircle2 className="size-6" aria-hidden />
       </div>
-      <AuthHeading title="Email verified" description="Your workspace is ready. Sign in to open your CRM." />
+      <AuthHeading title="Email verified" description="Your workspace is ready." />
       <Button asChild className="w-full">
-        <Link href={state.authenticated ? "/pipeline" : "/login"}>{state.authenticated ? "Open your CRM" : "Sign in"}</Link>
+        <Link href="/pipeline">Open your CRM</Link>
       </Button>
     </div>
   );

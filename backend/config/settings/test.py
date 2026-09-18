@@ -30,6 +30,8 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
+# The suite asserts real authentication; never inherit a developer's AUTO_LOGIN_ENABLED from .env.
+AUTO_LOGIN_ENABLED = False
 
 # Generous default rates so functional tests never trip throttles; throttle tests override these.
 REST_FRAMEWORK = {

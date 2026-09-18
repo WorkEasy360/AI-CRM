@@ -171,6 +171,35 @@ variable "migrate_memory" {
   default     = 1024
 }
 
+variable "migration_statement_timeout_ms" {
+  description = <<-EOT
+    statement_timeout for the migrate task. Generous enough for a real index build, but bounded:
+    a migration that hangs must eventually fail rather than hold locks indefinitely.
+  EOT
+  type        = number
+  default     = 600000 # 10 minutes
+
+  validation {
+    condition     = var.migration_statement_timeout_ms > 0 && var.migration_statement_timeout_ms <= 3600000
+    error_message = "migration_statement_timeout_ms must be between 1 ms and 1 hour; 0 would mean 'wait forever'."
+  }
+}
+
+variable "migration_lock_timeout_ms" {
+  description = <<-EOT
+    lock_timeout for the migrate task. Deliberately short: during a rolling deploy a migration that
+    cannot acquire its lock should fail fast, having changed nothing, so the running application is
+    never stalled behind a queued ACCESS EXCLUSIVE lock. The deploy retries.
+  EOT
+  type        = number
+  default     = 10000 # 10 seconds
+
+  validation {
+    condition     = var.migration_lock_timeout_ms > 0 && var.migration_lock_timeout_ms < var.migration_statement_timeout_ms
+    error_message = "migration_lock_timeout_ms must be positive and shorter than migration_statement_timeout_ms."
+  }
+}
+
 variable "gunicorn_workers" {
   description = "GUNICORN_WORKERS for the api container."
   type        = number

@@ -119,6 +119,22 @@ def bind_context(
 
 
 @contextlib.contextmanager
+def tenant_atomic(using: str = "default") -> Iterator[None]:
+    """Open one bounded transaction and (re-)apply the bound tenant context inside it.
+
+    The companion of ``tenant_task(atomic=False)``. Because ``app.current_org`` is written with
+    ``SET LOCAL``, it lives exactly as long as one transaction: a long task that commits in batches
+    has to re-apply it every time it opens a new one. Every statement a non-atomic task issues must
+    sit inside this block -- outside it the RLS policies see no organization and fail closed, so the
+    mistake shows up as rows that cannot be read or written, never as a cross-tenant leak.
+    """
+    ctx = require_context()
+    with transaction.atomic(using=using):
+        apply_db_context(ctx, using=using)
+        yield
+
+
+@contextlib.contextmanager
 def tenant_context(
     organization_id: uuid.UUID,
     *,

@@ -32,6 +32,11 @@ class ImportJob(TenantModel):
     error_rows = models.PositiveIntegerField(default=0)
     errors = models.JSONField(default=list, blank=True)
     error_message = models.CharField(max_length=255, blank=True)
+    # The last CSV row number inside a committed batch. Written in the same transaction as that
+    # batch's rows, which is what makes a resumed job pick up without re-creating anything.
+    checkpoint_row = models.PositiveIntegerField(default=0)
+    # How many times a worker has started this job. Bounds resumption after repeated crashes.
+    attempts = models.PositiveSmallIntegerField(default=0)
     requested_by = models.ForeignKey(
         "accounts.Membership", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
@@ -39,7 +44,11 @@ class ImportJob(TenantModel):
     finished_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        indexes = [models.Index(fields=["organization", "-created_at"], name="importjob_org_created_idx")]
+        indexes = [
+            models.Index(fields=["organization", "-created_at"], name="importjob_org_created_idx"),
+            # The resume sweeper's read path: jobs left RUNNING by a worker that died.
+            models.Index(fields=["status", "updated_at"], name="importjob_status_updated_idx"),
+        ]
         ordering = ["-created_at"]
 
 

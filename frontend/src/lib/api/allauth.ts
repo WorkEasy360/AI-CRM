@@ -3,10 +3,10 @@
  * Base: /_allauth/browser/v1/
  *
  * allauth uses HTTP 401 for "not authenticated, here are the flows you can
- * take", which is a *successful* outcome for signup (verify_email pending)
- * and a normal branch for login (mfa_authenticate pending). We interpret
- * those bodies here and expose discriminated results; everything else is
- * surfaced as ApiError with normalised problem details.
+ * take", which is a *successful* outcome for email verification and password
+ * reset (the session may stay signed out). We interpret those bodies here and
+ * expose discriminated results; everything else is surfaced as ApiError with
+ * normalised problem details.
  */
 import { request, type RawResponse } from "@/lib/api/client";
 import { ApiError, PROBLEM_TYPES, parseProblem } from "@/lib/api/problem";
@@ -73,39 +73,11 @@ function interpretAuth(res: RawResponse): AuthOutcome {
 }
 
 /* Auth flows */
-export async function signup(input: { email: string; password: string; name?: string }): Promise<AuthOutcome> {
-  const res = await request(`${BASE}/auth/signup`, { method: "POST", body: input });
-  const outcome = interpretAuth(res);
-  if (outcome.kind === "unknown") fail(res);
-  return outcome;
-}
-
 export async function verifyEmail(key: string): Promise<AuthOutcome> {
   const res = await request(`${BASE}/auth/email/verify`, { method: "POST", body: { key } });
   const outcome = interpretAuth(res);
   if (outcome.kind === "unknown") fail(res);
   return outcome;
-}
-
-export async function login(input: { email: string; password: string }): Promise<AuthOutcome> {
-  const res = await request(`${BASE}/auth/login`, { method: "POST", body: input });
-  const outcome = interpretAuth(res);
-  if (outcome.kind === "unknown") fail(res);
-  return outcome;
-}
-
-export async function mfaAuthenticate(code: string): Promise<AuthOutcome> {
-  const res = await request(`${BASE}/auth/2fa/authenticate`, { method: "POST", body: { code } });
-  const outcome = interpretAuth(res);
-  if (outcome.kind === "unknown") fail(res);
-  return outcome;
-}
-
-/** Logout. allauth answers 401 once the session is gone; that is success. */
-export async function logout(): Promise<void> {
-  const res = await request(`${BASE}/auth/session`, { method: "DELETE" });
-  if (res.ok || res.status === 401) return;
-  fail(res);
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

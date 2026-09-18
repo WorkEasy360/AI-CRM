@@ -1,9 +1,15 @@
 """Where CRM writes become integration events.
 
-Signals rather than call-site edits, like ``apps.rag.signals``: the API, imports, the assistant, inbound
-sync and background jobs all save through ``Model.save()``. The receivers only write an outbox row
-(and only for organizations that use integrations). Bulk ``QuerySet.update()`` calls do not emit
-events; the scheduled sync reconciles those records.
+Two publishers feed the same outbox:
+
+- ``post_save`` receivers, for every write that goes through ``Model.save()`` -- the API, imports, the
+  assistant, inbound sync, background jobs.
+- ``apps.core.domain_events``, for the writes that do not: bulk archive/restore/reassign, a deal stage
+  move and a lifecycle promotion are single ``QuerySet.update()`` statements, and Django emits no
+  signal for those. They used to change the database without telling any external system.
+
+The receivers only ever write an outbox row, and only for organizations that actually use
+integrations. Nothing here calls out over the network.
 """
 
 from __future__ import annotations
@@ -12,6 +18,7 @@ from typing import Any
 
 from django.db.models.signals import post_init, post_save
 
+from apps.core import domain_events
 from apps.integrations import events
 
 _ENTITY_MODELS = (("contacts.Contact", "contact"), ("companies.Company", "company"), ("deals.Deal", "deal"))
@@ -72,8 +79,43 @@ def _activity_saved(sender: Any, instance: Any, created: bool, **kwargs: Any) ->
     )
 
 
+# How a domain change maps onto the webhook vocabulary. A stage move is announced twice on purpose:
+# subscribers to "deal.updated" should see it too, exactly as they would for an inline edit.
+_CHANGE_EVENTS: dict[str, tuple[str, ...]] = {
+    "created": ("{entity}.created",),
+    "updated": ("{entity}.updated",),
+    "archived": ("{entity}.updated",),
+    "restored": ("{entity}.updated",),
+    "reassigned": ("{entity}.updated",),
+    "lifecycle_changed": ("{entity}.updated",),
+    "tagged": ("{entity}.updated",),
+    "untagged": ("{entity}.updated",),
+    "stage_changed": ("deal.updated", "deal.stage_changed"),
+    "completed": ("task.completed",),
+}
+
+
+def _on_record_changed(event: domain_events.RecordChanged) -> None:
+    """Domain-event subscriber: write outbox rows for changes ``post_save`` never saw."""
+    if event.orm_signals_fired:
+        return  # the post_save receiver above already emitted for this write
+    for template in _CHANGE_EVENTS.get(event.change, ()):
+        event_type = template.format(entity=event.entity_type)
+        for entity_id in event.entity_ids:
+            events.emit(
+                organization_id=event.organization_id,
+                event_type=event_type,
+                entity_type=event.entity_type,
+                entity_id=entity_id,
+            )
+
+
 def connect() -> None:
     """Called once from ``IntegrationsConfig.ready()``."""
+    # critical: the outbox row must commit with the change it describes, so a failure here has to
+    # roll the CRM write back rather than quietly drop the event.
+    domain_events.subscribe(_on_record_changed, critical=True)
+
     from django.apps import apps as django_apps
 
     for label, entity_type in _ENTITY_MODELS:
