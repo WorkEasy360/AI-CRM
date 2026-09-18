@@ -42,7 +42,8 @@ locals {
     # API sends (443); accounts.send_email delivers through EMAIL_URL, an SMTP submission URL
     # (smtp+tls://...:587, see README section 3).
     "worker-critical" = { data = true, internet_https = true, internet_smtp = true }
-    # Queues imports/exports/reports/rag_indexing: remote embedding provider (443). Imports and
+    # Queues imports/exports/reports/rag_indexing/integrations: remote embedding provider and customer-configured
+    # integration endpoints (443, SSRF-filtered in apps.integrations.net). Imports and
     # exports only use S3; report emails are queued to worker-critical.
     "worker-heavy" = { data = true, internet_https = true, internet_smtp = false }
     # django-celery-beat DatabaseScheduler + Redis broker only.

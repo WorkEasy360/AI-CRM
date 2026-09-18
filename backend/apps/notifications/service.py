@@ -83,6 +83,7 @@ def _send_email(membership_id: uuid.UUID, *, title: str, body: str, entity_type:
             "contact": "/contacts/",
             "company": "/companies/",
             "activity": "/activities?open=",
+            "integration": "/settings/integrations/",
         }.get(entity_type, "")
         if path:
             link = f"\n\nOpen in {settings.SITE_NAME}: {settings.FRONTEND_ORIGIN}{path}{entity_id}"

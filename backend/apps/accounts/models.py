@@ -181,6 +181,10 @@ class MembershipIdentityManager(models.Manager["Membership"]):
 class Membership(TenantModel):
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
+        # Temporarily blocked by an administrator; ``reactivate`` restores the same role and teams.
+        SUSPENDED = "suspended", "Suspended"
+        # Removed from the organization. The row stays for ownership and audit history; only a new
+        # invitation brings the person back.
         DISABLED = "disabled", "Disabled"
 
     organization = models.ForeignKey(
@@ -213,7 +217,12 @@ class Membership(TenantModel):
 
 class Invitation(TenantModel):
     email = models.EmailField(max_length=254)
+    # Display name suggested by the inviter; the invitee may change it when creating the account.
+    name = models.CharField(max_length=120, blank=True)
     role = models.ForeignKey("authz.Role", on_delete=models.PROTECT, related_name="+")
+    team = models.ForeignKey("teams.Team", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    send_count = models.PositiveSmallIntegerField(default=1)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
     token_hash = models.CharField(max_length=64, unique=True)
     expires_at = models.DateTimeField()
     accepted_at = models.DateTimeField(null=True, blank=True)

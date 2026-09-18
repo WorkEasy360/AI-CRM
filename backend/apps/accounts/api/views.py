@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from allauth.account.internal.flows.reauthentication import did_recently_authenticate
 from allauth.mfa.models import Authenticator
+from django.db.models import Exists, OuterRef, Prefetch
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import mixins, status
@@ -16,8 +17,9 @@ from apps.accounts.api import serializers as s
 from apps.accounts.models import Invitation, Membership, Organization
 from apps.authz.actor import build_actor
 from apps.authz.permissions import IsAuthenticatedUser
-from apps.core.api.request import ActorRequest, authenticated_user
+from apps.core.api.request import ActorRequest, authenticated_user, enforce_csrf
 from apps.core.api.viewsets import TenantAPIView, TenantViewSet
+from apps.teams.models import TeamMembership
 
 
 def _session_payload(request: Request) -> dict:
@@ -146,14 +148,36 @@ class MemberViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantView
         "list": "members.view",
         "retrieve": "members.view",
         "change_role": "members.update_role",
-        "disable": "members.disable",
-        "enable": "members.disable",
+        "suspend": "members.disable",
+        "reactivate": "members.disable",
+        "remove": "members.remove",
+        "revoke_sessions": "members.disable",
+        "teams": "teams.manage",
     }
     serializer_class = s.MembershipSerializer
     throttle_scope = "admin"
 
     def base_queryset(self):
-        return Membership.objects.select_related("user", "role").order_by("-created_at")
+        mfa = Authenticator.objects.filter(
+            user_id=OuterRef("user_id"), type__in=[Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN]
+        )
+        qs = (
+            Membership.objects.select_related("user", "role")
+            .annotate(mfa_enabled=Exists(mfa))
+            .prefetch_related(
+                Prefetch(
+                    "team_memberships", queryset=TeamMembership.objects.select_related("team").order_by("team__name")
+                )
+            )
+            .order_by("-created_at")
+        )
+        status_filter = self.request.query_params.get("status") if self.action == "list" else None
+        if status_filter in Membership.Status.values:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    def _read(self, membership: Membership) -> Response:
+        return Response(s.MembershipSerializer(self.base_queryset().get(pk=membership.pk)).data)
 
     @action(detail=True, methods=["patch"], url_path="role")
     def change_role(self, request: ActorRequest, pk=None) -> Response:
@@ -163,19 +187,41 @@ class MemberViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantView
         services.change_member_role(
             request.actor, membership, role_key=ser.validated_data["role"], request=request._request
         )
-        return Response(s.MembershipSerializer(self.get_queryset().get(pk=membership.pk)).data)
+        return self._read(membership)
 
     @action(detail=True, methods=["post"])
-    def disable(self, request: ActorRequest, pk=None) -> Response:
+    def suspend(self, request: ActorRequest, pk=None) -> Response:
         membership = self.get_object()
-        services.disable_member(request.actor, membership, request=request._request)
-        return Response(s.MembershipSerializer(self.get_queryset().get(pk=membership.pk)).data)
+        services.suspend_member(request.actor, membership, request=request._request)
+        return self._read(membership)
 
     @action(detail=True, methods=["post"])
-    def enable(self, request: ActorRequest, pk=None) -> Response:
+    def reactivate(self, request: ActorRequest, pk=None) -> Response:
         membership = self.get_object()
-        services.enable_member(request.actor, membership, request=request._request)
-        return Response(s.MembershipSerializer(self.get_queryset().get(pk=membership.pk)).data)
+        services.reactivate_member(request.actor, membership, request=request._request)
+        return self._read(membership)
+
+    @action(detail=True, methods=["post"])
+    def remove(self, request: ActorRequest, pk=None) -> Response:
+        membership = self.get_object()
+        services.remove_member(request.actor, membership, request=request._request)
+        return self._read(membership)
+
+    @action(detail=True, methods=["post"], url_path="revoke-sessions")
+    def revoke_sessions(self, request: ActorRequest, pk=None) -> Response:
+        membership = self.get_object()
+        revoked = services.revoke_member_sessions(request.actor, membership, request=request._request)
+        return Response({"sessions_revoked": revoked})
+
+    @action(detail=True, methods=["put"])
+    def teams(self, request: ActorRequest, pk=None) -> Response:
+        membership = self.get_object()
+        ser = s.MemberTeamsSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        services.set_member_teams(
+            request.actor, membership, team_ids=ser.validated_data["team_ids"], request=request._request
+        )
+        return self._read(membership)
 
 
 class InvitationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet):
@@ -184,9 +230,10 @@ class InvitationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
         "retrieve": "members.invite",
         "create": "members.invite",
         "destroy": "members.invite",
+        "resend": "members.invite",
     }
     # Actions reachable without an active organization: explicit, reviewed exceptions.
-    public_actions = {"preview": [AllowAny], "accept": [IsAuthenticatedUser]}
+    public_actions = {"preview": [AllowAny], "accept": [IsAuthenticatedUser], "register": [AllowAny]}
     serializer_class = s.InvitationSerializer
     throttle_scope = "admin"
 
@@ -201,7 +248,7 @@ class InvitationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
         return super().get_throttles()
 
     def base_queryset(self):
-        return Invitation.objects.select_related("role", "invited_by__user").order_by("-created_at")
+        return Invitation.objects.select_related("role", "team", "invited_by__user").order_by("-created_at")
 
     def create(self, request: ActorRequest) -> Response:
         ser = s.InvitationCreateSerializer(data=request.data)
@@ -210,6 +257,8 @@ class InvitationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
             request.actor,
             email=ser.validated_data["email"],
             role_key=ser.validated_data["role"],
+            name=ser.validated_data["name"],
+            team_id=ser.validated_data["team_id"],
             request=request._request,
         )
         invitation = self.get_queryset().get(pk=invitation.pk)
@@ -219,6 +268,11 @@ class InvitationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
         invitation = self.get_object()
         services.revoke_invitation(request.actor, invitation, request=request._request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"])
+    def resend(self, request: ActorRequest, pk=None) -> Response:
+        invitation = services.resend_invitation(request.actor, self.get_object(), request=request._request)
+        return Response(s.InvitationSerializer(self.get_queryset().get(pk=invitation.pk)).data)
 
     @action(detail=False, methods=["get"])
     def preview(self, request: Request) -> Response:
@@ -242,4 +296,33 @@ class InvitationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
                 "organization": s.OrganizationSerializer(membership.organization).data,
             },
             status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["post"])
+    def register(self, request: Request) -> Response:
+        """Create the invitee's account from the link and sign them in (new users only).
+
+        Anonymous, so DRF's session authentication does not check CSRF; this endpoint signs a browser
+        in, so it enforces the CSRF token itself (no login CSRF into an account someone else controls).
+        """
+        enforce_csrf(request)
+        if request.user and request.user.is_authenticated:
+            return Response(
+                {"type": "already_authenticated", "title": "Sign out before creating a new account.", "status": 409},
+                status=409,
+            )
+        ser = s.InvitationRegisterSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        membership = services.register_with_invitation(
+            request._request,
+            token=ser.validated_data["token"],
+            name=ser.validated_data["name"],
+            password=ser.validated_data["password"],
+        )
+        return Response(
+            {
+                "membership_id": str(membership.pk),
+                "organization": s.OrganizationSerializer(membership.organization).data,
+            },
+            status=status.HTTP_201_CREATED,
         )

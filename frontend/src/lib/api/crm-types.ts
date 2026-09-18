@@ -702,6 +702,7 @@ export const NOTIFICATION_KINDS = [
   "deal_inactive",
   "customer_replied",
   "ai_high_risk",
+  "integration_alert",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export const NOTIFICATION_LABELS: Record<NotificationKind, string> = {
@@ -712,6 +713,7 @@ export const NOTIFICATION_LABELS: Record<NotificationKind, string> = {
   deal_inactive: "Deal inactivity warning",
   customer_replied: "Customer replied",
   ai_high_risk: "Deal at high risk",
+  integration_alert: "Integration needs attention",
 };
 
 export interface Notification {
@@ -719,7 +721,7 @@ export interface Notification {
   kind: NotificationKind;
   title: string;
   body: string;
-  entity_type: "deal" | "contact" | "company" | "activity" | "";
+  entity_type: "deal" | "contact" | "company" | "activity" | "integration" | "webhook" | "";
   entity_id: string | null;
   read_at: string | null;
   created_at: string;

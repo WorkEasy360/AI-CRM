@@ -16,7 +16,7 @@ import { signup } from "@/lib/api/allauth";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { DEFAULT_NEXT } from "@/lib/safe-next";
 import { queryKeys } from "@/lib/session";
-import { emailSchema, nameSchema, passwordSchema } from "@/lib/validation";
+import { emailSchema, nameSchema, PASSWORD_HINT, passwordSchema } from "@/lib/validation";
 
 const schema = z.object({
   name: nameSchema,
@@ -87,7 +87,7 @@ export function SignupForm() {
           <Input {...field} type="email" autoComplete="email" placeholder="you@company.com" value={field.value} onChange={(e) => field.onChange(e.target.value)} />
         )}
       </FormField>
-      <FormField control={form.control} name="password" label="Password" description="At least 10 characters." serverError={fieldErrors.password}>
+      <FormField control={form.control} name="password" label="Password" description={PASSWORD_HINT} serverError={fieldErrors.password}>
         {(field) => <Input {...field} type="password" autoComplete="new-password" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
       </FormField>
       <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>

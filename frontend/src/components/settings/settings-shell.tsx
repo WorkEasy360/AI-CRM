@@ -18,7 +18,8 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { data: session } = useSession();
   const items = visibleSettingsNav(session?.active);
-  const current = items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const matches = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const current = items.find((item) => matches(item.href) || (item.also ?? []).some(matches));
 
   return (
     <div className="mx-auto flex max-w-6xl gap-6">

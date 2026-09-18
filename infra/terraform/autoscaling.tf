@@ -133,7 +133,7 @@ locals {
     }
   }
 
-  heavy_queues = ["imports", "exports", "reports", "rag_indexing"]
+  heavy_queues = ["imports", "exports", "reports", "rag_indexing", "integrations"]
 }
 
 resource "aws_appautoscaling_target" "worker" {

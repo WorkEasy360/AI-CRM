@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "apps.ai",
     "apps.rag",
     "apps.assistant",
+    "apps.integrations",
 ]
 
 MIDDLEWARE = [
@@ -86,6 +87,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "apps.accounts.middleware.ThrottledUserSessionsMiddleware",
+    # API credentials (Authorization: Bearer keel_...) for external software; never a session.
+    "apps.integrations.machine_auth.MachineCredentialMiddleware",
     "apps.core.tenancy.middleware.TenantMiddleware",
 ]
 
@@ -232,6 +235,8 @@ ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = True
 ACCOUNT_REAUTHENTICATION_TIMEOUT = 10 * 60
 ACCOUNT_REAUTHENTICATION_REQUIRED = True
 ACCOUNT_PASSWORD_MIN_LENGTH = 12
+# Password-reset links (Django's token generator, used by allauth) are single-use and live one hour.
+PASSWORD_RESET_TIMEOUT = 3600
 ACCOUNT_LOGIN_BY_CODE_ENABLED = False
 ACCOUNT_SESSION_REMEMBER = None
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Keel] "
@@ -268,7 +273,10 @@ HEADLESS_FRONTEND_URLS = {
 
 # ----------------------------------------------------------------------------- API
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.integrations.machine_auth.MachineCredentialAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["apps.authz.permissions.DenyAll"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
@@ -276,6 +284,9 @@ REST_FRAMEWORK = {
         "security.throttles.AnonThrottle",
         "security.throttles.UserThrottle",
         "security.throttles.ScopedThrottle",
+        "apps.integrations.throttles.MachineCredentialThrottle",
+        "apps.integrations.throttles.MachineOrganizationThrottle",
+        "apps.integrations.throttles.MachineEndpointThrottle",
     ],
     # ClientIPMiddleware already resolved the real client into REMOTE_ADDR; DRF must not read
     # X-Forwarded-For itself (with NUM_PROXIES unset it would key throttles on a client-controlled header).
@@ -291,6 +302,11 @@ REST_FRAMEWORK = {
         # Ask Keel: a question costs a retrieval and possibly a model call, so it is limited
         # well below the general user rate, per member and (in apps.ai.budgets) per workspace.
         "assistant": "20/min",
+        # External software (API credentials): per credential, per organization, per credential+endpoint.
+        "machine_credential": "300/min",
+        "machine_org": "1000/min",
+        "machine_endpoint": "120/min",
+        "integration_inbound": "600/min",
     },
     "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.DefaultCursorPagination",
     "PAGE_SIZE": 50,
@@ -372,13 +388,13 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 }
 # Queue isolation (docs/architecture/scaling.md, "Celery"): heavy work never shares a worker with the
 # work the interactive product depends on. Worker services consume:
-#   worker-critical: default, notifications      worker-heavy: imports, exports, reports, rag_indexing
+#   worker-critical: default, notifications      worker-heavy: imports, exports, reports, rag_indexing, integrations
 #   (ai is declared for Phase 5 and has no consumer yet)
 # Embedding work is slow and bursty (a CSV import can queue thousands of sources), so it gets its own
 # queue: a full knowledge rebuild must never delay a meeting reminder or a customer email.
 CELERY_TASK_QUEUES = {
     name: {"exchange": name, "routing_key": name}
-    for name in ("default", "imports", "exports", "notifications", "reports", "ai", "rag_indexing")
+    for name in ("default", "imports", "exports", "notifications", "reports", "ai", "rag_indexing", "integrations")
 }
 CELERY_TASK_ROUTES = {
     "importexport.run_import": {"queue": "imports"},
@@ -396,6 +412,8 @@ CELERY_TASK_ROUTES = {
     "rag.rebuild_organization": {"queue": "rag_indexing"},
     "rag.drain_pending": {"queue": "rag_indexing"},
     "rag.purge_organization": {"queue": "rag_indexing"},
+    # External systems are slow and fail in bursts: their own queue, never shared with the above.
+    "integrations.*": {"queue": "integrations"},
 }
 CELERY_BEAT_SCHEDULE = {
     "observability.publish_celery_metrics": {
@@ -414,6 +432,8 @@ CELERY_BEAT_SCHEDULE = {
     # Safety net behind transaction.on_commit: re-enqueues sources whose job was lost and retries
     # failures that have waited out their backoff.
     "rag.drain_pending": {"task": "rag.drain_pending", "schedule": 120.0, "options": {"expires": 110}},
+    # Integration outbox sweeper: lost dispatches, due retries, stale sync jobs, scheduled syncs.
+    "integrations.drain": {"task": "integrations.drain", "schedule": 30.0, "options": {"expires": 25}},
 }
 # Emails are queued (notifications queue) unless a deployment opts out; tests run tasks eagerly.
 EMAIL_ASYNC = env.bool("EMAIL_ASYNC", default=True)
@@ -450,6 +470,16 @@ EMAIL_OAUTH_MICROSOFT_TENANT = env("EMAIL_OAUTH_MICROSOFT_TENANT", default="comm
 WHATSAPP_API_VERSION = env("WHATSAPP_API_VERSION", default="v21.0")
 WHATSAPP_APP_SECRET = env("WHATSAPP_APP_SECRET", default="")  # webhook signature (X-Hub-Signature-256)
 WHATSAPP_VERIFY_TOKEN = env("WHATSAPP_VERIFY_TOKEN", default="")  # webhook verification handshake
+
+# ----------------------------------------------------------------------------- Integration Hub
+# Outbound calls go only to public https destinations (apps.integrations.net). http is for local development.
+INTEGRATIONS_ALLOW_HTTP = env.bool("INTEGRATIONS_ALLOW_HTTP", default=False)
+INTEGRATIONS_ALLOWED_PORTS = env.list("INTEGRATIONS_ALLOWED_PORTS", cast=int, default=[])
+INTEGRATIONS_MAX_DELIVERY_ATTEMPTS = env.int("INTEGRATIONS_MAX_DELIVERY_ATTEMPTS", default=8)
+INTEGRATIONS_SYNC_BATCH_SIZE = env.int("INTEGRATIONS_SYNC_BATCH_SIZE", default=100)
+INTEGRATIONS_SYNC_INTERVALS = (0, 15, 60, 360, 1440)  # minutes; 0 = manual only
+INTEGRATIONS_INBOUND_PER_MINUTE = env.int("INTEGRATIONS_INBOUND_PER_MINUTE", default=600)
+INTEGRATIONS_API_KEY_MAX_DAYS = env.int("INTEGRATIONS_API_KEY_MAX_DAYS", default=365)
 
 # ----------------------------------------------------------------------------- AI
 # The assistant never touches the database: it receives permission-checked, delimited context and
@@ -526,3 +556,9 @@ DEFAULT_ORGANIZATION_CURRENCY = env("DEFAULT_ORGANIZATION_CURRENCY", default="IN
 DEFAULT_ORGANIZATION_TIMEZONE = env("DEFAULT_ORGANIZATION_TIMEZONE", default="Asia/Kolkata")
 MAX_PENDING_INVITATIONS_PER_ORG = 200
 INVITATION_EXPIRY_DAYS = 7
+INVITATION_MAX_SENDS = 5  # initial email + 4 resends; beyond that revoke and invite again
+INVITATION_RESEND_COOLDOWN = 60  # seconds between two sends of the same invitation
+MAX_TEAMS_PER_MEMBER = 20
+# Seats included per plan (None or missing = unlimited). Read only by apps.accounts.limits; an organization's
+# settings["max_users"] overrides it (enterprise contracts). Billing, when it exists, only updates plan/override.
+PLAN_USER_LIMITS = env.json("PLAN_USER_LIMITS", default={"free": 5, "business": 250})

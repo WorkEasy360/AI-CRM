@@ -50,8 +50,8 @@ def test_non_admin_cannot_change_roles_or_disable_members(members, client_for, r
     reauthenticate(client)
     assert client.patch(f"/api/v1/members/{target.pk}/role/", {"role": "admin"}, format="json").status_code == 403
     assert client.patch(f"/api/v1/members/{rep.pk}/role/", {"role": "owner"}, format="json").status_code == 403
-    assert client.post(f"/api/v1/members/{target.pk}/disable/", {}, format="json").status_code == 403
-    assert client.post(f"/api/v1/members/{org_a.owner_membership.pk}/disable/", {}, format="json").status_code == 403
+    assert client.post(f"/api/v1/members/{target.pk}/suspend/", {}, format="json").status_code == 403
+    assert client.post(f"/api/v1/members/{org_a.owner_membership.pk}/suspend/", {}, format="json").status_code == 403
 
 
 def test_admin_settings_work_for_admins(members, client_for, reauthenticate):

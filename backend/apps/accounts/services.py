@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework.exceptions import PermissionDenied
 
-from apps.accounts import emails
+from apps.accounts import emails, limits
 from apps.accounts.models import Invitation, Membership, Organization, User
 from apps.accounts.session import set_active_membership
 from apps.audit import actions
@@ -26,11 +26,15 @@ from apps.authz.models import Role
 from apps.authz.reauth import require_recent_auth
 from apps.authz.roles import ADMIN, ASSIGNABLE_BY_ADMIN, OWNER, SYSTEM_ROLES
 from apps.authz.service import check
+from apps.core import validators
 from apps.core.exceptions import ConflictError, DomainError
 from apps.core.tenancy.context import get_context, set_db_user, system_context, tenant_context
 from apps.core.tenancy.middleware import ACTIVE_MEMBERSHIP_KEY
 
 # ----------------------------------------------------------------------------- helpers
+
+# Roles whose grant (by invitation or role change) requires a recent re-authentication.
+PRIVILEGED_ROLES = frozenset({OWNER, ADMIN})
 
 
 def _system_role(key: str) -> Role:
@@ -243,6 +247,16 @@ def revoke_user_sessions(user: User) -> int:
 # ----------------------------------------------------------------------------- members
 
 
+def _guard_owner_target(actor: Actor, membership: Membership) -> None:
+    """Only owners act on owners, and the organization always keeps one active owner."""
+    if membership.role.key != OWNER:
+        return
+    if actor.role_key != OWNER:
+        raise PermissionDenied(code="permission_denied")
+    if membership.status == Membership.Status.ACTIVE and _active_owner_count() <= 1:
+        raise DomainError("The organization must keep at least one owner.", code="last_owner", status_code=409)
+
+
 @transaction.atomic
 def change_member_role(actor: Actor, membership: Membership, *, role_key: str, request=None) -> Membership:
     check(actor, "members.update_role", membership)
@@ -251,6 +265,8 @@ def change_member_role(actor: Actor, membership: Membership, *, role_key: str, r
         raise DomainError("You cannot change your own role.", code="self_role_change", status_code=403)
     if membership.role.key == OWNER and actor.role_key != OWNER:
         raise PermissionDenied(code="permission_denied")
+    if membership.status == Membership.Status.DISABLED:
+        raise DomainError("This person was removed from the organization.", code="member_removed", status_code=409)
     new_role = _assert_can_assign_role(actor, role_key)
     if membership.role.key == OWNER and role_key != OWNER and _active_owner_count() <= 1:
         raise DomainError("The organization must keep at least one owner.", code="last_owner", status_code=409)
@@ -271,24 +287,23 @@ def change_member_role(actor: Actor, membership: Membership, *, role_key: str, r
 
 
 @transaction.atomic
-def disable_member(actor: Actor, membership: Membership, *, request=None) -> Membership:
+def suspend_member(actor: Actor, membership: Membership, *, request=None) -> Membership:
+    """Block access immediately; ``reactivate_member`` restores the same role and teams."""
     check(actor, "members.disable", membership)
     require_recent_auth(request)
     if membership.user_id == actor.user.pk:
-        raise DomainError("You cannot disable yourself.", code="self_disable", status_code=403)
-    if membership.role.key == OWNER:
-        if actor.role_key != OWNER:
-            raise PermissionDenied(code="permission_denied")
-        if _active_owner_count() <= 1:
-            raise DomainError("The organization must keep at least one owner.", code="last_owner", status_code=409)
-    if membership.status == Membership.Status.DISABLED:
+        raise DomainError("You cannot suspend yourself.", code="self_disable", status_code=403)
+    _guard_owner_target(actor, membership)
+    if membership.status == Membership.Status.SUSPENDED:
         return membership
-    membership.status = Membership.Status.DISABLED
+    if membership.status == Membership.Status.DISABLED:
+        raise DomainError("This person was removed from the organization.", code="member_removed", status_code=409)
+    membership.status = Membership.Status.SUSPENDED
     membership.disabled_at = timezone.now()
     membership.save(update_fields=["status", "disabled_at", "updated_at"])
     revoke_user_sessions(membership.user)
     audit.record(
-        actions.MEMBER_DISABLED,
+        actions.MEMBER_SUSPENDED,
         request=request,
         user=actor.user,
         resource=membership,
@@ -298,18 +313,20 @@ def disable_member(actor: Actor, membership: Membership, *, request=None) -> Mem
 
 
 @transaction.atomic
-def enable_member(actor: Actor, membership: Membership, *, request=None) -> Membership:
+def reactivate_member(actor: Actor, membership: Membership, *, request=None) -> Membership:
     check(actor, "members.disable", membership)
     require_recent_auth(request)
     if membership.role.key == OWNER and actor.role_key != OWNER:
         raise PermissionDenied(code="permission_denied")
     if membership.status == Membership.Status.ACTIVE:
         return membership
+    if membership.status == Membership.Status.DISABLED:
+        raise DomainError("Removed users must be invited again to rejoin.", code="member_removed", status_code=409)
     membership.status = Membership.Status.ACTIVE
     membership.disabled_at = None
     membership.save(update_fields=["status", "disabled_at", "updated_at"])
     audit.record(
-        actions.MEMBER_ENABLED,
+        actions.MEMBER_REACTIVATED,
         request=request,
         user=actor.user,
         resource=membership,
@@ -318,46 +335,222 @@ def enable_member(actor: Actor, membership: Membership, *, request=None) -> Memb
     return membership
 
 
-# ----------------------------------------------------------------------------- invitations
+@transaction.atomic
+def remove_member(actor: Actor, membership: Membership, *, request=None) -> Membership:
+    """Remove a person from the organization without deleting history.
+
+    The membership row stays (records they own keep their owner reference and the audit trail keeps
+    its actor) but is marked disabled: sessions are revoked, team memberships and personal mailbox
+    tokens are dropped, and only a new invitation can bring the person back. Integration identities
+    that act through this membership (API credentials, connections) stop working because every
+    machine request re-checks that the membership is active.
+    """
+    from apps.messaging.models import ConnectionStatus, EmailAccount
+    from apps.teams.models import Team, TeamMembership
+
+    check(actor, "members.remove", membership)
+    require_recent_auth(request)
+    if membership.user_id == actor.user.pk:
+        raise DomainError("You cannot remove yourself.", code="self_remove", status_code=403)
+    _guard_owner_target(actor, membership)
+    if membership.status == Membership.Status.DISABLED:
+        return membership
+    now = timezone.now()
+    membership.status = Membership.Status.DISABLED
+    membership.disabled_at = now
+    membership.save(update_fields=["status", "disabled_at", "updated_at"])
+    teams_removed, _ = TeamMembership.objects.filter(membership=membership).delete()
+    Team.objects.filter(manager=membership).update(manager=None, updated_at=now)
+    EmailAccount.objects.filter(
+        membership=membership, status__in=[ConnectionStatus.CONNECTED, ConnectionStatus.ERROR]
+    ).update(
+        status=ConnectionStatus.DISCONNECTED,
+        disconnected_at=now,
+        access_token_enc="",  # nosec B106 - empty means no stored token
+        refresh_token_enc="",  # nosec B106 - empty means no stored token
+        updated_at=now,
+    )
+    revoked = revoke_user_sessions(membership.user)
+    audit.record(
+        actions.MEMBER_REMOVED,
+        request=request,
+        user=actor.user,
+        resource=membership,
+        metadata={"user_id": str(membership.user_id), "teams_removed": teams_removed, "sessions_revoked": revoked},
+    )
+    return membership
 
 
 @transaction.atomic
-def invite_member(actor: Actor, *, email: str, role_key: str, request=None) -> Invitation:
-    check(actor, "members.invite")
-    email = (email or "").strip().lower()
-    if not email or "@" not in email:
-        raise DomainError("A valid email address is required.", code="invalid_email")
-    role = _assert_can_assign_role(actor, role_key)
-    if Membership.objects.filter(user__email=email).exists():
-        raise ConflictError("This person is already a member of the organization.", code="already_member")
-    now = timezone.now()
-    pending = Invitation.objects.filter(accepted_at__isnull=True, revoked_at__isnull=True, expires_at__gt=now)
-    if pending.count() >= settings.MAX_PENDING_INVITATIONS_PER_ORG:
-        raise DomainError("Too many pending invitations.", code="invitation_limit", status_code=429)
-    pending.filter(email=email).update(revoked_at=now)
-
-    token = secrets.token_urlsafe(32)
-    invitation = Invitation.objects.create(
-        email=email,
-        role=role,
-        token_hash=_hash_token(token),
-        expires_at=now + timedelta(days=settings.INVITATION_EXPIRY_DAYS),
-        invited_by=actor.membership,
+def revoke_member_sessions(actor: Actor, membership: Membership, *, request=None) -> int:
+    """Sign a member out of every device (for example after a lost laptop). Access itself is unchanged."""
+    check(actor, "members.disable", membership)
+    if membership.role.key == OWNER and actor.role_key != OWNER:
+        raise PermissionDenied(code="permission_denied")
+    revoked = revoke_user_sessions(membership.user)
+    audit.record(
+        actions.AUTH_SESSIONS_REVOKED,
+        request=request,
+        user=actor.user,
+        resource=membership,
+        metadata={"user_id": str(membership.user_id), "sessions_revoked": revoked, "by_admin": True},
     )
+    return revoked
+
+
+@transaction.atomic
+def set_member_teams(actor: Actor, membership: Membership, *, team_ids: list[uuid.UUID], request=None) -> list:
+    """Replace the member's team memberships with ``team_ids`` (teams of the current organization only)."""
+    from apps.teams.models import Team, TeamMembership
+
+    check(actor, "teams.manage")
+    if membership.status == Membership.Status.DISABLED:
+        raise DomainError("This person was removed from the organization.", code="member_removed", status_code=409)
+    wanted = list(dict.fromkeys(team_ids))
+    if len(wanted) > settings.MAX_TEAMS_PER_MEMBER:
+        raise DomainError(
+            f"A member can belong to at most {settings.MAX_TEAMS_PER_MEMBER} teams.", code="too_many_teams"
+        )
+    teams = list(Team.objects.filter(pk__in=wanted))
+    if len(teams) != len(wanted):
+        # Unknown ids and ids of another organization's teams look the same: not found.
+        raise DomainError("One or more teams do not exist.", code="team_not_found", status_code=404)
+    current = set(TeamMembership.objects.filter(membership=membership).values_list("team_id", flat=True))
+    target = {t.pk for t in teams}
+    TeamMembership.objects.filter(membership=membership).exclude(team_id__in=target).delete()
+    for team in teams:
+        if team.pk not in current:
+            TeamMembership.objects.create(team=team, membership=membership)
+    if current != target:
+        audit.record(
+            actions.MEMBER_TEAMS_CHANGED,
+            request=request,
+            user=actor.user,
+            resource=membership,
+            metadata={
+                "user_id": str(membership.user_id),
+                "added": sorted(str(t) for t in target - current),
+                "removed": sorted(str(t) for t in current - target),
+            },
+        )
+    return teams
+
+
+# ----------------------------------------------------------------------------- invitations
+
+
+def _invitation_team(team_id: uuid.UUID | None):
+    if team_id is None:
+        return None
+    from apps.teams.models import Team
+
+    team = Team.objects.filter(pk=team_id).first()
+    if team is None:
+        raise DomainError("That team does not exist.", code="team_not_found", status_code=404)
+    return team
+
+
+def _send_invitation(actor: Actor, invitation: Invitation, token: str) -> None:
     accept_url = f"{settings.FRONTEND_ORIGIN}/invitations/accept?token={token}"
     emails.send_invitation_email(
-        to_email=email,
+        to_email=invitation.email,
         organization_name=actor.organization.name,
         inviter_name=actor.user.display_name,
         accept_url=accept_url,
         expires_days=settings.INVITATION_EXPIRY_DAYS,
     )
+
+
+@transaction.atomic
+def invite_member(
+    actor: Actor,
+    *,
+    email: str,
+    role_key: str,
+    name: str = "",
+    team_id: uuid.UUID | None = None,
+    request=None,
+) -> Invitation:
+    check(actor, "members.invite")
+    email = (email or "").strip().lower()
+    if not email or "@" not in email:
+        raise DomainError("A valid email address is required.", code="invalid_email")
+    role = _assert_can_assign_role(actor, role_key)
+    if role.key in PRIVILEGED_ROLES:
+        # Inviting someone as owner/admin grants administrative control: same bar as a role change.
+        require_recent_auth(request)
+    team = None
+    if team_id is not None:
+        check(actor, "teams.manage")
+        team = _invitation_team(team_id)
+    existing = Membership.objects.filter(user__email=email).first()
+    if existing is not None and existing.status != Membership.Status.DISABLED:
+        raise ConflictError("This person is already a member of the organization.", code="already_member")
+    now = timezone.now()
+    pending = Invitation.objects.filter(accepted_at__isnull=True, revoked_at__isnull=True, expires_at__gt=now)
+    if pending.count() >= settings.MAX_PENDING_INVITATIONS_PER_ORG:
+        raise DomainError("Too many pending invitations.", code="invitation_limit", status_code=429)
+    limits.assert_seat_available(actor.organization, exclude_invitation_email=email)
+    pending.filter(email=email).update(revoked_at=now)
+
+    token = secrets.token_urlsafe(32)
+    invitation = Invitation.objects.create(
+        email=email,
+        name=validators.clean_text(name, max_length=120),
+        role=role,
+        team=team,
+        token_hash=_hash_token(token),
+        expires_at=now + timedelta(days=settings.INVITATION_EXPIRY_DAYS),
+        invited_by=actor.membership,
+        last_sent_at=now,
+    )
+    _send_invitation(actor, invitation, token)
     audit.record(
         actions.MEMBER_INVITED,
         request=request,
         user=actor.user,
         resource=invitation,
-        metadata={"email": email, "role": role.key},
+        metadata={"email": email, "role": role.key, "team_id": str(team.pk) if team else None},
+    )
+    return invitation
+
+
+@transaction.atomic
+def resend_invitation(actor: Actor, invitation: Invitation, *, request=None) -> Invitation:
+    """Send a fresh link. The previous link stops working (new token) and the expiry restarts."""
+    check(actor, "members.invite", invitation)
+    invitation = Invitation.objects.select_for_update().get(pk=invitation.pk)
+    if invitation.accepted_at is not None or invitation.revoked_at is not None:
+        raise DomainError("Only pending invitations can be resent.", code="invitation_not_pending", status_code=409)
+    now = timezone.now()
+    if invitation.send_count >= settings.INVITATION_MAX_SENDS:
+        raise DomainError(
+            "This invitation has been sent too many times. Revoke it and invite again.",
+            code="invitation_resend_limit",
+            status_code=429,
+        )
+    if (
+        invitation.last_sent_at
+        and (now - invitation.last_sent_at).total_seconds() < settings.INVITATION_RESEND_COOLDOWN
+    ):
+        raise DomainError("Please wait a minute before resending.", code="invitation_resend_too_soon", status_code=429)
+    _assert_can_assign_role(actor, invitation.role.key)
+    if invitation.expires_at <= now:
+        # An expired invitation no longer holds a seat; renewing it takes one again.
+        limits.assert_seat_available(actor.organization, exclude_invitation_email=invitation.email)
+    token = secrets.token_urlsafe(32)
+    invitation.token_hash = _hash_token(token)
+    invitation.expires_at = now + timedelta(days=settings.INVITATION_EXPIRY_DAYS)
+    invitation.send_count += 1
+    invitation.last_sent_at = now
+    invitation.save(update_fields=["token_hash", "expires_at", "send_count", "last_sent_at", "updated_at"])
+    _send_invitation(actor, invitation, token)
+    audit.record(
+        actions.MEMBER_INVITATION_RESENT,
+        request=request,
+        user=actor.user,
+        resource=invitation,
+        metadata={"email": invitation.email, "send_count": invitation.send_count},
     )
     return invitation
 
@@ -402,16 +595,58 @@ def preview_invitation(token: str) -> dict | None:
         return {
             "organization_name": inv.organization.name,
             "email": inv.email,
+            "name": inv.name,
             "role": inv.role.key,
+            "role_name": inv.role.name,
+            "invited_by": inv.invited_by.user.display_name if inv.invited_by else "",
             "expires_at": inv.expires_at,
         }
 
 
+def _invalid_invitation() -> DomainError:
+    return DomainError("This invitation is invalid or has expired.", code="invitation_invalid", status_code=404)
+
+
+def _join_from_invitation(inv: Invitation, user: User, *, existing: Membership | None) -> Membership:
+    """Create or restore the membership an invitation grants. Runs inside the invitation's tenant context,
+    with the invitation row locked. Role, team and organization come only from the invitation row."""
+    from apps.teams.models import Team, TeamMembership
+
+    now = timezone.now()
+    if existing is None:
+        limits.assert_seat_available(inv.organization, exclude_invitation_email=inv.email)
+        membership = Membership.objects.create(user=user, role=inv.role, invited_by=inv.invited_by, joined_at=now)
+    elif existing.status == Membership.Status.ACTIVE:
+        membership = existing  # already in: consume the invitation, keep the current role
+    elif existing.status == Membership.Status.SUSPENDED:
+        raise DomainError(
+            "Your access to this organization is suspended. Contact an administrator.",
+            code="member_disabled",
+            status_code=403,
+        )
+    else:  # removed earlier: the new invitation brings them back with the invited role
+        limits.assert_seat_available(inv.organization, exclude_invitation_email=inv.email)
+        membership = existing
+        membership.status = Membership.Status.ACTIVE
+        membership.role = inv.role
+        membership.disabled_at = None
+        membership.invited_by = inv.invited_by
+        membership.joined_at = now
+        membership.save(update_fields=["status", "role", "disabled_at", "invited_by", "joined_at", "updated_at"])
+    if inv.team_id is not None and Team.objects.filter(pk=inv.team_id).exists():
+        TeamMembership.objects.get_or_create(team_id=inv.team_id, membership=membership)
+    inv.accepted_at = now
+    inv.accepted_by = membership
+    inv.save(update_fields=["accepted_at", "accepted_by", "updated_at"])
+    return membership
+
+
 def accept_invitation(user: User, token: str, *, request=None) -> Membership:
+    """A signed-in user accepts an invitation addressed to their email."""
     with system_context(reason="invitation.accept"):
         inv = _pending_invitation_by_token(token)
         if inv is None:
-            raise DomainError("This invitation is invalid or has expired.", code="invitation_invalid", status_code=404)
+            raise _invalid_invitation()
         if inv.email != user.email.lower():
             raise DomainError(
                 "This invitation was sent to a different email address.",
@@ -421,34 +656,98 @@ def accept_invitation(user: User, token: str, *, request=None) -> Membership:
         org_id = inv.organization_id
         organization = inv.organization
     with tenant_context(org_id, user_id=user.pk, reason="invitation.accept"), transaction.atomic():
-        inv = Invitation.objects.select_for_update().get(pk=inv.pk)
+        inv = Invitation.objects.select_for_update().select_related("role").get(pk=inv.pk)
         if not inv.is_pending:
-            raise DomainError("This invitation is invalid or has expired.", code="invitation_invalid", status_code=404)
+            raise _invalid_invitation()
+        inv.organization = organization
         existing = Membership.objects.filter(user=user).first()
-        if existing is not None:
-            if existing.status == Membership.Status.DISABLED:
-                raise DomainError(
-                    "Your access to this organization has been disabled.", code="member_disabled", status_code=403
-                )
-            membership = existing
-        else:
-            membership = Membership.objects.create(
-                user=user, role=inv.role, invited_by=inv.invited_by, joined_at=timezone.now()
-            )
+        membership = _join_from_invitation(inv, user, existing=existing)
         membership.organization = organization
-        inv.accepted_at = timezone.now()
-        inv.accepted_by = membership
-        inv.save(update_fields=["accepted_at", "accepted_by", "updated_at"])
         audit.record(
             actions.MEMBER_JOINED,
             request=request,
             user=user,
             resource=membership,
-            metadata={"invitation_id": str(inv.pk), "role": inv.role.key},
+            metadata={"invitation_id": str(inv.pk), "role": membership.role.key},
         )
     if request is not None:
         request.session.cycle_key()
         set_active_membership(request, membership)
+    return membership
+
+
+def register_with_invitation(request, *, token: str, name: str, password: str) -> Membership:
+    """Create the invitee's account from the invitation link and sign them in.
+
+    Holding the token proves control of the invited address (it was only ever sent there), so the
+    email is marked verified. Everything the account gets - organization, role, team - is read from
+    the invitation row; the request carries only the token, a display name and the new password.
+
+    One transaction: lock the invitation, create user + verified email + membership + team, consume
+    the invitation, audit. Any failure rolls all of it back. A second request with the same token
+    waits on the row lock and then finds the invitation consumed.
+    """
+    from allauth.account import signals as account_signals
+    from allauth.account.internal.flows.login import record_authentication
+    from allauth.account.models import EmailAddress
+    from django.contrib.auth import login as django_login
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError as DjangoValidationError
+    from django.db import IntegrityError
+    from rest_framework.exceptions import ValidationError
+
+    from apps.accounts.forms import split_name
+
+    with system_context(reason="invitation.register.lookup"):
+        found = _pending_invitation_by_token(token)
+        if found is None:
+            raise _invalid_invitation()
+        inv_pk, org_id, organization, email = found.pk, found.organization_id, found.organization, found.email
+        suggested_name = found.name
+
+    display = validators.clean_text(name, max_length=120) or suggested_name
+    first_name, last_name = split_name(display) if display else ("", "")
+    try:
+        validate_password(password, user=User(email=email, first_name=first_name, last_name=last_name))
+    except DjangoValidationError as exc:
+        raise ValidationError({"password": list(exc.messages)}) from exc
+
+    with tenant_context(org_id, reason="invitation.register"), transaction.atomic():
+        inv = Invitation.objects.select_for_update(of=("self",)).select_related("role", "invited_by").get(pk=inv_pk)
+        if not inv.is_pending:
+            raise _invalid_invitation()
+        inv.organization = organization
+        if User.objects.filter(email__iexact=email).exists():
+            raise ConflictError(
+                "An account already exists for this email. Sign in to accept the invitation.", code="account_exists"
+            )
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    email=email, password=password, first_name=first_name, last_name=last_name
+                )
+        except IntegrityError as exc:  # a concurrent sign-up with the same address won
+            raise ConflictError(
+                "An account already exists for this email. Sign in to accept the invitation.", code="account_exists"
+            ) from exc
+        User.objects.filter(pk=user.pk).update(password_changed_at=timezone.now())
+        EmailAddress.objects.create(user=user, email=email, verified=True, primary=True)
+        set_db_user(user.pk)
+        membership = _join_from_invitation(inv, user, existing=None)
+        membership.organization = organization
+        audit.record(
+            actions.MEMBER_JOINED,
+            request=request,
+            user=user,
+            resource=membership,
+            metadata={"invitation_id": str(inv.pk), "role": membership.role.key, "new_account": True},
+        )
+
+    # Sign in exactly like a password login: Django rotates the session key, allauth's signal sets the
+    # active membership (the only one the account has) and writes the login audit event.
+    django_login(request, user, backend="allauth.account.auth_backends.AuthenticationBackend")
+    record_authentication(request, user, method="password", email=email)
+    account_signals.user_logged_in.send(sender=User, request=request, response=None, user=user)
     return membership
 
 

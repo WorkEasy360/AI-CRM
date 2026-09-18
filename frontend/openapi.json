@@ -34,6 +34,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -57,6 +60,9 @@
                     "activities"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -94,6 +100,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -127,6 +136,9 @@
                     "activities"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -162,6 +174,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -190,6 +205,9 @@
                     "activities"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -227,6 +245,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -253,6 +274,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -278,6 +302,9 @@
                     "activities"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -316,6 +343,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -346,6 +376,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -364,6 +397,9 @@
                     "ai"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -384,6 +420,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -403,6 +442,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -419,6 +461,9 @@
                     "ai"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -439,6 +484,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -457,6 +505,9 @@
                     "assistant"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -488,6 +539,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -516,6 +570,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -534,6 +591,9 @@
                     "assistant"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -573,6 +633,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -607,6 +670,9 @@
                     "audit-events"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -653,6 +719,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -675,6 +744,9 @@
                     "companies"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -711,6 +783,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -743,6 +818,9 @@
                     "companies"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -777,6 +855,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -804,6 +885,9 @@
                     "companies"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -840,6 +924,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -864,6 +951,9 @@
                     "companies"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -891,6 +981,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -917,6 +1010,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -942,6 +1038,9 @@
                     "companies"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -988,6 +1087,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1010,6 +1112,9 @@
                     "contacts"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1046,6 +1151,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1078,6 +1186,9 @@
                     "contacts"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1112,6 +1223,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1139,6 +1253,9 @@
                     "contacts"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1175,6 +1292,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1199,6 +1319,9 @@
                     "contacts"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1226,6 +1349,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1252,6 +1378,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1276,6 +1405,9 @@
                     "contacts"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1323,6 +1455,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1346,6 +1481,9 @@
                     "custom-fields"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1383,6 +1521,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1416,6 +1557,9 @@
                     "custom-fields"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1451,6 +1595,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1480,6 +1627,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1505,6 +1655,9 @@
                     "dashboard"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1544,6 +1697,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1566,6 +1722,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1602,6 +1761,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1634,6 +1796,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1668,6 +1833,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1695,6 +1863,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1731,6 +1902,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1766,6 +1940,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1800,6 +1977,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1837,6 +2017,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1871,6 +2054,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -1916,6 +2102,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1960,6 +2149,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -1994,6 +2186,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2030,6 +2225,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2064,6 +2262,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2100,6 +2301,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2126,6 +2330,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2150,6 +2357,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2176,6 +2386,9 @@
                     "deals"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2223,6 +2436,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2259,6 +2475,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2293,6 +2512,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2311,6 +2533,9 @@
                     "email"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2338,6 +2563,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2363,6 +2591,9 @@
                     "email"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2410,6 +2641,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2433,6 +2667,9 @@
                     "email"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2469,6 +2706,9 @@
                     "email"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2515,6 +2755,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2537,6 +2780,9 @@
                     "email"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2573,6 +2819,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2605,6 +2854,9 @@
                     "email"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2639,6 +2891,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2667,6 +2922,9 @@
                     "email"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2713,6 +2971,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2735,6 +2996,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2771,6 +3035,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2805,6 +3072,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2851,6 +3121,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2873,6 +3146,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2909,6 +3185,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -2943,6 +3222,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -2989,6 +3271,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3011,6 +3296,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3047,6 +3335,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3081,6 +3372,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3127,6 +3421,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3149,6 +3446,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3185,6 +3485,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3219,6 +3522,9 @@
                     "exports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3266,6 +3572,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3289,6 +3598,9 @@
                     "files"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3326,6 +3638,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3360,6 +3675,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3389,6 +3707,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3414,6 +3735,9 @@
                     "forecast"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3453,6 +3777,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3475,6 +3802,9 @@
                     "imports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3511,6 +3841,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3546,6 +3879,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3580,6 +3916,9 @@
                     "imports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3626,6 +3965,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3648,6 +3990,9 @@
                     "imports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3684,6 +4029,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3719,6 +4067,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3753,6 +4104,9 @@
                     "imports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3799,6 +4153,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3821,6 +4178,9 @@
                     "imports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3857,6 +4217,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3891,6 +4254,9 @@
                     "imports"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -3927,6 +4293,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3936,6 +4305,1290 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/api-credentials/": {
+            "get": {
+                "operationId": "integrations_api_credentials_list",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedApiCredentialList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "integrations_api_credentials_create",
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiCredential"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/api-credentials/{id}/": {
+            "delete": {
+                "operationId": "integrations_api_credentials_destroy",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/catalog/": {
+            "get": {
+                "operationId": "integrations_catalog_retrieve",
+                "description": "Cards for Settings → Integrations: connected and available integrations.",
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/": {
+            "get": {
+                "operationId": "integrations_connections_list",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedConnectionList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "integrations_connections_create",
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/": {
+            "get": {
+                "operationId": "integrations_connections_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "integrations_connections_partial_update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "integrations_connections_destroy",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/conflicts/": {
+            "get": {
+                "operationId": "integrations_connections_conflicts_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/conflicts/{conflict_id}/resolve/": {
+            "post": {
+                "operationId": "integrations_connections_conflicts_resolve_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "conflict_id",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f-]{36}$"
+                        },
+                        "required": true
+                    },
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/credentials/": {
+            "post": {
+                "operationId": "integrations_connections_credentials_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/deliveries/": {
+            "get": {
+                "operationId": "integrations_connections_deliveries_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/disconnect/": {
+            "post": {
+                "operationId": "integrations_connections_disconnect_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/inbound/": {
+            "post": {
+                "operationId": "integrations_connections_inbound_create",
+                "description": "Enable (or re-create) the inbound webhook endpoint. URL and secret are shown only in this response.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/inbound/rotate-secret/": {
+            "post": {
+                "operationId": "integrations_connections_inbound_rotate_secret_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/jobs/": {
+            "get": {
+                "operationId": "integrations_connections_jobs_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/oauth/start/": {
+            "post": {
+                "operationId": "integrations_connections_oauth_start_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/pause/": {
+            "post": {
+                "operationId": "integrations_connections_pause_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/resume/": {
+            "post": {
+                "operationId": "integrations_connections_resume_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/sharing/": {
+            "put": {
+                "operationId": "integrations_connections_sharing_update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/sync/": {
+            "post": {
+                "operationId": "integrations_connections_sync_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/connections/{id}/test/": {
+            "post": {
+                "operationId": "integrations_connections_test_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/inbound/{key}/": {
+            "post": {
+                "operationId": "integrations_inbound_create",
+                "description": "Public, signature-authenticated receiver (reviewed: tests/authz_matrix/test_route_coverage.py).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/oauth/callback/": {
+            "get": {
+                "operationId": "integrations_oauth_callback_retrieve",
+                "description": "The provider redirects the browser here. The session identifies the member; ``state`` must match.",
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/options/": {
+            "get": {
+                "operationId": "integrations_options_retrieve",
+                "description": "Everything the mapping editor may offer. Fields come from the server allowlist, never the client.",
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/webhooks/": {
+            "get": {
+                "operationId": "integrations_webhooks_list",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedWebhookSubscriptionList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "integrations_webhooks_create",
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/webhooks/{id}/": {
+            "get": {
+                "operationId": "integrations_webhooks_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "integrations_webhooks_partial_update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "integrations_webhooks_destroy",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/webhooks/{id}/deliveries/": {
+            "get": {
+                "operationId": "integrations_webhooks_deliveries_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/webhooks/{id}/pause/": {
+            "post": {
+                "operationId": "integrations_webhooks_pause_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/webhooks/{id}/resume/": {
+            "post": {
+                "operationId": "integrations_webhooks_resume_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/webhooks/{id}/rotate-secret/": {
+            "post": {
+                "operationId": "integrations_webhooks_rotate_secret_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/integrations/webhooks/{id}/test/": {
+            "post": {
+                "operationId": "integrations_webhooks_test_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSubscription"
                                 }
                             }
                         },
@@ -3972,6 +5625,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -3994,6 +5650,9 @@
                     "invitations"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4030,6 +5689,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4063,12 +5725,53 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
                 "responses": {
                     "204": {
                         "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/{id}/resend/": {
+            "post": {
+                "operationId": "invitations_resend_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "invitations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Invitation"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -4080,6 +5783,9 @@
                     "invitations"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4105,6 +5811,39 @@
                     "invitations"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Invitation"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/register/": {
+            "post": {
+                "operationId": "invitations_register_create",
+                "description": "Create the invitee's account from the link and sign them in (new users only).\n\nAnonymous, so DRF's session authentication does not check CSRF; this endpoint signs a browser\nin, so it enforces the CSRF token itself (no login CSRF into an account someone else controls).",
+                "tags": [
+                    "invitations"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     },
@@ -4152,6 +5891,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4187,40 +5929,8 @@
                 ],
                 "security": [
                     {
-                        "cookieAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Membership"
-                                }
-                            }
-                        },
-                        "description": ""
-                    }
-                }
-            }
-        },
-        "/api/v1/members/{id}/disable/": {
-            "post": {
-                "operationId": "members_disable_create",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "schema": {
-                            "type": "string"
-                        },
-                        "required": true
-                    }
-                ],
-                "tags": [
-                    "members"
-                ],
-                "security": [
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4239,9 +5949,9 @@
                 }
             }
         },
-        "/api/v1/members/{id}/enable/": {
+        "/api/v1/members/{id}/reactivate/": {
             "post": {
-                "operationId": "members_enable_create",
+                "operationId": "members_reactivate_create",
                 "parameters": [
                     {
                         "in": "path",
@@ -4256,6 +5966,85 @@
                     "members"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Membership"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/members/{id}/remove/": {
+            "post": {
+                "operationId": "members_remove_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "members"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Membership"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/members/{id}/revoke-sessions/": {
+            "post": {
+                "operationId": "members_revoke_sessions_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "members"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4291,6 +6080,85 @@
                     "members"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Membership"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/members/{id}/suspend/": {
+            "post": {
+                "operationId": "members_suspend_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "members"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Membership"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/members/{id}/teams/": {
+            "put": {
+                "operationId": "members_teams_update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "members"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4338,6 +6206,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4361,6 +6232,9 @@
                     "notes"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4398,6 +6272,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4432,6 +6309,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4465,6 +6345,9 @@
                     "notes"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4505,6 +6388,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4541,6 +6427,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4567,6 +6456,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4583,6 +6475,9 @@
                     "notifications"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4602,6 +6497,9 @@
                     "notifications"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4629,6 +6527,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4655,6 +6556,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4680,6 +6584,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4699,6 +6606,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4715,6 +6625,9 @@
                     "organizations"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4754,6 +6667,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4776,6 +6692,9 @@
                     "pipelines"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4812,6 +6731,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4844,6 +6766,9 @@
                     "pipelines"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4878,6 +6803,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -4905,6 +6833,9 @@
                     "pipelines"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4940,6 +6871,9 @@
                     "pipelines"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -4986,6 +6920,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5008,6 +6945,9 @@
                     "products"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5044,6 +6984,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5076,6 +7019,9 @@
                     "products"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5110,6 +7056,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5137,6 +7086,9 @@
                     "products"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5173,6 +7125,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5198,6 +7153,9 @@
                     "products"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5225,6 +7183,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5244,6 +7205,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5261,6 +7225,9 @@
                     "session"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5281,6 +7248,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5298,6 +7268,9 @@
                     "session"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5326,6 +7299,9 @@
                     "stages"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5360,6 +7336,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5392,6 +7371,9 @@
                     "stages"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5431,6 +7413,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5453,6 +7438,9 @@
                     "tags"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5489,6 +7477,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5522,6 +7513,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5554,6 +7548,9 @@
                     "tags"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5593,6 +7590,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5625,6 +7625,9 @@
                     "required": true
                 },
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5660,6 +7663,9 @@
                     "teams"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5703,6 +7709,9 @@
                 },
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5736,6 +7745,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5763,6 +7775,9 @@
                     "teams"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5809,6 +7824,9 @@
                 },
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5854,6 +7872,9 @@
                 },
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5880,6 +7901,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5899,6 +7923,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5916,6 +7943,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5932,6 +7962,9 @@
                     "whatsapp"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -5972,6 +8005,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -5995,6 +8031,9 @@
                     "whatsapp"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -6032,6 +8071,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -6057,6 +8099,9 @@
                     "whatsapp"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -6103,6 +8148,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -6125,6 +8173,9 @@
                     "whatsapp"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -6161,6 +8212,9 @@
                 ],
                 "security": [
                     {
+                        "apiCredential": []
+                    },
+                    {
                         "cookieAuth": []
                     }
                 ],
@@ -6193,6 +8247,9 @@
                     "whatsapp"
                 ],
                 "security": [
+                    {
+                        "apiCredential": []
+                    },
                     {
                         "cookieAuth": []
                     }
@@ -6454,6 +8511,75 @@
                 "type": "string",
                 "description": "* `user` - User\n* `system` - System\n* `ai` - AI\n* `integration` - Integration"
             },
+            "ApiCredential": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "display_key": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "scopes": {
+                        "readOnly": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "created_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MemberRef"
+                            }
+                        ],
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "last_used_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "revoked_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "created_by",
+                    "display_key",
+                    "expires_at",
+                    "id",
+                    "last_used_at",
+                    "name",
+                    "revoked_at",
+                    "scopes",
+                    "status"
+                ]
+            },
             "AuditEvent": {
                 "type": "object",
                 "properties": {
@@ -6523,6 +8649,17 @@
                     "resource_id",
                     "resource_type"
                 ]
+            },
+            "AuthTypeEnum": {
+                "enum": [
+                    "oauth2_code",
+                    "oauth2_client_credentials",
+                    "api_key",
+                    "bearer_token",
+                    "signed_webhook"
+                ],
+                "type": "string",
+                "description": "* `oauth2_code` - OAuth 2.0 (authorization code + PKCE)\n* `oauth2_client_credentials` - OAuth 2.0 (client credentials)\n* `api_key` - API key\n* `bearer_token` - Bearer token\n* `signed_webhook` - Signed webhook only"
             },
             "Company": {
                 "type": "object",
@@ -6714,6 +8851,189 @@
                     "id",
                     "name"
                 ]
+            },
+            "ConflictStrategyEnum": {
+                "enum": [
+                    "crm_wins",
+                    "external_wins",
+                    "newest_wins",
+                    "manual"
+                ],
+                "type": "string",
+                "description": "* `crm_wins` - CRM wins\n* `external_wins` - External wins\n* `newest_wins` - Newest update wins\n* `manual` - Manual resolution"
+            },
+            "Connection": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "provider": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "provider_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ConnectionStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status_message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "auth_type": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AuthTypeEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "config": {
+                        "readOnly": true
+                    },
+                    "credentials_configured": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true
+                    },
+                    "conflict_strategy": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ConflictStrategyEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "sync_interval_minutes": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "next_sync_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "inbound_enabled": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "connected_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MemberRef"
+                            }
+                        ],
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "connected_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "disconnected_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "last_sync_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "last_success_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "last_error_code": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "last_error_message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "last_error_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "consecutive_failures": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "auth_type",
+                    "config",
+                    "conflict_strategy",
+                    "connected_at",
+                    "connected_by",
+                    "consecutive_failures",
+                    "created_at",
+                    "credentials_configured",
+                    "disconnected_at",
+                    "id",
+                    "inbound_enabled",
+                    "last_error_at",
+                    "last_error_code",
+                    "last_error_message",
+                    "last_success_at",
+                    "last_sync_at",
+                    "name",
+                    "next_sync_at",
+                    "provider",
+                    "provider_name",
+                    "status",
+                    "status_message",
+                    "sync_interval_minutes",
+                    "updated_at"
+                ]
+            },
+            "ConnectionStatusEnum": {
+                "enum": [
+                    "connected",
+                    "disconnected",
+                    "action_required",
+                    "syncing",
+                    "error",
+                    "disabled"
+                ],
+                "type": "string",
+                "description": "* `connected` - Connected\n* `disconnected` - Disconnected\n* `action_required` - Action required\n* `syncing` - Syncing\n* `error` - Error\n* `disabled` - Paused"
             },
             "Contact": {
                 "type": "object",
@@ -7212,6 +9532,15 @@
                 ],
                 "type": "string",
                 "description": "* `inbound` - Inbound\n* `outbound` - Outbound"
+            },
+            "DisplayStatusEnum": {
+                "enum": [
+                    "active",
+                    "suspended",
+                    "disabled"
+                ],
+                "type": "string",
+                "description": "* `active` - Active\n* `suspended` - Suspended\n* `disabled` - Disabled"
             },
             "EmailAccount": {
                 "type": "object",
@@ -7817,6 +10146,10 @@
                         "format": "email",
                         "readOnly": true
                     },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
                     "role": {
                         "allOf": [
                             {
@@ -7824,6 +10157,15 @@
                             }
                         ],
                         "readOnly": true
+                    },
+                    "team": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TeamRef"
+                            }
+                        ],
+                        "readOnly": true,
+                        "nullable": true
                     },
                     "status": {
                         "type": "string",
@@ -7842,6 +10184,16 @@
                         ],
                         "readOnly": true
                     },
+                    "send_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "last_sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
                     "created_at": {
                         "type": "string",
                         "format": "date-time",
@@ -7854,8 +10206,12 @@
                     "expires_at",
                     "id",
                     "invited_by",
+                    "last_sent_at",
+                    "name",
                     "role",
-                    "status"
+                    "send_count",
+                    "status",
+                    "team"
                 ]
             },
             "KindCffEnum": {
@@ -7877,6 +10233,24 @@
                 ],
                 "type": "string",
                 "description": "* `lead` - Lead\n* `prospect` - Prospect\n* `qualified` - Qualified\n* `customer` - Customer\n* `inactive` - Inactive"
+            },
+            "MemberRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "display_name",
+                    "id"
+                ]
             },
             "Membership": {
                 "type": "object",
@@ -7905,10 +10279,36 @@
                     "status": {
                         "allOf": [
                             {
-                                "$ref": "#/components/schemas/MembershipStatusEnum"
+                                "$ref": "#/components/schemas/Status7d0Enum"
                             }
                         ],
                         "readOnly": true
+                    },
+                    "display_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DisplayStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "teams": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TeamRef"
+                        },
+                        "readOnly": true
+                    },
+                    "mfa_enabled": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "default": false
+                    },
+                    "last_login": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
                     },
                     "joined_at": {
                         "type": "string",
@@ -7929,11 +10329,15 @@
                 },
                 "required": [
                     "created_at",
+                    "display_status",
                     "id",
                     "joined_at",
                     "last_active_at",
+                    "last_login",
+                    "mfa_enabled",
                     "role",
                     "status",
+                    "teams",
                     "user"
                 ]
             },
@@ -7955,14 +10359,6 @@
                     "display_name",
                     "id"
                 ]
-            },
-            "MembershipStatusEnum": {
-                "enum": [
-                    "active",
-                    "disabled"
-                ],
-                "type": "string",
-                "description": "* `active` - Active\n* `disabled` - Disabled"
             },
             "MessageTypeEnum": {
                 "enum": [
@@ -8099,10 +10495,11 @@
                     "deal_assigned",
                     "deal_inactive",
                     "customer_replied",
-                    "ai_high_risk"
+                    "ai_high_risk",
+                    "integration_alert"
                 ],
                 "type": "string",
-                "description": "* `task_due` - Task due\n* `meeting_soon` - Meeting approaching\n* `call_soon` - Call scheduled\n* `deal_assigned` - Deal assigned to you\n* `deal_inactive` - Deal inactivity warning\n* `customer_replied` - Customer replied\n* `ai_high_risk` - Deal at high risk"
+                "description": "* `task_due` - Task due\n* `meeting_soon` - Meeting approaching\n* `call_soon` - Call scheduled\n* `deal_assigned` - Deal assigned to you\n* `deal_inactive` - Deal inactivity warning\n* `customer_replied` - Customer replied\n* `ai_high_risk` - Deal at high risk\n* `integration_alert` - Integration needs attention"
             },
             "OutcomeEnum": {
                 "enum": [
@@ -8139,6 +10536,32 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Activity"
+                        }
+                    }
+                }
+            },
+            "PaginatedApiCredentialList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ApiCredential"
                         }
                     }
                 }
@@ -8191,6 +10614,32 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Company"
+                        }
+                    }
+                }
+            },
+            "PaginatedConnectionList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Connection"
                         }
                     }
                 }
@@ -8637,6 +11086,32 @@
                     }
                 }
             },
+            "PaginatedWebhookSubscriptionList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WebhookSubscription"
+                        }
+                    }
+                }
+            },
             "PaginatedWhatsAppMessageList": {
                 "type": "object",
                 "required": [
@@ -9014,6 +11489,15 @@
                     "name"
                 ]
             },
+            "Status7d0Enum": {
+                "enum": [
+                    "active",
+                    "suspended",
+                    "disabled"
+                ],
+                "type": "string",
+                "description": "* `active` - Active\n* `suspended` - Suspended\n* `disabled` - Disabled"
+            },
             "StatusA50Enum": {
                 "enum": [
                     "uploaded",
@@ -9109,6 +11593,24 @@
                     "updated_at"
                 ]
             },
+            "TeamRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ]
+            },
             "TeamRequest": {
                 "type": "object",
                 "properties": {
@@ -9150,6 +11652,107 @@
                     "email",
                     "id"
                 ]
+            },
+            "WebhookSubscription": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "url": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "event_types": {
+                        "readOnly": true
+                    },
+                    "include_data": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WebhookSubscriptionStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "consecutive_failures": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "last_success_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "last_failure_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "last_error_code": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "rotation_in_progress": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "created_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MemberRef"
+                            }
+                        ],
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "consecutive_failures",
+                    "created_at",
+                    "created_by",
+                    "event_types",
+                    "id",
+                    "include_data",
+                    "last_error_code",
+                    "last_failure_at",
+                    "last_success_at",
+                    "name",
+                    "rotation_in_progress",
+                    "status",
+                    "updated_at",
+                    "url"
+                ]
+            },
+            "WebhookSubscriptionStatusEnum": {
+                "enum": [
+                    "active",
+                    "paused",
+                    "disabled"
+                ],
+                "type": "string",
+                "description": "* `active` - Active\n* `paused` - Paused\n* `disabled` - Disabled after repeated failures"
             },
             "WhatsAppMessage": {
                 "type": "object",
@@ -9334,6 +11937,11 @@
             }
         },
         "securitySchemes": {
+            "apiCredential": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "Scoped API credential (keel_...). Accepted only on /api/v1/contacts, /companies, /deals and /activities."
+            },
             "cookieAuth": {
                 "type": "apiKey",
                 "in": "cookie",

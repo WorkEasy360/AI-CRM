@@ -60,7 +60,10 @@ def rotate(token: str) -> str:
     """Re-encrypt with the current primary key (no-op when it already is)."""
     if not token:
         return ""
-    return _fernet().rotate(token.encode("ascii")).decode("ascii")
+    try:
+        return _fernet().rotate(token.encode("ascii")).decode("ascii")
+    except (InvalidToken, ValueError) as exc:
+        raise DecryptionError("Stored secret cannot be decrypted with the configured keys.") from exc
 
 
 def generate_key() -> str:

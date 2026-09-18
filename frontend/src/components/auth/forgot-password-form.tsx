@@ -38,7 +38,7 @@ export function ForgotPasswordForm() {
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-success-soft text-success">
           <MailCheck className="size-6" aria-hidden />
         </div>
-        <AuthHeading title="Check your email" description="If an account exists for that address, a password reset link is on its way." />
+        <AuthHeading title="Check your email" description="If an account exists for this email, password reset instructions have been sent." />
         <Button asChild variant="secondary" className="w-full">
           <Link href="/login">Back to sign in</Link>
         </Button>

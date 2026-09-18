@@ -71,7 +71,7 @@ locals {
   # mailbox OAuth tokens. It never calls the model and never verifies a webhook signature.
   worker_critical_secrets = concat(local.base_secrets, local.email_oauth_secrets)
 
-  # worker-heavy (imports, exports, reports, rag_indexing), beat and migrate need nothing
+  # worker-heavy (imports, exports, reports, rag_indexing, integrations), beat and migrate need nothing
   # beyond the base set.
   worker_heavy_secrets = local.base_secrets
   beat_secrets         = local.base_secrets
@@ -124,7 +124,7 @@ locals {
     }
     "worker-heavy" = {
       # rag_indexing carries rag.purge_organization (tenant erasure): it must always have a consumer.
-      command = ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "imports,exports,reports,rag_indexing", "-c", "2", "--max-tasks-per-child", "100"]
+      command = ["celery", "-A", "config.celery", "worker", "-l", "info", "-Q", "imports,exports,reports,rag_indexing,integrations", "-c", "2", "--max-tasks-per-child", "100"]
       cpu     = var.worker_cpu
       memory  = var.worker_memory
       secrets = local.worker_heavy_secrets

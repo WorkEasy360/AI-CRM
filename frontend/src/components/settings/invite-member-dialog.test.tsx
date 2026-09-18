@@ -11,14 +11,21 @@ vi.mock("@/lib/api/endpoints", () => ({
   createInvitation: vi.fn(),
 }));
 
+vi.mock("@/components/reauth-provider", () => ({
+  useReauth: () => ({ runSensitive: <T,>(fn: () => Promise<T>) => fn() }),
+  isReauthCancelled: () => false,
+}));
+
 import { createInvitation } from "@/lib/api/endpoints";
+
+const TEAMS = [{ id: "t1", name: "Inside Sales", manager_id: null, member_count: 0, created_at: "", updated_at: "" }];
 
 function renderDialog() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <InviteMemberDialog open onOpenChange={() => {}} roles={FALLBACK_ROLES} />
+        <InviteMemberDialog open onOpenChange={() => {}} roles={FALLBACK_ROLES} teams={TEAMS} />
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -63,5 +70,14 @@ describe("InviteMemberDialog", () => {
   it("does not offer the owner role", () => {
     renderDialog();
     expect(screen.queryByRole("option", { name: "Owner" })).not.toBeInTheDocument();
+  });
+
+  it("asks for name, email, role and an optional team, never a password", () => {
+    renderDialog();
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Role")).toBeInTheDocument();
+    expect(screen.getByLabelText("Team")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
   });
 });

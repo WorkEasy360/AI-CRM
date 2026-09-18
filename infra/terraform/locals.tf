@@ -26,5 +26,5 @@ locals {
 
   metrics_namespace = "Keel"
 
-  celery_queues = ["default", "notifications", "imports", "exports", "reports", "rag_indexing"]
+  celery_queues = ["default", "notifications", "imports", "exports", "reports", "rag_indexing", "integrations"]
 }

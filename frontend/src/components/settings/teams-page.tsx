@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { MoreHorizontal, Pencil, Plus, Trash2, Users, UsersRound } from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/page-header";
+import { UsersTeamsTabs } from "@/components/settings/users-teams-tabs";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, roleBadgeVariant } from "@/components/ui/badge";
@@ -84,7 +85,7 @@ export function TeamsPage() {
   return (
     <div>
       <PageHeader
-        title="Teams"
+        title="Users & Teams"
         description="Group members into teams to scope what they can see and manage."
         actions={
           canManage ? (
@@ -94,6 +95,7 @@ export function TeamsPage() {
           ) : null
         }
       />
+      <UsersTeamsTabs />
 
       {teams.isPending ? (
         <SkeletonRows rows={3} />

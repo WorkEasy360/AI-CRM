@@ -35,6 +35,15 @@ from apps.importexport.api import (
     ProductExportViewSet,
     ProductImportViewSet,
 )
+from apps.integrations.api import (
+    ApiCredentialViewSet,
+    ConnectionViewSet,
+    InboundWebhookView,
+    IntegrationCatalogView,
+    IntegrationOAuthCallbackView,
+    IntegrationOptionsView,
+    WebhookSubscriptionViewSet,
+)
 from apps.messaging.api import (
     EmailAccountViewSet,
     EmailMessageViewSet,
@@ -86,6 +95,10 @@ router.register("email/templates", EmailTemplateViewSet, basename="email-templat
 router.register("email/messages", EmailMessageViewSet, basename="email-message")
 router.register("whatsapp/templates", WhatsAppTemplateViewSet, basename="whatsapp-template")
 router.register("whatsapp/messages", WhatsAppMessageViewSet, basename="whatsapp-message")
+# Integration Hub (Settings → Integrations)
+router.register("integrations/connections", ConnectionViewSet, basename="integration-connection")
+router.register("integrations/webhooks", WebhookSubscriptionViewSet, basename="integration-webhook")
+router.register("integrations/api-credentials", ApiCredentialViewSet, basename="integration-api-credential")
 
 _schema_permission = [AllowAny] if settings.DEBUG else [IsAuthenticated]
 
@@ -103,6 +116,10 @@ urlpatterns = [
     path("notifications/preferences/", NotificationPreferenceView.as_view(), name="notification-preferences"),
     path("whatsapp/account/", WhatsAppAccountView.as_view(), name="whatsapp-account"),
     path("whatsapp/webhook/", WhatsAppWebhookView.as_view(), name="whatsapp-webhook"),
+    path("integrations/catalog/", IntegrationCatalogView.as_view(), name="integration-catalog"),
+    path("integrations/options/", IntegrationOptionsView.as_view(), name="integration-options"),
+    path("integrations/oauth/callback/", IntegrationOAuthCallbackView.as_view(), name="integration-oauth-callback"),
+    path("integrations/inbound/<str:key>/", InboundWebhookView.as_view(), name="integration-inbound-webhook"),
     path("ai/deals/<uuid:deal_id>/summary/", DealSummaryView.as_view(), name="ai-deal-summary"),
     path("ai/contacts/<uuid:contact_id>/score/", ContactScoreView.as_view(), name="ai-contact-score"),
     path("ai/follow-up/", AIFollowUpView.as_view(), name="ai-follow-up"),

@@ -15,13 +15,13 @@ import {
   Mail,
   MessageCircle,
   Package,
+  PlugZap,
   Settings,
   Settings2,
   SlidersHorizontal,
   Sparkles,
   Tag,
   Users,
-  UsersRound,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { ActiveContext, Session } from "@/lib/api/types";
@@ -47,6 +47,8 @@ export const PRIMARY_NAV: readonly NavItem[] = [
 export interface SettingsNavItem extends NavItem {
   /** UI-only visibility rule. The API enforces the real permission on every request. */
   visible: (active: ActiveContext | null | undefined) => boolean;
+  /** Other routes that belong to this entry (highlighted as current). */
+  also?: readonly string[];
 }
 
 const anyOf = (active: ActiveContext | null | undefined, keys: string[]) => keys.some((key) => hasPermission(active, key));
@@ -54,8 +56,13 @@ const anyOf = (active: ActiveContext | null | undefined, keys: string[]) => keys
 /** Administrative pages, reachable from the gear icon only, shown when the member can act on them. */
 export const SETTINGS_NAV: readonly SettingsNavItem[] = [
   { href: "/settings/general", label: "General", icon: Settings2, visible: (a) => hasPermission(a, "org.update") },
-  { href: "/settings/users", label: "Users", icon: Users, visible: (a) => anyOf(a, ["members.invite", "members.update_role", "members.disable"]) },
-  { href: "/settings/teams", label: "Teams", icon: UsersRound, visible: (a) => hasPermission(a, "teams.manage") },
+  {
+    href: "/settings/users",
+    label: "Users & Teams",
+    icon: Users,
+    also: ["/settings/teams"],
+    visible: (a) => anyOf(a, ["members.invite", "members.update_role", "members.disable", "members.remove", "teams.manage"]),
+  },
   { href: "/settings/pipelines", label: "Pipelines", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
   { href: "/settings/custom-fields", label: "Custom fields", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
   { href: "/settings/tags", label: "Tags", icon: Tag, visible: (a) => hasPermission(a, "tags.manage") },
@@ -63,6 +70,7 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
   { href: "/settings/whatsapp", label: "WhatsApp", icon: MessageCircle, visible: (a) => hasPermission(a, "whatsapp.view") },
   { href: "/settings/notifications", label: "Notifications", icon: Bell, visible: () => true },
   { href: "/settings/ai", label: "AI", icon: Sparkles, visible: (a) => hasPermission(a, "ai.settings.manage") },
+  { href: "/settings/integrations", label: "Integrations", icon: PlugZap, visible: (a) => anyOf(a, ["integrations.view", "webhooks.manage"]) },
   { href: "/settings/security", label: "Security", icon: Lock, visible: () => true },
   {
     href: "/settings/data",

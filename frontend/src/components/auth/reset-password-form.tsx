@@ -13,7 +13,7 @@ import { FormError, FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { resetPassword } from "@/lib/api/allauth";
 import { errorMessage, isApiError } from "@/lib/api/problem";
-import { passwordSchema } from "@/lib/validation";
+import { PASSWORD_HINT, passwordSchema } from "@/lib/validation";
 
 const schema = z
   .object({ password: passwordSchema, confirm: z.string() })
@@ -63,7 +63,7 @@ export function ResetPasswordForm() {
     <form onSubmit={onSubmit} className="grid gap-4" noValidate>
       <AuthHeading title="Choose a new password" />
       <FormError message={error ?? fieldErrors.key} />
-      <FormField control={form.control} name="password" label="New password" description="At least 10 characters." serverError={fieldErrors.password}>
+      <FormField control={form.control} name="password" label="New password" description={PASSWORD_HINT} serverError={fieldErrors.password}>
         {(field) => (
           <Input {...field} type="password" autoComplete="new-password" autoFocus value={field.value} onChange={(e) => field.onChange(e.target.value)} />
         )}

@@ -198,6 +198,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Workspace AI policy and the health of the knowledge index.
+         *
+         *     ``ai_enabled = false`` is a supported operating mode, not a kill switch: Ask Keel keeps answering
+         *     from structured CRM data and the knowledge index, it simply stops sending anything to a model.
+         */
+        get: operations["ai_settings_retrieve"];
+        /**
+         * @description Workspace AI policy and the health of the knowledge index.
+         *
+         *     ``ai_enabled = false`` is a supported operating mode, not a kill switch: Ask Keel keeps answering
+         *     from structured CRM data and the knowledge index, it simply stops sending anything to a model.
+         */
+        put: operations["ai_settings_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/usage/": {
         parameters: {
             query?: never;
@@ -207,6 +235,63 @@ export interface paths {
         };
         /** @description Organization AI usage and limits (administrators). */
         get: operations["ai_usage_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/ask/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST a question; always answers, with or without a model behind it.
+         *
+         *     The response shape is identical in every mode -- ``mode`` says which one produced it, so the UI
+         *     can show "Knowledge search mode" without ever exposing a provider name or status code.
+         */
+        post: operations["assistant_ask_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversation_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One thread of the caller's own. Another member's id simply reads as empty. */
+        get: operations["assistant_conversations_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description One thread of the caller's own. Another member's id simply reads as empty. */
+        delete: operations["assistant_conversations_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/home/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What the dashboard card needs before anyone types: prompts, and whether AI is available. */
+        get: operations["assistant_home_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1253,6 +1338,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/files/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;
+         *     deleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).
+         */
+        get: operations["files_list"];
+        put?: never;
+        /**
+         * @description Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;
+         *     deleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).
+         */
+        post: operations["files_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;
+         *     deleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).
+         */
+        get: operations["files_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;
+         *     deleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).
+         */
+        delete: operations["files_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/download/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Files hang off a record: anyone who can view the record and holds ``files.view`` sees them;
+         *     deleting follows ``files.delete`` scopes (a rep removes their own uploads, managers remove any).
+         */
+        get: operations["files_download_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/forecast/": {
         parameters: {
             query?: never;
@@ -1462,6 +1615,475 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/api-credentials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_api_credentials_list"];
+        put?: never;
+        post: operations["integrations_api_credentials_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/api-credentials/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["integrations_api_credentials_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/catalog/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Cards for Settings → Integrations: connected and available integrations. */
+        get: operations["integrations_catalog_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_connections_list"];
+        put?: never;
+        post: operations["integrations_connections_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_connections_retrieve"];
+        put?: never;
+        post?: never;
+        delete: operations["integrations_connections_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["integrations_connections_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/conflicts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_connections_conflicts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/conflicts/{conflict_id}/resolve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_conflicts_resolve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/credentials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_credentials_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/deliveries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_connections_deliveries_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/disconnect/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_disconnect_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/inbound/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Enable (or re-create) the inbound webhook endpoint. URL and secret are shown only in this response. */
+        post: operations["integrations_connections_inbound_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/inbound/rotate-secret/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_inbound_rotate_secret_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/jobs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_connections_jobs_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/oauth/start/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_oauth_start_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/pause/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_pause_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/resume/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_resume_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/sharing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["integrations_connections_sharing_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_sync_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connections/{id}/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_connections_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/inbound/{key}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Public, signature-authenticated receiver (reviewed: tests/authz_matrix/test_route_coverage.py). */
+        post: operations["integrations_inbound_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/oauth/callback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider redirects the browser here. The session identifies the member; ``state`` must match. */
+        get: operations["integrations_oauth_callback_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/options/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Everything the mapping editor may offer. Fields come from the server allowlist, never the client. */
+        get: operations["integrations_options_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/webhooks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_webhooks_list"];
+        put?: never;
+        post: operations["integrations_webhooks_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/webhooks/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_webhooks_retrieve"];
+        put?: never;
+        post?: never;
+        delete: operations["integrations_webhooks_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["integrations_webhooks_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/integrations/webhooks/{id}/deliveries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrations_webhooks_deliveries_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/webhooks/{id}/pause/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_webhooks_pause_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/webhooks/{id}/resume/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_webhooks_resume_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/webhooks/{id}/rotate-secret/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_webhooks_rotate_secret_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/webhooks/{id}/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrations_webhooks_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/": {
         parameters: {
             query?: never;
@@ -1494,6 +2116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invitations/{id}/resend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["invitations_resend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/accept/": {
         parameters: {
             query?: never;
@@ -1520,6 +2158,28 @@ export interface paths {
         get: operations["invitations_preview_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invitations/register/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Create the invitee's account from the link and sign them in (new users only).
+         *
+         *     Anonymous, so DRF's session authentication does not check CSRF; this endpoint signs a browser
+         *     in, so it enforces the CSRF token itself (no login CSRF into an account someone else controls).
+         */
+        post: operations["invitations_register_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1558,7 +2218,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/members/{id}/disable/": {
+    "/api/v1/members/{id}/reactivate/": {
         parameters: {
             query?: never;
             header?: never;
@@ -1567,14 +2227,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["members_disable_create"];
+        post: operations["members_reactivate_create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/members/{id}/enable/": {
+    "/api/v1/members/{id}/remove/": {
         parameters: {
             query?: never;
             header?: never;
@@ -1583,7 +2243,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["members_enable_create"];
+        post: operations["members_remove_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{id}/revoke-sessions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["members_revoke_sessions_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1604,6 +2280,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["members_role_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/members/{id}/suspend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["members_suspend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{id}/teams/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["members_teams_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/notes/": {
@@ -2361,6 +3069,23 @@ export interface components {
          * @enum {string}
          */
         ActorTypeEnum: "user" | "system" | "ai" | "integration";
+        ApiCredential: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly display_key: string;
+            readonly scopes: unknown;
+            readonly status: string;
+            readonly created_by: components["schemas"]["MemberRef"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly expires_at: string | null;
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+            /** Format: date-time */
+            readonly revoked_at: string | null;
+        };
         AuditEvent: {
             /** Format: uuid */
             readonly id: string;
@@ -2377,6 +3102,15 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description * `oauth2_code` - OAuth 2.0 (authorization code + PKCE)
+         *     * `oauth2_client_credentials` - OAuth 2.0 (client credentials)
+         *     * `api_key` - API key
+         *     * `bearer_token` - Bearer token
+         *     * `signed_webhook` - Signed webhook only
+         * @enum {string}
+         */
+        AuthTypeEnum: "oauth2_code" | "oauth2_client_credentials" | "api_key" | "bearer_token" | "signed_webhook";
         /** @description Base read serializer: owner/tag/custom-field output resolved from batch-loaded context. */
         Company: {
             /** Format: uuid */
@@ -2433,6 +3167,59 @@ export interface components {
             readonly id: string;
             readonly name: string;
         };
+        /**
+         * @description * `crm_wins` - CRM wins
+         *     * `external_wins` - External wins
+         *     * `newest_wins` - Newest update wins
+         *     * `manual` - Manual resolution
+         * @enum {string}
+         */
+        ConflictStrategyEnum: "crm_wins" | "external_wins" | "newest_wins" | "manual";
+        Connection: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly provider: string;
+            readonly provider_name: string;
+            readonly name: string;
+            readonly status: components["schemas"]["ConnectionStatusEnum"];
+            readonly status_message: string;
+            readonly auth_type: components["schemas"]["AuthTypeEnum"];
+            readonly config: unknown;
+            readonly credentials_configured: string[];
+            readonly conflict_strategy: components["schemas"]["ConflictStrategyEnum"];
+            readonly sync_interval_minutes: number;
+            /** Format: date-time */
+            readonly next_sync_at: string | null;
+            readonly inbound_enabled: boolean;
+            readonly connected_by: components["schemas"]["MemberRef"] | null;
+            /** Format: date-time */
+            readonly connected_at: string | null;
+            /** Format: date-time */
+            readonly disconnected_at: string | null;
+            /** Format: date-time */
+            readonly last_sync_at: string | null;
+            /** Format: date-time */
+            readonly last_success_at: string | null;
+            readonly last_error_code: string;
+            readonly last_error_message: string;
+            /** Format: date-time */
+            readonly last_error_at: string | null;
+            readonly consecutive_failures: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `connected` - Connected
+         *     * `disconnected` - Disconnected
+         *     * `action_required` - Action required
+         *     * `syncing` - Syncing
+         *     * `error` - Error
+         *     * `disabled` - Paused
+         * @enum {string}
+         */
+        ConnectionStatusEnum: "connected" | "disconnected" | "action_required" | "syncing" | "error" | "disabled";
         /** @description Base read serializer: owner/tag/custom-field output resolved from batch-loaded context. */
         Contact: {
             /** Format: uuid */
@@ -2562,6 +3349,13 @@ export interface components {
          * @enum {string}
          */
         DirectionEnum: "inbound" | "outbound";
+        /**
+         * @description * `active` - Active
+         *     * `suspended` - Suspended
+         *     * `disabled` - Disabled
+         * @enum {string}
+         */
+        DisplayStatusEnum: "active" | "suspended" | "disabled";
         EmailAccount: {
             /** Format: uuid */
             readonly id: string;
@@ -2685,6 +3479,19 @@ export interface components {
          * @enum {string}
          */
         FieldTypeEnum: "text" | "textarea" | "integer" | "number" | "currency" | "percent" | "date" | "datetime" | "checkbox" | "dropdown" | "multi_select" | "email" | "phone" | "url";
+        FileAttachment: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly entity_type: string;
+            /** Format: uuid */
+            readonly entity_id: string;
+            readonly filename: string;
+            readonly content_type: string;
+            readonly size_bytes: number;
+            readonly uploaded_by: components["schemas"]["MembershipRef"];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         ImportJob: {
             /** Format: uuid */
             readonly id: string;
@@ -2714,11 +3521,16 @@ export interface components {
             readonly id: string;
             /** Format: email */
             readonly email: string;
+            readonly name: string;
             readonly role: components["schemas"]["RoleRef"];
+            readonly team: components["schemas"]["TeamRef"] | null;
             readonly status: string;
             /** Format: date-time */
             readonly expires_at: string;
             readonly invited_by: components["schemas"]["UserPublic"];
+            readonly send_count: number;
+            /** Format: date-time */
+            readonly last_sent_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -2738,12 +3550,23 @@ export interface components {
          * @enum {string}
          */
         LifecycleStageEnum: "lead" | "prospect" | "qualified" | "customer" | "inactive";
+        MemberRef: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly display_name: string;
+        };
         Membership: {
             /** Format: uuid */
             readonly id: string;
             readonly user: components["schemas"]["UserPublic"];
             readonly role: components["schemas"]["RoleRef"];
-            readonly status: components["schemas"]["MembershipStatusEnum"];
+            readonly status: components["schemas"]["Status7d0Enum"];
+            readonly display_status: components["schemas"]["DisplayStatusEnum"];
+            readonly teams: components["schemas"]["TeamRef"][];
+            /** @default false */
+            readonly mfa_enabled: boolean;
+            /** Format: date-time */
+            readonly last_login: string | null;
             /** Format: date-time */
             readonly joined_at: string;
             /** Format: date-time */
@@ -2757,12 +3580,6 @@ export interface components {
             readonly id: string;
             readonly display_name: string;
         };
-        /**
-         * @description * `active` - Active
-         *     * `disabled` - Disabled
-         * @enum {string}
-         */
-        MembershipStatusEnum: "active" | "disabled";
         /**
          * @description * `text` - Text
          *     * `template` - Template
@@ -2807,9 +3624,10 @@ export interface components {
          *     * `deal_inactive` - Deal inactivity warning
          *     * `customer_replied` - Customer replied
          *     * `ai_high_risk` - Deal at high risk
+         *     * `integration_alert` - Integration needs attention
          * @enum {string}
          */
-        NotificationKindEnum: "task_due" | "meeting_soon" | "call_soon" | "deal_assigned" | "deal_inactive" | "customer_replied" | "ai_high_risk";
+        NotificationKindEnum: "task_due" | "meeting_soon" | "call_soon" | "deal_assigned" | "deal_inactive" | "customer_replied" | "ai_high_risk" | "integration_alert";
         /**
          * @description * `connected` - Connected
          *     * `no_answer` - No answer
@@ -2833,6 +3651,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Activity"][];
+        };
+        PaginatedApiCredentialList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ApiCredential"][];
         };
         PaginatedAuditEventList: {
             /**
@@ -2859,6 +3690,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Company"][];
+        };
+        PaginatedConnectionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Connection"][];
         };
         PaginatedContactList: {
             /**
@@ -2950,6 +3794,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["ExportJob"][];
+        };
+        PaginatedFileAttachmentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FileAttachment"][];
         };
         PaginatedImportJobList: {
             /**
@@ -3067,6 +3924,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Team"][];
+        };
+        PaginatedWebhookSubscriptionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["WebhookSubscription"][];
         };
         PaginatedWhatsAppMessageList: {
             /**
@@ -3192,6 +4062,13 @@ export interface components {
             readonly color_token: string;
         };
         /**
+         * @description * `active` - Active
+         *     * `suspended` - Suspended
+         *     * `disabled` - Disabled
+         * @enum {string}
+         */
+        Status7d0Enum: "active" | "suspended" | "disabled";
+        /**
          * @description * `uploaded` - Uploaded
          *     * `pending` - Pending
          *     * `running` - Running
@@ -3229,6 +4106,11 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        TeamRef: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+        };
         TeamRequest: {
             name: string;
             /** Format: uuid */
@@ -3241,6 +4123,34 @@ export interface components {
             readonly email: string;
             readonly display_name: string;
         };
+        WebhookSubscription: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly url: string;
+            readonly event_types: unknown;
+            readonly include_data: boolean;
+            readonly status: components["schemas"]["WebhookSubscriptionStatusEnum"];
+            readonly consecutive_failures: number;
+            /** Format: date-time */
+            readonly last_success_at: string | null;
+            /** Format: date-time */
+            readonly last_failure_at: string | null;
+            readonly last_error_code: string;
+            readonly rotation_in_progress: boolean;
+            readonly created_by: components["schemas"]["MemberRef"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `active` - Active
+         *     * `paused` - Paused
+         *     * `disabled` - Disabled after repeated failures
+         * @enum {string}
+         */
+        WebhookSubscriptionStatusEnum: "active" | "paused" | "disabled";
         WhatsAppMessage: {
             /** Format: uuid */
             readonly id: string;
@@ -3555,7 +4465,119 @@ export interface operations {
             };
         };
     };
+    ai_settings_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ai_settings_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ai_usage_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assistant_ask_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assistant_conversations_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assistant_conversations_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assistant_home_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -5276,6 +6298,111 @@ export interface operations {
             };
         };
     };
+    files_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFileAttachmentList"];
+                };
+            };
+        };
+    };
+    files_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileAttachment"];
+                };
+            };
+        };
+    };
+    files_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileAttachment"];
+                };
+            };
+        };
+    };
+    files_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    files_download_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileAttachment"];
+                };
+            };
+        };
+    };
     forecast_retrieve: {
         parameters: {
             query?: never;
@@ -5612,6 +6739,753 @@ export interface operations {
             };
         };
     };
+    integrations_api_credentials_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiCredentialList"];
+                };
+            };
+        };
+    };
+    integrations_api_credentials_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiCredential"];
+                };
+            };
+        };
+    };
+    integrations_api_credentials_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_catalog_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_connections_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedConnectionList"];
+                };
+            };
+        };
+    };
+    integrations_connections_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_connections_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_conflicts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_conflicts_resolve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conflict_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_credentials_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_deliveries_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_disconnect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_inbound_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_inbound_rotate_secret_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_jobs_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_oauth_start_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_pause_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_resume_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_sharing_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_sync_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_connections_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+        };
+    };
+    integrations_inbound_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_oauth_callback_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_options_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_webhooks_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedWebhookSubscriptionList"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_webhooks_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_deliveries_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_pause_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_resume_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_rotate_secret_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
+    integrations_webhooks_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscription"];
+                };
+            };
+        };
+    };
     invitations_list: {
         parameters: {
             query?: {
@@ -5696,6 +7570,27 @@ export interface operations {
             };
         };
     };
+    invitations_resend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"];
+                };
+            };
+        };
+    };
     invitations_accept_create: {
         parameters: {
             query?: never;
@@ -5716,6 +7611,25 @@ export interface operations {
         };
     };
     invitations_preview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"];
+                };
+            };
+        };
+    };
+    invitations_register_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -5779,7 +7693,7 @@ export interface operations {
             };
         };
     };
-    members_disable_create: {
+    members_reactivate_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -5800,7 +7714,28 @@ export interface operations {
             };
         };
     };
-    members_enable_create: {
+    members_remove_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Membership"];
+                };
+            };
+        };
+    };
+    members_revoke_sessions_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -5822,6 +7757,48 @@ export interface operations {
         };
     };
     members_role_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Membership"];
+                };
+            };
+        };
+    };
+    members_suspend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Membership"];
+                };
+            };
+        };
+    };
+    members_teams_update: {
         parameters: {
             query?: never;
             header?: never;

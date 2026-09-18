@@ -2,11 +2,14 @@ import { api } from "@/lib/api/client";
 import type {
   AuditEvent,
   AuditEventFilters,
+  CreateInvitationInput,
   CreateOrganizationInput,
   CreateOrganizationResponse,
   DashboardPeriod,
   DashboardSummary,
   Invitation,
+  InvitationAcceptResponse,
+  InvitationPreview,
   Membership,
   Organization,
   Paginated,
@@ -50,23 +53,40 @@ export const listMembers = (cursor?: string | null) =>
 export const updateMemberRole = (id: string, role: string) =>
   api.patch<Membership>(`/api/v1/members/${encodeURIComponent(id)}/role/`, { role });
 
-export const disableMember = (id: string) => api.post<Membership>(`/api/v1/members/${encodeURIComponent(id)}/disable/`);
+export const suspendMember = (id: string) => api.post<Membership>(`/api/v1/members/${encodeURIComponent(id)}/suspend/`);
 
-export const enableMember = (id: string) => api.post<Membership>(`/api/v1/members/${encodeURIComponent(id)}/enable/`);
+export const reactivateMember = (id: string) =>
+  api.post<Membership>(`/api/v1/members/${encodeURIComponent(id)}/reactivate/`);
+
+/** Removes the person from the organization (status "disabled"); only a new invitation brings them back. */
+export const removeMember = (id: string) => api.post<Membership>(`/api/v1/members/${encodeURIComponent(id)}/remove/`);
+
+export const revokeMemberSessions = (id: string) =>
+  api.post<{ sessions_revoked: number }>(`/api/v1/members/${encodeURIComponent(id)}/revoke-sessions/`);
+
+export const setMemberTeams = (id: string, teamIds: string[]) =>
+  api.put<Membership>(`/api/v1/members/${encodeURIComponent(id)}/teams/`, { team_ids: teamIds });
 
 /* Invitations */
 export const listInvitations = (cursor?: string | null) =>
   api.get<Paginated<Invitation>>("/api/v1/invitations/", { cursor: cursor ?? undefined });
 
-export const createInvitation = (input: { email: string; role: string }) =>
-  api.post<Invitation>("/api/v1/invitations/", input);
+export const createInvitation = (input: CreateInvitationInput) => api.post<Invitation>("/api/v1/invitations/", input);
+
+export const resendInvitation = (id: string) =>
+  api.post<Invitation>(`/api/v1/invitations/${encodeURIComponent(id)}/resend/`);
 
 export const revokeInvitation = (id: string) => api.delete(`/api/v1/invitations/${encodeURIComponent(id)}/`);
 
 export const previewInvitation = (token: string) =>
-  api.get<Invitation & { organization?: { name: string } }>("/api/v1/invitations/preview/", { token });
+  api.get<InvitationPreview>("/api/v1/invitations/preview/", { token });
 
-export const acceptInvitation = (token: string) => api.post<Invitation>("/api/v1/invitations/accept/", { token });
+export const acceptInvitation = (token: string) =>
+  api.post<InvitationAcceptResponse>("/api/v1/invitations/accept/", { token });
+
+/** New users only: creates the account from the invitation link and signs the browser in. */
+export const registerWithInvitation = (input: { token: string; name: string; password: string }) =>
+  api.post<InvitationAcceptResponse>("/api/v1/invitations/register/", input);
 
 /* Teams */
 export const listTeams = (cursor?: string | null) =>

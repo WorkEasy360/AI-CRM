@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import ipaddress
 import uuid
+from collections.abc import Iterator
+from contextvars import ContextVar
 from typing import Any
 
 import structlog
@@ -34,6 +37,21 @@ REDACT_KEYS = frozenset(
     }
 )
 REDACTED = "[redacted]"
+
+# Set while an integration (API credential, sync job, inbound webhook) acts: events written meanwhile are
+# attributed to it (actor_type=integration plus its id) even though they run through a member's grants.
+_integration: ContextVar[dict[str, str] | None] = ContextVar("audit_integration", default=None)
+
+
+@contextlib.contextmanager
+def acting_integration(kind: str, identifier: Any) -> Iterator[None]:
+    token = _integration.set({"integration_kind": kind, "integration_id": str(identifier)})
+    try:
+        yield
+    finally:
+        _integration.reset(token)
+
+
 _MAX_METADATA_STR = 512
 
 
@@ -92,6 +110,13 @@ def record(
         req_user = getattr(request, "user", None)
         if req_user is not None and req_user.is_authenticated:
             user = req_user
+    integration = _integration.get()
+    credential_id = getattr(request, "api_credential_id", None) if request is not None else None
+    if integration is None and credential_id:
+        integration = {"integration_kind": "api_credential", "integration_id": str(credential_id)}
+    if integration is not None:
+        actor_type = AuditEvent.ActorType.INTEGRATION
+        metadata = {**(metadata or {}), **integration}
     if resource is not None:
         resource_type = resource_type or type(resource).__name__.lower()
         resource_id = resource_id if resource_id is not None else getattr(resource, "pk", None)

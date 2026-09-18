@@ -51,6 +51,18 @@ class TenantMiddleware:
                     apply_db_context(previous)
 
     def _handle(self, request: HttpRequest) -> HttpResponse:
+        integration_actor = getattr(request, "integration_actor", None)
+        if integration_actor is not None:
+            # Authenticated by apps.integrations.machine_auth (API credential, no session): the tenant
+            # comes from the credential's organization, never from the request.
+            request.actor = integration_actor  # type: ignore[attr-defined]
+            ctx = TenantContext(
+                organization_id=integration_actor.organization.id,
+                user_id=integration_actor.user.pk,
+                membership_id=integration_actor.membership.id,
+            )
+            with bind_context(ctx, restore_db=False):
+                return self.get_response(request)
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:
             return self.get_response(request)

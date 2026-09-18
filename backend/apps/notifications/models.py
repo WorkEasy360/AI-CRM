@@ -17,6 +17,7 @@ class NotificationKind(models.TextChoices):
     DEAL_INACTIVE = "deal_inactive", "Deal inactivity warning"
     CUSTOMER_REPLIED = "customer_replied", "Customer replied"
     AI_HIGH_RISK = "ai_high_risk", "Deal at high risk"
+    INTEGRATION_ALERT = "integration_alert", "Integration needs attention"
 
 
 NOTIFICATION_KINDS: tuple[str, ...] = tuple(NotificationKind.values)

@@ -124,7 +124,7 @@ def test_admin_cannot_modify_owner_or_grant_owner(org_a, make_member, client_for
         ).status_code
         == 403
     )
-    assert client.post(f"/api/v1/members/{org_a.owner_membership.pk}/disable/", {}, format="json").status_code == 403
+    assert client.post(f"/api/v1/members/{org_a.owner_membership.pk}/suspend/", {}, format="json").status_code == 403
     assert client.patch(f"/api/v1/members/{rep.pk}/role/", {"role": "owner"}, format="json").status_code == 403
     assert client.patch(f"/api/v1/members/{rep.pk}/role/", {"role": "admin"}, format="json").status_code == 200
 
@@ -145,30 +145,30 @@ def test_last_owner_is_protected(org_a, make_member, client_for, reauthenticate)
         admin_client.patch(f"/api/v1/members/{second_owner.pk}/role/", {"role": "viewer"}, format="json").status_code
         == 403
     )
-    # a third owner may disable the second owner because they themselves remain an active owner
+    # a third owner may suspend the second owner because they themselves remain an active owner
     third = make_member(org_a, "owner")
     third_client = client_for(third.user, third)
     reauthenticate(third_client)
-    assert third_client.post(f"/api/v1/members/{second_owner.pk}/disable/", {}, format="json").status_code == 200
+    assert third_client.post(f"/api/v1/members/{second_owner.pk}/suspend/", {}, format="json").status_code == 200
     # now 'third' is the last owner and cannot be demoted by anyone including another owner promoted later
     with tenant_context(org_a.org.pk):
         assert Membership.objects.active().filter(role__key="owner").count() == 1
 
 
-def test_disable_member_revokes_sessions_and_blocks_access(
+def test_suspend_member_revokes_sessions_and_blocks_access(
     org_a, owner_client, make_member, client_for, reauthenticate
 ):
     member = make_member(org_a, "viewer")
     target = client_for(member.user, member)
     assert target.get("/api/v1/members/").status_code == 200
     reauthenticate(owner_client)
-    resp = owner_client.post(f"/api/v1/members/{member.pk}/disable/", {}, format="json")
-    assert resp.status_code == 200 and resp.json()["status"] == "disabled"
+    resp = owner_client.post(f"/api/v1/members/{member.pk}/suspend/", {}, format="json")
+    assert resp.status_code == 200 and resp.json()["status"] == "suspended"
     assert target.get("/api/v1/members/").status_code in (401, 403)
-    # even with a fresh login, the disabled membership does not resolve to an organization
+    # even with a fresh login, the suspended membership does not resolve to an organization
     fresh = client_for(member.user, member)
     assert fresh.get("/api/v1/session/").json()["active"] is None
-    assert owner_client.post(f"/api/v1/members/{member.pk}/enable/", {}, format="json").status_code == 200
+    assert owner_client.post(f"/api/v1/members/{member.pk}/reactivate/", {}, format="json").status_code == 200
 
 
 def test_org_update_requires_recent_auth_and_validates(org_a, owner_client, reauthenticate):

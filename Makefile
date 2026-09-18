@@ -13,7 +13,7 @@ worker: services
 	cd backend && uv run celery -A config.celery worker -l info -Q default,notifications -c 4
 
 worker-heavy: services
-	cd backend && uv run celery -A config.celery worker -l info -Q imports,exports,reports,rag_indexing -c 2
+	cd backend && uv run celery -A config.celery worker -l info -Q imports,exports,reports,rag_indexing,integrations -c 2
 
 beat: services
 	cd backend && uv run celery -A config.celery beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler

@@ -16,7 +16,7 @@ ALLOWED_WITHOUT_ORG = {
 }
 ALLOWED_SCHEMA_ROUTES = {"schema", "docs"}
 # Machine-to-machine endpoints authenticated by a signature instead of a session (reviewed list).
-ALLOWED_PUBLIC = {"whatsapp-webhook": AllowAny}
+ALLOWED_PUBLIC = {"whatsapp-webhook": AllowAny, "integration-inbound-webhook": AllowAny}
 HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 
 
@@ -50,7 +50,7 @@ def test_every_api_route_declares_protection():
             for action in actions.values():
                 if action in public:
                     allowed = public[action]
-                    if any(c is AllowAny for c in allowed) and action not in {"preview"}:
+                    if any(c is AllowAny for c in allowed) and action not in {"preview", "register"}:
                         problems.append(f"{full}: unexpected AllowAny action {action}")
                 elif action not in getattr(cls, "permission_map", {}):
                     problems.append(f"{full}: action {action!r} missing from {cls.__name__}.permission_map")

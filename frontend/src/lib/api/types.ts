@@ -8,6 +8,8 @@ export type TeamRequest = components["schemas"]["TeamRequest"];
 export type AuditEvent = components["schemas"]["AuditEvent"];
 export type UserPublic = components["schemas"]["UserPublic"];
 export type RoleRef = components["schemas"]["RoleRef"];
+export type TeamRef = components["schemas"]["TeamRef"];
+export type MemberDisplayStatus = components["schemas"]["Membership"]["display_status"];
 export type MembershipStatus = components["schemas"]["Membership"]["status"];
 export type PaginatedMembershipList = components["schemas"]["PaginatedMembershipList"];
 export type PaginatedInvitationList = components["schemas"]["PaginatedInvitationList"];
@@ -67,6 +69,29 @@ export interface RoleDefinition {
   name: string;
   description: string;
   grants: Record<string, PermissionScope> | string[];
+}
+
+export interface CreateInvitationInput {
+  email: string;
+  role: string;
+  name?: string;
+  team_id?: string | null;
+}
+
+/** GET /api/v1/invitations/preview/ (public; everything comes from the invitation row). */
+export interface InvitationPreview {
+  organization_name: string;
+  email: string;
+  name: string;
+  role: string;
+  role_name: string;
+  invited_by: string;
+  expires_at: string;
+}
+
+export interface InvitationAcceptResponse {
+  membership_id: string;
+  organization: Organization;
 }
 
 export interface CreateOrganizationInput {

@@ -27,6 +27,7 @@ from apps.customfields.models import CustomFieldDefinition
 from apps.deals.models import Deal, DealStageHistory
 from apps.files.models import FileAttachment
 from apps.importexport.models import ExportJob, ImportJob
+from apps.integrations.models import ApiCredential, IntegrationConnection, WebhookSubscription
 from apps.lifecycle.models import LifecycleHistory
 from apps.messaging.models import (
     EmailAccount,
@@ -428,6 +429,45 @@ def make_conversation_turn(bundle: OrgBundle, *, conversation=None, **extra):
         return ConversationTurn.objects.create(conversation=conversation, **extra)
 
 
+def make_integration_connection(bundle: OrgBundle, *, status: str = "connected", **extra):
+    from apps.integrations import credentials
+    from apps.integrations.models import IntegrationConnection
+
+    with _ctx(bundle, "test.make_integration_connection"):
+        extra.setdefault("name", f"REST {uuid.uuid4().hex[:6]}")
+        extra.setdefault("provider", "generic_rest")
+        extra.setdefault("auth_type", "api_key")
+        extra.setdefault("config", {"base_url": "https://api.example.com/v1"})
+        extra.setdefault("credentials_enc", credentials.seal({"api_key": "test-api-key"}))
+        extra.setdefault("connected_by", bundle.owner_membership)
+        return IntegrationConnection.objects.create(status=status, **extra)
+
+
+def make_webhook_subscription(bundle: OrgBundle, **extra):
+    from apps.core import crypto
+    from apps.integrations.models import WebhookSubscription
+
+    with _ctx(bundle, "test.make_webhook_subscription"):
+        extra.setdefault("name", "Orders hook")
+        extra.setdefault("url", "https://hooks.example.com/keel")
+        extra.setdefault("event_types", ["contact.created"])
+        extra.setdefault("secret_enc", crypto.encrypt("whsec_test"))
+        extra.setdefault("created_by", bundle.owner_membership)
+        return WebhookSubscription.objects.create(**extra)
+
+
+def make_api_credential(bundle: OrgBundle, **extra):
+    from apps.integrations.models import ApiCredential
+
+    with _ctx(bundle, "test.make_api_credential"):
+        extra.setdefault("name", "Marketing sync")
+        extra.setdefault("prefix", uuid.uuid4().hex[:16])
+        extra.setdefault("secret_hash", "0" * 64)
+        extra.setdefault("scopes", ["contacts:read"])
+        extra.setdefault("created_by", bundle.owner_membership)
+        return ApiCredential.objects.create(**extra)
+
+
 # model -> callable(bundle) -> instance, used by tests/tenant_isolation/test_generated.py
 CROSS_TENANT_FACTORIES = {
     Activity: lambda bundle: make_activity(bundle),
@@ -462,4 +502,7 @@ CROSS_TENANT_FACTORIES = {
     IndexEvent: lambda bundle: make_index_event(bundle),
     Conversation: lambda bundle: make_conversation(bundle),
     ConversationTurn: lambda bundle: make_conversation_turn(bundle),
+    IntegrationConnection: lambda bundle: make_integration_connection(bundle),
+    WebhookSubscription: lambda bundle: make_webhook_subscription(bundle),
+    ApiCredential: lambda bundle: make_api_credential(bundle),
 }

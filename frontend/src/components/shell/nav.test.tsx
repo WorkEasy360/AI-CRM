@@ -51,6 +51,7 @@ const ADMIN = active(
     "email.view": "all",
     "whatsapp.view": "all",
     "ai.settings.manage": "all",
+    "integrations.view": "all",
   },
   "admin",
 );
@@ -87,7 +88,6 @@ describe("navigation", () => {
     expect(SETTINGS_NAV.map((i) => i.href)).toEqual([
       "/settings/general",
       "/settings/users",
-      "/settings/teams",
       "/settings/pipelines",
       "/settings/custom-fields",
       "/settings/tags",
@@ -95,10 +95,19 @@ describe("navigation", () => {
       "/settings/whatsapp",
       "/settings/notifications",
       "/settings/ai",
+      "/settings/integrations",
       "/settings/security",
       "/settings/data",
       "/settings/audit-log",
     ]);
+  });
+
+  it("keeps integration administration out of the sales sidebar and inside Settings", () => {
+    render(<SideNav session={session(ADMIN)} />);
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    expect(within(nav).queryByRole("link", { name: "Integrations" })).not.toBeInTheDocument();
+    expect(visibleSettingsNav(ADMIN).map((i) => i.label)).toContain("Integrations");
+    expect(visibleSettingsNav(REP).map((i) => i.label)).not.toContain("Integrations");
   });
 
   it("falls back to the always-visible pages when there is no active organization", () => {

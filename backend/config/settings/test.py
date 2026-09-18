@@ -43,6 +43,10 @@ REST_FRAMEWORK = {
         "invitation_public": "10000/min",
         "search": "10000/min",
         "assistant": "10000/min",
+        "machine_credential": "10000/min",
+        "machine_org": "10000/min",
+        "machine_endpoint": "10000/min",
+        "integration_inbound": "10000/min",
     },
 }
 ACCOUNT_RATE_LIMITS = {}
