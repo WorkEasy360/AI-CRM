@@ -19,7 +19,7 @@ In another terminal:
 ```bash
 cd frontend
 pnpm install
-pnpm dev                                  # http://localhost:3000, proxies /api and /_allauth to :8000
+pnpm dev                                  # http://localhost:4000, proxies /api and /_allauth to :8000
 ```
 Background worker (CSV imports and exports are processed by Celery; without it jobs stay `pending`):
 ```bash

@@ -20,7 +20,7 @@ SECRET_KEY = env("SECRET_KEY")
 SECRET_KEY_FALLBACKS = env.list("SECRET_KEY_FALLBACKS", default=[])
 DEBUG = False
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
-FRONTEND_ORIGIN = env("FRONTEND_ORIGIN", default="http://localhost:3000")
+FRONTEND_ORIGIN = env("FRONTEND_ORIGIN", default="http://localhost:4000")
 SITE_NAME = "Keel CRM"
 
 # ----------------------------------------------------------------------------- apps / middleware

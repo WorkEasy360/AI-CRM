@@ -9,7 +9,7 @@ Requirements: Node 20.19+ (CI uses 22), pnpm 10 (`corepack enable`).
 ```bash
 cp .env.example .env.local   # optional; defaults to http://localhost:8000
 pnpm install
-pnpm dev                     # http://localhost:3000
+pnpm dev                     # http://localhost:4000
 ```
 
 `API_INTERNAL_ORIGIN` is read **server-side only** by `src/middleware.ts` and used as the destination of the proxy for `/api/*`, `/_allauth/*`, `/health/` and `/ready/` (middleware rather than `next.config.ts` rewrites so the trailing slash every DRF route requires survives the hop). It is never exposed to the browser; there are no `NEXT_PUBLIC_*` variables and no secrets in Phase 1.

@@ -15,7 +15,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: [["list"], ["json", { outputFile: "test-results/e2e-results.json" }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:4000",
     viewport: { width: 1280, height: 800 },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

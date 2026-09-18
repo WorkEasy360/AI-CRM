@@ -7,8 +7,8 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "next dev --turbopack",
-    "dev:webpack": "next dev",
+    "dev": "next dev --turbopack -p 4000",
+    "dev:webpack": "next dev -p 4000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
