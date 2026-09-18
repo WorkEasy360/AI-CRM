@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, ChevronDown, ListTodo, Phone, PhoneIncoming, Plus } from "lucide-react";
-import { ActivityFormDialog } from "@/components/activities/activity-form-dialog";
 import { ActivityList } from "@/components/activities/activity-list";
 import { KIND_LABELS } from "@/components/activities/activity-utils";
 import { Calendar } from "@/components/activities/calendar";
@@ -21,6 +21,9 @@ import { can } from "@/lib/crm/permissions";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+
+// Rendered only while creating or editing; its form code loads at that moment.
+const ActivityFormDialog = dynamic(() => import("@/components/activities/activity-form-dialog").then((m) => m.ActivityFormDialog), { ssr: false });
 
 const TABS = ["calendar", "tasks", "meetings", "calls"] as const;
 type Tab = (typeof TABS)[number];

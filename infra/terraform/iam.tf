@@ -103,6 +103,8 @@ data "aws_iam_policy_document" "app_runtime" {
     actions = [
       "s3:GetObject",
       "s3:PutObject",
+      # PutObject with a Tagging header (temporary import/export files) is authorised as tagging too.
+      "s3:PutObjectTagging",
       "s3:DeleteObject",
       "s3:AbortMultipartUpload",
     ]

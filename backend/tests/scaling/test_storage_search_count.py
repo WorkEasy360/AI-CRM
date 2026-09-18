@@ -68,6 +68,17 @@ def test_s3_backend_round_trip_encrypts_and_validates_keys(s3):
         assert storage.exists(bad) is False
 
 
+def test_only_temporary_objects_are_tagged_for_lifecycle_expiry(s3):
+    """The bucket's 7-day expiry matches the tag, so a permanent attachment must never carry it."""
+    org = uuid.uuid4()
+    for kind in ("imports", "exports"):
+        storage.write(storage.new_key(org, kind), b"a,b\r\n")
+    for kind in ("files", "email"):
+        storage.write(storage.new_key(org, kind), b"%PDF", "application/pdf")
+    tagging = [call[1].get("Tagging") for call in s3.calls if call[0] == "put"]
+    assert tagging == ["retention=temporary", "retention=temporary", None, None]
+
+
 def test_signed_url_is_short_lived_and_forces_attachment(s3):
     key = storage.new_key(uuid.uuid4(), "exports")
     url = storage.signed_download_url(key, 'weird "name"; .csv')

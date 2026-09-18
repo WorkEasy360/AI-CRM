@@ -101,7 +101,8 @@ def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: An
             {"name": "AssistantRequest", "value": 1, "unit": "Count", "dimensions": {"Mode": payload["mode"]}},
             {"name": "AssistantLatency", "value": elapsed_ms, "unit": "Milliseconds"},
             {"name": "AssistantChunks", "value": len(chunks), "unit": "Count"},
-        ]
+        ],
+        wait=False,  # a request thread: never wait on CloudWatch
     )
     audit.record(
         "ai.assistant",
@@ -234,7 +235,7 @@ def _generate(
         routed = route_complete(llm_request)
     except AllProvidersUnavailableError as exc:
         log.warning("assistant.ai_unavailable", reason=exc.message[:120])
-        metrics.publish([{"name": "AssistantFallback", "value": 1, "unit": "Count"}])
+        metrics.publish([{"name": "AssistantFallback", "value": 1, "unit": "Count"}], wait=False)
         payload = fallback.build(question=question, intent=parsed, tools=tools, chunks=chunks, reason="ai_unavailable")
         payload["flagged_input"] = flagged
         return payload, "", ""

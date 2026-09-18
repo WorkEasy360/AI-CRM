@@ -141,7 +141,9 @@ export function DataTable<T extends { id: string }>({
               {columns.map((col, index) => (
                 <TableCell key={col.key} className={col.className}>
                   {index === 0 && rowHref ? (
-                    <Link href={rowHref(row)} className="font-medium text-fg hover:text-primary hover:underline">
+                    // No viewport prefetch per row: every route is dynamic, so each visible row cost a
+                    // server request on list load (19-28 per page) that the page itself never needed.
+                    <Link prefetch={false} href={rowHref(row)} className="font-medium text-fg hover:text-primary hover:underline">
                       {col.render(row)}
                     </Link>
                   ) : (

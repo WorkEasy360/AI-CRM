@@ -45,7 +45,7 @@ export function ForecastBreakdown({ forecast, currency, pipeline }: { forecast: 
             <TableRow key={row.id}>
               <TableCell>
                 {href ? (
-                  <Link href={href} className="font-medium text-fg hover:text-primary hover:underline">
+                  <Link prefetch={false} href={href} className="font-medium text-fg hover:text-primary hover:underline">
                     {row.label}
                   </Link>
                 ) : (

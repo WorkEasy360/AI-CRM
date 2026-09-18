@@ -28,6 +28,12 @@ _KEY_RE = re.compile(r"^[0-9a-f-]{36}/(imports|exports|email|files)/[0-9a-f]{32}
 _FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]")
 CONTENT_TYPE = "text/csv; charset=utf-8"
 OPAQUE_KINDS = frozenset({"email", "files"})
+# Import uploads and export results are scratch files; email attachments and record files are permanent
+# and share the bucket. Keys start with the organization id, so a lifecycle *prefix* cannot tell them
+# apart: temporary objects carry this tag and the bucket's expiry rule matches the tag only
+# (infra/terraform/s3.tf). Never tag a permanent kind.
+TEMPORARY_KINDS = frozenset({"imports", "exports"})
+TEMPORARY_OBJECT_TAGGING = "retention=temporary"
 
 
 def new_key(organization_id: uuid.UUID, kind: str) -> str:
@@ -142,7 +148,10 @@ class S3Backend:
 
     def write(self, key: str, data: bytes, content_type: str = CONTENT_TYPE) -> int:
         validate_key(key)
-        self.client().put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type, **self._encryption())
+        extra: dict[str, str] = self._encryption()
+        if key.split("/", 2)[1] in TEMPORARY_KINDS:
+            extra["Tagging"] = TEMPORARY_OBJECT_TAGGING
+        self.client().put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type, **extra)
         return len(data)
 
     def read(self, key: str) -> bytes:

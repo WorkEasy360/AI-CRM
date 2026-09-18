@@ -53,8 +53,11 @@ class AnthropicProvider:
             kwargs["output_config"] = {"effort": request.effort or "low"}
         elif request.temperature is not None:
             kwargs["temperature"] = request.temperature
+        client = self._client
+        if request.timeout is not None:
+            client = client.with_options(timeout=request.timeout, max_retries=0)
         try:
-            response = self._client.messages.create(**kwargs)
+            response = client.messages.create(**kwargs)
         except anthropic.RateLimitError as exc:
             raise LLMError("The AI service is busy. Try again in a moment.", retryable=True, status=429) from exc
         except anthropic.AuthenticationError as exc:

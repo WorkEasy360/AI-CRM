@@ -15,7 +15,7 @@ import { DASHBOARD_PERIODS, type DashboardPeriod } from "@/lib/api/types";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { useListParams } from "@/lib/crm/use-list-params";
-import { queryKeys, useSession } from "@/lib/session";
+import { hasPermission, queryKeys, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { DashboardTabs } from "./dashboard-tabs";
 import { Panel, PanelLink, StatTile, fmtCount, fmtPercent } from "./stat-tile";
@@ -185,8 +185,9 @@ export function DashboardPage() {
           </section>
 
           {/* Between the numbers and the charts: close enough to the figures to be the obvious next
-              question, small enough that the dashboard is still a dashboard. */}
-          <AskKeelCard />
+              question, small enough that the dashboard is still a dashboard. A role without the
+              assistant gets no card (and no request that can only answer 403). */}
+          {hasPermission(session?.active, "ai.assistant.use") ? <AskKeelCard /> : null}
 
           <section aria-label="Charts" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Panel title="Deals by stage" subtitle={data?.deals_by_stage?.pipeline?.name ?? "Open deals right now"}>

@@ -130,7 +130,7 @@ function ActivityLine({ event }: { event: TimelineEvent }) {
   const priority = str(d.priority);
   const link = (text: string) =>
     id ? (
-      <Link href={activityHref(id)} className="font-medium text-fg hover:text-primary hover:underline">
+      <Link prefetch={false} href={activityHref(id)} className="font-medium text-fg hover:text-primary hover:underline">
         {text}
       </Link>
     ) : (
@@ -297,7 +297,7 @@ function describe(event: TimelineEvent, entity: EntityType): React.ReactNode {
       return (
         <>
           Deal{" "}
-          <Link href={`/deals/${encodeURIComponent(str(d.deal_id))}`} className="font-medium text-primary hover:underline">
+          <Link prefetch={false} href={`/deals/${encodeURIComponent(str(d.deal_id))}`} className="font-medium text-primary hover:underline">
             {str(d.name)}
           </Link>{" "}
           ({str(d.status)}, {str(d.stage)}) · {formatMoney(str(d.amount), str(d.currency))}

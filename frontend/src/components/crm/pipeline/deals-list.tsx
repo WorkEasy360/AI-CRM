@@ -93,11 +93,11 @@ export function DealsList({
         className: "hidden lg:table-cell",
         render: (d) =>
           d.company ? (
-            <Link href={`/companies/${encodeURIComponent(d.company.id)}`} className="hover:text-primary hover:underline">
+            <Link prefetch={false} href={`/companies/${encodeURIComponent(d.company.id)}`} className="hover:text-primary hover:underline">
               {d.company.name}
             </Link>
           ) : d.primary_contact ? (
-            <Link href={`/contacts/${encodeURIComponent(d.primary_contact.id)}`} className="hover:text-primary hover:underline">
+            <Link prefetch={false} href={`/contacts/${encodeURIComponent(d.primary_contact.id)}`} className="hover:text-primary hover:underline">
               {d.primary_contact.name}
             </Link>
           ) : (

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
+import structlog
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -30,6 +31,8 @@ from apps.dashboards import cache as dashboard_cache
 from apps.importexport import csvsafe, storage
 from apps.importexport.models import ExportJob, ImportJob, JobStatus
 
+log = structlog.get_logger(__name__)
+
 MAX_IMPORT_ERRORS_STORED = 500
 MAX_EXPORT_ROWS = 100_000
 EXPORT_TTL_HOURS = 24
@@ -37,6 +40,19 @@ IMPORT_ENTITY_TYPES = ("contact", "company", "product")
 EXPORT_ENTITY_TYPES = ("contact", "company", "product", "deal")
 
 # ----------------------------------------------------------------------------- fairness
+
+
+def _enqueue(task: Any, **kwargs: str) -> None:
+    """Hand a committed job to its worker, best effort.
+
+    Runs after COMMIT: the job row already exists, so a broker blip raising here only turned the accepted
+    request into a 500 (and the client's retry into a second job). A job that never reaches a worker is
+    failed by ``privacy.retention.fail_stale_jobs``, which also releases its quota slot.
+    """
+    try:
+        task.delay(**kwargs)
+    except Exception as exc:
+        log.warning("importexport.enqueue_failed", task=task.name, job_id=kwargs.get("job_id"), error=str(exc)[:200])
 
 
 def _active_jobs() -> int:
@@ -274,8 +290,11 @@ def start_import(actor: Actor, job: ImportJob, *, mapping: Any, options: Any = N
         metadata={"entity_type": job.entity_type, "mapping": job.mapping},
     )
     transaction.on_commit(
-        lambda: run_import.delay(
-            job_id=str(job.pk), organization_id=str(job.organization_id), actor_membership_id=str(actor.membership.pk)
+        lambda: _enqueue(
+            run_import,
+            job_id=str(job.pk),
+            organization_id=str(job.organization_id),
+            actor_membership_id=str(actor.membership.pk),
         )
     )
     return job
@@ -448,7 +467,8 @@ def create_export(actor: Actor, *, entity_type: str, filters: dict[str, str], re
             metadata={"entity_type": entity_type, "filters": clean},
         )
         transaction.on_commit(
-            lambda: run_export.delay(
+            lambda: _enqueue(
+                run_export,
                 job_id=str(job.pk),
                 organization_id=str(job.organization_id),
                 actor_membership_id=str(actor.membership.pk),

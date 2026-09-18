@@ -1,12 +1,9 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ActivityFormDialog } from "@/components/activities/activity-form-dialog";
-import { CompanyFormDialog } from "@/components/crm/companies/company-form-dialog";
-import { ContactFormDialog } from "@/components/crm/contacts/contact-form-dialog";
-import { DealFormDialog } from "@/components/crm/deals/deal-form-dialog";
 import { useToast } from "@/components/ui/toast";
 import { listPipelines } from "@/lib/api/crm";
 import type { ActivityKind, NamedRef } from "@/lib/api/crm-types";
@@ -26,6 +23,14 @@ export interface QuickCreateContextValue {
   /** Open the create dialog for `kind` from anywhere inside the app shell. */
   open: (kind: QuickCreateKind, defaults?: QuickCreateDefaults) => void;
 }
+
+// The shell mounts on every route, so statically importing the four forms put zod, react-hook-form and
+// every field component into the JS each page downloads before it can render, whether or not "+ New" is
+// ever used. They are rendered only after a request anyway; their code now loads at that moment.
+const ActivityFormDialog = dynamic(() => import("@/components/activities/activity-form-dialog").then((m) => m.ActivityFormDialog), { ssr: false });
+const CompanyFormDialog = dynamic(() => import("@/components/crm/companies/company-form-dialog").then((m) => m.CompanyFormDialog), { ssr: false });
+const ContactFormDialog = dynamic(() => import("@/components/crm/contacts/contact-form-dialog").then((m) => m.ContactFormDialog), { ssr: false });
+const DealFormDialog = dynamic(() => import("@/components/crm/deals/deal-form-dialog").then((m) => m.DealFormDialog), { ssr: false });
 
 const ACTIVITY_KINDS: readonly QuickCreateKind[] = ["task", "call", "meeting"];
 

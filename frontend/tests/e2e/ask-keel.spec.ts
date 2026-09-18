@@ -38,7 +38,10 @@ async function ask(question: string) {
   await card.getByLabel("Ask Keel a question").fill(question);
   await card.getByRole("button", { name: "Ask" }).click();
   const panel = page.getByRole("dialog");
-  await expect(panel.getByRole("region", { name: "From your CRM" })).toBeVisible({ timeout: 60_000 });
+  // Which sections an answer carries depends on the question: a record question renders "From your CRM",
+  // a communication search renders "From your conversations" only. Wait for the answer, not for one shape
+  // of it; the tests that need a particular section assert it themselves.
+  await expect(panel.getByRole("region").first()).toBeVisible({ timeout: 60_000 });
   return panel;
 }
 
@@ -68,9 +71,9 @@ test("1. a customer with a deal and a conversation to find", async () => {
 
   const deal = await apiFromPage(page, "POST", "/api/v1/deals/", {
     name: dealName,
-    pipeline: pipeline!.id,
-    stage: stage!.id,
-    company: companyId,
+    pipeline_id: pipeline!.id,
+    stage_id: stage!.id,
+    company_id: companyId,
     amount: "850000.00",
   });
   expect(deal.status).toBe(201);

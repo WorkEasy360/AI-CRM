@@ -160,11 +160,12 @@ wider rights is never served after rights were narrowed. Tests: `backend/tests/s
 
 | Queue | Consumer service | Concurrency | Tasks | Limits |
 |---|---|---|---|---|
-| default | worker-critical | 4 | metrics, purge | 600 s hard |
+| default | worker-critical | 4 | metrics, purge, stale-job sweep | 600 s hard |
 | notifications | worker-critical | 4 | `accounts.send_email` | 45 s hard, 3 retries with backoff+jitter |
 | imports | worker-heavy | 2 | `importexport.run_import` | 3600 s hard |
 | exports | worker-heavy | 2 | `importexport.run_export` | 1800 s hard |
 | reports | worker-heavy | 2 | (reserved) | |
+| integrations | worker-heavy | 2 | `integrations.*`, mailbox sync (`messaging.sync_email_account*`, expires after 270 s) | per task |
 | ai | none yet | | (Phase 5) | |
 
 A stuck import can therefore only occupy a heavy slot; emails and metrics keep flowing, and the API never
@@ -175,7 +176,10 @@ with a sent marker, the metrics task is read-only.
 Tenant safety: every job task is a `tenant_task` that binds the organization from the stored job and
 rebuilds the requester's actor from their membership id; a job id from another organization is simply not
 found (`tests/scaling/test_background_jobs.py`). Fairness: `MAX_ACTIVE_JOBS_PER_ORG` (3) pending or running
-jobs per organization; the fourth request gets `429 too_many_active_jobs`.
+jobs per organization; the fourth request gets `429 too_many_active_jobs`. A job whose enqueue was lost after
+COMMIT (broker blip) or whose worker died never leaves `pending`; `importexport.fail_stale_jobs` (beat, every
+15 min) fails jobs older than 4 h (visibility timeout + longest hard limit), skipping rows a worker holds, so
+they stop occupying quota slots. The enqueue itself is best effort and never turns an accepted job into a 500.
 
 Autoscaling signals: `Keel/QueueDepth` and `Keel/OldestMessageAgeSeconds` per queue, published every 30 s
 by `observability.publish_celery_metrics` (beat) from the broker directly; `TaskFailures` from the failure
@@ -183,9 +187,11 @@ signal. Workers scale on depth and age, never on CPU alone (section 9).
 
 ## 8. Storage (S3)
 
-Private bucket, block public access, SSE-KMS, TLS-only bucket policy, 7-day expiry of every object, no
-public URLs. Keys are `{org_id}/{imports|exports}/{32 hex}.csv`, generated server-side and validated on every
-read. Downloads: the API authorises and audits, then answers `302` to a signed URL that expires in 60 s and
+Private bucket, block public access, SSE-KMS, TLS-only bucket policy, no public URLs. Keys are
+`{org_id}/{imports|exports|email|files}/{32 hex}.{csv|bin}`, generated server-side and validated on every
+read. Only import uploads and export results expire (7 days): they are written with the object tag
+`retention=temporary` and the lifecycle rule matches that tag. Email attachments and record files share the
+bucket and are permanent; because keys start with the organization id, a prefix rule cannot separate them. Downloads: the API authorises and audits, then answers `302` to a signed URL that expires in 60 s and
 forces `Content-Disposition: attachment`; bytes never pass through a Django thread. Expired export files are
 purged by beat (`importexport.purge_expired`) with the lifecycle rule as backstop.
 
@@ -230,7 +236,8 @@ be spoofed with a forged header.
 | PostgreSQL | statement 15 s, lock 5 s, idle-in-transaction 60 s, connect 5 s, pool wait 5 s |
 | Redis (cache) | connect 2 s, socket 2 s |
 | Redis (broker) | connect 5 s, socket 30 s |
-| S3 / CloudWatch | connect 3 s / 2 s, read 30 s / 5 s |
+| S3 / CloudWatch | connect 3 s / 2 s, read 30 s / 5 s; CloudWatch calls from request threads run on a background thread |
+| AI provider (request thread) | `AI_INTERACTIVE_DEADLINE_SECONDS` (40 s) for the whole primary + fallback chain, no SDK retries; at most `AI_MAX_CONCURRENT_CALLS_PER_PROCESS` calls wait per process, the rest degrade at once |
 | Celery | soft/hard limits per queue (section 7) |
 | SMTP (from the worker only) | task hard limit 45 s |
 
@@ -254,6 +261,7 @@ oldest message age, task failures), WAF (blocked requests), autoscaling activity
 | Database connection saturation | pool wait times out in 5 s -> 5xx for that request, no thread pile-up; `DatabaseConnections` alarm |
 | Slow query | `statement_timeout` 15 s -> error for that request; logged by RDS slow-query log |
 | Heavy report/export job | runs on worker-heavy only; API and critical queue unaffected |
+| AI provider slow or down | bounded by the 40 s deadline and the per-process bulkhead: the assistant answers from the CRM, drafting answers 503, contacts/deals/pipeline keep their request threads; the circuit breaker skips the provider after repeated failures |
 | Mail provider down | emails retry with backoff on the notifications queue; signup/login/invite requests are not delayed |
 | Availability zone loss | ALB, tasks, RDS standby and Redis replica span two AZs |
 

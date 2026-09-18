@@ -81,7 +81,7 @@ export function ConflictsPanel({ connection, options, canManage }: { connection:
                 <TableCell className="align-top">
                   <div className="font-medium">
                     {href ? (
-                      <Link href={href} className="hover:text-primary hover:underline">
+                      <Link prefetch={false} href={href} className="hover:text-primary hover:underline">
                         {labelFor(c.entity_type)} record
                       </Link>
                     ) : (

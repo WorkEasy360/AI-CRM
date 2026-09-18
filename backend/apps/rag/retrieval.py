@@ -32,7 +32,7 @@ from typing import Any
 import structlog
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
 from django.db.models import F, Q, QuerySet
 from django.utils import timezone
 from pgvector.django import CosineDistance
@@ -191,13 +191,17 @@ def _lexical_candidates(queryset: QuerySet, query: str) -> list[dict[str, Any]]:
     """PostgreSQL full text. The query text is a bound parameter, never interpolated into SQL."""
     tsquery = SearchQuery(query, search_type="websearch", config=FTS_CONFIG)
     try:
-        rows = list(
-            _fields(
-                queryset.annotate(rank=SearchRank(F("search_vector"), tsquery))
-                .filter(search_vector=tsquery)
-                .order_by("-rank", "-occurred_at")
-            )[:CANDIDATES]
-        )
+        # A savepoint: these queries run inside the request's transaction, and a failed statement there
+        # aborts it, so without one the "degrade to no results" below still ended in a 500 at the next
+        # query (verification, persistence, audit).
+        with transaction.atomic():
+            rows = list(
+                _fields(
+                    queryset.annotate(rank=SearchRank(F("search_vector"), tsquery))
+                    .filter(search_vector=tsquery)
+                    .order_by("-rank", "-occurred_at")
+                )[:CANDIDATES]
+            )
     except DatabaseError:  # pragma: no cover - malformed tsquery input
         log.warning("rag.lexical_failed")
         return []
@@ -216,13 +220,14 @@ def _semantic_candidates(queryset: QuerySet, query: str) -> tuple[list[dict[str,
         log.warning("rag.embedding_unavailable", reason=exc.message[:120])
         return [], False, "embeddings_unavailable"
     try:
-        rows = list(
-            _fields(
-                queryset.filter(embedding__isnull=False, embedding_model=current_model())
-                .annotate(distance=CosineDistance("embedding", vector))
-                .order_by("distance")
-            )[:CANDIDATES]
-        )
+        with transaction.atomic():  # savepoint, see _lexical_candidates (e.g. statement_timeout on a cold index)
+            rows = list(
+                _fields(
+                    queryset.filter(embedding__isnull=False, embedding_model=current_model())
+                    .annotate(distance=CosineDistance("embedding", vector))
+                    .order_by("distance")
+                )[:CANDIDATES]
+            )
     except DatabaseError as exc:  # pragma: no cover - pgvector missing or index unusable
         log.warning("rag.vector_search_failed", error=str(exc)[:200])
         return [], False, "vector_unavailable"

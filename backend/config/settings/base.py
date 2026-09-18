@@ -400,14 +400,17 @@ CELERY_TASK_ROUTES = {
     "importexport.run_import": {"queue": "imports"},
     "importexport.run_export": {"queue": "exports"},
     "importexport.purge_expired": {"queue": "default"},
+    "importexport.fail_stale_jobs": {"queue": "default"},
     "accounts.send_email": {"queue": "notifications"},
     "observability.publish_celery_metrics": {"queue": "default"},
     "activities.send_reminders": {"queue": "notifications"},
     "notifications.deal_health_sweep": {"queue": "reports"},
     "messaging.send_email_message": {"queue": "notifications"},
     "messaging.send_whatsapp_message": {"queue": "notifications"},
-    "messaging.sync_email_accounts": {"queue": "default"},
-    "messaging.sync_email_account": {"queue": "default"},
+    # Mailbox polling is bulk external I/O (up to 2000 accounts x 150 s every 5 min): on "default" it
+    # shared worker-critical's slots with password-reset/invitation emails and reminders.
+    "messaging.sync_email_accounts": {"queue": "integrations"},
+    "messaging.sync_email_account": {"queue": "integrations"},
     "rag.index_source": {"queue": "rag_indexing"},
     "rag.rebuild_organization": {"queue": "rag_indexing"},
     "rag.drain_pending": {"queue": "rag_indexing"},
@@ -422,6 +425,11 @@ CELERY_BEAT_SCHEDULE = {
         "options": {"expires": 25},  # a stale metrics tick is worthless; drop it rather than queue it
     },
     "importexport.purge_expired": {"task": "importexport.purge_expired", "schedule": 6 * 3600.0},
+    "importexport.fail_stale_jobs": {
+        "task": "importexport.fail_stale_jobs",
+        "schedule": 900.0,
+        "options": {"expires": 850},
+    },
     "activities.send_reminders": {"task": "activities.send_reminders", "schedule": 60.0, "options": {"expires": 55}},
     "notifications.deal_health_sweep": {"task": "notifications.deal_health_sweep", "schedule": 24 * 3600.0},
     "messaging.sync_email_accounts": {
@@ -493,6 +501,16 @@ AI_MAX_TOKENS_DRAFT = env.int("AI_MAX_TOKENS_DRAFT", default=1200)
 AI_MAX_TOKENS_SUMMARY = env.int("AI_MAX_TOKENS_SUMMARY", default=1500)
 AI_MAX_TOKENS_ANSWER = env.int("AI_MAX_TOKENS_ANSWER", default=1200)
 AI_REQUEST_TIMEOUT_SECONDS = env.float("AI_REQUEST_TIMEOUT_SECONDS", default=45.0)
+# Synchronous AI calls run on a request thread inside the request transaction: the whole provider chain
+# (primary + fallback, no SDK retries) must end well inside the 60 s ALB/CloudFront timeouts and the 60 s
+# idle_in_transaction_session_timeout. A level is skipped when less than AI_MIN_ATTEMPT_SECONDS remain.
+AI_INTERACTIVE_DEADLINE_SECONDS = env.float("AI_INTERACTIVE_DEADLINE_SECONDS", default=40.0)
+AI_MIN_ATTEMPT_SECONDS = env.float("AI_MIN_ATTEMPT_SECONDS", default=5.0)
+# Bulkhead: provider calls allowed to wait at once per process (gunicorn worker). The rest degrade at once
+# (assistant: CRM-only answer; drafting: 503) so a slow provider cannot take every request thread.
+AI_MAX_CONCURRENT_CALLS_PER_PROCESS = env.int(
+    "AI_MAX_CONCURRENT_CALLS_PER_PROCESS", default=max(1, env.int("GUNICORN_THREADS", default=4) // 2)
+)
 AI_USER_REQUESTS_PER_HOUR = env.int("AI_USER_REQUESTS_PER_HOUR", default=60)
 AI_ORG_TOKENS_PER_DAY = env.int("AI_ORG_TOKENS_PER_DAY", default=2_000_000)
 # Monthly ceiling on estimated spend per workspace. 0 disables the check. Enforced from the durable

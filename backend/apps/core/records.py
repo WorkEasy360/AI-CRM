@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
@@ -229,9 +230,14 @@ def bulk(
     now = timezone.now()
     affected = 0
     metadata: dict[str, Any] = {"action": action, "count": len(records), "ids": [str(r.pk) for r in records][:50]}
+    # Bulk writes bump ``version`` exactly like single-record saves (ADR-0007): otherwise a client still
+    # holding the old version could PATCH straight over a bulk archive or reassignment without a 409.
     if action in {"archive", "restore"}:
         affected = spec.model.objects.filter(pk__in=[r.pk for r in records]).update(
-            archived_at=now if action == "archive" else None, updated_by=actor.membership, updated_at=now
+            archived_at=now if action == "archive" else None,
+            updated_by=actor.membership,
+            updated_at=now,
+            version=F("version") + 1,
         )
     elif action == "reassign":
         owner_id = payload.get("owner_id")
@@ -243,7 +249,7 @@ def bulk(
         if owner is None:
             raise ValidationError({"owner_id": "Unknown member."})
         affected = spec.model.objects.filter(pk__in=[r.pk for r in records]).update(
-            owner=owner, updated_by=actor.membership, updated_at=now
+            owner=owner, updated_by=actor.membership, updated_at=now, version=F("version") + 1
         )
         metadata["owner_to"] = str(owner.pk)
     elif action in {"add_tag", "remove_tag"}:

@@ -233,7 +233,13 @@ def test_reminders_create_notifications(org_a, crm):
             owner=org_a.owner_membership,
         )
         ActivityAttendee.objects.create(activity=meeting, membership=rep)
-    assert send_reminders() == 2
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    with CaptureQueriesContext(connection) as queries:
+        assert send_reminders() == 2
+    # Overlapping runs claim rows under a lock and skip what another run holds (no double notifications).
+    assert any("FOR UPDATE OF" in q["sql"] and "SKIP LOCKED" in q["sql"] for q in queries.captured_queries)
     assert send_reminders() == 0  # marked sent
     with tenant_context(org_a.org.pk):
         kinds = list(Notification.objects.values_list("kind", "recipient_id"))

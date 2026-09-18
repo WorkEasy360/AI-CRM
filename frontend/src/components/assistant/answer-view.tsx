@@ -166,7 +166,7 @@ function RowItem({ item, currency, kind }: { item: AssistantItem; currency: stri
   // A row is only a link when the caller may actually open the record; the server omits the href
   // for anything outside their scope rather than returning a link that 404s.
   return item.href ? (
-    <Link href={item.href} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link prefetch={false} href={item.href} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {body}
     </Link>
   ) : (

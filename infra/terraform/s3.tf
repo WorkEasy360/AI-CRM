@@ -56,17 +56,31 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "private" {
 resource "aws_s3_bucket_lifecycle_configuration" "private" {
   bucket = aws_s3_bucket.private.id
 
+  # Only import uploads and export results expire. The bucket also holds email attachments and record
+  # files, which are permanent; keys begin with the organization id, so the temporary objects are
+  # selected by the tag apps.importexport.storage sets on them, never by prefix.
   rule {
     id     = "expire-import-export-files"
     status = "Enabled"
 
     filter {
-      prefix = ""
+      tag {
+        key   = "retention"
+        value = "temporary"
+      }
     }
 
     expiration {
       days = 7
     }
+  }
+
+  # S3 does not allow this action in a tag-filtered rule; it only touches unfinished uploads.
+  rule {
+    id     = "abort-incomplete-multipart-uploads"
+    status = "Enabled"
+
+    filter {}
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 1

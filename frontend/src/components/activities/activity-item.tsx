@@ -210,17 +210,17 @@ export function ActivityItem({ activity, onChanged, compact = false }: { activit
             <span>No due date</span>
           ) : null}
           {activity.contact ? (
-            <Link href={`/contacts/${encodeURIComponent(activity.contact.id)}`} className="inline-flex items-center gap-1 hover:text-fg hover:underline">
+            <Link prefetch={false} href={`/contacts/${encodeURIComponent(activity.contact.id)}`} className="inline-flex items-center gap-1 hover:text-fg hover:underline">
               <User className="size-3" aria-hidden /> {activity.contact.name}
             </Link>
           ) : null}
           {activity.deal ? (
-            <Link href={`/deals/${encodeURIComponent(activity.deal.id)}`} className="inline-flex items-center gap-1 hover:text-fg hover:underline">
+            <Link prefetch={false} href={`/deals/${encodeURIComponent(activity.deal.id)}`} className="inline-flex items-center gap-1 hover:text-fg hover:underline">
               <Handshake className="size-3" aria-hidden /> {activity.deal.name}
             </Link>
           ) : null}
           {activity.company ? (
-            <Link href={`/companies/${encodeURIComponent(activity.company.id)}`} className="inline-flex items-center gap-1 hover:text-fg hover:underline">
+            <Link prefetch={false} href={`/companies/${encodeURIComponent(activity.company.id)}`} className="inline-flex items-center gap-1 hover:text-fg hover:underline">
               <Building2 className="size-3" aria-hidden /> {activity.company.name}
             </Link>
           ) : null}

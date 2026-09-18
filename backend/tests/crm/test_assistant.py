@@ -231,6 +231,117 @@ def test_the_circuit_breaker_stops_hammering_a_dead_provider(owner_client, abc):
         assert "Enterprise Expansion" in " ".join(answer["facts"])
 
 
+# --------------------------------------------------------------------------- request-thread protection
+
+
+def test_every_provider_call_carries_the_remaining_deadline(owner_client, abc):
+    with override_settings(AI_INTERACTIVE_DEADLINE_SECONDS=30, AI_REQUEST_TIMEOUT_SECONDS=45):
+        answer = ask(owner_client, "What happened with ABC Corp?")
+    assert answer["mode"] == "ai"
+    timeout = FakeProvider.calls[0].timeout
+    assert timeout is not None and 0 < timeout <= 30, "a call may never outlive the request deadline"
+
+
+@override_settings(AI_BREAKER_FAILURES=0, AI_INTERACTIVE_DEADLINE_SECONDS=6, AI_MIN_ATTEMPT_SECONDS=5)
+def test_no_fallback_attempt_is_started_once_the_deadline_is_nearly_spent(owner_client, abc, monkeypatch):
+    """The primary model burning the deadline must not be followed by a second full wait."""
+    import time as real_time
+    from types import SimpleNamespace
+
+    from apps.ai.providers import router
+
+    clock = iter([100.0, 100.0, 102.0])  # deadline set, primary starts, fallback check (4 s left < 5 s)
+    monkeypatch.setattr(router, "time", SimpleNamespace(monotonic=lambda: next(clock, 102.0), time=real_time.time))
+    FakeProvider.fail_always = LLMError("timed out", retryable=True, status=503)
+
+    answer = ask(owner_client, "What happened with ABC Corp?")
+
+    assert len(FakeProvider.calls) == 1, "the fallback level must be skipped, not attempted"
+    assert answer["mode"] == "retrieval"
+    assert "Enterprise Expansion" in " ".join(answer["facts"])
+
+
+@override_settings(AI_MAX_CONCURRENT_CALLS_PER_PROCESS=1)
+def test_a_saturated_ai_bulkhead_answers_from_the_crm_without_waiting(owner_client, abc):
+    """When slow provider calls hold every slot, the next question degrades at once instead of taking
+    another request thread from the rest of the CRM."""
+    from apps.ai.providers import router
+
+    slots = router._call_slots()
+    assert slots is not None and slots.acquire(blocking=False)  # a slow call in flight elsewhere
+    try:
+        answer = ask(owner_client, "What happened with ABC Corp?")
+    finally:
+        slots.release()
+
+    assert FakeProvider.calls == [], "no provider call may start while the bulkhead is full"
+    assert answer["mode"] == "retrieval"
+    assert "Enterprise Expansion" in " ".join(answer["facts"])
+    # The slot is free again: the next question is answered by the model.
+    assert ask(owner_client, "What happened with ABC Corp?")["mode"] == "ai"
+
+
+def test_a_failing_retrieval_query_degrades_instead_of_failing_the_request(owner_client, abc, monkeypatch):
+    """A statement error inside the request transaction aborts it; retrieval must contain the failure so
+    the answer, the conversation and the audit row are still written."""
+    from apps.rag import retrieval
+
+    real_fields = retrieval._fields
+    monkeypatch.setattr(retrieval, "_fields", lambda qs: real_fields(qs.extra(where=["1 / (random() * 0)::int = 1"])))
+    resp = owner_client.post(ASK, {"question": "What happened with ABC Corp?"}, format="json")
+    assert resp.status_code == 200, resp.content
+    answer = resp.json()
+    assert answer["degraded_retrieval"] is True
+    assert "Enterprise Expansion" in " ".join(answer["facts"])
+    assert answer["conversation_id"]
+
+
+def test_drafting_features_respect_the_circuit_breaker(owner_client, org_a, crm):
+    """Deal summary / follow-up / email drafts go through the router: an open breaker answers 503 at once
+    instead of every salesperson waiting out the provider timeout."""
+    contact = crm.make_contact(org_a)
+    FakeProvider.fail_always = LLMError("outage", retryable=True, status=503)
+    with override_settings(AI_BREAKER_FAILURES=1, AI_BREAKER_COOLDOWN_SECONDS=60):
+        first = owner_client.post(
+            "/api/v1/ai/follow-up/", {"entity_type": "contact", "entity_id": str(contact.pk)}, format="json"
+        )
+        assert first.status_code == 503 and first.json()["type"] == "ai_unavailable"
+        FakeProvider.calls = []
+        second = owner_client.post(
+            "/api/v1/ai/follow-up/", {"entity_type": "contact", "entity_id": str(contact.pk)}, format="json"
+        )
+    assert second.status_code == 503
+    assert FakeProvider.calls == [], "an open breaker must skip the provider for drafting features too"
+
+
+def test_anthropic_calls_with_a_deadline_make_a_single_attempt(settings, monkeypatch):
+    """SDK retries would multiply the per-call timeout; with a router deadline there is exactly one try."""
+    from apps.ai.providers import anthropic_provider
+    from apps.ai.providers.base import LLMRequest
+
+    settings.ANTHROPIC_API_KEY = "sk-test"  # never sent: the client is replaced below
+    provider = anthropic_provider.AnthropicProvider()
+    seen: dict = {}
+
+    class _Messages:
+        def create(self, **kwargs):
+            raise anthropic_provider.anthropic.APIConnectionError(request=None)
+
+    class _Client:
+        messages = _Messages()
+
+        def with_options(self, **options):
+            seen.update(options)
+            return self
+
+    monkeypatch.setattr(provider, "_client", _Client())
+    request = LLMRequest(system="s", user="u", model="claude-haiku-4-5", max_tokens=10, feature="t", timeout=12.5)
+    with pytest.raises(LLMError) as err:
+        provider.complete(request)
+    assert err.value.retryable
+    assert seen == {"timeout": 12.5, "max_retries": 0}
+
+
 # --------------------------------------------------------------------------- AI off / out of budget
 
 

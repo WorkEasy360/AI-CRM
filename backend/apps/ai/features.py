@@ -14,7 +14,9 @@ from django.core.cache import cache
 from rest_framework.exceptions import ValidationError
 
 from apps.ai import budgets, context, safety
-from apps.ai.providers import LLMError, LLMRequest, get_provider
+from apps.ai.providers import LLMError, LLMRequest
+from apps.ai.providers.router import AllProvidersUnavailableError
+from apps.ai.providers.router import complete as route_complete
 from apps.audit import service as audit
 from apps.authz.actor import Actor
 from apps.authz.service import check
@@ -91,9 +93,20 @@ def _call(actor: Actor, *, feature: str, system: str, user: str, flagged: bool, 
         metadata={"user_id": hashlib.sha256(str(actor.membership.pk).encode()).hexdigest()[:32]},
     )
     try:
-        # Provider construction can fail too (no API key configured): that is the same "AI is not
-        # available" outcome as a provider outage and must answer 503, never an unhandled 500.
-        response = get_provider().complete(llm_request)
+        # Through the router, like the assistant: circuit breaker, cheaper-model fallback, a total
+        # deadline and the per-process bulkhead. Calling the provider directly bypassed all four, so a
+        # provider outage made every draft wait out the full timeout on a request thread. Provider
+        # construction can fail too (no API key configured): that is the same "AI is not available"
+        # outcome as an outage and must answer 503, never an unhandled 500.
+        response = route_complete(llm_request).response
+    except AllProvidersUnavailableError as exc:
+        audit.record(
+            "ai.failed",
+            request=request,
+            user=actor.user,
+            metadata={"feature": feature, "reason": exc.message[:200], "refused": False},
+        )
+        raise DomainError(exc.message, code="ai_unavailable", status_code=503) from exc
     except LLMError as exc:
         audit.record(
             "ai.failed",

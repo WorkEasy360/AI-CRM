@@ -248,7 +248,7 @@ export function TopCompanies({ data, currency }: { data: DashboardSummary; curre
         {data.top_companies.map((c) => (
           <TableRow key={c.id}>
             <TableCell>
-              <Link href={`/companies/${encodeURIComponent(c.id)}`} className="font-medium text-fg hover:text-primary hover:underline">
+              <Link prefetch={false} href={`/companies/${encodeURIComponent(c.id)}`} className="font-medium text-fg hover:text-primary hover:underline">
                 {c.name}
               </Link>
             </TableCell>

@@ -14,6 +14,10 @@ from apps.messaging.models import ConnectionStatus, EmailAccount, EmailMessage, 
 
 log = structlog.get_logger(__name__)
 
+# A mailbox sync not started before the next beat tick (every 300 s) is superseded by that tick's task:
+# dropping it keeps a slow provider from stacking one backlog of syncs on top of the next.
+SYNC_FANOUT_EXPIRES_SECONDS = 270
+
 
 @tenant_task(name="messaging.send_email_message", soft_time_limit=60, time_limit=90, ignore_result=True)
 def send_email_message(*, message_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
@@ -51,7 +55,10 @@ def sync_email_accounts() -> int:
             .values_list("organization_id", "id")[:2000]
         )
     for org_id, account_id in rows:
-        sync_email_account.apply_async(kwargs={"account_id": str(account_id), "organization_id": str(org_id)})
+        sync_email_account.apply_async(
+            kwargs={"account_id": str(account_id), "organization_id": str(org_id)},
+            expires=SYNC_FANOUT_EXPIRES_SECONDS,
+        )
     return len(rows)
 
 

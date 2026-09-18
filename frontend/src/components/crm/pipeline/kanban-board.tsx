@@ -248,7 +248,7 @@ function DealCard({
       <div className="flex items-start gap-1">
         {canMove ? <GripVertical className="mt-0.5 size-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" aria-hidden /> : null}
         <div className="min-w-0 flex-1">
-          <Link href={`/deals/${encodeURIComponent(deal.id)}`} className="block truncate text-sm font-medium text-fg hover:text-primary hover:underline" draggable={false}>
+          <Link prefetch={false} href={`/deals/${encodeURIComponent(deal.id)}`} className="block truncate text-sm font-medium text-fg hover:text-primary hover:underline" draggable={false}>
             {deal.name}
           </Link>
           {who ? (

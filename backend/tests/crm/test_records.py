@@ -185,6 +185,22 @@ def test_tags_on_records(org_a, org_b, owner_client, crm):
     assert resp.status_code == 400
 
 
+def test_bulk_changes_bump_the_version_so_stale_edits_conflict(org_a, owner_client, crm, make_member):
+    rep = make_member(org_a, "sales_rep")
+    contact = crm.make_contact(org_a, owner=org_a.owner_membership)
+    stale = owner_client.get(f"/api/v1/contacts/{contact.pk}/").json()["version"]
+    resp = owner_client.post(
+        "/api/v1/contacts/bulk/",
+        {"ids": [str(contact.pk)], "action": "reassign", "payload": {"owner_id": str(rep.pk)}},
+        format="json",
+    )
+    assert resp.status_code == 200, resp.content
+    assert owner_client.get(f"/api/v1/contacts/{contact.pk}/").json()["version"] == stale + 1
+    # A client that loaded the record before the bulk reassignment must not silently overwrite it.
+    resp = owner_client.patch(f"/api/v1/contacts/{contact.pk}/", {"job_title": "x", "version": stale}, format="json")
+    assert resp.status_code == 409 and resp.json()["type"] == "version_conflict"
+
+
 def test_bulk_actions_refuse_out_of_scope(org_a, owner_client, crm, make_member, client_for):
     rep = make_member(org_a, "sales_rep")
     manager = make_member(org_a, "sales_manager")

@@ -56,7 +56,9 @@ export function DealDetailPage({ id }: { id: string }) {
   const baseCurrency = active?.organization.base_currency ?? "USD";
   const deal = useQuery({ queryKey: crmKeys.record("deals", id), queryFn: () => getDeal(id) });
   const pipelines = useQuery({ queryKey: crmKeys.pipelines, queryFn: () => listPipelines(), staleTime: 60_000 });
-  const insights = useQuery({ queryKey: crmKeys.dealInsights(id), queryFn: () => getDealInsights(id), enabled: deal.isSuccess, staleTime: 60_000 });
+  // Only the id is needed, so insights leave together with the deal instead of one round trip after it
+  // (the endpoint applies the same view scope and 404s exactly when the deal does).
+  const insights = useQuery({ queryKey: crmKeys.dealInsights(id), queryFn: () => getDealInsights(id), staleTime: 60_000 });
   const companyId = deal.data?.company?.id ?? null;
   const company = useQuery({ queryKey: crmKeys.record("companies", companyId ?? ""), queryFn: () => getCompany(companyId as string), enabled: Boolean(companyId), staleTime: 60_000 });
   const { definitions } = useCustomFields("deal");

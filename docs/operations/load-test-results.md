@@ -159,3 +159,43 @@ Not changed: an alternative of running the page selection as `pk IN (ordered LIM
 18 ms for the default sort and 29 ms for the amount sort; it helps less than removing the joins and complicates
 cursor pagination, so it was not adopted. Extended statistics (`CREATE STATISTICS ... (dependencies)`) do not apply
 to join clauses and were not needed once the join order stopped being the problem.
+## 2026-09-17/18 - architecture and performance audit (commit `43ef9ab`)
+
+**Environment.** Same laptop and `docker-compose.loadtest.yml` shape as the 2026-09-13 run (nginx -> 2 x gunicorn
+2 workers x 4 threads with `DB_POOL`, Next.js standalone, worker, worker-heavy, beat, PostgreSQL 16 + pgvector,
+Redis 7), k6 0.54 in Docker on the same machine. 27 organisations (two of them 25,000 contacts / 12,000 deals),
+192 seeded users. Before and after images were built from the same tree apart from the audit changes.
+
+**What the numbers can and cannot say.** The k6 suite treats a 429 as an acceptable status, so a virtual user
+whose login hits allauth's per-IP limit (20/min, and every VU shares one address) retries on its next iteration.
+In every stage above 10 VUs the `login` row and the `throttled` total are therefore dominated by those retries,
+and total requests/rps are not a capacity figure. The per-endpoint CRM rows below are real traffic. Run-to-run
+variance on this machine is large at both ends of the range (the same build measured 28 ms and 82 ms for
+dashboard p95 at 10 VUs, and +-20-25 % at 150 VUs), so only differences bigger than that are meaningful.
+
+| Stage | Peak VUs | Error rate | Key p95 before -> after |
+|---|---|---|---|
+| baseline | 10 | 0.00 % both | dashboard 28 -> 41 ms, board 80 -> 111 ms (quiet-machine pair; an earlier pair read 82 -> 131 ms) |
+| moderate | 50 | 0.00 % both | board 239 -> 207 ms, dashboard 148 -> 129 ms, contacts 130 -> 114 ms, search 143 -> 108 ms; p99 board 504 -> 282 ms |
+| high | 150 | 0.00 % both | run 1: 0.83-0.96 -> 0.90-1.17 s; run 2 (back to back): 1.12-1.29 -> 0.86-1.03 s |
+| spike (20 -> 100 -> 20) | 100 | 0.03 % -> 0.04 % (login 429s) | board 405 -> 392 ms, dashboard 316 -> 329 ms |
+| soak (10 min) | 30 | 0.02 % both | dashboard 390 -> 104 ms, board 471 -> 200 ms, contacts 409 -> 102 ms |
+
+Server side (peaks, 5 s samples): PostgreSQL connections 15-19 in every stage (the pool cap, as before) with at
+most 3 active; Redis clients <= 41; Celery queues empty throughout; backend containers 2-9 cores and <= 527 MiB
+RSS; PostgreSQL <= 1.1 cores. No 5xx in any stage.
+
+**Reading.** The audit changed no hot-path API code, and the measurements agree: at 50 VUs and in the soak the
+after run is equal or better, at 150 VUs the two pairs disagree in opposite directions, and at 10 VUs the
+differences are inside the machine's own variance. Treat this as "no regression", not as an improvement; the
+interactive gains from this audit are in the browser (round trips, prefetch traffic and JS per page), which this
+suite does not exercise because it drives the API directly.
+
+**Browser measurements** (Playwright against the same 25,000-contact tenant, production build, 6 loads per page
+per side, interleaved before/after so machine noise hits both): server round trips per filter/sort/tab/search
+change 1 -> 0; prefetch requests per list page load 23/28/19 -> 8/7/7 (pipeline/contacts/companies); deals
+requests when opening the pipeline list view 2 -> 1; contacts list API calls 5 -> 4; JS transferred per page
+-5 to -19 % (dashboard 302 -> 244 KB gzipped); soft navigation pipeline 346 -> 232 ms, contacts 198 -> 103 ms.
+Hard-load times were unchanged within noise: the local dev server is a single Python process, so the parallel
+requests the audit unblocked (deal insights now start ~117 ms earlier) contend for one GIL rather than the
+several gunicorn processes production runs.

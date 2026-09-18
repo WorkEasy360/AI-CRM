@@ -20,21 +20,25 @@ import { useSession } from "@/lib/session";
 type BulkEntity = "contact" | "company";
 type BulkInput = Parameters<typeof bulkAction>[1];
 
-/**
- * Action bar shown above a list while rows are selected. The parent only renders it when the actor
- * holds `<module>.bulk_update`; reassigning additionally needs the `all` update scope.
- */
-export function BulkBar({
-  entity,
-  selected,
-  onClear,
-  archivedView = false,
-}: {
+interface BulkBarProps {
   entity: BulkEntity;
   selected: Set<string>;
   onClear: () => void;
   archivedView?: boolean;
-}) {
+}
+
+/**
+ * Action bar shown above a list while rows are selected. The parent only renders it when the actor
+ * holds `<module>.bulk_update`; reassigning additionally needs the `all` update scope.
+ */
+export function BulkBar(props: BulkBarProps) {
+  // Lists open with nothing selected. The bar's hooks include the workspace tag list, so mounting them
+  // only once a row is selected saves that request on every Contacts/Companies load.
+  if (props.selected.size === 0) return null;
+  return <SelectionBulkBar {...props} />;
+}
+
+function SelectionBulkBar({ entity, selected, onClear, archivedView = false }: BulkBarProps) {
   const { data: session } = useSession();
   const active = session?.active ?? null;
   const path: "contacts" | "companies" = entity === "contact" ? "contacts" : "companies";
@@ -64,7 +68,6 @@ export function BulkBar({
   });
 
   const count = selected.size;
-  if (count === 0) return null;
   const noun = entity === "contact" ? "contact" : "company";
   const plural = entity === "contact" ? "contacts" : "companies";
   const label = `${count.toLocaleString()} ${count === 1 ? noun : plural}`;

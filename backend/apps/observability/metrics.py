@@ -6,6 +6,8 @@ names or dimensions derived from user data.
 
 from __future__ import annotations
 
+import os
+import queue
 import threading
 from typing import Any
 
@@ -34,13 +36,56 @@ def _client() -> Any:
     return _cloudwatch_client
 
 
-def publish(datapoints: list[dict[str, Any]]) -> None:
+# Datapoint batches waiting for the background publisher (per process; see ``publish(wait=False)``).
+BACKGROUND_QUEUE_SIZE = 1000
+_background: queue.Queue[list[dict[str, Any]]] | None = None
+_background_pid = 0
+_background_lock = threading.Lock()
+
+
+def publish(datapoints: list[dict[str, Any]], *, wait: bool = True) -> None:
     """``datapoints``: ``[{"name": "QueueDepth", "value": 3, "unit": "Count", "dimensions": {"Queue": "x"}}]``.
 
     Publishing must never raise into a caller: a metrics outage is logged, not propagated.
+
+    ``wait=False`` is for web request threads. With the CloudWatch backend a publish is an AWS API call
+    (connect 2 s + read 5 s, two attempts: up to ~14 s when CloudWatch is slow); it is handed to a
+    per-process background thread instead, and dropped (logged) if that thread has fallen
+    ``BACKGROUND_QUEUE_SIZE`` batches behind. The log backend is cheap and always runs inline.
     """
     if not datapoints:
         return
+    if not wait and settings.METRICS_BACKEND == "cloudwatch":
+        if not _enqueue(datapoints):
+            log.warning("metrics.background_queue_full", count=len(datapoints))
+        return
+    _publish_now(datapoints)
+
+
+def _enqueue(datapoints: list[dict[str, Any]]) -> bool:
+    global _background, _background_pid
+    pid = os.getpid()
+    with _background_lock:
+        # Keyed by pid: a forked worker (gunicorn, Celery prefork) inherits the queue but not the thread.
+        if _background is None or _background_pid != pid:
+            _background = queue.Queue(maxsize=BACKGROUND_QUEUE_SIZE)
+            _background_pid = pid
+            threading.Thread(target=_drain, args=(_background,), name="metrics-publisher", daemon=True).start()
+        pending = _background
+    try:
+        pending.put_nowait(datapoints)
+    except queue.Full:
+        return False
+    return True
+
+
+def _drain(pending: queue.Queue[list[dict[str, Any]]]) -> None:
+    while True:
+        _publish_now(pending.get())
+        pending.task_done()
+
+
+def _publish_now(datapoints: list[dict[str, Any]]) -> None:
     backend = settings.METRICS_BACKEND
     if backend == "cloudwatch":
         try:

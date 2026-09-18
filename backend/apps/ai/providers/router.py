@@ -19,11 +19,25 @@ timeout before getting the same fallback. After ``AI_BREAKER_FAILURES`` consecut
 router stops calling that model for ``AI_BREAKER_COOLDOWN_SECONDS`` and goes straight to the next
 level, so an outage costs one slow request rather than one per user. The breaker lives in Redis and
 fails open: if the cache is down, calls are attempted normally.
+
+**Deadline.** These calls run on a web request thread, inside the request's database transaction. The
+whole chain (every level, no SDK retries) must finish within ``AI_INTERACTIVE_DEADLINE_SECONDS``: two
+levels of 45 s plus an SDK retry each could otherwise hold a thread for minutes, past the 60 s load
+balancer and CloudFront timeouts and past Postgres' 60 s ``idle_in_transaction_session_timeout`` (which
+kills the connection and turns a paid-for answer into a 500). A level is not started with less than
+``AI_MIN_ATTEMPT_SECONDS`` left.
+
+**Bulkhead.** At most ``AI_MAX_CONCURRENT_CALLS_PER_PROCESS`` provider calls wait at once per process.
+When a slow provider fills those slots the next caller degrades immediately (the assistant answers from
+the CRM, drafting features answer 503) instead of taking a thread that contacts, deals and the pipeline
+need, so a provider slowdown cannot exhaust the API's request threads.
 """
 
 from __future__ import annotations
 
 import contextlib
+import threading
+import time
 from dataclasses import dataclass, replace
 
 import structlog
@@ -72,13 +86,31 @@ def complete(request: LLMRequest) -> RoutedResponse:
     if fallback_model and fallback_model != request.model:
         levels.append((LEVEL_FALLBACK, fallback_model))
 
+    slots = _call_slots()
+    if slots is not None and not slots.acquire(blocking=False):
+        log.warning("ai.router.saturated", feature=request.feature)
+        raise AllProvidersUnavailableError("The AI service is busy. Try again in a moment.")
+    try:
+        return _complete_levels(request, levels)
+    finally:
+        if slots is not None:
+            slots.release()
+
+
+def _complete_levels(request: LLMRequest, levels: list[tuple[str, str]]) -> RoutedResponse:
+    deadline = time.monotonic() + settings.AI_INTERACTIVE_DEADLINE_SECONDS
     last_error: LLMError | None = None
     for level, model in levels:
         if _breaker_open(model):
             log.info("ai.router.breaker_open", level=level, feature=request.feature)
             continue
+        remaining = deadline - time.monotonic()
+        if remaining < settings.AI_MIN_ATTEMPT_SECONDS:
+            log.warning("ai.router.deadline_exhausted", level=level, feature=request.feature)
+            break
+        timeout = min(settings.AI_REQUEST_TIMEOUT_SECONDS, remaining)
         try:
-            response = get_provider().complete(replace(request, model=model))
+            response = get_provider().complete(replace(request, model=model, timeout=timeout))
         except LLMError as exc:
             last_error = exc
             if not is_transient(exc):
@@ -93,6 +125,22 @@ def complete(request: LLMRequest) -> RoutedResponse:
     raise AllProvidersUnavailableError(
         (last_error.message if last_error else "No AI provider is available."), last_error=last_error
     )
+
+
+_slots_lock = threading.Lock()
+_slots: tuple[int, threading.BoundedSemaphore] | None = None
+
+
+def _call_slots() -> threading.BoundedSemaphore | None:
+    """The per-process bulkhead (``AI_MAX_CONCURRENT_CALLS_PER_PROCESS``; 0 disables it)."""
+    global _slots
+    limit = settings.AI_MAX_CONCURRENT_CALLS_PER_PROCESS
+    if limit <= 0:
+        return None
+    with _slots_lock:
+        if _slots is None or _slots[0] != limit:
+            _slots = (limit, threading.BoundedSemaphore(limit))
+        return _slots[1]
 
 
 def _breaker_key(model: str) -> str:
@@ -128,6 +176,4 @@ def _record_success(model: str) -> None:
 
 
 def _now() -> float:
-    import time
-
     return time.time()

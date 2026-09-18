@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Archive, ArchiveRestore, Building2, MoreHorizontal, Pencil, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { BulkBar } from "@/components/crm/bulk-bar";
-import { CompanyFormDialog } from "@/components/crm/companies/company-form-dialog";
 import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
 import { DataTable, useSelection, type Column } from "@/components/crm/data-table";
 import { LifecycleBadge } from "@/components/crm/lifecycle-badge";
@@ -26,6 +26,9 @@ import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useDebounced, useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
+
+// The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a company.
+const CompanyFormDialog = dynamic(() => import("@/components/crm/companies/company-form-dialog").then((m) => m.CompanyFormDialog), { ssr: false });
 
 const ALLOWED = ["q", "sort", "owner", "archived", "industry", "company_size", "lifecycle", "source", "created_from", "created_to"] as const;
 const DEFAULTS: ListParams = { sort: "-created_at" };

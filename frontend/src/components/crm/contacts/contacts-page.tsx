@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { BulkBar } from "@/components/crm/bulk-bar";
 import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
-import { ContactFormDialog } from "@/components/crm/contacts/contact-form-dialog";
 import { DataTable, useSelection, type Column } from "@/components/crm/data-table";
 import { LifecycleBadge } from "@/components/crm/lifecycle-badge";
 import { LifecycleSelect } from "@/components/crm/lifecycle-select";
@@ -25,6 +25,9 @@ import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
+
+// The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a contact.
+const ContactFormDialog = dynamic(() => import("@/components/crm/contacts/contact-form-dialog").then((m) => m.ContactFormDialog), { ssr: false });
 
 const ALLOWED = ["q", "sort", "owner", "archived", "company", "has_company", "lifecycle", "source", "job_title", "created_from", "created_to"] as const;
 const DEFAULTS: ListParams = { sort: "-created_at" };
@@ -97,7 +100,7 @@ export function ContactsPage() {
         className: "max-w-48",
         render: (c) =>
           c.company ? (
-            <Link href={`/companies/${enc(c.company.id)}`} className="block truncate text-fg hover:text-primary hover:underline">
+            <Link prefetch={false} href={`/companies/${enc(c.company.id)}`} className="block truncate text-fg hover:text-primary hover:underline">
               {c.company.name}
             </Link>
           ) : (

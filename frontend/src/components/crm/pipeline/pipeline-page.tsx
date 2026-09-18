@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
 import { getBoard, getCompany, getContact, listPipelines } from "@/lib/api/crm";
 import type { ListParams, Pipeline } from "@/lib/api/crm-types";
@@ -190,16 +190,22 @@ export function PipelinePage() {
             }
           />
         ) : view === "list" ? (
-          <DealsList
-            params={{ ...params, pipeline: pipelineId }}
-            setParam={setParam}
-            setParams={setParams}
-            clear={clear}
-            activeFilterCount={listFilterCount}
-            pipeline={selectedPipeline}
-            onNewDeal={() => setNewOpen(true)}
-            canCreate={canCreate}
-          />
+          pipelines.isPending ? (
+            // The list is scoped to the resolved pipeline. Mounted before the pipelines arrive it fetched
+            // deals of every pipeline first (and showed them), then the selected pipeline's again.
+            <SkeletonRows rows={6} />
+          ) : (
+            <DealsList
+              params={{ ...params, pipeline: pipelineId }}
+              setParam={setParam}
+              setParams={setParams}
+              clear={clear}
+              activeFilterCount={listFilterCount}
+              pipeline={selectedPipeline}
+              onNewDeal={() => setNewOpen(true)}
+              canCreate={canCreate}
+            />
+          )
         ) : (
           <>
             <BoardFilters params={params} setParam={setParam} onClear={() => setParams({ q: undefined, owner: undefined, status: undefined, sort: undefined })} />

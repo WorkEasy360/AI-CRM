@@ -59,3 +59,14 @@ def purge_expired() -> int:
     removed = retention.purge_expired_exports()
     log.info("importexport.purged_expired", removed=removed)
     return removed
+
+
+@shared_task(name="importexport.fail_stale_jobs", ignore_result=True, soft_time_limit=120, time_limit=150)
+def fail_stale_jobs() -> int:
+    """Beat task: fail jobs that never reached a worker so they stop holding the organization's job quota."""
+    from apps.privacy import retention
+
+    failed = retention.fail_stale_jobs()
+    if failed:
+        log.warning("importexport.stale_jobs_failed", count=failed)
+    return failed

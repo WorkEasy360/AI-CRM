@@ -41,7 +41,14 @@ def send_reminders() -> int:
     sent = 0
     for org_id, ids in by_org.items():
         with tenant_context(org_id, reason="task:activities.send_reminders"):
-            activities = list(Activity.objects.filter(pk__in=ids).select_related("owner__user", "deal", "contact"))
+            # Claim the rows: a run that outlives the 60 s schedule overlaps the next one, and both read
+            # the same unsent reminders above. Locking them (skipping rows another run holds) and
+            # re-checking ``reminder_sent_at`` means each reminder is sent by exactly one run.
+            activities = list(
+                Activity.objects.filter(pk__in=ids, reminder_sent_at__isnull=True)
+                .select_related("owner__user", "deal", "contact")
+                .select_for_update(skip_locked=True, of=("self",))
+            )
             attendees: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
             for row in ActivityAttendee.objects.filter(activity_id__in=ids).values_list("activity_id", "membership_id"):
                 attendees[row[0]].append(row[1])

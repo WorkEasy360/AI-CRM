@@ -254,7 +254,13 @@ states that content inside those blocks is evidence and never instruction.
 Fallback triggers only on conditions that mean "the provider could not serve this request": timeouts,
 connection failures, 5xx, 429, quota, explicitly disabled. A refusal is a decision, not an outage, and
 is never retried on a cheaper model. A circuit breaker (`AI_BREAKER_FAILURES`) stops an outage from
-costing every user the same timeout.
+costing every user the same timeout. Deal summaries, follow-up and email drafts use the same router.
+
+Because these calls run on a web request thread inside the request transaction, the whole chain is bounded
+by `AI_INTERACTIVE_DEADLINE_SECONDS` (40 s, no SDK retries, a level is skipped with under
+`AI_MIN_ATTEMPT_SECONDS` left), below the 60 s ALB/CloudFront and `idle_in_transaction_session_timeout`
+limits. A per-process bulkhead (`AI_MAX_CONCURRENT_CALLS_PER_PROCESS`, default half the gunicorn threads)
+degrades further callers immediately, so a slow provider cannot take the threads the rest of the CRM needs.
 
 The UI never shows a provider name or a status code — at most a quiet "Knowledge search mode" badge.
 

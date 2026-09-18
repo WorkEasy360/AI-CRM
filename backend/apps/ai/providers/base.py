@@ -28,6 +28,9 @@ class LLMRequest:
     effort: str | None = None  # low | medium | high (models that support it)
     cache_system: bool = True
     metadata: dict[str, str] = field(default_factory=dict)
+    # Seconds this one call may take, set by the router from the request deadline. When set the provider
+    # makes a single attempt (no SDK-level retry) so the deadline holds; None keeps the provider default.
+    timeout: float | None = None
 
 
 @dataclass

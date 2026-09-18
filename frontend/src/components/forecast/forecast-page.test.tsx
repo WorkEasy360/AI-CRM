@@ -16,7 +16,7 @@ vi.mock("@/lib/api/crm", () => ({
   listPipelines: vi.fn(),
 }));
 
-/** A tiny URL store so `router.replace` really changes what `useSearchParams` returns. */
+/** A tiny URL store so `history.replaceState` really changes what `useSearchParams` returns (as Next.js syncs it). */
 const nav = vi.hoisted(() => {
   let search = "";
   const listeners = new Set<() => void>();
@@ -31,9 +31,10 @@ const nav = vi.hoisted(() => {
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    replace: vi.fn((url: string) => {
-      const i = url.indexOf("?");
-      set(i >= 0 ? url.slice(i + 1) : "");
+    replaceState: vi.fn((_data: unknown, _unused: string, url?: string | URL | null) => {
+      const href = String(url ?? "");
+      const i = href.indexOf("?");
+      set(i >= 0 ? href.slice(i + 1) : "");
     }),
   };
 });
@@ -41,7 +42,7 @@ const nav = vi.hoisted(() => {
 vi.mock("next/navigation", async () => {
   const React = await import("react");
   return {
-    useRouter: () => ({ push: vi.fn(), replace: nav.replace, prefetch: vi.fn() }),
+    useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
     usePathname: () => "/dashboard/forecast",
     useSearchParams: () => {
       const search = React.useSyncExternalStore(nav.subscribe, nav.get, nav.get);
@@ -123,7 +124,8 @@ describe("ForecastPage", () => {
 
   beforeEach(() => {
     nav.set("");
-    nav.replace.mockClear();
+    nav.replaceState.mockClear();
+    vi.spyOn(window.history, "replaceState").mockImplementation(nav.replaceState);
     vi.mocked(getSession).mockResolvedValue(session);
     vi.mocked(listPipelines).mockResolvedValue({ next: null, previous: null, results: [] });
     vi.mocked(getForecast).mockReset();
@@ -158,7 +160,7 @@ describe("ForecastPage", () => {
     await user.click(screen.getByRole("combobox", { name: "Group by" }));
     await user.click(await screen.findByRole("option", { name: "Salesperson" }));
 
-    expect(nav.replace).toHaveBeenCalledWith("/dashboard/forecast?group_by=owner", { scroll: false });
+    expect(nav.replaceState).toHaveBeenCalledWith(null, "", "/dashboard/forecast?group_by=owner");
     await waitFor(() => expect(getForecast).toHaveBeenCalledWith(expect.objectContaining({ group_by: "owner" })));
     expect(await screen.findByRole("link", { name: "Ada Lovelace" })).toHaveAttribute("href", "/pipeline?view=list&owner=m1");
     expect(screen.getByRole("columnheader", { name: "Salesperson" })).toBeInTheDocument();
