@@ -26,7 +26,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from rest_framework.authentication import BaseAuthentication
 
-from apps.core.tenancy.context import system_context
+from apps.core.tenancy.context import system_context, tenant_context
 from apps.integrations import scopes
 from apps.integrations.identity import IntegrationActor, build_integration_actor
 
@@ -53,30 +53,35 @@ def authenticate_key(raw_key: str) -> IntegrationActor | None:
         return None
     prefix, secret = match.groups()
     now = timezone.now()
-    # Cross-tenant on purpose: the organization is unknown until the credential is found. The lookup is by
-    # the credential's public prefix; everything after it is pinned to that credential's organization.
+    # Step 1 -- the smallest privileged lookup there is. The organization is unknown until the
+    # credential is found, so this single read by public prefix cannot be tenant-scoped. Only the
+    # credential row is read and validated here; no business logic runs under the system context.
     with system_context("integrations.api_credential.authenticate"):
-        credentials = ApiCredential.all_objects  # nosemgrep: keel-unscoped-manager-outside-system-code
-        credential = credentials.filter(prefix=prefix).first()
+        # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+        credential = ApiCredential.all_objects.filter(prefix=prefix).first()
         if credential is None or not hmac.compare_digest(credential.secret_hash, hash_secret(secret)):
             return None
         if credential.revoked_at is not None or (credential.expires_at is not None and credential.expires_at <= now):
             return None
-        memberships = Membership.all_objects  # nosemgrep: keel-unscoped-manager-outside-system-code
-        membership = (
-            memberships.select_related("user", "role", "organization")
-            .filter(pk=credential.created_by_id, organization_id=credential.organization_id)
-            .first()
-            if credential.created_by_id
-            else None
-        )
+        organization_id = credential.organization_id
+        created_by_id = credential.created_by_id
+        credential_id = credential.pk
+        credential_scopes = credential.scopes
+
+    if created_by_id is None:
+        return None
+    # Step 2 -- the credential's own organization, taken from the stored row and never from anything
+    # the caller sent. Resolving the membership, building the actor and stamping ``last_used_at`` are
+    # ordinary tenant-scoped reads and writes: a credential can only ever reach its own tenant.
+    with tenant_context(organization_id, reason="integrations.api_credential.authenticate"):
+        membership = Membership.objects.select_related("user", "role", "organization").filter(pk=created_by_id).first()
         actor = build_integration_actor(
-            membership, scopes.permissions_for(credential.scopes), credential_id=credential.pk
+            membership, scopes.permissions_for(credential_scopes), credential_id=credential_id
         )
         if actor is None:
             return None
-        if cache.add(f"apicred:used:{credential.pk}", 1, _LAST_USED_INTERVAL):
-            credentials.filter(pk=credential.pk).update(last_used_at=now)
+        if cache.add(f"apicred:used:{credential_id}", 1, _LAST_USED_INTERVAL):
+            ApiCredential.objects.filter(pk=credential_id).update(last_used_at=now)
     return actor
 
 

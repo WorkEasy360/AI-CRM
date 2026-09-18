@@ -101,15 +101,17 @@ jobs:
       - name: pip-audit
         working-directory: backend
         run: uv run pip-audit --strict
+      # Semgrep runs from the backend project so the version is the one pinned in backend/uv.lock
+      # (1.177.0), installed by the `uv sync --frozen` above. The retired semgrep-action shipped
+      # 1.36.0, which is below the 1.76 floor upstream still supports and which matched `nosemgrep`
+      # ids only literally, so the namespaced ids the project rules are loaded under never applied.
+      # The target is the repository root so the Python outside backend/ stays covered, as it was
+      # under the action. This is also the invocation `make security` uses, so local and CI agree.
       - name: Semgrep (Django + Python rulesets + project rules)
-        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
-        with:
-          config: >-
-            p/django
-            p/python
-            security/semgrep/keel.yml
-        env:
-          SEMGREP_RULES: p/django p/python security/semgrep/keel.yml
+        working-directory: backend
+        run: >-
+          uv run semgrep scan --error --quiet --metrics=off --exclude .venv
+          --config p/django --config p/python --config ../security/semgrep/keel.yml ..
 
   secrets:
     name: Secret scanning

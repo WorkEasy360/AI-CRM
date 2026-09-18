@@ -156,21 +156,22 @@ def drain() -> dict[str, int]:
     # to a tenant-bound task; no CRM data or credentials are read here.
     with system_context("integrations.drain"):
         pending_events = list(
-            IntegrationEvent.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
+            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+            IntegrationEvent.all_objects.filter(
                 status=IntegrationEvent.Status.PENDING, created_at__lt=now - timedelta(seconds=30)
             ).values_list("pk", "organization_id")[:SWEEP_LIMIT]
         )
         due_deliveries = list(
-            OutboundDelivery.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
-                status=OutboundDelivery.Status.PENDING, next_attempt_at__lte=now
-            )
+            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+            OutboundDelivery.all_objects.filter(status=OutboundDelivery.Status.PENDING, next_attempt_at__lte=now)
             .order_by("next_attempt_at")
             .values_list("pk", "organization_id")[:SWEEP_LIMIT]
         )
         # Stale jobs *and* jobs whose backoff has come due. Q(next_attempt_at__gt=now) is excluded so
         # a job deliberately waiting out a provider outage is not dragged back in after ten minutes.
         stale_jobs = list(
-            SyncJob.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
+            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+            SyncJob.all_objects.filter(
                 status__in=[SyncJob.Status.PENDING, SyncJob.Status.PROCESSING],
                 updated_at__lt=now - timedelta(minutes=10),
             )
@@ -178,14 +179,14 @@ def drain() -> dict[str, int]:
             .values_list("pk", "organization_id")[:100]
         )
         due_retries = list(
-            SyncJob.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
-                status=SyncJob.Status.PENDING, next_attempt_at__lte=now
-            )
+            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+            SyncJob.all_objects.filter(status=SyncJob.Status.PENDING, next_attempt_at__lte=now)
             .order_by("next_attempt_at")
             .values_list("pk", "organization_id")[:100]
         )
         due_connections = list(
-            IntegrationConnection.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
+            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+            IntegrationConnection.all_objects.filter(
                 status__in=[ConnectionStatus.CONNECTED, ConnectionStatus.ERROR],
                 sync_interval_minutes__gt=0,
                 next_sync_at__lte=now,

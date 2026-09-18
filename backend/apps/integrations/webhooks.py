@@ -245,7 +245,8 @@ def receive(key: str, *, body: bytes, headers: dict[str, str], request: Any = No
     # Cross-tenant on purpose: the URL key is the only thing identifying the connection. Only ids are read;
     # authentication and all processing happen afterwards inside that connection's tenant context.
     with system_context("integrations.inbound.locate_connection"):
-        connections = IntegrationConnection.all_objects  # nosemgrep: keel-unscoped-manager-outside-system-code
+        # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+        connections = IntegrationConnection.all_objects
         row = (
             connections.filter(inbound_key_hash=key_hash, inbound_enabled=True)
             .values_list("organization_id", "id")

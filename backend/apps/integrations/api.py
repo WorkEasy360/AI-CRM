@@ -421,7 +421,13 @@ class ApiCredentialViewSet(mixins.ListModelMixin, TenantViewSet):
 class InboundWebhookView(APIView):
     """Public, signature-authenticated receiver (reviewed: tests/authz_matrix/test_route_coverage.py)."""
 
-    permission_classes = [AllowAny]  # nosemgrep: keel-allow-any  (listed in ALLOWED_PUBLIC, route coverage test)
+    # Reviewed public endpoint. It is listed in ALLOWED_PUBLIC in tests/authz_matrix/test_route_coverage.py,
+    # which asserts these exact permission classes. There is no session or organization to authenticate
+    # against: the caller is an external provider, authenticated instead by the HMAC signature that
+    # webhooks.receive() verifies against the connection's own secret, per-connection rate limited, and
+    # replay-protected by the unique (connection, event_id) constraint on InboundEvent.
+    # nosemgrep: security.semgrep.keel-allow-any
+    permission_classes = [AllowAny]
     authentication_classes: list = []  # no session, no CSRF: authenticated by HMAC signature
     throttle_scope = "integration_inbound"
 
