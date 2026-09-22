@@ -23,12 +23,16 @@ import { COMPANY_SIZES, type Company, type LifecycleStage, type ListParams } fro
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
+import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
 import { useDebounced, useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
 
-// The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a company.
-const CompanyFormDialog = dynamic(() => import("@/components/crm/companies/company-form-dialog").then((m) => m.CompanyFormDialog), { ssr: false });
+// The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a
+// company, so it is imported lazily and mounted only while it is open. `useWarmRecordForm` loads it
+// ahead of the click.
+const importCompanyForm = () => import("@/components/crm/companies/company-form-dialog");
+const CompanyFormDialog = dynamic(() => importCompanyForm().then((m) => m.CompanyFormDialog), { ssr: false });
 
 const ALLOWED = ["q", "sort", "owner", "archived", "industry", "company_size", "lifecycle", "source", "created_from", "created_to"] as const;
 const DEFAULTS: ListParams = { sort: "-created_at" };
@@ -81,6 +85,8 @@ export function CompaniesPage() {
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Company | null>(null);
+  const formOpen = createOpen || wantsNew || editing !== null;
+  const warmForm = useWarmRecordForm("company", importCompanyForm);
 
   const closeDialog = () => {
     setCreateOpen(false);
@@ -196,7 +202,7 @@ export function CompaniesPage() {
       description="Add the accounts you sell to. Their contacts and deals gather underneath."
       action={
         canCreate ? (
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
             <Plus /> Company
           </Button>
         ) : null
@@ -219,7 +225,7 @@ export function CompaniesPage() {
         searchPlaceholder="Search companies…"
         actions={
           canCreate ? (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
               <Plus /> Company
             </Button>
           ) : null
@@ -272,7 +278,7 @@ export function CompaniesPage() {
         caption="Companies"
       />
 
-      <CompanyFormDialog open={createOpen || wantsNew || editing !== null} company={editing} onOpenChange={(open) => !open && closeDialog()} />
+      {formOpen ? <CompanyFormDialog open company={editing} onOpenChange={(open) => !open && closeDialog()} /> : null}
     </div>
   );
 }

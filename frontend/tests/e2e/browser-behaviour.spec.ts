@@ -94,8 +94,20 @@ test("permission denial: a viewer gets read-only UI, no admin pages, and 403s fr
   await expect(page.getByRole("group", { name: "Quick actions" })).toHaveCount(0);
 
   await page.goto("/pipeline");
+  // Wait for the shell before asserting anything is absent. `toHaveCount(0)` is satisfied by a page
+  // that has not rendered yet, so without this these checks can pass against the loading skeleton and
+  // never look at the real UI - which is exactly what hid the Settings entry below until the session
+  // started resolving during HTML parsing rather than after hydration.
+  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deal" })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Settings" })).toHaveCount(0);
+
+  // Settings is not an admin area: every member has one (their own notifications and security), and
+  // the nav inside it is what is filtered by permission. A viewer reaches it and finds nothing
+  // administrative there.
+  await page.goto("/settings");
+  const settingsNav = page.getByRole("navigation", { name: "Settings" });
+  await expect(settingsNav.getByRole("link", { name: "Security" })).toHaveCount(1);
+  await expect(settingsNav.getByRole("link", { name: /General|Users & Teams|Pipelines|Custom fields|Audit log|Import \/ Export/ })).toHaveCount(0);
 
   // The member directory is readable by every role (names and roles of colleagues); a viewer gets
   // no invite / role / disable actions and the write endpoints refuse.

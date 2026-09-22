@@ -1,24 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { listCustomFields } from "@/lib/api/crm";
-import type { CustomData, CustomFieldDefinition, CustomValue, EntityType } from "@/lib/api/crm-types";
-import { crmKeys } from "@/lib/crm/keys";
-
-/** Active custom-field definitions for an entity type (cached 5 min). */
-export function useCustomFields(entity: EntityType) {
-  const query = useQuery({
-    queryKey: crmKeys.customFields(entity),
-    queryFn: () => listCustomFields(entity),
-    staleTime: 5 * 60_000,
-  });
-  return { definitions: query.data?.results ?? [], isPending: query.isPending };
-}
+import type { CustomData, CustomFieldDefinition, CustomValue } from "@/lib/api/crm-types";
+// Re-exported so the many `useCustomFields` call sites keep one import path.
+export { useCustomFields } from "@/lib/crm/use-custom-fields";
 
 function toLocalDateTime(value: CustomValue | undefined): string {
   if (typeof value !== "string" || !value) return "";

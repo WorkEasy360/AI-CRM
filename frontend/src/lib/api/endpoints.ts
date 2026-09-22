@@ -1,4 +1,5 @@
 import { api } from "@/lib/api/client";
+import { takePreloadedSession } from "@/lib/session-preload";
 import type {
   AuditEvent,
   AuditEventFilters,
@@ -22,7 +23,17 @@ import type {
 } from "@/lib/api/types";
 
 /* Session / organisations */
-export const getSession = (signal?: AbortSignal) => api.get<Session>("/api/v1/session/", undefined, signal);
+
+/**
+ * Resolves the session, adopting the request the `(app)` layout started during HTML parsing when one
+ * is still in flight (see lib/session-preload.ts). A preload that failed resolves to `null`, and the
+ * normal client then makes the request so the caller sees the usual `ApiError`.
+ */
+export const getSession = (signal?: AbortSignal): Promise<Session> => {
+  const fetchSession = () => api.get<Session>("/api/v1/session/", undefined, signal);
+  const preloaded = takePreloadedSession();
+  return preloaded ? preloaded.then((data) => (data as Session | null) ?? fetchSession()) : fetchSession();
+};
 
 export const switchOrganization = (membership_id: string) =>
   api.post<unknown>("/api/v1/session/switch-organization/", { membership_id });

@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Archive, ArchiveRestore, MoreHorizontal, Package, Pencil, Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, type Column } from "@/components/crm/data-table";
 import { ListToolbar, type SortOption } from "@/components/crm/list-toolbar";
-import { ProductFormDialog } from "@/components/crm/products/product-form-dialog";
 import { useArchiveRestore } from "@/components/crm/use-record-mutations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,17 @@ import type { ListParams, Product } from "@/lib/api/crm-types";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
+import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
+
+// The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a
+// product, so it is imported lazily and mounted only while it is open. Until now it was a static
+// import, which put the whole form on every Products page load. `useWarmRecordForm` loads it ahead
+// of the click.
+const importProductForm = () => import("@/components/crm/products/product-form-dialog");
+const ProductFormDialog = dynamic(() => importProductForm().then((m) => m.ProductFormDialog), { ssr: false });
 
 const ALLOWED = ["q", "sort", "owner", "archived", "status", "currency", "price_min", "price_max"] as const;
 const DEFAULTS: ListParams = { sort: "name" };
@@ -63,6 +71,8 @@ export function ProductsPage() {
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Product | null>(null);
+  const formOpen = createOpen || wantsNew || editing !== null;
+  const warmForm = useWarmRecordForm("product", importProductForm);
 
   const closeDialog = () => {
     setCreateOpen(false);
@@ -147,7 +157,7 @@ export function ProductsPage() {
       action={
         <div className="flex flex-wrap items-center justify-center gap-2">
           {canCreate ? (
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
               <Plus /> Add product
             </Button>
           ) : null}
@@ -178,7 +188,7 @@ export function ProductsPage() {
         searchPlaceholder="Search products…"
         actions={
           canCreate ? (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
               <Plus /> Product
             </Button>
           ) : null
@@ -214,7 +224,7 @@ export function ProductsPage() {
         caption="Products"
       />
 
-      <ProductFormDialog open={createOpen || wantsNew || editing !== null} product={editing} onOpenChange={(open) => !open && closeDialog()} />
+      {formOpen ? <ProductFormDialog open product={editing} onOpenChange={(open) => !open && closeDialog()} /> : null}
     </div>
   );
 }
