@@ -20,6 +20,12 @@ export function DashboardTabs({ active }: { active: DashboardTab }) {
           <Link
             key={tab.key}
             href={tab.href}
+            // Two always-visible segments that read as a toggle, so they have to behave like one.
+            // Each is a separate dynamic route, and with the default partial prefetch the other tab's
+            // chunk only started downloading on click: the loading skeleton committed first and React
+            // then held it for its ~300 ms fallback throttle (measured 461 ms per switch). Prefetching
+            // both in full takes the switch to the same range as the sidebar. See shell/nav.tsx.
+            prefetch
             aria-current={current ? "page" : undefined}
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs font-medium transition-colors [&_svg]:size-3.5",

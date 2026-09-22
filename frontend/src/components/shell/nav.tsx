@@ -90,6 +90,26 @@ function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/**
+ * The primary destinations are prefetched in full rather than with the default partial prefetch.
+ *
+ * Every route renders dynamically (per-request CSP nonce, see app/layout.tsx), so a default
+ * `<Link>` prefetch stops at the `loading.tsx` boundary and leaves the page's own client chunk to be
+ * downloaded on click. React then had to commit that loading skeleton, and committing a Suspense
+ * fallback starts React's fallback throttle: once a fallback is on screen it will not be replaced for
+ * ~300 ms, even though the chunk had in fact arrived ~60 ms in. Measured on a production build, every
+ * sidebar click paid it — the skeleton painted at ~40-80 ms, the route's JS finished at ~60-100 ms,
+ * and the real page appeared only at ~350-405 ms with the main thread completely idle in between.
+ *
+ * A full prefetch warms the route payload *and* its client chunk, so the click renders the page
+ * without ever suspending and the throttle never starts. `loading.tsx` stays as the safety net for
+ * a cold or slow connection where the prefetch has not landed.
+ *
+ * Only these always-visible entries are prefetched. Record rows keep `prefetch={false}` (see
+ * data-table.tsx): there are hundreds of them and they are not a fixed, small set.
+ */
+const PREFETCH_PRIMARY = true;
+
 export function SideNav({ session, onNavigate }: { session: Session; onNavigate?: () => void }) {
   const pathname = usePathname();
   const active = session.active;
@@ -103,6 +123,7 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
             <li key={item.href}>
               <Link
                 href={item.href}
+                prefetch={PREFETCH_PRIMARY}
                 onClick={onNavigate}
                 aria-current={current ? "page" : undefined}
                 className={cn(
@@ -121,6 +142,7 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
       <div className="mt-auto border-t border-border px-2 py-2">
         <Link
           href="/settings"
+          prefetch={PREFETCH_PRIMARY}
           onClick={onNavigate}
           aria-current={isCurrent(pathname, "/settings") ? "page" : undefined}
           className={cn(
