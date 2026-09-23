@@ -3,10 +3,11 @@
  * Base: /_allauth/browser/v1/
  *
  * allauth uses HTTP 401 for "not authenticated, here are the flows you can
- * take", which is a *successful* outcome for email verification and password
- * reset (the session may stay signed out). We interpret those bodies here and
- * expose discriminated results; everything else is surfaced as ApiError with
- * normalised problem details.
+ * take", which is a *successful* outcome for signup (verify_email pending)
+ * and for email verification (verified, still signed out), and a normal
+ * branch for login (mfa_authenticate pending). We interpret
+ * those bodies here and expose discriminated results; everything else is
+ * surfaced as ApiError with normalised problem details.
  */
 import { request, type RawResponse } from "@/lib/api/client";
 import { ApiError, PROBLEM_TYPES, parseProblem } from "@/lib/api/problem";
@@ -57,6 +58,8 @@ export type AuthOutcome =
   | { kind: "authenticated" }
   | { kind: "mfa_required" }
   | { kind: "verify_email" }
+  /** The flow succeeded but left the visitor signed out (e.g. email verified, sign in next). */
+  | { kind: "signed_out" }
   | { kind: "unknown"; status: number };
 
 function interpretAuth(res: RawResponse): AuthOutcome {
@@ -73,11 +76,45 @@ function interpretAuth(res: RawResponse): AuthOutcome {
 }
 
 /* Auth flows */
-export async function verifyEmail(key: string): Promise<AuthOutcome> {
-  const res = await request(`${BASE}/auth/email/verify`, { method: "POST", body: { key } });
+export async function signup(input: { email: string; password: string; name?: string }): Promise<AuthOutcome> {
+  const res = await request(`${BASE}/auth/signup`, { method: "POST", body: input });
   const outcome = interpretAuth(res);
   if (outcome.kind === "unknown") fail(res);
   return outcome;
+}
+
+export async function verifyEmail(key: string): Promise<AuthOutcome> {
+  const res = await request(`${BASE}/auth/email/verify`, { method: "POST", body: { key } });
+  const outcome = interpretAuth(res);
+  // ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION is off, so a successful verification answers 401 with only the
+  // flows a signed-out visitor can start (login, signup, ...) and none pending. A bad, expired or already
+  // used key is a 400 and has already been raised by interpretAuth.
+  if (outcome.kind === "unknown" && res.status === 401 && !flowsOf(res).some((f) => f.is_pending)) {
+    return { kind: "signed_out" };
+  }
+  if (outcome.kind === "unknown") fail(res);
+  return outcome;
+}
+
+export async function login(input: { email: string; password: string }): Promise<AuthOutcome> {
+  const res = await request(`${BASE}/auth/login`, { method: "POST", body: input });
+  const outcome = interpretAuth(res);
+  if (outcome.kind === "unknown") fail(res);
+  return outcome;
+}
+
+export async function mfaAuthenticate(code: string): Promise<AuthOutcome> {
+  const res = await request(`${BASE}/auth/2fa/authenticate`, { method: "POST", body: { code } });
+  const outcome = interpretAuth(res);
+  if (outcome.kind === "unknown") fail(res);
+  return outcome;
+}
+
+/** Logout. allauth answers 401 once the session is gone; that is success. */
+export async function logout(): Promise<void> {
+  const res = await request(`${BASE}/auth/session`, { method: "DELETE" });
+  if (res.ok || res.status === 401) return;
+  fail(res);
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

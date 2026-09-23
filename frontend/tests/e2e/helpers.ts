@@ -29,9 +29,9 @@ export const RUN_ID = Date.now().toString(36);
 export const ALLAUTH = "/_allauth/browser/v1";
 
 /**
- * Sign in as a specific user. There is no sign-in page: the backend opens a session by itself,
- * so this drops whatever session exists and authenticates through the headless allauth endpoint
- * the removed form used to POST to. Users with MFA enrolled stop at 401 (second factor pending).
+ * Sign in as a specific user. With the development auto-login the backend opens a session by itself,
+ * so this drops whatever session exists and authenticates through the headless allauth endpoint the
+ * sign-in form posts to. Users with MFA enrolled stop at 401 (second factor pending).
  */
 export async function login(page: Page, email: string, password: string): Promise<void> {
   await page.goto("/");

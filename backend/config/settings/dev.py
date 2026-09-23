@@ -13,8 +13,8 @@ SECURE_SSL_REDIRECT = False
 HEADLESS_SERVE_SPECIFICATION = True
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
 
-# There is no sign-in page: the CRM opens directly as AUTO_LOGIN_EMAIL. Set AUTO_LOGIN_ENABLED=0
-# to get the normal authenticated behaviour back (every request then answers 401).
+# The CRM opens directly as AUTO_LOGIN_EMAIL, skipping sign-in. Set AUTO_LOGIN_ENABLED=0 to get the
+# normal authenticated behaviour back (anonymous requests answer 401 and the UI shows /login).
 AUTO_LOGIN_ENABLED = env.bool("AUTO_LOGIN_ENABLED", default=True)
 
 LOGGING = configure_logging(json_output=False, level="INFO")
