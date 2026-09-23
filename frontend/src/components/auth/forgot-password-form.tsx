@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
         </div>
         <AuthHeading title="Check your email" description="If an account exists for this email, password reset instructions have been sent." />
         <Button asChild variant="secondary" className="w-full">
-          <Link href="/pipeline">Back to the CRM</Link>
+          <Link href="/login">Back to sign in</Link>
         </Button>
       </div>
     );
@@ -66,8 +66,8 @@ export function ForgotPasswordForm() {
         Send reset link
       </Button>
       <p className="text-center text-sm text-fg-muted">
-        <Link href="/pipeline" className="font-medium text-primary hover:underline">
-          Back to the CRM
+        <Link href="/login" className="font-medium text-primary hover:underline">
+          Back to sign in
         </Link>
       </p>
     </form>

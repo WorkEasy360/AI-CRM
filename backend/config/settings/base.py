@@ -224,7 +224,7 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 # Development-only: open the CRM straight away by signing every visitor in as one fixed account,
-# so there is no sign-in page. apps.accounts.middleware.AutoLoginMiddleware refuses to act when
+# so the sign-in page is never reached. apps.accounts.middleware.AutoLoginMiddleware refuses to act when
 # ENVIRONMENT is production/staging, and config.settings.prod forces the flag off.
 AUTO_LOGIN_ENABLED = env.bool("AUTO_LOGIN_ENABLED", default=False)
 AUTO_LOGIN_EMAIL = env("AUTO_LOGIN_EMAIL", default="owner@keel.local")

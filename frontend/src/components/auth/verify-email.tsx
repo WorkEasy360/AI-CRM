@@ -8,7 +8,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { AuthHeading } from "@/components/auth/auth-heading";
 import { Button } from "@/components/ui/button";
 import { verifyEmail } from "@/lib/api/allauth";
-import { errorMessage } from "@/lib/api/problem";
+import { errorMessage, isApiError } from "@/lib/api/problem";
 import { queryKeys } from "@/lib/session";
 
 type State = { status: "pending" } | { status: "verified"; authenticated: boolean } | { status: "failed"; message: string };
@@ -37,7 +37,16 @@ export function VerifyEmail() {
         await queryClient.invalidateQueries({ queryKey: queryKeys.session });
         setState({ status: "verified", authenticated: outcome.kind === "authenticated" });
       })
-      .catch((err: unknown) => setState({ status: "failed", message: errorMessage(err, "This link is invalid or has expired.") }));
+      .catch((err: unknown) =>
+        setState({
+          status: "failed",
+          // A key works once: opening the link again after it verified the address lands here too.
+          message:
+            isApiError(err) && err.status === 400
+              ? "This link is invalid, has expired or was already used. If you already verified your email, sign in."
+              : errorMessage(err, "This link is invalid or has expired."),
+        }),
+      );
   }, [params.key, queryClient]);
 
   if (state.status === "pending") {
@@ -57,7 +66,7 @@ export function VerifyEmail() {
         </div>
         <AuthHeading title="Verification failed" description={state.message} />
         <Button asChild variant="secondary" className="w-full">
-          <Link href="/pipeline">Back to the CRM</Link>
+          <Link href="/login">Go to sign in</Link>
         </Button>
       </div>
     );
@@ -68,9 +77,12 @@ export function VerifyEmail() {
       <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-success-soft text-success">
         <CheckCircle2 className="size-6" aria-hidden />
       </div>
-      <AuthHeading title="Email verified" description="Your workspace is ready." />
+      <AuthHeading
+        title="Email verified"
+        description={state.authenticated ? "Your workspace is ready." : "Your workspace is ready. Sign in to open your CRM."}
+      />
       <Button asChild className="w-full">
-        <Link href="/pipeline">Open your CRM</Link>
+        <Link href={state.authenticated ? "/pipeline" : "/login"}>{state.authenticated ? "Open your CRM" : "Sign in"}</Link>
       </Button>
     </div>
   );

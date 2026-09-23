@@ -47,9 +47,9 @@ test("session expiry: a session revoked server-side stops rendering the CRM", as
   await b.getByRole("button", { name: "Sign out other sessions" }).click();
   await expect(b.getByRole("button", { name: "Sign out other sessions" })).toBeDisabled({ timeout: 15_000 });
 
-  // There is no sign-in page to bounce to, so the gate shows its retryable message instead.
+  // The revoked session is noticed on the next API call and the gate sends the tab to sign in.
   await a.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Companies" }).click();
-  await expect(a.getByText("We couldn't load your session")).toBeVisible({ timeout: 20_000 });
+  await expect(a).toHaveURL(/\/login\?next=/, { timeout: 20_000 });
   await expect(a.getByRole("heading", { name: "Contacts" })).toHaveCount(0);
   await a.context().close();
   await b.context().close();
