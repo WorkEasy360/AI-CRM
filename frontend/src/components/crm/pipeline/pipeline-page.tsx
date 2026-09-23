@@ -18,12 +18,16 @@ import { errorMessage } from "@/lib/api/problem";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can } from "@/lib/crm/permissions";
+import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
 import { useDebounced, useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-// The new-deal form is a click away, not part of the board: it loads when it is first opened.
-const DealFormDialog = dynamic(() => import("@/components/crm/deals/deal-form-dialog").then((m) => m.DealFormDialog), { ssr: false });
+// The new-deal form is a click away, not part of the board: it is imported lazily and mounted only
+// while it is open. `useWarmRecordForm` loads it, and the deal custom fields it renders, ahead of the
+// click; leaving it mounted with `open={false}` downloaded both on every visit to the board.
+const importDealForm = () => import("@/components/crm/deals/deal-form-dialog");
+const DealFormDialog = dynamic(() => importDealForm().then((m) => m.DealFormDialog), { ssr: false });
 
 const ALL = "__all__";
 const URL_KEYS = ["pipeline", "view", "new", "company", "contact", "q", "owner", "status", "stage", "sort", "archived"] as const;
@@ -121,6 +125,7 @@ export function PipelinePage() {
     return { open, openAmount, total };
   }, [board.data]);
 
+  const warmForm = useWarmRecordForm("deal", importDealForm);
   const setNewOpen = (open: boolean) => (open ? setParam("new", "1") : setParams({ new: undefined, company: undefined, contact: undefined }));
   const selectPipeline = (id: string) => setParams({ pipeline: id, stage: undefined });
   const listFilterCount = Object.keys(params).filter((k) => ["status", "stage", "archived", "owner"].includes(k) || k.startsWith("custom.")).length;
@@ -167,7 +172,7 @@ export function PipelinePage() {
               <ViewButton active={view === "list"} onClick={() => setParam("view", "list")} icon={<List />} label="List" />
             </div>
             {canCreate ? (
-              <Button size="sm" onClick={() => setNewOpen(true)} disabled={pipelineList.length === 0}>
+              <Button size="sm" onClick={() => setNewOpen(true)} onPointerEnter={warmForm} onFocus={warmForm} disabled={pipelineList.length === 0}>
                 <Plus /> Deal
               </Button>
             ) : null}
@@ -220,7 +225,9 @@ export function PipelinePage() {
         )}
       </div>
 
-      <DealFormDialog open={newOpen && canCreate} onOpenChange={setNewOpen} pipelines={pipelineList} defaultPipelineId={pipelineId} defaults={formDefaults} />
+      {newOpen && canCreate ? (
+        <DealFormDialog open onOpenChange={setNewOpen} pipelines={pipelineList} defaultPipelineId={pipelineId} defaults={formDefaults} />
+      ) : null}
     </div>
   );
 }

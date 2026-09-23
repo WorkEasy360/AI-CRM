@@ -604,7 +604,7 @@ def deal_list(
         described.append(f"worth at least {min_amount:,.0f}")
 
     rows = list(queryset.order_by("-amount_base")[:limit])
-    total = sum((deal.amount_base or Decimal("0")) for deal in rows)
+    total = sum((deal.amount_base or Decimal("0") for deal in rows), Decimal("0"))
     result.add(
         Section(
             title="Matching deals",

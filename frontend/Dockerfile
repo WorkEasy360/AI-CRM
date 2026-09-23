@@ -44,8 +44,9 @@ COPY --from=build --chown=keel:keel /app/.next/static ./.next/static
 USER 10001
 EXPOSE 3000
 
-# The standalone server answers on /login without touching the backend.
+# /health is answered by the standalone server itself (src/app/health/route.ts), without the backend;
+# the ECS task definition and the CI smoke test probe the same path.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/login" || exit 1
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health" || exit 1
 
 CMD ["node", "server.js"]

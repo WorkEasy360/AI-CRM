@@ -135,6 +135,12 @@ def test_a_pipeline_question_is_answered_by_sql_not_by_retrieval(owner_client, a
     assert "850000" in " ".join(answer["facts"])
 
 
+def test_a_deal_list_question_with_no_matching_deals_answers(owner_client):
+    # A new organization has no deals: the total of an empty match must still be a money amount.
+    answer = ask(owner_client, "Which deals close this week?")
+    assert any("0.00" in fact for fact in answer["facts"])
+
+
 def test_deal_risk_uses_the_rules_engine(owner_client, abc):
     answer = ask(owner_client, "Which deals are at risk?")
     assert answer["intent"] == intent_module.DEAL_ANALYSIS

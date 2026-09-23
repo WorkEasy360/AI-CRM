@@ -1,0 +1,15 @@
+[Unit]
+Description=Keel CRM (re-render config for the current public IP and start the current release)
+Requires=docker.service network-online.target
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Skipped until the first `keel-deploy <tag>` has recorded a release.
+ConditionPathExists=/var/lib/keel/current
+ExecStart=/opt/keel/src/deploy/ec2/bin/keel-deploy --restart
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

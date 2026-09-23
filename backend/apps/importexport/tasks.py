@@ -82,9 +82,8 @@ def resume_stalled_imports() -> int:
         # requester) and no imported data, inside a system context, then hands each job to a
         # tenant-bound task that re-binds its own organization. Same shape as integrations.drain.
         rows = list(
-            ImportJob.all_objects.filter(  # nosemgrep: keel-unscoped-manager-outside-system-code
-                status=JobStatus.RUNNING, updated_at__lt=cutoff
-            )
+            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+            ImportJob.all_objects.filter(status=JobStatus.RUNNING, updated_at__lt=cutoff)
             .filter(attempts__lt=settings.IMPORT_MAX_ATTEMPTS)
             .order_by("updated_at")
             .values_list("organization_id", "id", "requested_by_id")[:RESUME_LIMIT]

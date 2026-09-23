@@ -25,7 +25,9 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector build of PostgreSQL 16 (the RAG index needs `vector`); same image as local dev and
+        # deploy/ec2. Plain postgres:16-alpine has no vector extension, so the test database never migrated.
+        image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -44,6 +46,12 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE crm_app LOGIN PASSWORD 'crm_app_dev_password' NOSUPERUSER NOBYPASSRLS CREATEDB NOCREATEROLE;" \
             -c "CREATE DATABASE keel OWNER crm_app;"
+          # `vector` is not a trusted extension: the superuser installs it (as infra/postgres/init/02-extensions.sql
+          # does locally), in template1 so the test database inherits it; migrations then find it present.
+          for db in template1 keel; do
+            PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d "$db" -v ON_ERROR_STOP=1 \
+              -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          done
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
@@ -101,15 +109,17 @@ jobs:
       - name: pip-audit
         working-directory: backend
         run: uv run pip-audit --strict
+      # Semgrep runs from the backend project so the version is the one pinned in backend/uv.lock
+      # (1.177.0), installed by the `uv sync --frozen` above. The retired semgrep-action shipped
+      # 1.36.0, which is below the 1.76 floor upstream still supports and which matched `nosemgrep`
+      # ids only literally, so the namespaced ids the project rules are loaded under never applied.
+      # The target is the repository root so the Python outside backend/ stays covered, as it was
+      # under the action. This is also the invocation `make security` uses, so local and CI agree.
       - name: Semgrep (Django + Python rulesets + project rules)
-        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
-        with:
-          config: >-
-            p/django
-            p/python
-            security/semgrep/keel.yml
-        env:
-          SEMGREP_RULES: p/django p/python security/semgrep/keel.yml
+        working-directory: backend
+        run: >-
+          uv run semgrep scan --error --quiet --metrics=off --exclude .venv
+          --config p/django --config p/python --config ../security/semgrep/keel.yml ..
 
   secrets:
     name: Secret scanning
@@ -119,10 +129,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+      # Full-history scan with the pinned gitleaks image (the same command runs locally). gitleaks-action
+      # scanned only `<first pushed commit>^..<last>` on push events, which is not a valid range when the
+      # push contains the root commit, so git errored and the job failed without scanning anything.
+      - name: gitleaks (full history)
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro"
+          zricethezav/gitleaks:v8.24.3@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055
+          git /repo --config /repo/.gitleaks.toml --redact --no-banner --exit-code 1
 
   frontend:
     name: Frontend lint, types, tests, build
@@ -240,5 +254,11 @@ jobs:
           scan-ref: infra/terraform
           exit-code: "1"
           severity: HIGH,CRITICAL
+      # `inspect` runs the init context, which parses users.json. The real file comes from
+      # `manage.py seed_loadtest` (git-ignored), so parse against a synthetic fixture instead.
       - name: k6 scripts parse
-        run: docker run --rm -v "$PWD/loadtest/k6:/scripts" grafana/k6:0.54.0 inspect /scripts/main.js
+        run: |
+          printf '%s' '{"password":"ci-parse-only","users":[{"email":"ci@example.invalid","org":"ci","size":"small"}]}' \
+            > "$RUNNER_TEMP/users.json"
+          docker run --rm -v "$PWD/loadtest/k6:/scripts" -v "$RUNNER_TEMP/users.json:/scripts/users.json:ro" \
+            grafana/k6:0.54.0 inspect /scripts/main.js

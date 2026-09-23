@@ -43,6 +43,9 @@ export function MobileNav({ active, onSearch }: { active: ActiveContext; onSearc
             <li key={tab.href} className="flex min-w-0 flex-1">
               <Link
                 href={tab.href}
+                // Full prefetch, for the same reason as the sidebar entries (see nav.tsx): it keeps a
+                // tab tap from committing a loading skeleton and paying React's ~300 ms fallback throttle.
+                prefetch
                 aria-current={current ? "page" : undefined}
                 className={cn(TAB_CLASS, current ? "text-primary" : "text-fg-muted hover:text-fg")}
               >

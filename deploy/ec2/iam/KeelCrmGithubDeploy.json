@@ -1,0 +1,24 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "FindTheKeelInstanceAndReadResults",
+      "Effect": "Allow",
+      "Action": ["ec2:DescribeInstances", "ssm:GetCommandInvocation", "ssm:ListCommandInvocations"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KeelInstanceOnly",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:<REGION>:<ACCOUNT_ID>:instance/*",
+      "Condition": { "StringEquals": { "ssm:resourceTag/Project": "KeelCRM" } }
+    },
+    {
+      "Sid": "OnlyTheKeelUpdateDocument",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:document/KeelCrm-Update"
+    }
+  ]
+}

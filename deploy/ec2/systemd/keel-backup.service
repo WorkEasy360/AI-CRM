@@ -1,0 +1,9 @@
+[Unit]
+Description=Keel CRM daily database and private-file backup
+Requires=docker.service
+After=docker.service
+ConditionPathExists=/var/lib/keel/current
+
+[Service]
+Type=oneshot
+ExecStart=/opt/keel/src/deploy/ec2/bin/keel-backup

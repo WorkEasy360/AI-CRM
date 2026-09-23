@@ -1,5 +1,18 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "./tokens.css";
+
+/*
+ * Tailwind v4 otherwise auto-detects its sources by crawling the project directory, which on
+ * this repo costs 16-29% of every cold route compile in `next dev` and harvests candidates from
+ * files that hold no class names at all (openapi.json, lockfiles, tests). That produced 144
+ * utilities nothing in the app uses - .invisible, .table-row-group, class names made of digits -
+ * for 12.9KB of dead CSS in the production bundle.
+ *
+ * Every class in this app is written in a .ts/.tsx file under src/, so the scan is pointed at
+ * those. If a class name is ever written outside src/ (an .html in public/, an .mdx page), add
+ * its glob here or the utility will not be generated.
+ */
+@source "../**/*.{ts,tsx}";
 
 /* Map Keel tokens onto the Tailwind theme so utilities like bg-surface / text-fg work. */
 @theme inline {

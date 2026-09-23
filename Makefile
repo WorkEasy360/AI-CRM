@@ -43,7 +43,7 @@ typecheck:
 security:
 	cd backend && uv run bandit -c pyproject.toml -r apps config security -q
 	cd backend && uv run pip-audit
-	cd backend && uv run semgrep --config ../security/semgrep --config p/django --error --quiet .
+	cd backend && uv run semgrep scan --error --quiet --metrics=off --exclude .venv --config p/django --config p/python --config ../security/semgrep/keel.yml ..
 	gitleaks detect --source . --config .gitleaks.toml --no-banner
 
 rls-check:

@@ -22,12 +22,16 @@ import { listContacts } from "@/lib/api/crm";
 import type { Contact, LifecycleStage, ListParams } from "@/lib/api/crm-types";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
+import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
 
-// The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a contact.
-const ContactFormDialog = dynamic(() => import("@/components/crm/contacts/contact-form-dialog").then((m) => m.ContactFormDialog), { ssr: false });
+// The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a
+// contact, so it is imported lazily and mounted only while it is open. `useWarmRecordForm` loads it
+// ahead of the click.
+const importContactForm = () => import("@/components/crm/contacts/contact-form-dialog");
+const ContactFormDialog = dynamic(() => importContactForm().then((m) => m.ContactFormDialog), { ssr: false });
 
 const ALLOWED = ["q", "sort", "owner", "archived", "company", "has_company", "lifecycle", "source", "job_title", "created_from", "created_to"] as const;
 const DEFAULTS: ListParams = { sort: "-created_at" };
@@ -67,6 +71,8 @@ export function ContactsPage() {
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Contact | null>(null);
+  const formOpen = createOpen || wantsNew || editing !== null;
+  const warmForm = useWarmRecordForm("contact", importContactForm);
 
   const closeDialog = () => {
     setCreateOpen(false);
@@ -200,7 +206,7 @@ export function ContactsPage() {
       description="Add the people you sell to. Link them to companies and deals as you go."
       action={
         canCreate ? (
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
             <Plus /> Contact
           </Button>
         ) : null
@@ -223,7 +229,7 @@ export function ContactsPage() {
         searchPlaceholder="Search contacts…"
         actions={
           canCreate ? (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
               <Plus /> Contact
             </Button>
           ) : null
@@ -272,7 +278,7 @@ export function ContactsPage() {
         caption="Contacts"
       />
 
-      <ContactFormDialog open={createOpen || wantsNew || editing !== null} contact={editing} onOpenChange={(open) => !open && closeDialog()} />
+      {formOpen ? <ContactFormDialog open contact={editing} onOpenChange={(open) => !open && closeDialog()} /> : null}
     </div>
   );
 }

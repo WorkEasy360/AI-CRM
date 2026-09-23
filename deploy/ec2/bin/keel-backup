@@ -1,0 +1,27 @@
+#!/bin/bash
+# Daily logical backup: pg_dump (custom format) of the keel database plus a tarball of private files
+# (CSV imports/exports and record attachments). Keeps KEEL_BACKUP_DAYS days (default 7).
+#
+# These files live on the same EBS volume as the database: they protect against bad migrations, bad
+# imports and operator error, NOT against losing the volume or the instance. Copy them off the host
+# (see README, "Backups") or add EBS snapshots for that.
+set -euo pipefail
+umask 077
+
+DIR=/var/backups/keel
+KEEP="${KEEL_BACKUP_DAYS:-7}"
+TAG="$(cat /var/lib/keel/current)"
+export KEEL_API_IMAGE="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}-api:$TAG"
+export KEEL_WEB_IMAGE="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}-web:$TAG"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+install -d -m 0700 "$DIR"
+cd /opt/keel/src/deploy/ec2
+
+# The superuser dump bypasses RLS by design, so it contains every tenant: keep it root-only.
+docker compose exec -T postgres pg_dump -U postgres -d keel -Fc >"$DIR/keel-$ts.dump.partial"
+mv "$DIR/keel-$ts.dump.partial" "$DIR/keel-$ts.dump"
+docker compose exec -T api tar -czf - -C /app/private . >"$DIR/private-$ts.tgz.partial"
+mv "$DIR/private-$ts.tgz.partial" "$DIR/private-$ts.tgz"
+
+find "$DIR" -maxdepth 1 -type f \( -name 'keel-*.dump' -o -name 'private-*.tgz' \) -mtime +"$KEEP" -delete
+echo "keel-backup: wrote $DIR/keel-$ts.dump and $DIR/private-$ts.tgz"

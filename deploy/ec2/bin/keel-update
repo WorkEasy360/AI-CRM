@@ -1,0 +1,9 @@
+#!/bin/bash
+# keel-update <git-sha>: check out exactly that commit of the deployment files, then deploy the images
+# CI built from it (tagged with the same SHA). This is the command the Deploy workflow sends via SSM.
+set -euo pipefail
+SHA="${1:?usage: keel-update <40-char git sha>}"
+[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "keel-update: expected a full 40-character commit SHA" >&2; exit 1; }
+git -C /opt/keel/src fetch --quiet origin
+git -C /opt/keel/src checkout --quiet --detach "$SHA"
+exec /opt/keel/src/deploy/ec2/bin/keel-deploy "$SHA"

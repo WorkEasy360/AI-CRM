@@ -17,8 +17,13 @@ rules:
         - "**/apps/messaging/tasks.py"
         - "**/apps/activities/tasks.py"
         - "**/apps/notifications/tasks.py"
-        # apps/rag/tasks.py is NOT excluded: only the two `all_objects` reads inside
-        # rag.drain_pending carry a line-level `nosemgrep` with their justification.
+        # apps/rag/tasks.py, apps/importexport/tasks.py and apps/integrations/* are NOT excluded.
+        # The few cross-tenant reads they need (beat sweepers that discover work across
+        # organizations, and the two lookups that must identify a credential or a connection before
+        # any organization is known) each carry a line-level `nosemgrep` with its justification, so
+        # a new `all_objects` anywhere in those files still fails the build. Those suppressions must
+        # name the id the rules are loaded under -- `security.semgrep.keel-...`, derived from this
+        # file's path -- because Semgrep matches suppression ids literally.
         - "**/tests/**"
         - "**/migrations/**"
 

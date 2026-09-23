@@ -20,6 +20,11 @@ x-backend-loadtest: &backend-loadtest
     EMAIL_URL: smtp://mailpit:1025
     DEBUG: "false"
     ALLOWED_HOSTS: "*"
+    # The .env used for local development enables the dev auto-login, which signs every anonymous
+    # request in as one fixed user. In this prod-like topology that both hides the real cost of
+    # authentication and makes the k6 suite unable to run at all: allauth answers its login call with
+    # 409 (already authenticated) for every VU. Load tests log in as their own seeded user.
+    AUTO_LOGIN_ENABLED: "false"
     CSRF_TRUSTED_ORIGINS: http://localhost:8080,http://host.docker.internal:8080
     FRONTEND_ORIGIN: http://localhost:8080
     # Production runtime flags under test
