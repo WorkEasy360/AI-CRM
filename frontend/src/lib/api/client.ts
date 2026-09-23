@@ -22,6 +22,35 @@ export interface RawResponse {
 
 const SAFE_METHODS: ReadonlySet<HttpMethod> = new Set(["GET"]);
 
+/** A side-effect-free GET that makes Django set the CSRF cookie (allauth's headless config). */
+export const CSRF_BOOTSTRAP_PATH = "/_allauth/browser/v1/config";
+
+let csrfBootstrap: Promise<void> | null = null;
+
+/**
+ * The CSRF token for an unsafe request. Django sets the cookie in the response to a GET, but a page
+ * can POST before any GET has come back: the verify-email page posts on mount, so a link opened in a
+ * browser that had never visited Keel was rejected with 403. When the cookie is missing, one GET to
+ * CSRF_BOOTSTRAP_PATH sets it first. That GET happens at most once per page load and is shared by
+ * concurrent callers; if it does not produce a cookie (blocked cookies, network error) the request
+ * still goes out without a token and Django rejects it exactly as before. There is no retry loop.
+ */
+async function csrfTokenForUnsafeRequest(): Promise<string | null> {
+  const existing = getCsrfToken();
+  if (existing || typeof document === "undefined") return existing;
+  csrfBootstrap ??= fetch(CSRF_BOOTSTRAP_PATH, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    credentials: "include",
+    cache: "no-store",
+  }).then(
+    () => undefined,
+    () => undefined,
+  );
+  await csrfBootstrap;
+  return getCsrfToken();
+}
+
 /**
  * Handler invoked when the API says the session is gone (401/403
  * not_authenticated). Registered by the authenticated app shell so that a
@@ -78,7 +107,7 @@ export async function request(path: string, options: RequestOptions = {}): Promi
     body = JSON.stringify(options.body);
   }
   if (!SAFE_METHODS.has(method)) {
-    const token = getCsrfToken();
+    const token = await csrfTokenForUnsafeRequest();
     if (token) headers[CSRF_HEADER_NAME] = token;
   }
   const response = await fetch(buildUrl(path, options.query), {
@@ -111,7 +140,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
  */
 export async function requestForm<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
-  const token = getCsrfToken();
+  const token = await csrfTokenForUnsafeRequest();
   if (token) headers[CSRF_HEADER_NAME] = token;
   const response = await fetch(buildUrl(path), {
     method: "POST",
