@@ -25,7 +25,9 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector build of PostgreSQL 16 (the RAG index needs `vector`); same image as local dev and
+        # deploy/ec2. Plain postgres:16-alpine has no vector extension, so the test database never migrated.
+        image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -44,6 +46,12 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE crm_app LOGIN PASSWORD 'crm_app_dev_password' NOSUPERUSER NOBYPASSRLS CREATEDB NOCREATEROLE;" \
             -c "CREATE DATABASE keel OWNER crm_app;"
+          # `vector` is not a trusted extension: the superuser installs it (as infra/postgres/init/02-extensions.sql
+          # does locally), in template1 so the test database inherits it; migrations then find it present.
+          for db in template1 keel; do
+            PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d "$db" -v ON_ERROR_STOP=1 \
+              -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          done
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
