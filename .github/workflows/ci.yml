@@ -121,10 +121,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+      # Full-history scan with the pinned gitleaks image (the same command runs locally). gitleaks-action
+      # scanned only `<first pushed commit>^..<last>` on push events, which is not a valid range when the
+      # push contains the root commit, so git errored and the job failed without scanning anything.
+      - name: gitleaks (full history)
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro"
+          zricethezav/gitleaks:v8.24.3@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055
+          git /repo --config /repo/.gitleaks.toml --redact --no-banner --exit-code 1
 
   frontend:
     name: Frontend lint, types, tests, build
@@ -242,5 +246,11 @@ jobs:
           scan-ref: infra/terraform
           exit-code: "1"
           severity: HIGH,CRITICAL
+      # `inspect` runs the init context, which parses users.json. The real file comes from
+      # `manage.py seed_loadtest` (git-ignored), so parse against a synthetic fixture instead.
       - name: k6 scripts parse
-        run: docker run --rm -v "$PWD/loadtest/k6:/scripts" grafana/k6:0.54.0 inspect /scripts/main.js
+        run: |
+          printf '%s' '{"password":"ci-parse-only","users":[{"email":"ci@example.invalid","org":"ci","size":"small"}]}' \
+            > "$RUNNER_TEMP/users.json"
+          docker run --rm -v "$PWD/loadtest/k6:/scripts" -v "$RUNNER_TEMP/users.json:/scripts/users.json:ro" \
+            grafana/k6:0.54.0 inspect /scripts/main.js

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Deploy one Keel CRM commit on this host: keel-update <sha>. The only command the CI deploy role may run.",
+  "parameters": {
+    "sha": {
+      "type": "String",
+      "description": "Full 40-character commit SHA whose images CI pushed to GHCR",
+      "allowedPattern": "^[0-9a-f]{40}$"
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "keelUpdate",
+      "inputs": {
+        "timeoutSeconds": "1800",
+        "runCommand": ["/usr/local/bin/keel-update {{ sha }}"]
+      }
+    }
+  ]
+}

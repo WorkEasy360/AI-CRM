@@ -1,0 +1,32 @@
+# Keel CRM edge: automatic HTTPS (HTTP is redirected), then the same-origin split used everywhere else:
+# Django owns /api, /_allauth and the probe paths; every other path is the Next.js standalone server.
+#
+# No `trusted_proxies`: Caddy discards any client-supplied X-Forwarded-For and sends only the TCP peer,
+# which is what TRUSTED_PROXY_COUNT=1 in compose.yml relies on for throttling and audit IPs.
+{
+	# Optional global options from /etc/keel/caddy.env, e.g. `email ops@example.com` (an ACME contact
+	# also enables Caddy's ZeroSSL fallback issuer). Empty by default.
+	{$KEEL_CADDY_GLOBAL_OPTIONS}
+}
+
+{$SITE_HOST} {
+	encode zstd gzip
+
+	request_body {
+		max_size 10MB
+	}
+
+	@django path /api/* /_allauth/* /health/* /ready/
+	handle @django {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header -Server
+	# Django sets HSTS on its own responses (SECURE_HSTS_SECONDS ramp); give the Next.js pages the same
+	# value. `?` only adds the header when the upstream did not.
+	header ?Strict-Transport-Security "max-age={$HSTS_SECONDS}"
+}

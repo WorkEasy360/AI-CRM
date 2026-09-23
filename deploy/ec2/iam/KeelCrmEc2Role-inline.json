@@ -1,0 +1,34 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "KeelParametersOnly",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParametersByPath", "ssm:GetParameters", "ssm:GetParameter"],
+      "Resource": [
+        "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/keel/production",
+        "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/keel/production/*"
+      ]
+    },
+    {
+      "Sid": "CreateMissingSecretsNeverOverwrite",
+      "Effect": "Allow",
+      "Action": "ssm:PutParameter",
+      "Resource": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/keel/production/*",
+      "Condition": { "StringEqualsIfExists": { "ssm:Overwrite": "false" } }
+    },
+    {
+      "Sid": "DescribeParameters",
+      "Effect": "Allow",
+      "Action": "ssm:DescribeParameters",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SecureStringThroughSsmOnly",
+      "Effect": "Allow",
+      "Action": ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "kms:ViaService": "ssm.<REGION>.amazonaws.com" } }
+    }
+  ]
+}

@@ -1,55 +1,56 @@
-# Production deploy: build immutable images, scan them, push to ECR with OIDC credentials (no long-lived
-# keys), run the migration task, then roll each ECS service with health-checked, circuit-broken rollouts.
+# Production deploy to the single Keel EC2 host (deploy/ec2/README.md).
 #
-# Rollout order matters for expand/contract migrations (docs/architecture/scaling.md, "Deployments"):
-# migrate (additive only) -> workers -> api -> web. Every service uses minimum healthy 100% / maximum 200%,
-# so new tasks must pass /health/ready before old ones drain (deregistration delay 30s).
+# 1. images: build the commit CI verified, natively for the host's architecture, scan it (a fixable
+#    HIGH/CRITICAL blocks the deploy) and push it to GHCR tagged with the commit SHA. No AWS registry.
+# 2. deploy: assume the Keel deploy role through GitHub OIDC (no stored AWS keys; the role trusts only
+#    this repository's `production` environment) and run the KeelCrm-Update SSM document, which can only
+#    execute `keel-update <sha>`. The host migrates as the schema owner, restarts the stack and checks
+#    HTTPS health.
+#    Skipped until the repository variable AWS_DEPLOY_ROLE_ARN exists.
+#
+# The ECS/Fargate stack in infra/terraform is the scale-out design; nothing here deploys it.
 name: Deploy
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: Target environment
-        type: choice
-        options: [staging, production]
-        default: staging
   workflow_run:
     workflows: [CI]
     branches: [main]
     types: [completed]
+  workflow_dispatch:
 
 permissions:
-  id-token: write # OIDC to assume the deploy role created by infra/terraform/iam.tf
   contents: read
 
 concurrency:
-  group: deploy-${{ inputs.environment || 'staging' }}
+  group: deploy-production
   cancel-in-progress: false
 
 env:
-  AWS_REGION: ap-south-1
-  PROJECT: keel
+  IMAGE_REPO: ghcr.io/workeasy360/ai-crm
+  # The commit CI verified (workflow_run), or main's head for a manual run.
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
-  deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'staging' }}
+  images:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      github.event.workflow_run.conclusion == 'success'
+    # Graviton (t4g) hosts need arm64 images; set the repository variable KEEL_ARCH=amd64 for a t3 host.
+    runs-on: ${{ vars.KEEL_ARCH == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2
+          ref: ${{ env.DEPLOY_SHA }}
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Build API image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -57,9 +58,10 @@ jobs:
           context: backend
           push: false
           load: true
-          tags: ${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}-api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ env.IMAGE_REPO }}-api:${{ env.DEPLOY_SHA }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
+          cache-to: type=gha,mode=max,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
 
       - name: Build web image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -67,89 +69,74 @@ jobs:
           context: frontend
           push: false
           load: true
-          tags: ${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}-web:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ env.IMAGE_REPO }}-web:${{ env.DEPLOY_SHA }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=web-${{ vars.KEEL_ARCH || 'arm64' }}
+          cache-to: type=gha,mode=max,scope=web-${{ vars.KEEL_ARCH || 'arm64' }}
 
-      # Images are scanned again here (the CI scan covered the PR build); a HIGH/CRITICAL with a fix blocks the deploy.
       - name: Trivy scan API image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}-api:${{ github.sha }}
+          image-ref: ${{ env.IMAGE_REPO }}-api:${{ env.DEPLOY_SHA }}
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
       - name: Trivy scan web image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}-web:${{ github.sha }}
+          image-ref: ${{ env.IMAGE_REPO }}-web:${{ env.DEPLOY_SHA }}
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
       - name: Push images
         run: |
-          docker push "${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}-api:${{ github.sha }}"
-          docker push "${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}-web:${{ github.sha }}"
+          docker push "$IMAGE_REPO-api:$DEPLOY_SHA"
+          docker push "$IMAGE_REPO-web:$DEPLOY_SHA"
 
-      - name: Register task definitions with the new image
-        id: taskdefs
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          ENV_NAME: ${{ inputs.environment || 'staging' }}
+  deploy:
+    needs: images
+    if: ${{ vars.AWS_DEPLOY_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write # OIDC to the Keel deploy role; no stored AWS keys
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Update the Keel host through SSM
         run: |
           set -euo pipefail
-          register() { # $1 family, $2 image
-            aws ecs describe-task-definition --task-definition "$1" --query 'taskDefinition' \
-              | jq --arg IMG "$2" 'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)
-                    | .containerDefinitions |= map(.image = $IMG)' > "/tmp/$1.json"
-            aws ecs register-task-definition --cli-input-json "file:///tmp/$1.json" --query 'taskDefinition.taskDefinitionArn' --output text
-          }
-          API_IMG="$REGISTRY/$PROJECT-api:${{ github.sha }}"
-          WEB_IMG="$REGISTRY/$PROJECT-web:${{ github.sha }}"
-          for fam in migrate worker-critical worker-heavy beat api; do
-            echo "$fam=$(register "$PROJECT-$ENV_NAME-$fam" "$API_IMG")" >> "$GITHUB_OUTPUT"
+          IID=$(aws ec2 describe-instances \
+            --filters Name=tag:Project,Values=KeelCRM Name=tag:Environment,Values=production \
+                      Name=instance-state-name,Values=running \
+            --query 'Reservations[].Instances[].InstanceId' --output text)
+          [ "$(wc -w <<<"$IID")" -eq 1 ] || { echo "::error::expected one running Keel instance, found: '$IID'"; exit 1; }
+          # KeelCrm-Update (deploy/ec2/ssm) accepts only a 40-hex SHA: this role cannot run anything else.
+          CMD=$(aws ssm send-command --instance-ids "$IID" --document-name KeelCrm-Update \
+            --comment "keel deploy $DEPLOY_SHA" --timeout-seconds 600 \
+            --parameters "sha=$DEPLOY_SHA" --query Command.CommandId --output text)
+          STATUS=Pending
+          for _ in $(seq 1 180); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD" --instance-id "$IID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 10
           done
-          echo "web=$(register "$PROJECT-$ENV_NAME-web" "$WEB_IMG")" >> "$GITHUB_OUTPUT"
+          aws ssm get-command-invocation --command-id "$CMD" --instance-id "$IID" \
+            --query '[StandardOutputContent,StandardErrorContent]' --output text
+          echo "SSM status: $STATUS"
+          [ "$STATUS" = Success ]
 
-      - name: Run database migrations (one-off task, expand-only migrations)
-        env:
-          CLUSTER: ${{ env.PROJECT }}-${{ inputs.environment || 'staging' }}
-        run: |
-          set -euo pipefail
-          NETCFG=$(aws ecs describe-services --cluster "$CLUSTER" --services "$CLUSTER-api" \
-            --query 'services[0].networkConfiguration' --output json)
-          # Same private subnets as api, but the migrate task's own security group
-          # (PostgreSQL + AWS endpoints only, no internet; see infra/terraform/security_groups.tf).
-          MIGRATE_SG=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$CLUSTER-migrate" \
-            --query 'SecurityGroups[0].GroupId' --output text)
-          [ -n "$MIGRATE_SG" ] && [ "$MIGRATE_SG" != "None" ]
-          NETCFG=$(jq -c --arg sg "$MIGRATE_SG" '.awsvpcConfiguration.securityGroups = [$sg]' <<<"$NETCFG")
-          TASK=$(aws ecs run-task --cluster "$CLUSTER" --launch-type FARGATE \
-            --task-definition "${{ steps.taskdefs.outputs.migrate }}" \
-            --network-configuration "$NETCFG" --query 'tasks[0].taskArn' --output text)
-          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK"
-          CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --query 'tasks[0].containers[0].exitCode' --output text)
-          echo "migrate exit code: $CODE"; [ "$CODE" = "0" ]
-
-      - name: Roll services (workers, api, then web)
-        env:
-          CLUSTER: ${{ env.PROJECT }}-${{ inputs.environment || 'staging' }}
-        run: |
-          set -euo pipefail
-          roll() { aws ecs update-service --cluster "$CLUSTER" --service "$CLUSTER-$1" --task-definition "$2" >/dev/null; }
-          roll worker-critical "${{ steps.taskdefs.outputs.worker-critical }}"
-          roll worker-heavy    "${{ steps.taskdefs.outputs.worker-heavy }}"
-          roll beat            "${{ steps.taskdefs.outputs.beat }}"
-          roll api             "${{ steps.taskdefs.outputs.api }}"
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "$CLUSTER-api"
-          roll web             "${{ steps.taskdefs.outputs.web }}"
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "$CLUSTER-web" "$CLUSTER-worker-critical" "$CLUSTER-worker-heavy" "$CLUSTER-beat"
-
-      - name: Smoke check through the edge
+      - name: Smoke check through the public URL
         env:
           APP_URL: ${{ vars.APP_URL }}
         run: |
-          [ -z "$APP_URL" ] && { echo "APP_URL not set; skipping"; exit 0; }
-          curl -fsS "$APP_URL/health" >/dev/null
-          curl -fsS -o /dev/null -w '%{http_code}\n' "$APP_URL/api/v1/session/" | grep -q '^403$'
+          [ -n "$APP_URL" ] || { echo "APP_URL not set; skipping"; exit 0; }
+          curl -fsS "$APP_URL/health/live/" >/dev/null
+          curl -sS -o /dev/null -w '%{http_code}\n' "$APP_URL/api/v1/session/" | grep -q '^403$'

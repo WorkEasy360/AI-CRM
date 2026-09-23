@@ -1,0 +1,209 @@
+# Keel CRM on a single EC2 host (Docker Compose). Everything here belongs to Keel only.
+#
+#   Internet -> Caddy :443 (Let's Encrypt) -> web (Next.js standalone) | api (gunicorn)
+#                                              api/workers/beat -> postgres (pgvector) + redis
+#
+# Only Caddy publishes ports. PostgreSQL and Redis are reachable solely on the private `backend`
+# network. Secrets and per-host settings come from /etc/keel/keel.env, rendered by bin/keel-deploy from
+# SSM Parameter Store; nothing secret is in this file or in the images. KEEL_ETC overrides /etc/keel for
+# local rehearsals only.
+#
+# Sizing targets a 2 GiB host (t4g.small / t3.small) with 2 GiB swap; see deploy/ec2/README.md for the
+# measured footprint. Raise worker concurrency only after measuring on the real host.
+
+name: keel
+
+x-django: &django
+  image: ${KEEL_API_IMAGE:?set KEEL_API_IMAGE}
+  env_file: ${KEEL_ETC:-/etc/keel}/keel.env
+  environment: &django-env
+    DJANGO_SETTINGS_MODULE: config.settings.prod
+    # PostgreSQL runs on this host with a host-local CA; verify-full still checks the "postgres" name.
+    DB_SSLMODE: verify-full
+    DB_SSLROOTCERT: /tls/ca.crt
+    # Caddy is the only hop in front of Django and replaces any client-supplied X-Forwarded-For.
+    TRUSTED_PROXY_COUNT: "1"
+    PRIVATE_STORAGE_BACKEND: filesystem
+    ALLOW_LOCAL_PRIVATE_STORAGE: "true"
+    PRIVATE_STORAGE_ROOT: /app/private
+  volumes:
+    - private-files:/app/private
+    - ${KEEL_ETC:-/etc/keel}/pg-tls/ca.crt:/tls/ca.crt:ro
+  networks: [backend]
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/keel-secrets/postgres_password
+      POSTGRES_DB: postgres
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/tls/server.crt
+      - -c
+      - ssl_key_file=/tls/server.key
+      - -c
+      - max_connections=40
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - work_mem=4MB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ${KEEL_ETC:-/etc/keel}/pg-tls:/tls:ro
+      - ${KEEL_ETC:-/etc/keel}/secrets:/run/keel-secrets:ro
+      - ./postgres/init-keel.sh:/docker-entrypoint-initdb.d/10-init-keel.sh:ro
+    networks: [backend]
+    healthcheck:
+      # TCP, not the socket: during first-time init the entrypoint runs a socket-only temporary server.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d keel"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 448m
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - redisdata:/data
+      - ${KEEL_ETC:-/etc/keel}/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks: [backend]
+    healthcheck:
+      # REDISCLI_AUTH keeps the password out of the process arguments.
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$(sed -n 's/^requirepass //p' /usr/local/etc/redis/redis.conf)\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    mem_limit: 160m
+    restart: unless-stopped
+    logging: *logging
+
+  # One-off: migrations as the schema owner, then runtime grants and the RLS coverage check.
+  migrate:
+    <<: *django
+    profiles: ["migrate"]
+    # The schema-owner URL lives in its own file so runtime containers never receive it.
+    env_file: ["${KEEL_ETC:-/etc/keel}/keel.env", "${KEEL_ETC:-/etc/keel}/migrate.env"]
+    environment:
+      <<: *django-env
+      DB_MIGRATION_MODE: "true"
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        DATABASE_URL="$$MIGRATOR_DATABASE_URL" python manage.py migrate --no-input &&
+        DATABASE_URL="$$MIGRATOR_DATABASE_URL" python manage.py grant_app_role --role crm_app &&
+        python manage.py rls_check
+    healthcheck: { disable: true }
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  api:
+    <<: *django
+    command: ["gunicorn", "config.wsgi:application", "-c", "config/gunicorn.py"]
+    environment:
+      <<: *django-env
+      GUNICORN_WORKERS: "2"
+      GUNICORN_THREADS: "4"
+    networks: [backend, edge]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/live/', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 4
+    mem_limit: 640m
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  # Queue isolation mirrors the ECS design: the critical worker never runs imports/exports/RAG.
+  worker-critical:
+    <<: *django
+    command: ["celery", "-A", "config.celery", "worker", "-l", "info", "-n", "critical@%h", "-Q", "default,notifications", "-c", "2", "--max-tasks-per-child", "500"]
+    healthcheck: { disable: true }
+    stop_grace_period: 120s
+    mem_limit: 448m
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker-heavy:
+    <<: *django
+    command: ["celery", "-A", "config.celery", "worker", "-l", "info", "-n", "heavy@%h", "-Q", "imports,exports,reports,rag_indexing,integrations", "-c", "1", "--max-tasks-per-child", "100"]
+    healthcheck: { disable: true }
+    stop_grace_period: 120s
+    mem_limit: 448m
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  # Exactly one scheduler. A fixed container name makes a second instance impossible on this host.
+  beat:
+    <<: *django
+    container_name: keel-beat
+    command: ["celery", "-A", "config.celery", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+    volumes:
+      - ${KEEL_ETC:-/etc/keel}/pg-tls/ca.crt:/tls/ca.crt:ro
+    healthcheck: { disable: true }
+    mem_limit: 256m
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    image: ${KEEL_WEB_IMAGE:?set KEEL_WEB_IMAGE}
+    environment:
+      API_INTERNAL_ORIGIN: http://api:8000
+    networks: [edge]
+    mem_limit: 320m
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      api: { condition: service_healthy }
+
+  caddy:
+    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    env_file: ${KEEL_ETC:-/etc/keel}/caddy.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge]
+    mem_limit: 96m
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      - web
+      - api
+
+networks:
+  # Not `internal`: workers need outbound HTTPS/SMTP. Nothing on it publishes a host port.
+  backend: {}
+  edge: {}
+
+volumes:
+  pgdata:
+  redisdata:
+  private-files:
+  caddy-data:
+  caddy-config:
