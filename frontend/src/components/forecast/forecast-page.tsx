@@ -145,7 +145,7 @@ export function ForecastPage() {
             <EmptyState title="Could not load the forecast" description={errorMessage(forecast.error)} action={<Button variant="secondary" onClick={() => forecast.refetch()}>Retry</Button>} />
           ) : (
             <div className={cn("grid gap-3", forecast.isFetching && "opacity-80")} aria-busy={forecast.isFetching || undefined}>
-              <section aria-label="Forecast totals" className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+              <section aria-label="Forecast totals" className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 <StatTile label="Pipeline value" value={totals ? formatMoney(totals.pipeline.amount, currency) : undefined} sub={totals ? `${deals(totals.pipeline.count)} closing in period` : undefined} href={`/pipeline?view=list&sort=expected_close_date${pipeline ? `&pipeline=${encodeURIComponent(pipeline)}` : ""}`} />
                 <StatTile label="Weighted" emphasis value={totals ? formatMoney(totals.weighted.amount, currency) : undefined} sub="Value × probability" />
                 <StatTile label="Committed" value={totals ? formatMoney(totals.committed.amount, currency) : undefined} sub={data ? `${deals(totals!.committed.count)} at ≥ ${data.committed_probability}% probability` : undefined} />

@@ -164,7 +164,7 @@ jobs:
       - name: Install Playwright browser
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
-      - name: Production hydration smoke (standalone server, no backend)
+      - name: Production hydration + PWA smoke (standalone server, no backend)
         working-directory: frontend
         env:
           E2E_BASE_URL: http://127.0.0.1:3000
@@ -173,7 +173,7 @@ jobs:
           [ -d public ] && cp -r public .next/standalone/public || true
           (cd .next/standalone && HOSTNAME=127.0.0.1 PORT=3000 API_INTERNAL_ORIGIN=http://127.0.0.1:9 node server.js &)
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/health && break; sleep 1; done
-          pnpm exec playwright test tests/e2e/smoke.spec.ts
+          pnpm exec playwright test tests/e2e/smoke.spec.ts tests/e2e/pwa.spec.ts
 
   containers:
     name: Container build + Trivy scan

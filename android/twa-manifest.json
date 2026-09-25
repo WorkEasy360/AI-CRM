@@ -1,0 +1,67 @@
+{
+  "packageId": "com.workeasy360.keelcrm",
+  "host": "3-110-142-102.sslip.io",
+  "name": "Keel CRM",
+  "launcherName": "Keel",
+  "display": "standalone",
+  "themeColor": "#F5F9FD",
+  "themeColorDark": "#F5F9FD",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#FFFFFF",
+  "navigationDividerColor": "#DDE7F2",
+  "navigationDividerColorDark": "#DDE7F2",
+  "backgroundColor": "#F5F9FD",
+  "enableNotifications": false,
+  "startUrl": "/pipeline",
+  "iconUrl": "https://3-110-142-102.sslip.io/icons/icon-512.png",
+  "maskableIconUrl": "https://3-110-142-102.sslip.io/icons/maskable-512.png",
+  "monochromeIconUrl": "https://3-110-142-102.sslip.io/icons/monochrome-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "keel-upload"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Pipeline",
+      "shortName": "Pipeline",
+      "url": "https://3-110-142-102.sslip.io/pipeline",
+      "chosenIconUrl": "https://3-110-142-102.sslip.io/icons/icon-192.png"
+    },
+    {
+      "name": "Contacts",
+      "shortName": "Contacts",
+      "url": "https://3-110-142-102.sslip.io/contacts",
+      "chosenIconUrl": "https://3-110-142-102.sslip.io/icons/icon-192.png"
+    },
+    {
+      "name": "Activities",
+      "shortName": "Activities",
+      "url": "https://3-110-142-102.sslip.io/activities",
+      "chosenIconUrl": "https://3-110-142-102.sslip.io/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://3-110-142-102.sslip.io/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://3-110-142-102.sslip.io/",
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1.0.0"
+}

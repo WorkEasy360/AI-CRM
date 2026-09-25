@@ -1,0 +1,15 @@
+# Signing keys never enter the repository (see README.md: CI reads the upload key from secrets).
+*.keystore
+*.jks
+keystore.properties
+
+# Build outputs and local tooling
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+*.apk
+*.aab
+*.idsig
