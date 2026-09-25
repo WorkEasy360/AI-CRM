@@ -1,0 +1,6 @@
+gradlew text eol=lf
+# manifest-checksum.txt is a SHA-1 of these exact bytes; keep them identical on every OS.
+twa-manifest.json text eol=lf
+*.bat text eol=crlf
+*.jar binary
+*.png binary

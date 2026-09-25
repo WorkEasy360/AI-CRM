@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.workeasy360.keelcrm",
+      "sha256_cert_fingerprints": [
+        "B2:3A:B0:B2:02:7F:A9:B9:97:28:F4:29:A7:A1:5F:4B:44:F1:15:C2:59:C0:D7:08:32:5B:BB:FE:D7:90:52:51"
+      ]
+    }
+  }
+]

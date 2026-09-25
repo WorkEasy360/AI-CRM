@@ -192,7 +192,7 @@ export function CustomFieldsPage() {
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs value={entity} onValueChange={(v) => isEntityType(v) && setEntity(v)}>
-          <TabsList aria-label="Record type">
+          <TabsList aria-label="Record type" className="h-auto max-w-full flex-wrap">
             {ENTITY_TYPES.map((type) => (
               <TabsTrigger key={type} value={type}>
                 {ENTITY_LABELS[type].plural}

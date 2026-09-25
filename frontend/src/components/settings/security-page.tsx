@@ -39,7 +39,7 @@ import { passwordSchema, totpCodeSchema } from "@/lib/validation";
 
 export function SecurityPage() {
   return (
-    <div className="grid max-w-3xl gap-6">
+    <div className="grid max-w-3xl grid-cols-1 gap-6">
       <PageHeader title="Security" description="Password, two-factor authentication and active sessions for your account." className="mb-0" />
       <ChangePasswordCard />
       <MfaCard />
@@ -447,8 +447,10 @@ function SessionsCard() {
             <TableBody>
               {sessions.data.map((s) => (
                 <TableRow key={String(s.id)}>
-                  <TableCell>
-                    <div className="max-w-xs truncate text-sm" title={s.user_agent}>
+                  {/* w-full + max-w-0: the device column takes whatever width is left and truncates, so a
+                      long mobile user agent never pushes the table past a phone screen. */}
+                  <TableCell className="w-full max-w-0">
+                    <div className="truncate text-sm" title={s.user_agent}>
                       {s.user_agent || "Unknown device"}
                     </div>
                     {s.is_current ? <Badge variant="success" className="mt-1">This device</Badge> : null}

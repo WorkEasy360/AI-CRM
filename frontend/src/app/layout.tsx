@@ -1,11 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 import { Providers } from "@/app/providers";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 
 export const metadata: Metadata = {
   title: { default: "Keel CRM", template: "%s · Keel CRM" },
   description: "Keel CRM",
+  applicationName: "Keel CRM",
   robots: { index: false, follow: false },
+  // The manifest link itself comes from app/manifest.ts.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  appleWebApp: { capable: true, title: "Keel", statusBarStyle: "default" },
 };
 
 /**
@@ -31,6 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <Providers>{children}</Providers>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

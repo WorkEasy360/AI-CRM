@@ -104,7 +104,7 @@ export function DashboardPage() {
         <EmptyState title="Could not load the dashboard" description={errorMessage(summary.error)} action={<Button variant="secondary" onClick={() => summary.refetch()}>Retry</Button>} />
       ) : (
         <div className={cn("grid gap-3", summary.isFetching && "opacity-80")} aria-busy={summary.isFetching || undefined}>
-          <section aria-label="Sales summary" className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          <section aria-label="Sales summary" className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             <StatTile
               label="Pipeline value"
               value={data ? (data.open_pipeline ? formatMoney(data.open_pipeline.amount, currency) : "—") : undefined}
@@ -189,7 +189,7 @@ export function DashboardPage() {
               assistant gets no card (and no request that can only answer 403). */}
           {hasPermission(session?.active, "ai.assistant.use") ? <AskKeelCard /> : null}
 
-          <section aria-label="Charts" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <section aria-label="Charts" className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Panel title="Deals by stage" subtitle={data?.deals_by_stage?.pipeline?.name ?? "Open deals right now"}>
               {!data ? <Skeleton className="h-40 w-full" /> : <DealsByStage data={data} currency={currency} />}
             </Panel>

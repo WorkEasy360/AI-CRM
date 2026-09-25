@@ -118,7 +118,7 @@ export function IntegrationsPage() {
         {connectedProviders.length === 0 && connections.length === 0 ? (
           <EmptyState icon={<Plug />} title="Nothing connected yet" description="Connect an integration below to start sharing data." className="py-8" />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {connectedProviders.map((item) => (
               <ProviderCard key={item.key} item={item} canManage={canManage} />
             ))}
@@ -133,7 +133,7 @@ export function IntegrationsPage() {
         <h2 id="integrations-available" className="mb-3 text-md font-semibold">
           Available
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {availableProviders.map((item) => (
             <ProviderCard key={item.key} item={item} canManage={canManage} />
           ))}

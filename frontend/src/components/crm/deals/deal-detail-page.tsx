@@ -238,7 +238,7 @@ export function DealDetailPage({ id }: { id: string }) {
       />
       {!archived ? <QuickActions deal={record} /> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
         <aside className="flex flex-col gap-4 xl:order-first">
           <Section title="Related contact">
             {record.primary_contact ? (
