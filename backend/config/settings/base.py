@@ -308,6 +308,39 @@ HEADLESS_FRONTEND_URLS = {
     "account_signup": FRONTEND_ORIGIN + "/signup",
 }
 
+# ----------------------------------------------------------------------------- Workeasy360 sign-in
+# Workeasy360 is the identity provider for Easy CRM (docs/workeasy360-sso.md, ADR-0013): an OpenID
+# Connect authorization code flow with PKCE and private_key_jwt client authentication. Only the issuer
+# is configured; every endpoint comes from its discovery document. Sign-in is offered when the issuer,
+# client id, redirect URI, key id and private key are all set (apps.accounts.workeasy360.config).
+WORKEASY360_ISSUER = env("WORKEASY360_ISSUER", default="")
+WORKEASY360_CLIENT_ID = env("WORKEASY360_CLIENT_ID", default="")
+# Compared by exact string equality with the URI registered in Workeasy360.
+WORKEASY360_REDIRECT_URI = env("WORKEASY360_REDIRECT_URI", default="")
+# The credential id Workeasy360 issued for our public key; sent as the client assertion's ``kid``.
+WORKEASY360_KEY_ID = env("WORKEASY360_KEY_ID", default="")
+# The private key (PEM, RSA or EC P-256), inline (\n escapes allowed) or as a mounted file. Never
+# committed: it comes from the secret store.
+WORKEASY360_PRIVATE_KEY = env.str("WORKEASY360_PRIVATE_KEY", default="", multiline=True)
+WORKEASY360_PRIVATE_KEY_FILE = env("WORKEASY360_PRIVATE_KEY_FILE", default="")
+WORKEASY360_SCOPES = env("WORKEASY360_SCOPES", default="openid email profile organization")
+# Defence in depth on top of the audience check: an ID token naming another product is refused.
+# Empty disables the comparison.
+WORKEASY360_PRODUCT_CODE = env("WORKEASY360_PRODUCT_CODE", default="easy_crm")
+# Role of a person who joins an organization through Workeasy360 without being its first member (the
+# first one, who causes the organization to be created, becomes its owner). sales_rep is the least
+# privileged role that can still do everyday CRM work (create records, edit their own and their
+# team's); viewer is read-only. Admins promote people afterwards. Never "owner".
+WORKEASY360_DEFAULT_ROLE = env("WORKEASY360_DEFAULT_ROLE", default="sales_rep")
+# Workeasy360 is the only way in: password sign-in, sign-up, password reset, invitation sign-up and
+# self-service organization creation are refused. On by default (and in production, which refuses to
+# start unless Workeasy360 sign-in is configured); config.settings.dev and test turn it off.
+WORKEASY360_SSO_ONLY = env.bool("WORKEASY360_SSO_ONLY", default=True)
+# Where Workeasy360 returns the browser after "sign out of Easy CRM and Workeasy360" (RP-initiated
+# logout). Must be registered for this client in Workeasy360 exactly (its post-logout URIs), e.g.
+# https://crm.workeasy360.com/login. Empty: only Keel's own sign-out is offered.
+WORKEASY360_POST_LOGOUT_REDIRECT_URI = env("WORKEASY360_POST_LOGOUT_REDIRECT_URI", default="")
+
 # ----------------------------------------------------------------------------- API
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -456,6 +489,7 @@ CELERY_TASK_ROUTES = {
     # Mailbox polling is bulk external I/O (up to 2000 accounts x 150 s every 5 min): on "default" it
     # shared worker-critical's slots with password-reset/invitation emails and reminders.
     "messaging.sync_email_accounts": {"queue": "integrations"},
+    "messaging.resume_queued_sends": {"queue": "notifications"},
     "messaging.sync_email_account": {"queue": "integrations"},
     "rag.index_source": {"queue": "rag_indexing"},
     "rag.rebuild_organization": {"queue": "rag_indexing"},
@@ -498,6 +532,13 @@ CELERY_BEAT_SCHEDULE = {
     # Settles sends whose worker died between calling the provider and recording the answer.
     "messaging.reconcile_stuck_sends": {
         "task": "messaging.reconcile_stuck_sends",
+        "schedule": 300.0,
+        "options": {"expires": 280},
+    },
+    # Sends still QUEUED after five minutes (skipped while the organization's Workeasy360 access had ended,
+    # requeued by reconciliation, or lost with the broker) are handed to a worker again; the claim is atomic.
+    "messaging.resume_queued_sends": {
+        "task": "messaging.resume_queued_sends",
         "schedule": 300.0,
         "options": {"expires": 280},
     },

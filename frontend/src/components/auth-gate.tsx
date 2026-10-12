@@ -6,10 +6,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { logout } from "@/lib/api/allauth";
-import { setUnauthenticatedHandler } from "@/lib/api/client";
-import { bootstrapSession } from "@/lib/api/endpoints";
-import { errorMessage, isApiError } from "@/lib/api/problem";
+import { setAccessEndedHandler, setUnauthenticatedHandler } from "@/lib/api/client";
+import { bootstrapSession, switchOrganization } from "@/lib/api/endpoints";
+import { errorMessage, isApiError, PROBLEM_TYPES } from "@/lib/api/problem";
 import type { Session } from "@/lib/api/types";
+import { workeasy360StartUrl } from "@/lib/auth-methods";
 import { loginUrlFor } from "@/lib/safe-next";
 import { queryKeys, useSession } from "@/lib/session";
 
@@ -62,6 +63,32 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
     return () => setUnauthenticatedHandler(null);
   }, [queryClient]);
 
+  // Workeasy360 says the organization's access to Easy CRM has ended (its entitlement re-check, enforced
+  // by the API). Any call can discover it; one explanation replaces the CRM instead of an error on every
+  // page. The session itself is fine, so signing out stays possible.
+  // The same screen explains "sign in with Workeasy360" (a session that never came from it, in a deployment
+  // where it is the only way in): signing in links the account, after which access is checked per person.
+  const [accessEnded, setAccessEnded] = React.useState<{
+    title: string;
+    message: string;
+    signInRequired: boolean;
+  } | null>(null);
+  React.useEffect(() => {
+    setAccessEndedHandler((error) =>
+      setAccessEnded({
+        title:
+          error.type === PROBLEM_TYPES.signInRequired
+            ? "Sign in with Workeasy360"
+            : error.type === PROBLEM_TYPES.accessUnverified
+              ? "Easy CRM can't confirm your access"
+              : "Easy CRM access has ended",
+        message: error.message,
+        signInRequired: error.type === PROBLEM_TYPES.signInRequired,
+      }),
+    );
+    return () => setAccessEndedHandler(null);
+  }, []);
+
   // Whether that re-resolve found a session. React Query keeps a query in the "success" state when a
   // *refetch* fails but earlier data is still cached, so `isError` alone never fires here and the gate
   // would keep rendering the CRM shell for a session the server has already revoked. The failed
@@ -86,6 +113,21 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
       router.replace("/login");
     },
   });
+
+  // Access can end for one organization only; the person may belong to others (the switch endpoint is exempt
+  // from the entitlement check), so the "access has ended" screen offers them.
+  const switchOrg = useMutation({
+    mutationFn: switchOrganization,
+    onSuccess: async () => {
+      setAccessEnded(null);
+      await queryClient.invalidateQueries();
+    },
+  });
+
+  const retryAccess = () => {
+    setAccessEnded(null);
+    void queryClient.invalidateQueries();
+  };
 
   const needsBootstrap = session.isSuccess && session.data.active === null;
 
@@ -112,6 +154,41 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
       <GateMessage title="We couldn't load your session" description={errorMessage(sessionError)}>
         <Button variant="secondary" onClick={() => session.refetch()}>
           Try again
+        </Button>
+      </GateMessage>
+    );
+  }
+
+  if (accessEnded) {
+    const otherOrganizations = session.data.memberships.filter(
+      (m) => m.status === "active" && m.id !== session.data.active?.membership_id,
+    );
+    return (
+      <GateMessage
+        title={accessEnded.title}
+        description={switchOrg.isError ? `${accessEnded.message} ${errorMessage(switchOrg.error)}` : accessEnded.message}
+      >
+        {accessEnded.signInRequired ? (
+          <Button asChild>
+            <a href={workeasy360StartUrl(currentPath)}>Sign in with Workeasy360</a>
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={retryAccess}>
+            Try again
+          </Button>
+        )}
+        {otherOrganizations.map((m) => (
+          <Button
+            key={m.id}
+            variant="secondary"
+            onClick={() => switchOrg.mutate(m.id)}
+            loading={switchOrg.isPending && switchOrg.variables === m.id}
+          >
+            Switch to {m.organization.name}
+          </Button>
+        ))}
+        <Button variant="ghost" onClick={() => signOut.mutate()} loading={signOut.isPending}>
+          Sign out
         </Button>
       </GateMessage>
     );
@@ -158,7 +235,8 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
 function GateMessage({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center" role="alert">
-      <p className="text-md font-semibold">{title}</p>
+      {/* The whole page is this message, so its title is the page's heading. */}
+      <h1 className="text-md font-semibold">{title}</h1>
       <p className="max-w-md text-sm text-fg-muted">{description}</p>
       <div className="mt-1 flex items-center gap-2">{children}</div>
     </div>

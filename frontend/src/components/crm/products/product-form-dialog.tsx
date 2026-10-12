@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { CustomFieldsForm, useCustomFields } from "@/components/crm/custom-fields-form";
 import { OwnerSelect } from "@/components/crm/owner-select";
 import { isVersionConflict, useInvalidateRecord } from "@/components/crm/use-record-mutations";

@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { RecordPicker } from "@/components/activities/pickers";
 import { CustomFieldsForm, useCustomFields } from "@/components/crm/custom-fields-form";
 import { InlineContactForm } from "@/components/crm/deals/inline-contact-form";

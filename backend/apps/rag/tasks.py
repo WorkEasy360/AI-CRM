@@ -12,6 +12,7 @@ from celery import shared_task
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.accounts.workeasy360 import background
 from apps.core.tenancy.context import system_context, tenant_context
 from apps.core.tenancy.tasks import tenant_task
 from apps.observability import metrics
@@ -27,6 +28,8 @@ STUCK_AFTER_SECONDS = 900
 
 @tenant_task(name="rag.index_source", ignore_result=True, soft_time_limit=120, time_limit=180)
 def index_source(*, organization_id, source_type: str, source_id: str, **kwargs) -> str:
+    if not background.allowed(organization_id, task="rag.index_source"):
+        return "access_ended"  # the index event stays pending; indexing resumes after renewal
     result = indexing.index_source(
         organization_id=organization_id, source_type=source_type, source_id=uuid.UUID(str(source_id))
     )
@@ -39,6 +42,8 @@ def rebuild_organization(*, organization_id, source_types: list[str] | None = No
     by ``content_hash`` when the job runs, so re-running costs queries but no embeddings."""
     from apps.rag import events, sources
 
+    if not background.allowed(organization_id, task="rag.rebuild_organization"):
+        return 0
     queued = 0
     for source_type in source_types or list(sources.source_types()):
         spec = sources.spec_for(source_type)
@@ -58,20 +63,27 @@ def drain_pending() -> int:
     """
     now = timezone.now()
     stuck_before = now - dt.timedelta(seconds=STUCK_AFTER_SECONDS)
+
     # Cross-tenant on purpose: a system sweep of the indexing outbox that reads only
     # bookkeeping columns (organization_id, source_type, source_id, status, timestamps),
     # never chunk text or CRM data, and hands each row to a tenant-bound task.
-    with system_context("rag.drain_pending"):
-        rows = list(
-            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
-            IndexEvent.all_objects.filter(
-                Q(status=IndexStatus.PENDING, available_at__isnull=True)
-                | Q(status=IndexStatus.PENDING, available_at__lte=now)
-                | Q(status=IndexStatus.PROCESSING, updated_at__lt=stuck_before)
+    def fetch(excluded: set[uuid.UUID]) -> list:
+        with system_context("rag.drain_pending"):
+            return list(
+                # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+                IndexEvent.all_objects.filter(
+                    Q(status=IndexStatus.PENDING, available_at__isnull=True)
+                    | Q(status=IndexStatus.PENDING, available_at__lte=now)
+                    | Q(status=IndexStatus.PROCESSING, updated_at__lt=stuck_before)
+                )
+                .exclude(organization_id__in=excluded)
+                .order_by("updated_at")
+                .values_list("organization_id", "source_type", "source_id")[:SWEEP_BATCH]
             )
-            .order_by("updated_at")
-            .values_list("organization_id", "source_type", "source_id")[:SWEEP_BATCH]
-        )
+
+    # Class A (AI indexing): events of an organization whose Workeasy360 access has ended stay pending.
+    rows = background.fetch_allowed(fetch, task="rag.drain_pending")
+    with system_context("rag.drain_pending"):
         # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
         pending_total = IndexEvent.all_objects.filter(status=IndexStatus.PENDING).count()
     metrics.publish([{"name": "RagIndexQueueDepth", "value": pending_total, "unit": "Count"}])

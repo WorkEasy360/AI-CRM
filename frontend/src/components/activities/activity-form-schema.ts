@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/zod-config";
 import {
   addMinutes,
   browserTimezone,

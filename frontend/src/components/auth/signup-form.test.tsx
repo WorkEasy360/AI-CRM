@@ -9,6 +9,11 @@ vi.mock("@/lib/api/allauth", () => ({
   signup: vi.fn(),
 }));
 
+let passwordEnabled = true;
+vi.mock("@/lib/auth-methods", () => ({
+  useAuthMethods: () => ({ data: { password: passwordEnabled, workeasy360: true }, isError: false }),
+}));
+
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace, prefetch: vi.fn() }),
@@ -29,6 +34,14 @@ describe("SignupForm", () => {
   beforeEach(() => {
     vi.mocked(signup).mockReset();
     replace.mockReset();
+    passwordEnabled = true;
+  });
+
+  it("sends the visitor to the sign-in page when Workeasy360 is the only sign-in", async () => {
+    passwordEnabled = false;
+    renderForm();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
   });
 
   it("asks only for name, email and password and never for an organization", () => {

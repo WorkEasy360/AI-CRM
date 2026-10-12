@@ -31,13 +31,17 @@ def on_user_logged_in(sender, request, user, **kwargs):
     from apps.accounts.services import ensure_personal_organization
 
     # First login of an account that never got its workspace (verified before automatic onboarding
-    # existed, or the verification-time creation failed): create it now. No-op for everyone else.
+    # existed, or the verification-time creation failed): create it now. No-op for everyone else, and
+    # when Workeasy360 is the only sign-in (organizations then come from Workeasy360).
     ensure_personal_organization(user)
     set_db_user(user.pk)
     membership = pick_default_membership(user)
     set_active_membership(request, membership)
     org_id = membership.organization_id if membership else None
-    audit.record(actions.AUTH_LOGIN, request=request, user=user, organization_id=org_id)
+    # Sign-ins Keel performs itself (Workeasy360) name their method; allauth's own sign-ins send none.
+    method = kwargs.get("auth_method")
+    metadata = {"method": method, "aal": kwargs.get("aal")} if method else None
+    audit.record(actions.AUTH_LOGIN, request=request, user=user, organization_id=org_id, metadata=metadata)
     _check_new_device(request, user)
 
 

@@ -23,6 +23,8 @@ dependencies = [
     "pgvector>=0.4",
     "httpx>=0.28",
     "cryptography>=45",
+    # PyJWT: signs the private_key_jwt client assertion and verifies Workeasy360 ID tokens (docs/workeasy360-sso.md).
+    "pyjwt>=2.15",
 ]
 
 [dependency-groups]

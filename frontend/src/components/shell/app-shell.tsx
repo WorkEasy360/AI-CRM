@@ -13,6 +13,7 @@ import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ActiveContext, Session } from "@/lib/api/types";
+import { workeasy360StartUrl } from "@/lib/auth-methods";
 
 export function AppShell({ session, active, children }: { session: Session; active: ActiveContext; children: React.ReactNode }) {
   const [navOpen, setNavOpen] = React.useState(false);
@@ -30,7 +31,9 @@ export function AppShell({ session, active, children }: { session: Session; acti
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const mfaBanner = active.mfa_required && !session.mfa_enabled;
+  // Workeasy360 sessions satisfy the requirement only through Workeasy360's own two-step verification.
+  const federated = session.identity_provider === "workeasy360";
+  const mfaBanner = active.mfa_required && (federated || !session.mfa_enabled);
 
   return (
     <QuickCreateProvider>
@@ -77,9 +80,18 @@ export function AppShell({ session, active, children }: { session: Session; acti
           {mfaBanner ? (
             <div className="border-b border-warning/40 bg-warning-soft px-4 py-1.5 text-xs text-fg">
               <span className="font-medium">{active.organization.name}</span> requires two-factor authentication.{" "}
-              <Link href="/settings/security" className="font-medium text-primary underline-offset-2 hover:underline">
-                Set it up now
-              </Link>
+              {federated ? (
+                <>
+                  Turn on two-step verification in your Workeasy360 account, then{" "}
+                  <a href={workeasy360StartUrl("/pipeline")} className="font-medium text-primary underline-offset-2 hover:underline">
+                    sign in again
+                  </a>
+                </>
+              ) : (
+                <Link href="/settings/security" className="font-medium text-primary underline-offset-2 hover:underline">
+                  Set it up now
+                </Link>
+              )}
               .
             </div>
           ) : null}

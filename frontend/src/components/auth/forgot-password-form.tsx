@@ -2,22 +2,31 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MailCheck } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { AuthHeading } from "@/components/auth/auth-heading";
 import { Button } from "@/components/ui/button";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { requestPasswordReset } from "@/lib/api/allauth";
 import { errorMessage } from "@/lib/api/problem";
+import { useAuthMethods } from "@/lib/auth-methods";
 import { emailSchema } from "@/lib/validation";
 
 const schema = z.object({ email: emailSchema });
 type Input_ = z.infer<typeof schema>;
 
 export function ForgotPasswordForm() {
+  const router = useRouter();
+  // No passwords to reset when Workeasy360 is the only sign-in (the server issues no reset links then).
+  const resetClosed = useAuthMethods().data?.password === false;
+  React.useEffect(() => {
+    if (resetClosed) router.replace("/login");
+  }, [resetClosed, router]);
   const [sent, setSent] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const form = useForm<Input_>({ resolver: zodResolver(schema), defaultValues: { email: "" } });
@@ -31,6 +40,8 @@ export function ForgotPasswordForm() {
       setError(errorMessage(err, "Could not send the reset email."));
     }
   });
+
+  if (resetClosed) return null;
 
   if (sent) {
     return (

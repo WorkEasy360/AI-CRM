@@ -7,6 +7,7 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Copy, KeyRound } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { AUTH_TYPE_LABELS, AUTH_TYPE_ORDER, copyToClipboard } from "@/components/settings/integrations/labels";
 import { Button } from "@/components/ui/button";

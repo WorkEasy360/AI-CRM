@@ -20,6 +20,14 @@ export interface ProblemDetails {
 
 export const PROBLEM_TYPES = {
   reauthRequired: "reauth_required",
+  /** Workeasy360 says the organization's access to Easy CRM has ended (its entitlement re-check). */
+  accessEnded: "workeasy360_access_ended",
+  /** ... or that it is read-only for now: reads work, writes are refused. */
+  readOnly: "workeasy360_read_only",
+  /** Workeasy360 refused Easy CRM's own client, so the access cannot be confirmed: refused too. */
+  accessUnverified: "workeasy360_access_unverified",
+  /** Workeasy360 is the only way in and this session has no Workeasy360 identity: sign in with it. */
+  signInRequired: "workeasy360_sign_in_required",
   notAuthenticated: "not_authenticated",
   validationError: "validation_error",
   permissionDenied: "permission_denied",
@@ -129,6 +137,18 @@ export class ApiError extends Error {
 
   get isReauthRequired(): boolean {
     return this.status === 403 && this.type === PROBLEM_TYPES.reauthRequired;
+  }
+
+  /** The organization's access to Easy CRM has ended, or cannot be confirmed: either way, no CRM. */
+  get isAccessEnded(): boolean {
+    return (
+      this.status === 403 && (this.type === PROBLEM_TYPES.accessEnded || this.type === PROBLEM_TYPES.accessUnverified)
+    );
+  }
+
+  /** The session is not tied to a Workeasy360 account, which this deployment requires: sign in again. */
+  get isSignInRequired(): boolean {
+    return this.status === 403 && this.type === PROBLEM_TYPES.signInRequired;
   }
 
   get isNotAuthenticated(): boolean {

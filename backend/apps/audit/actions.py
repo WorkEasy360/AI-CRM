@@ -11,10 +11,14 @@ AUTH_MFA_DISABLED = "auth.mfa_disabled"
 AUTH_SESSIONS_REVOKED = "auth.sessions_revoked"
 AUTH_SUSPICIOUS_LOGIN = "auth.suspicious_login"
 AUTH_REAUTHENTICATED = "auth.reauthenticated"
+# Workeasy360 sign-in: an account created for a new Workeasy360 identity, or an existing account linked to one.
+AUTH_SSO_ACCOUNT_CREATED = "auth.sso_account_created"
+AUTH_SSO_IDENTITY_LINKED = "auth.sso_identity_linked"
 
 ORG_CREATED = "org.created"
 ORG_UPDATED = "org.updated"
 ORG_SWITCHED = "org.switched"
+ORG_WORKEASY360_LINKED = "org.workeasy360_linked"
 
 MEMBER_INVITED = "members.invited"
 MEMBER_INVITATION_REVOKED = "members.invitation_revoked"

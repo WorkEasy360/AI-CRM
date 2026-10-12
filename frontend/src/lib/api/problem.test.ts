@@ -86,3 +86,21 @@ describe("ApiError", () => {
     expect(errorMessage("nope", "fallback")).toBe("fallback");
   });
 });
+
+describe("Workeasy360 entitlement problems", () => {
+  it("recognises an ended access, and nothing else as one", () => {
+    const ended = new ApiError(parseProblem(403, { type: "workeasy360_access_ended", title: "Forbidden", status: 403 }));
+    expect(ended.isAccessEnded).toBe(true);
+    expect(ended.isNotAuthenticated).toBe(false);
+    const readOnly = new ApiError(parseProblem(403, { type: "workeasy360_read_only", title: "Forbidden", status: 403 }));
+    expect(readOnly.isAccessEnded).toBe(false);
+    expect(new ApiError(parseProblem(403, { type: "permission_denied", title: "Forbidden", status: 403 })).isAccessEnded).toBe(false);
+  });
+
+  it("recognises a session that must sign in with Workeasy360, which is not an ended access", () => {
+    const signIn = new ApiError(parseProblem(403, { type: "workeasy360_sign_in_required", title: "Forbidden", status: 403 }));
+    expect(signIn.isSignInRequired).toBe(true);
+    expect(signIn.isAccessEnded).toBe(false);
+    expect(new ApiError(parseProblem(403, { type: "workeasy360_access_ended", title: "Forbidden", status: 403 })).isSignInRequired).toBe(false);
+  });
+});

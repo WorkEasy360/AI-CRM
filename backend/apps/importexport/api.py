@@ -143,6 +143,9 @@ class _ImportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
 class _ExportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet):
     entity_type: ClassVar[str]
     serializer_class = ExportJobSerializer
+    # Starting an export is a POST but changes no CRM data: a read-only (suspended) organization may still
+    # export, as Workeasy360's entitlement contract and the read-only message promise.
+    entitlement_read_actions: ClassVar[frozenset[str]] = frozenset({"create"})
     throttle_scope = "sensitive"
     resolved_ordering = ("-created_at", "-id")
 

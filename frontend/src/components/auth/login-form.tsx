@@ -7,12 +7,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { AuthHeading } from "@/components/auth/auth-heading";
 import { Button } from "@/components/ui/button";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { login, mfaAuthenticate } from "@/lib/api/allauth";
 import { errorMessage, isApiError } from "@/lib/api/problem";
+import { ssoErrorMessage, useAuthMethods, workeasy360StartUrl } from "@/lib/auth-methods";
 import { safeNext } from "@/lib/safe-next";
 import { queryKeys, useSession } from "@/lib/session";
 import { emailSchema, totpCodeSchema } from "@/lib/validation";
@@ -34,8 +36,17 @@ export function LoginForm() {
   const queryClient = useQueryClient();
   const next = safeNext(searchParams.get("next"));
   const session = useSession();
+  const methods = useAuthMethods();
+  // Until the server says otherwise nothing is offered; if it cannot be asked, fall back to the
+  // password form (the server still refuses it when Workeasy360 is the only sign-in).
+  const passwordEnabled = methods.data ? methods.data.password : methods.isError;
+  const workeasy360Enabled = methods.data?.workeasy360 ?? false;
   const [stage, setStage] = React.useState<Stage>("credentials");
-  const [error, setError] = React.useState<string | null>(null);
+  // With Workeasy360 offered, the password form is "another sign-in method", shown on request.
+  const [showPassword, setShowPassword] = React.useState(false);
+  const headingId = React.useId();
+  const passwordFormId = React.useId();
+  const [error, setError] = React.useState<string | null>(() => ssoErrorMessage(searchParams.get("sso_error")));
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
 
   // Already signed in? Skip the form.
@@ -122,17 +133,77 @@ export function LoginForm() {
     );
   }
 
+  // "Already a Workeasy360 user?": one account for every Workeasy360 product. A top-level navigation -
+  // the server redirects on to Workeasy360 and back; Workeasy360 signs the person in silently, or asks
+  // first, as their own sign-in preference says.
+  const workeasy360Access = workeasy360Enabled ? (
+    <section aria-labelledby={headingId} className="grid gap-2 rounded-lg border border-border p-4">
+      <h2 id={headingId} className="text-sm font-semibold text-fg">
+        Already a Workeasy360 user?
+      </h2>
+      <p className="text-sm text-fg-muted">Access Easy CRM using your Workeasy360 account.</p>
+      <Button asChild className="mt-1 w-full">
+        <a href={workeasy360StartUrl(next)}>Access Easy CRM</a>
+      </Button>
+    </section>
+  ) : null;
+
+  if (!passwordEnabled) {
+    return (
+      <div className="grid gap-4">
+        <AuthHeading title="Sign in" />
+        <FormError message={error} />
+        {workeasy360Access}
+        {methods.data && !workeasy360Enabled ? (
+          <p className="text-sm text-fg-muted">Sign-in is not available right now. Contact your administrator.</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (workeasy360Access && !showPassword) {
+    return (
+      <div className="grid gap-4">
+        <AuthHeading title="Sign in" />
+        <FormError message={error} />
+        {workeasy360Access}
+        <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden>
+          <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full"
+          aria-expanded={false}
+          aria-controls={passwordFormId}
+          onClick={() => setShowPassword(true)}
+        >
+          Use another sign-in method
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={onCredentials} className="grid gap-4" noValidate>
+    <form id={passwordFormId} onSubmit={onCredentials} className="grid gap-4" noValidate>
       <AuthHeading title="Sign in" />
       <FormError message={error} />
+      {workeasy360Access ? (
+        <>
+          {workeasy360Access}
+          <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden>
+            <span className="h-px flex-1 bg-border" /> or sign in with your Easy CRM password{" "}
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      ) : null}
       <FormField control={credentials.control} name="email" label="Email" serverError={fieldErrors.email}>
         {(field) => (
           <Input
             {...field}
             type="email"
             autoComplete="email"
-            autoFocus
+            autoFocus={!workeasy360Access || showPassword}
             placeholder="you@company.com"
             value={field.value}
             onChange={(e) => field.onChange(e.target.value)}

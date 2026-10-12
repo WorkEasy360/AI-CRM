@@ -1,6 +1,6 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthGate } from "@/components/auth-gate";
@@ -11,6 +11,7 @@ import type { Session } from "@/lib/api/types";
 vi.mock("@/lib/api/endpoints", () => ({
   getSession: vi.fn(),
   bootstrapSession: vi.fn(),
+  switchOrganization: vi.fn(),
 }));
 
 vi.mock("@/lib/api/allauth", () => ({ logout: vi.fn() }));
@@ -23,7 +24,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { logout } from "@/lib/api/allauth";
-import { bootstrapSession, getSession } from "@/lib/api/endpoints";
+import { bootstrapSession, getSession, switchOrganization } from "@/lib/api/endpoints";
 
 const notAuthenticated = () => new ApiError(parseProblem(401, { type: "not_authenticated", title: "Not authenticated", status: 401 }));
 
@@ -33,6 +34,7 @@ function unauthenticated(): void {
 }
 
 let registered: ((error: ApiError) => void) | null = null;
+let accessEndedRegistered: ((error: ApiError) => void) | null = null;
 vi.mock("@/lib/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/client")>();
   return {
@@ -40,8 +42,24 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
     setUnauthenticatedHandler: (handler: ((error: ApiError) => void) | null) => {
       registered = handler;
     },
+    setAccessEndedHandler: (handler: ((error: ApiError) => void) | null) => {
+      accessEndedRegistered = handler;
+    },
   };
 });
+
+const ACCESS_ENDED_DETAIL = "Your organization's access to Easy CRM has ended. An owner can renew it in Workeasy360.";
+
+/** What any API call answered 403 workeasy360_access_ended does (setAccessEndedHandler in the gate). */
+function accessEnded(): void {
+  act(() =>
+    accessEndedRegistered?.(
+      new ApiError(
+        parseProblem(403, { type: "workeasy360_access_ended", title: "Forbidden", status: 403, detail: ACCESS_ENDED_DETAIL }),
+      ),
+    ),
+  );
+}
 
 const organization = {
   id: "o1",
@@ -146,6 +164,114 @@ describe("AuthGate", () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login?next=%2Fcontacts%3Fview%3Dall"));
     expect(screen.queryByText("Welcome to Ada's workspace")).not.toBeInTheDocument();
+  });
+
+  it("replaces the CRM with one explanation when Workeasy360 says access has ended", async () => {
+    vi.mocked(getSession).mockResolvedValue(withOrg);
+    vi.mocked(logout).mockResolvedValue(undefined);
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+
+    accessEnded();
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Easy CRM access has ended" })).toBeInTheDocument();
+    expect(screen.getByText(ACCESS_ENDED_DETAIL)).toBeInTheDocument();
+    expect(screen.queryByText("Welcome to Ada's workspace")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+  });
+
+  it("shows the person-level message when only this person's access ended (removed member, seat taken away)", async () => {
+    const detail = "Your access to Easy CRM in this organization has ended. Ask an administrator in Workeasy360.";
+    vi.mocked(getSession).mockResolvedValue(withOrg);
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+    act(() =>
+      accessEndedRegistered?.(
+        new ApiError(parseProblem(403, { type: "workeasy360_access_ended", title: "Forbidden", status: 403, detail })),
+      ),
+    );
+    expect(await screen.findByRole("heading", { level: 1, name: "Easy CRM access has ended" })).toBeInTheDocument();
+    expect(screen.getByText(detail)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+  });
+
+  it("says it cannot confirm the access, rather than that it ended, when Workeasy360 refused the check", async () => {
+    vi.mocked(getSession).mockResolvedValue(withOrg);
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+    act(() =>
+      accessEndedRegistered?.(
+        new ApiError(
+          parseProblem(403, { type: "workeasy360_access_unverified", title: "Forbidden", status: 403, detail: "cannot confirm" }),
+        ),
+      ),
+    );
+    expect(await screen.findByRole("heading", { level: 1, name: "Easy CRM can't confirm your access" })).toBeInTheDocument();
+  });
+
+  it("offers the person's other organizations on the access-ended screen, and only when there are some", async () => {
+    const other = { ...organization, id: "o2", name: "Grace's studio" };
+    const twoOrgs: Session = {
+      ...withOrg,
+      memberships: [
+        ...withOrg.memberships,
+        { id: "m2", organization: other, role: { key: "owner", name: "Owner" }, status: "active" },
+        { id: "m3", organization: { ...other, id: "o3", name: "Suspended Co" }, role: { key: "owner", name: "Owner" }, status: "suspended" },
+      ],
+    };
+    vi.mocked(getSession).mockResolvedValue(twoOrgs);
+    vi.mocked(switchOrganization).mockResolvedValue({});
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+    accessEnded();
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Easy CRM access has ended" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Switch to Ada/ })).not.toBeInTheDocument(); // the one that ended
+    expect(screen.queryByRole("button", { name: /Suspended Co/ })).not.toBeInTheDocument(); // not an active membership
+    await userEvent.click(screen.getByRole("button", { name: "Switch to Grace's studio" }));
+
+    await waitFor(() => expect(vi.mocked(switchOrganization).mock.calls[0]?.[0]).toBe("m2"));
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument(); // the gate re-resolved the session
+  });
+
+  it("sends a session with no Workeasy360 identity to sign in with Workeasy360 (not 'try again')", async () => {
+    const detail = "Sign in with Workeasy360 to keep using Easy CRM.";
+    vi.mocked(getSession).mockResolvedValue(withOrg);
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+    act(() =>
+      accessEndedRegistered?.(
+        new ApiError(parseProblem(403, { type: "workeasy360_sign_in_required", title: "Forbidden", status: 403, detail })),
+      ),
+    );
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in with Workeasy360" })).toBeInTheDocument();
+    expect(screen.getByText(detail)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in with Workeasy360" })).toHaveAttribute(
+      "href",
+      "/api/auth/workeasy360/start?next=%2Fcontacts%3Fview%3Dall",
+    );
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+  });
+
+  it("offers no organization switch when the person has only the one", async () => {
+    vi.mocked(getSession).mockResolvedValue(withOrg);
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+    accessEnded();
+    expect(await screen.findByRole("heading", { level: 1, name: "Easy CRM access has ended" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Switch to/ })).not.toBeInTheDocument();
+  });
+
+  it("goes back to the CRM when Try again finds the access renewed", async () => {
+    vi.mocked(getSession).mockResolvedValue(withOrg);
+    renderGate();
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
+    accessEnded();
+    await userEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Welcome to Ada's workspace")).toBeInTheDocument();
   });
 
   it("sends a visitor without a session to sign in, keeping where they were going", async () => {

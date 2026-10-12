@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { Section } from "@/components/crm/record-page";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

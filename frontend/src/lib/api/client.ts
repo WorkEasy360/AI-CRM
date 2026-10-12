@@ -63,6 +63,22 @@ export function setUnauthenticatedHandler(handler: ((error: ApiError) => void) |
   unauthenticatedHandler = handler;
 }
 
+/**
+ * Handler invoked when the API says the organization's access to Easy CRM has ended (403
+ * workeasy360_access_ended: Workeasy360's entitlement re-check; or 403 workeasy360_sign_in_required). Registered by the authenticated app
+ * shell, which replaces the CRM with one explanation instead of an error on every page.
+ */
+let accessEndedHandler: ((error: ApiError) => void) | null = null;
+
+export function setAccessEndedHandler(handler: ((error: ApiError) => void) | null): void {
+  accessEndedHandler = handler;
+}
+
+function notifyHandlers(error: ApiError): void {
+  if (error.isNotAuthenticated && unauthenticatedHandler) unauthenticatedHandler(error);
+  if ((error.isAccessEnded || error.isSignInRequired) && accessEndedHandler) accessEndedHandler(error);
+}
+
 export function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   if (!path.startsWith("/")) throw new Error(`API paths must be same-origin and start with "/": ${path}`);
   if (!query) return path;
@@ -130,7 +146,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const res = await request(path, options);
   if (res.ok) return res.json as T;
   const error = new ApiError(parseProblem(res.status, res.json));
-  if (error.isNotAuthenticated && unauthenticatedHandler) unauthenticatedHandler(error);
+  notifyHandlers(error);
   throw error;
 }
 
@@ -153,7 +169,7 @@ export async function requestForm<T>(path: string, form: FormData, signal?: Abor
   const json = await readJson(response);
   if (response.ok) return json as T;
   const error = new ApiError(parseProblem(response.status, json));
-  if (error.isNotAuthenticated && unauthenticatedHandler) unauthenticatedHandler(error);
+  notifyHandlers(error);
   throw error;
 }
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from allauth.account.internal.flows.reauthentication import did_recently_authenticate
 from allauth.mfa.models import Authenticator
 from django.db.models import Exists, OuterRef, Prefetch
 from django.utils.decorators import method_decorator
@@ -15,8 +14,10 @@ from rest_framework.views import APIView
 from apps.accounts import services
 from apps.accounts.api import serializers as s
 from apps.accounts.models import Invitation, Membership, Organization
-from apps.authz.actor import build_actor
+from apps.accounts.workeasy360 import config as workeasy360
+from apps.authz.actor import build_actor, federated_aal_from_session
 from apps.authz.permissions import IsAuthenticatedUser
+from apps.authz.reauth import did_recently_authenticate
 from apps.core.api.request import ActorRequest, authenticated_user, enforce_csrf
 from apps.core.api.viewsets import TenantAPIView, TenantViewSet
 from apps.teams.models import TeamMembership
@@ -40,10 +41,14 @@ def _session_payload(request: Request) -> dict:
             user=user, type__in=[Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN]
         ).exists()
     )
+    federated = federated_aal_from_session(request._request.session) is not None
     payload = {
         "user": s.UserPublicSerializer(user).data,
         "mfa_enabled": mfa_enabled,
         "recently_authenticated": did_recently_authenticate(request._request),
+        # "workeasy360" when Workeasy360 signed this session in: MFA and re-authentication then happen
+        # there, not in Keel's own dialogs.
+        "identity_provider": "workeasy360" if federated else None,
         "memberships": s.MembershipSummarySerializer(memberships, many=True).data,
         "active": None,
     }
@@ -69,6 +74,22 @@ class SessionView(APIView):
         return Response(_session_payload(request))
 
 
+class AuthMethodsView(APIView):
+    """Which ways in the sign-in page should offer. Public: it says nothing about any account."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request) -> Response:
+        return Response(
+            {
+                "password": workeasy360.password_sign_in_enabled(),
+                "workeasy360": workeasy360.is_configured(),
+                # "Sign out of Easy CRM and Workeasy360" (RP-initiated logout) is offered.
+                "workeasy360_sign_out": workeasy360.sign_out_of_workeasy360_available(),
+            }
+        )
+
+
 class SessionBootstrapView(APIView):
     """Give a signed-in session an active organization without any client input.
 
@@ -84,7 +105,9 @@ class SessionBootstrapView(APIView):
         if getattr(request, "actor", None) is None:
             membership = services.bootstrap_session(request._request, authenticated_user(request))
             if membership is not None:
-                request._request.actor = build_actor(membership)  # type: ignore[attr-defined]
+                request._request.actor = build_actor(  # type: ignore[attr-defined]
+                    membership, federated_aal=federated_aal_from_session(request._request.session)
+                )
         return Response(_session_payload(request))
 
 

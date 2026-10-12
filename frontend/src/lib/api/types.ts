@@ -60,6 +60,8 @@ export interface Session {
   user: UserPublic;
   mfa_enabled: boolean;
   recently_authenticated: boolean;
+  /** "workeasy360" when Workeasy360 signed this session in: MFA and re-authentication happen there. */
+  identity_provider?: "workeasy360" | null;
   memberships: SessionMembership[];
   active: ActiveContext | null;
 }

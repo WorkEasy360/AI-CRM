@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, History, MoreHorizontal, Pause, Play, Plus, RotateCw, Send, Trash2, Webhook } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { DeliveriesTable } from "@/components/settings/integrations/deliveries-table";

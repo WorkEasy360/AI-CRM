@@ -9,6 +9,15 @@ import { ApiError, parseProblem } from "@/lib/api/problem";
 vi.mock("@/lib/api/allauth", () => ({ login: vi.fn(), mfaAuthenticate: vi.fn() }));
 vi.mock("@/lib/api/endpoints", () => ({ getSession: vi.fn() }));
 
+let methods: { data?: { password: boolean; workeasy360: boolean }; isError: boolean } = {
+  data: { password: true, workeasy360: false },
+  isError: false,
+};
+vi.mock("@/lib/auth-methods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth-methods")>()),
+  useAuthMethods: () => methods,
+}));
+
 const replace = vi.fn();
 let search = new URLSearchParams();
 vi.mock("next/navigation", () => ({
@@ -45,6 +54,7 @@ describe("LoginForm", () => {
     vi.mocked(getSession).mockReset().mockRejectedValue(notAuthenticated());
     replace.mockReset();
     search = new URLSearchParams();
+    methods = { data: { password: true, workeasy360: false }, isError: false };
   });
 
   it("signs in and returns to the validated next path", async () => {
@@ -104,5 +114,51 @@ describe("LoginForm", () => {
     renderForm();
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/pipeline"));
     expect(login).not.toHaveBeenCalled();
+  });
+  it("asks 'Already a Workeasy360 user?' first, keeping the next path, with the password on request", async () => {
+    search = new URLSearchParams("next=/contacts");
+    methods = { data: { password: true, workeasy360: true }, isError: false };
+    renderForm();
+    expect(screen.getByRole("heading", { name: "Already a Workeasy360 user?" })).toBeInTheDocument();
+    expect(screen.getByText("Access Easy CRM using your Workeasy360 account.")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Access Easy CRM" });
+    expect(link).toHaveAttribute("href", "/api/auth/workeasy360/start?next=%2Fcontacts");
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+    const other = screen.getByRole("button", { name: "Use another sign-in method" });
+    expect(other).toHaveAttribute("aria-expanded", "false");
+    await userEvent.setup().click(other);
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Access Easy CRM" })).toBeInTheDocument();
+  });
+
+  it("shows only Workeasy360 when password sign-in is off", () => {
+    methods = { data: { password: false, workeasy360: true }, isError: false };
+    renderForm();
+    expect(screen.getByRole("link", { name: "Access Easy CRM" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use another sign-in method" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+    expect(screen.queryByText("Forgot password?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Create account")).not.toBeInTheDocument();
+  });
+
+  it("explains a Workeasy360 sign-in failure from the fixed vocabulary", () => {
+    search = new URLSearchParams("sso_error=no_seat");
+    methods = { data: { password: false, workeasy360: true }, isError: false };
+    renderForm();
+    expect(screen.getByRole("alert")).toHaveTextContent("assign you one");
+  });
+
+  it("never echoes an unknown sso_error value", () => {
+    search = new URLSearchParams("sso_error=<script>alert(1)</script>");
+    methods = { data: { password: false, workeasy360: true }, isError: false };
+    renderForm();
+    expect(screen.getByRole("alert")).toHaveTextContent("could not complete the sign-in");
+    expect(screen.queryByText(/script/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the password form when the methods cannot be loaded", () => {
+    methods = { data: undefined, isError: true };
+    renderForm();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
   });
 });

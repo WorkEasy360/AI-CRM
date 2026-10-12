@@ -103,6 +103,7 @@ router.register("integrations/api-credentials", ApiCredentialViewSet, basename="
 _schema_permission = [AllowAny] if settings.DEBUG else [IsAuthenticated]
 
 urlpatterns = [
+    path("auth/methods/", account_views.AuthMethodsView.as_view(), name="auth-methods"),
     path("session/", account_views.SessionView.as_view(), name="session"),
     path("session/switch-organization/", account_views.SwitchOrganizationView.as_view(), name="session-switch"),
     path("session/bootstrap/", account_views.SessionBootstrapView.as_view(), name="session-bootstrap"),

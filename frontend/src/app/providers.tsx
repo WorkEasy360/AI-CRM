@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import "@/lib/zod-config";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReauthProvider } from "@/components/reauth-provider";
 import { ThemeSync } from "@/lib/theme";

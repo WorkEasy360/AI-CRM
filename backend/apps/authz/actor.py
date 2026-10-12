@@ -15,6 +15,19 @@ from apps.authz.roles import SYSTEM_ROLES
 if TYPE_CHECKING:
     from apps.accounts.models import Membership, Organization, User
 
+#: Session key holding the assurance level (the ``aal`` claim, 1 or 2) of the Workeasy360 sign-in that
+#: established the session. Absent for password, passkey and auto-login sessions.
+FEDERATED_AAL_SESSION_KEY = "workeasy360_aal"
+#: Session key holding the ``sub`` of that sign-in, the person Workeasy360 is asked about while the session
+#: lasts (``apps.accounts.workeasy360.entitlement``). "" once looked up and found none (a Keel-only account).
+FEDERATED_SUBJECT_SESSION_KEY = "workeasy360_sub"
+
+
+def federated_aal_from_session(session) -> int | None:
+    """The federated assurance level stored in ``session``, or None when the session is not federated."""
+    value = session.get(FEDERATED_AAL_SESSION_KEY) if session is not None else None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
 
 @dataclass(frozen=True)
 class Actor:
@@ -23,6 +36,10 @@ class Actor:
     organization: Organization
     role_key: str
     grants: Mapping[str, str]
+    # Set when Workeasy360 signed the user in: its ``aal`` decides whether a second factor was presented.
+    federated_aal: int | None = None
+    # The Workeasy360 account behind this session ("" for a Keel-only account or an unlinked organization).
+    federated_subject: str = ""
 
     def has(self, permission: str) -> bool:
         return permission in self.grants
@@ -40,8 +57,17 @@ class Actor:
 
     @property
     def mfa_required(self) -> bool:
-        """True when the organization enforces MFA and this user has not enrolled yet."""
-        return bool(self.organization.require_mfa) and not self.mfa_enabled
+        """True when the organization enforces MFA and this session has not satisfied it.
+
+        Password sessions: satisfied by an enrolled authenticator (allauth then demands it at every
+        sign-in). Workeasy360 sessions: satisfied only when the provider vouched for a second factor
+        (``aal`` >= 2); a Keel authenticator proves nothing about a sign-in Keel did not perform.
+        """
+        if not self.organization.require_mfa:
+            return False
+        if self.federated_aal is not None:
+            return self.federated_aal < 2
+        return not self.mfa_enabled
 
     @cached_property
     def team_ids(self) -> frozenset[uuid.UUID]:
@@ -82,11 +108,13 @@ def resolve_grants(role) -> Mapping[str, str]:
     return MappingProxyType({g.permission: g.scope for g in role.grants.all()})
 
 
-def build_actor(membership: Membership) -> Actor:
+def build_actor(membership: Membership, *, federated_aal: int | None = None, federated_subject: str = "") -> Actor:
     return Actor(
         user=membership.user,
         membership=membership,
         organization=membership.organization,
         role_key=membership.role.key,
         grants=resolve_grants(membership.role),
+        federated_aal=federated_aal,
+        federated_subject=federated_subject,
     )
