@@ -141,9 +141,9 @@ export function LoginForm() {
       <h2 id={headingId} className="text-sm font-semibold text-fg">
         Already a Workeasy360 user?
       </h2>
-      <p className="text-sm text-fg-muted">Access Easy CRM using your Workeasy360 account.</p>
+      <p className="text-sm text-fg-muted">Access WorkEasy CRM using your Workeasy360 account.</p>
       <Button asChild className="mt-1 w-full">
-        <a href={workeasy360StartUrl(next)}>Access Easy CRM</a>
+        <a href={workeasy360StartUrl(next)}>Access WorkEasy CRM</a>
       </Button>
     </section>
   ) : null;
@@ -192,7 +192,7 @@ export function LoginForm() {
         <>
           {workeasy360Access}
           <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden>
-            <span className="h-px flex-1 bg-border" /> or sign in with your Easy CRM password{" "}
+            <span className="h-px flex-1 bg-border" /> or sign in with your WorkEasy CRM password{" "}
             <span className="h-px flex-1 bg-border" />
           </div>
         </>

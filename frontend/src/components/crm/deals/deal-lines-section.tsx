@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { addDealLine, dealLines, listProducts, removeDealLine, updateDealLine } from "@/lib/api/crm";
+import { addDealLine, dealLines, listPriceBooks, listProducts, removeDealLine, updateDeal, updateDealLine } from "@/lib/api/crm";
 import type { Deal, DealLine, DealLineInput } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { formatMoney, formatNumber } from "@/lib/crm/format";
@@ -45,8 +45,16 @@ export function DealLinesSection({ deal, editable }: { deal: Deal; editable: boo
   const [editing, setEditing] = React.useState<DealLine | "new" | null>(null);
   const [removing, setRemoving] = React.useState<DealLine | null>(null);
 
+  // A line change recomputes the deal amount and bumps its version: refresh the deal and every deal view.
   const refresh = () =>
-    Promise.all([queryClient.invalidateQueries({ queryKey: crmKeys.dealLines(deal.id) }), queryClient.invalidateQueries({ queryKey: crmKeys.record("deals", deal.id) })]);
+    Promise.all([queryClient.invalidateQueries({ queryKey: crmKeys.dealLines(deal.id) }), queryClient.invalidateQueries({ queryKey: ["crm", "deals"] })]);
+  const books = useQuery({ queryKey: crmKeys.priceBooks, queryFn: listPriceBooks, enabled: editable, staleTime: 60_000 });
+  const usableBooks = (books.data?.results ?? []).filter((b) => b.is_active && b.currency === deal.currency);
+  const setBook = useMutation({
+    mutationFn: (id: string | null) => updateDeal(deal.id, deal.version, { price_book_id: id }),
+    onSuccess: refresh,
+    onError: (err) => toast({ tone: "error", title: "Could not change the price book", description: errorMessage(err) }),
+  });
 
   const remove = useMutation({
     mutationFn: (line: DealLine) => removeDealLine(deal.id, line.id),
@@ -58,19 +66,46 @@ export function DealLinesSection({ deal, editable }: { deal: Deal; editable: boo
   });
 
   const items = lines.data?.results ?? [];
-  const total = items.reduce((sum, l) => sum + Number(l.line_total || 0), 0);
+  // Money columns are absent when the member's field rules hide them.
+  const showMoney = items.every((l) => l.line_total !== undefined);
+  const sum = (key: "subtotal" | "tax_amount" | "line_total") => items.reduce((acc, l) => acc + Number(l[key] || 0), 0);
 
   return (
     <Section
       title="Products"
       actions={
         editable ? (
-          <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
-            <Plus /> Add product
-          </Button>
+          <div className="flex items-center gap-2">
+            {usableBooks.length || deal.price_book ? (
+              <Select value={deal.price_book?.id ?? "none"} onValueChange={(v) => setBook.mutate(v === "none" ? null : v)}>
+                <SelectTrigger className="h-8 w-44" aria-label="Price book">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">List prices</SelectItem>
+                  {deal.price_book && !usableBooks.some((b) => b.id === deal.price_book?.id) ? (
+                    <SelectItem value={deal.price_book.id}>{deal.price_book.name}</SelectItem>
+                  ) : null}
+                  {usableBooks.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
+              <Plus /> Add product
+            </Button>
+          </div>
+        ) : deal.price_book ? (
+          <span className="text-xs text-fg-muted">Prices from {deal.price_book.name}</span>
         ) : undefined
       }
     >
+      {deal.amount_from_lines ? (
+        <p className="mb-2 text-xs text-fg-muted">The deal amount is the total of these lines, tax included; change the lines to change it.</p>
+      ) : null}
       {lines.isPending ? (
         <SkeletonRows rows={3} />
       ) : lines.isError ? (
@@ -87,6 +122,7 @@ export function DealLinesSection({ deal, editable }: { deal: Deal; editable: boo
               <TableHead className="text-right">Unit price</TableHead>
               <TableHead className="text-right">Discount</TableHead>
               <TableHead className="text-right">Tax</TableHead>
+              {showMoney ? <TableHead className="text-right">Subtotal</TableHead> : null}
               <TableHead className="text-right">Line total</TableHead>
               {editable ? (
                 <TableHead className="w-20">
@@ -102,11 +138,19 @@ export function DealLinesSection({ deal, editable }: { deal: Deal; editable: boo
                   <div className="font-medium">{line.product.name}</div>
                   {line.sku ? <div className="text-xs text-fg-subtle">{line.sku}</div> : null}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{formatNumber(line.quantity)}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatMoney(line.unit_price, line.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{Number(line.discount_percent) ? `${formatNumber(line.discount_percent)}%` : "—"}</TableCell>
-                <TableCell className="text-right tabular-nums">{Number(line.tax_rate) ? `${formatNumber(line.tax_rate)}%` : "—"}</TableCell>
-                <TableCell className="text-right font-medium tabular-nums">{formatMoney(line.line_total, line.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{line.quantity !== undefined ? formatNumber(line.quantity) : <Hidden />}</TableCell>
+                <TableCell className="text-right tabular-nums">{line.unit_price !== undefined ? formatMoney(line.unit_price, line.currency) : <Hidden />}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {line.discount_percent === undefined ? <Hidden /> : Number(line.discount_percent) ? `${formatNumber(line.discount_percent)}%` : "—"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {line.tax_rate === undefined ? <Hidden /> : Number(line.tax_rate) ? `${formatNumber(line.tax_rate)}%` : "—"}
+                  {line.tax_amount !== undefined && Number(line.tax_amount) ? (
+                    <div className="text-xs text-fg-subtle">{formatMoney(line.tax_amount, line.currency)}</div>
+                  ) : null}
+                </TableCell>
+                {showMoney ? <TableCell className="text-right tabular-nums">{formatMoney(line.subtotal, line.currency)}</TableCell> : null}
+                <TableCell className="text-right font-medium tabular-nums">{line.line_total !== undefined ? formatMoney(line.line_total, line.currency) : <Hidden />}</TableCell>
                 {editable ? (
                   <TableCell>
                     <div className="flex justify-end gap-0.5">
@@ -121,13 +165,17 @@ export function DealLinesSection({ deal, editable }: { deal: Deal; editable: boo
                 ) : null}
               </TableRow>
             ))}
-            <TableRow className="bg-surface-sunken font-semibold hover:bg-surface-sunken">
-              <TableCell colSpan={5} className="text-right">
-                Total
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{formatMoney(total, deal.currency)}</TableCell>
-              {editable ? <TableCell /> : null}
-            </TableRow>
+            {showMoney ? (
+              <TableRow className="bg-surface-sunken font-semibold hover:bg-surface-sunken">
+                <TableCell colSpan={4} className="text-right">
+                  Total
+                </TableCell>
+                <TableCell className="text-right text-xs font-normal tabular-nums text-fg-muted">tax {formatMoney(sum("tax_amount"), deal.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(sum("subtotal"), deal.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(sum("line_total"), deal.currency)}</TableCell>
+                {editable ? <TableCell /> : null}
+              </TableRow>
+            ) : null}
           </TableBody>
         </Table>
       )}
@@ -144,6 +192,10 @@ export function DealLinesSection({ deal, editable }: { deal: Deal; editable: boo
       />
     </Section>
   );
+}
+
+function Hidden() {
+  return <span className="text-fg-subtle" title="Hidden by your field permissions">Hidden</span>;
 }
 
 function LineDialog({ deal, line, onOpenChange, onSaved }: { deal: Deal; line: DealLine | "new" | null; onOpenChange: (open: boolean) => void; onSaved: () => Promise<unknown> }) {
@@ -169,8 +221,8 @@ function LineDialog({ deal, line, onOpenChange, onSaved }: { deal: Deal; line: D
         product_id: existing?.product.id ?? "",
         quantity: existing?.quantity ?? "1",
         unit_price: existing?.unit_price ?? "",
-        discount_percent: existing ? existing.discount_percent : "",
-        tax_rate: existing ? existing.tax_rate : "",
+        discount_percent: existing?.discount_percent ?? "",
+        tax_rate: existing?.tax_rate ?? "",
       });
       setFieldErrors({});
     }
@@ -214,7 +266,9 @@ function LineDialog({ deal, line, onOpenChange, onSaved }: { deal: Deal; line: D
         >
           <DialogHeader>
             <DialogTitle>{existing ? "Edit product line" : "Add a product"}</DialogTitle>
-            <DialogDescription>Leave the price blank to use the product&apos;s list price. Totals are computed on save.</DialogDescription>
+            <DialogDescription>
+              Leave the price blank to use {deal.price_book ? `the ${deal.price_book.name} price` : "the product’s list price"}. Tax is charged on the discounted price; totals are computed on save.
+            </DialogDescription>
           </DialogHeader>
           <FormError message={fieldErrors.non_field_errors ?? fieldErrors.detail} />
           <FormField control={form.control} name="product_id" label="Product" serverError={fieldErrors.product_id}>
@@ -228,7 +282,8 @@ function LineDialog({ deal, line, onOpenChange, onSaved }: { deal: Deal; line: D
                     field.onChange(v);
                     const p = options.find((o) => o.id === v);
                     if (p) {
-                      form.setValue("unit_price", p.unit_price);
+                      // With a price book the server prices the line from the book; leave the price blank.
+                      if (!deal.price_book) form.setValue("unit_price", p.unit_price);
                       form.setValue("tax_rate", p.tax_rate);
                     }
                   }}

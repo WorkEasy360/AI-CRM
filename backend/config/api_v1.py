@@ -18,9 +18,11 @@ from apps.ai.api import (
 )
 from apps.assistant.api import AskKeelView, AssistantHomeView, ConversationView
 from apps.audit.api import AuditEventViewSet
-from apps.authz.api import RolesView
+from apps.authz.api import FieldPermissionsView, HierarchyRoleViewSet, RoleDetailView, RolesView
+from apps.billing.api import AddonCancelView, AddonListView, EditionCatalogView, SubscriptionView, UsageView
 from apps.companies.api import CompanyViewSet
 from apps.contacts.api import ContactViewSet
+from apps.crm import api as records_api
 from apps.customfields.api import CustomFieldDefinitionViewSet
 from apps.dashboards.api import DashboardSummaryView
 from apps.deals.api import DealViewSet
@@ -32,6 +34,8 @@ from apps.importexport.api import (
     ContactExportViewSet,
     ContactImportViewSet,
     DealExportViewSet,
+    DealImportViewSet,
+    FullExportViewSet,
     ProductExportViewSet,
     ProductImportViewSet,
 )
@@ -56,7 +60,8 @@ from apps.messaging.webhooks import WhatsAppWebhookView
 from apps.notes.api import NoteViewSet, TimelineView
 from apps.notifications.api import NotificationPreferenceView, NotificationViewSet
 from apps.pipelines.api import PipelineStageViewSet, PipelineViewSet
-from apps.products.api import ProductViewSet
+from apps.products.api import PriceBookViewSet, ProductViewSet
+from apps.savedviews.api import SavedViewViewSet
 from apps.search.api import GlobalSearchView
 from apps.tagging.api import TagViewSet
 from apps.teams.api import TeamViewSet
@@ -67,25 +72,30 @@ router.include_format_suffixes = False  # JSON only; no `.format` URL variants
 router.register("members", account_views.MemberViewSet, basename="member")
 router.register("invitations", account_views.InvitationViewSet, basename="invitation")
 router.register("teams", TeamViewSet, basename="team")
+router.register("hierarchy-roles", HierarchyRoleViewSet, basename="hierarchy-role")
 router.register("audit-events", AuditEventViewSet, basename="audit-event")
 # CRM core (Phase 2)
 router.register("companies", CompanyViewSet, basename="company")
 router.register("contacts", ContactViewSet, basename="contact")
 router.register("products", ProductViewSet, basename="product")
+router.register("price-books", PriceBookViewSet, basename="price-book")
 router.register("pipelines", PipelineViewSet, basename="pipeline")
 router.register("stages", PipelineStageViewSet, basename="stage")
 router.register("deals", DealViewSet, basename="deal")
 router.register("custom-fields", CustomFieldDefinitionViewSet, basename="custom-field")
 router.register("tags", TagViewSet, basename="tag")
+router.register("views", SavedViewViewSet, basename="saved-view")
 router.register("notes", NoteViewSet, basename="note")
 router.register("files", FileAttachmentViewSet, basename="file")
 router.register("imports/contacts", ContactImportViewSet, basename="import-contact")
 router.register("imports/companies", CompanyImportViewSet, basename="import-company")
 router.register("imports/products", ProductImportViewSet, basename="import-product")
+router.register("imports/deals", DealImportViewSet, basename="import-deal")
 router.register("exports/contacts", ContactExportViewSet, basename="export-contact")
 router.register("exports/companies", CompanyExportViewSet, basename="export-company")
 router.register("exports/products", ProductExportViewSet, basename="export-product")
 router.register("exports/deals", DealExportViewSet, basename="export-deal")
+router.register("exports/all", FullExportViewSet, basename="export-all")
 # Sales operations
 router.register("activities", ActivityViewSet, basename="activity")
 router.register("notifications", NotificationViewSet, basename="notification")
@@ -110,7 +120,23 @@ urlpatterns = [
     path("organizations/", account_views.OrganizationCreateView.as_view(), name="organization-create"),
     path("organizations/current/", account_views.OrganizationCurrentView.as_view(), name="organization-current"),
     path("roles/", RolesView.as_view(), name="roles"),
+    path("roles/<slug:key>/", RoleDetailView.as_view(), name="role-detail"),
+    path("roles/<slug:key>/field-permissions/", FieldPermissionsView.as_view(), name="role-field-permissions"),
+    path("billing/editions/", EditionCatalogView.as_view(), name="billing-editions"),
+    path("billing/subscription/", SubscriptionView.as_view(), name="billing-subscription"),
+    path("billing/usage/", UsageView.as_view(), name="billing-usage"),
+    path("billing/addons/", AddonListView.as_view(), name="billing-addons"),
+    path("billing/addons/<uuid:addon_id>/cancel/", AddonCancelView.as_view(), name="billing-addon-cancel"),
     path("search/", GlobalSearchView.as_view(), name="search"),
+    # Module schema and the generic views (Sheet, Kanban, Calendar, Chart) for any registered module.
+    path("records/", records_api.ModulesView.as_view(), name="record-modules"),
+    path("records/<slug:entity_type>/schema/", records_api.ModuleSchemaView.as_view(), name="record-schema"),
+    path("records/<slug:entity_type>/rows/", records_api.RowsView.as_view(), name="record-rows"),
+    path("records/<slug:entity_type>/edits/", records_api.EditsView.as_view(), name="record-edits"),
+    path("records/<slug:entity_type>/groups/", records_api.GroupsView.as_view(), name="record-groups"),
+    path("records/<slug:entity_type>/groups/page/", records_api.GroupPageView.as_view(), name="record-group-page"),
+    path("records/<slug:entity_type>/calendar/", records_api.CalendarView.as_view(), name="record-calendar"),
+    path("records/<slug:entity_type>/chart/", records_api.ChartView.as_view(), name="record-chart"),
     path("dashboard/", DashboardSummaryView.as_view(), name="dashboard"),
     path("timeline/", TimelineView.as_view(), name="timeline"),
     path("forecast/", ForecastView.as_view(), name="forecast"),

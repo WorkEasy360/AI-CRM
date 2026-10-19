@@ -278,7 +278,7 @@ function PolicyCard({ settings }: { settings: AISettings }) {
           <div>
             <p className="text-sm font-medium text-fg">Generative AI</p>
             <p className="mt-0.5 max-w-prose text-xs text-fg-muted">
-              When this is off, no customer text leaves your workspace. Ask Keel keeps working: it answers from your CRM
+              When this is off, no customer text leaves your workspace. Ask WorkEasy keeps working: it answers from your CRM
               records and past conversations, without written analysis or drafts.
             </p>
           </div>
@@ -303,7 +303,7 @@ function PolicyCard({ settings }: { settings: AISettings }) {
           <p className="text-xs text-fg-muted">
             Estimated spend this month: {formatMoney(settings.month_to_date_usd, "USD")}
             {limit > 0 ? ` of ${formatMoney(settings.monthly_budget_usd, "USD")}` : " (no limit set)"}. Reaching the
-            budget switches Ask Keel to CRM answers for the rest of the month rather than failing.
+            budget switches Ask WorkEasy to CRM answers for the rest of the month rather than failing.
           </p>
           <div className="flex gap-2">
             <input
@@ -338,7 +338,7 @@ function KnowledgeCard({ knowledge }: { knowledge: AISettings["knowledge"] }) {
         <CardTitle className="flex items-center gap-2">
           <Database className="size-4 text-primary" aria-hidden /> Knowledge search
         </CardTitle>
-        <CardDescription>Notes, emails, WhatsApp messages and meeting write-ups Ask Keel can search.</CardDescription>
+        <CardDescription>Notes, emails, WhatsApp messages and meeting write-ups Ask WorkEasy can search.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">

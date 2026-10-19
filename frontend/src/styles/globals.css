@@ -30,6 +30,9 @@
   --color-primary-hover: var(--kl-primary-hover);
   --color-primary-soft: var(--kl-primary-soft);
   --color-primary-fg: var(--kl-primary-fg);
+  --color-brand: var(--kl-brand);
+  --color-brand-hover: var(--kl-brand-hover);
+  --color-brand-fg: var(--kl-brand-fg);
   --color-accent: var(--kl-accent);
   --color-accent-hover: var(--kl-accent-hover);
   --color-accent-soft: var(--kl-accent-soft);
@@ -44,6 +47,10 @@
   --color-danger-soft: var(--kl-danger-soft);
   --color-danger-fg: var(--kl-danger-fg);
   --color-overlay: var(--kl-overlay);
+  --color-chrome: var(--kl-chrome);
+  --color-chrome-sidebar: var(--kl-chrome-sidebar);
+  --color-chrome-active: var(--kl-chrome-active);
+  --color-chrome-indicator: var(--kl-chrome-indicator);
 
   --radius-sm: var(--kl-radius-sm);
   --radius-md: var(--kl-radius-md);
@@ -94,6 +101,26 @@
   ::selection {
     background: var(--kl-primary-soft);
   }
+}
+
+/*
+ * The navy app chrome (top bar, rail, sub-panels). Re-pointing the neutral tokens here lets the same
+ * ghost buttons, search field and nav links used everywhere else read light-on-navy without
+ * per-component colour overrides. Menus and dialogs opened from the chrome portal to <body>, so
+ * they keep the normal surface colours. Brand/danger are left alone: the green "New" button and
+ * the unread badge look the same here as anywhere.
+ */
+.kl-chrome {
+  --kl-fg: var(--kl-chrome-fg);
+  --kl-fg-muted: var(--kl-chrome-fg-muted);
+  --kl-fg-subtle: var(--kl-chrome-fg-muted);
+  --kl-bg: rgb(255 255 255 / 0.08);
+  --kl-bg-subtle: rgb(255 255 255 / 0.1);
+  --kl-surface: var(--kl-chrome);
+  --kl-border: rgb(255 255 255 / 0.1);
+  --kl-border-strong: rgb(255 255 255 / 0.18);
+  --kl-ring: var(--kl-brand);
+  color: var(--kl-fg);
 }
 
 @keyframes kl-fade-in {

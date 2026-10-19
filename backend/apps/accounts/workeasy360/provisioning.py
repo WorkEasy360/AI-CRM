@@ -34,6 +34,7 @@ from django.utils import timezone
 from apps.accounts import limits
 from apps.accounts.forms import split_name
 from apps.accounts.models import ExternalIdentity, Membership, Organization, User
+from apps.accounts.workeasy360 import config
 from apps.accounts.workeasy360.oidc import SSOError
 from apps.audit import actions
 from apps.audit import service as audit
@@ -76,10 +77,16 @@ def read_claims(claims: dict[str, Any]) -> SignInClaims:
         organization_id = uuid.UUID(str(claims.get("organization_id")))
     except ValueError:
         raise SSOError("invalid_token", "organization_id is not a UUID") from None
-    expected_product = settings.WORKEASY360_PRODUCT_CODE
+    expected_product = config.product_code()
+    if not expected_product:
+        # Refused at startup (config.settings.prod, workeasy360.E001); if it got here anyway, no check at all
+        # would be worse than no sign-in.
+        raise SSOError("provider_misconfigured", "WORKEASY360_PRODUCT_CODE is empty")
     product = claims.get("product_code")
-    if expected_product and product is not None and product != expected_product:
-        raise SSOError("wrong_product", f"token is for product {product!r}")
+    if product != expected_product:
+        # Present and ours: a token that does not say which product it is for is no evidence it is for this one.
+        detail = "token has no product_code" if product is None else f"token is for product {product!r}"
+        raise SSOError("wrong_product", detail)
     email = claims.get("email")
     email = email.strip().lower() if isinstance(email, str) else ""
     if not email or "@" not in email or len(email) > 254:
@@ -226,7 +233,7 @@ def _link(user: User, claims: SignInClaims, *, issuer: str, request) -> User:
 
 def _require_active(user: User) -> None:
     if not user.is_active:
-        raise SSOError("account_disabled", "Keel account is deactivated")
+        raise SSOError("account_disabled", "WorkEasy CRM account is deactivated")
 
 
 # ----------------------------------------------------------------------------- organization
@@ -279,7 +286,7 @@ def _resolve_membership(user: User, organization: Organization, *, request) -> M
         existing = Membership.objects.select_related("role").filter(user=user).first()
         if existing is not None:
             if existing.status != Membership.Status.ACTIVE:
-                raise SSOError("membership_inactive", f"Keel membership is {existing.status}")
+                raise SSOError("membership_inactive", f"WorkEasy CRM membership is {existing.status}")
             return existing
         try:
             limits.assert_seat_available(organization)

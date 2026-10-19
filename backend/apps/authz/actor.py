@@ -9,7 +9,7 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from apps.authz.catalogue import SCOPE_ALL, SCOPE_OWN, SCOPE_TEAM
+from apps.authz.catalogue import SCOPE_ALL, SCOPE_OWN, SCOPE_SUBORDINATES, SCOPE_TEAM
 from apps.authz.roles import SYSTEM_ROLES
 
 if TYPE_CHECKING:
@@ -87,19 +87,40 @@ class Actor:
         ids = TeamMembership.objects.filter(team_id__in=self.team_ids).values_list("membership_id", flat=True)
         return frozenset(ids) | {self.membership.id}
 
+    @cached_property
+    def subordinate_member_ids(self) -> frozenset[uuid.UUID]:
+        """Membership ids in hierarchy roles below the actor's (and peers when the role shares), plus the actor."""
+        from apps.authz.hierarchy import subordinate_member_ids
+
+        return subordinate_member_ids(self.membership)
+
+    @cached_property
+    def field_rules(self) -> Mapping[str, Mapping[str, str]]:
+        """``{entity_type: {field: "hidden" | "read_only"}}`` for the actor's permission set."""
+        from apps.authz.fields import rules_for_role
+
+        return rules_for_role(self.membership.role, self.organization.pk)
+
+    def owner_ids_for(self, scope: str | None) -> frozenset[uuid.UUID] | None:
+        """Owners a scope reaches: ``None`` means every owner ("all"); empty means nobody."""
+        if scope == SCOPE_ALL:
+            return None
+        if scope == SCOPE_OWN:
+            return frozenset({self.membership.id})
+        if scope == SCOPE_SUBORDINATES:
+            return self.subordinate_member_ids
+        if scope == SCOPE_TEAM:
+            return self.team_member_ids
+        return frozenset()
+
     def covers_owner(self, permission: str, owner_membership_id: uuid.UUID | None) -> bool:
         scope = self.scope_for(permission)
         if scope is None:
             return False
-        if scope == SCOPE_ALL:
+        owners = self.owner_ids_for(scope)
+        if owners is None:
             return True
-        if owner_membership_id is None:
-            return False
-        if scope == SCOPE_OWN:
-            return owner_membership_id == self.membership.id
-        if scope == SCOPE_TEAM:
-            return owner_membership_id in self.team_member_ids
-        return False
+        return owner_membership_id is not None and owner_membership_id in owners
 
 
 def resolve_grants(role) -> Mapping[str, str]:
@@ -109,12 +130,25 @@ def resolve_grants(role) -> Mapping[str, str]:
 
 
 def build_actor(membership: Membership, *, federated_aal: int | None = None, federated_subject: str = "") -> Actor:
+    from apps.core.tenancy.context import TenantContext, bind_context, get_context
+
+    ctx = get_context()
+    if ctx is not None and (ctx.is_system or ctx.organization_id == membership.organization_id):
+        role, grants = membership.role, resolve_grants(membership.role)
+    else:
+        # A custom permission set's grants are tenant rows (RLS): read them inside the member's own
+        # organization, whatever context the caller is in (the identity-level session middleware).
+        org_ctx = TenantContext(
+            organization_id=membership.organization_id, user_id=membership.user_id, membership_id=membership.pk
+        )
+        with bind_context(org_ctx):
+            role, grants = membership.role, resolve_grants(membership.role)
     return Actor(
         user=membership.user,
         membership=membership,
         organization=membership.organization,
-        role_key=membership.role.key,
-        grants=resolve_grants(membership.role),
+        role_key=role.key,
+        grants=grants,
         federated_aal=federated_aal,
         federated_subject=federated_subject,
     )

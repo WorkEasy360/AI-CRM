@@ -64,7 +64,7 @@ export function setUnauthenticatedHandler(handler: ((error: ApiError) => void) |
 }
 
 /**
- * Handler invoked when the API says the organization's access to Easy CRM has ended (403
+ * Handler invoked when the API says the organization's access to WorkEasy CRM has ended (403
  * workeasy360_access_ended: Workeasy360's entitlement re-check; or 403 workeasy360_sign_in_required). Registered by the authenticated app
  * shell, which replaces the CRM with one explanation instead of an error on every page.
  */

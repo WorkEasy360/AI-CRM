@@ -344,7 +344,7 @@ function ConnectionActions({ connection }: { connection: ConnectionDetail }) {
         open={confirmDisconnect}
         onOpenChange={setConfirmDisconnect}
         title={`Disconnect ${connection.name}?`}
-        description="Keel stops syncing and delivering data, revokes access where the provider supports it, and deletes the stored credentials and inbound webhook secret. CRM data, including records that were synced, is kept."
+        description="WorkEasy CRM stops syncing and delivering data, revokes access where the provider supports it, and deletes the stored credentials and inbound webhook secret. CRM data, including records that were synced, is kept."
         confirmLabel="Disconnect"
         destructive
         loading={disconnect.isPending}
@@ -554,7 +554,7 @@ function SyncSettingsCard({ connection, options, canManage }: { connection: Conn
     <Card>
       <CardHeader>
         <CardTitle>Sync settings</CardTitle>
-        <CardDescription>How often Keel syncs shared data, and what happens when a record changed in both systems.</CardDescription>
+        <CardDescription>How often WorkEasy CRM syncs shared data, and what happens when a record changed in both systems.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         {webhookOnly ? null : (
@@ -682,11 +682,11 @@ function DeliveriesPanel({ connectionId }: { connectionId: string }) {
     );
   }
   if (deliveries.data.results.length === 0) {
-    return <EmptyState title="No deliveries yet" description="Changes Keel pushes to this connection appear here, with the result of each attempt." />;
+    return <EmptyState title="No deliveries yet" description="Changes WorkEasy CRM pushes to this connection appear here, with the result of each attempt." />;
   }
   return (
     <div className="grid gap-3">
-      <p className="text-sm text-fg-muted">The latest 50 changes Keel pushed to this connection. Failed deliveries are retried automatically when the problem is temporary.</p>
+      <p className="text-sm text-fg-muted">The latest 50 changes WorkEasy CRM pushed to this connection. Failed deliveries are retried automatically when the problem is temporary.</p>
       <DeliveriesTable deliveries={deliveries.data.results} />
     </div>
   );

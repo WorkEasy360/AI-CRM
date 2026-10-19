@@ -38,7 +38,7 @@ test("2. pipeline board shows the default stages", async () => {
   await page.goto("/pipeline");
   const stages = page.getByRole("list", { name: "Pipeline stages" });
   await expect(stages).toBeVisible();
-  for (const name of ["Qualification", "Needs analysis", "Proposal", "Negotiation", "Closed won", "Closed lost"]) {
+  for (const name of ["Discovery", "Fit confirmed", "Proposal sent", "Terms agreed", "Won", "Lost"]) {
     await expect(page.getByRole("list", { name: `${name} deals` })).toBeVisible();
   }
 });
@@ -79,15 +79,15 @@ test("5. create a deal and see it on the board", async () => {
   await d.getByLabel("Amount").fill(deal.amount);
   await d.getByRole("button", { name: "Create deal" }).click();
   await expect(d).toBeHidden();
-  const card = page.getByRole("list", { name: "Qualification deals" }).getByText(deal.name);
+  const card = page.getByRole("list", { name: "Discovery deals" }).getByText(deal.name);
   await expect(card).toBeVisible();
 });
 
 test("6. move the deal to the next stage from the board", async () => {
   await page.getByRole("button", { name: `Move ${deal.name} to another stage` }).click();
-  await page.getByRole("menuitem", { name: "Needs analysis" }).click();
-  await expect(page.getByRole("list", { name: "Needs analysis deals" }).getByText(deal.name)).toBeVisible();
-  await expect(page.getByRole("list", { name: "Qualification deals" }).getByText(deal.name)).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Fit confirmed" }).click();
+  await expect(page.getByRole("list", { name: "Fit confirmed deals" }).getByText(deal.name)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Discovery deals" }).getByText(deal.name)).toHaveCount(0);
 });
 
 test("7. open the deal; the header offers WhatsApp for the primary contact", async () => {
@@ -271,7 +271,7 @@ test("16. close the deal as won", async () => {
 
   await page.goto(dealUrl);
   await page.getByRole("button", { name: "Move to…" }).click();
-  await page.getByRole("menuitem", { name: /Closed won/ }).click();
+  await page.getByRole("menuitem", { name: /^Won/ }).click();
   await expect(page.getByText("Won on", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
 });
 

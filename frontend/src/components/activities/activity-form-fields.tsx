@@ -3,10 +3,11 @@
 import * as React from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { addMinutes } from "@/components/activities/activity-utils";
+import { addMinutes, parseLocal } from "@/components/activities/activity-utils";
 import { PRIORITY_LABELS, REMINDER_OPTIONS, STATUS_LABELS } from "@/components/activities/activity-utils";
 import { NONE, type ActivityFormValues, type FormMode, type RelatedState } from "@/components/activities/activity-form-schema";
 import { MemberMultiSelect, RecordChip, RecordPicker } from "@/components/activities/pickers";
+import { RepeatField } from "@/components/activities/repeat-field";
 import { OwnerSelect } from "@/components/crm/owner-select";
 import { FormField } from "@/components/ui/form-field";
 import { Input, Textarea } from "@/components/ui/input";
@@ -76,6 +77,16 @@ const DIRECTION_OPTIONS = [
 /** Kind-specific quick fields shown above the fold. */
 export function KindFields({ form, kind, mode, editing, errors, disabled, related, onRelatedChange }: Omit<FieldsProps, "showOwner">) {
   const allDay = form.watch("all_day");
+  const dueDate = form.watch("due_date");
+  const startAt = form.watch("start_at");
+  const repeatField = (start: Date | null) =>
+    mode === "log" ? null : (
+      <FormField control={form.control} name="recurrence" label="Repeat" serverError={errors.recurrence}>
+        {(field) => (
+          <RepeatField id={field.id} value={field.value} onChange={field.onChange} start={start} disabled={disabled} invalid={field.invalid} describedBy={field["aria-describedby"]} />
+        )}
+      </FormField>
+    );
   const textField = (name: "title" | "location" | "meeting_url" | "duration_minutes", label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}, className?: string) => (
     <FormField control={form.control} name={name} label={label} serverError={errors[name]} className={className}>
       {(field) => <Input {...field} {...props} className="h-8" disabled={disabled} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
@@ -110,6 +121,7 @@ export function KindFields({ form, kind, mode, editing, errors, disabled, relate
           <SelectField form={form} name="priority" label="Priority" options={PRIORITY_OPTIONS} error={errors.priority} disabled={disabled} />
         </div>
       ) : null}
+      {kind === "task" ? repeatField(parseLocal(dueDate)) : null}
 
       {kind === "call" ? (
         <>
@@ -160,6 +172,7 @@ export function KindFields({ form, kind, mode, editing, errors, disabled, relate
               )}
             </FormField>
           </div>
+          {repeatField(parseLocal(startAt))}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="activity-attendees">Attendees</Label>
             <MemberMultiSelect id="activity-attendees" value={related.attendees} onChange={(attendees) => onRelatedChange({ attendees })} disabled={disabled} />

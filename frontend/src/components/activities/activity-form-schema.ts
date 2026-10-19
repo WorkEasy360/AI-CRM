@@ -10,6 +10,7 @@ import {
   toIsoWithOffset,
   toTimeInput,
 } from "@/components/activities/activity-utils";
+import { recurrenceError } from "@/components/activities/recurrence";
 import type { Activity, ActivityInput, ActivityKind, MembershipRef, NamedRef } from "@/lib/api/crm-types";
 import { ACTIVITY_KINDS, ACTIVITY_PRIORITIES, ACTIVITY_STATUSES } from "@/lib/api/crm-types";
 
@@ -43,6 +44,8 @@ export const activitySchema = z
     reminder: z.string(),
     owner_id: z.string(),
     mark_done: z.boolean(),
+    /** RRULE ("" = does not repeat); tasks and events only. */
+    recurrence: z.string(),
   })
   .superRefine((v, ctx) => {
     if (v.kind === "task" && v.due_time && !v.due_date) {
@@ -56,6 +59,11 @@ export const activitySchema = z
       if (!Number.isInteger(n) || n < 1 || n > MAX_DURATION) {
         ctx.addIssue({ code: "custom", path: ["duration_minutes"], message: `Enter 1 to ${MAX_DURATION} minutes.` });
       }
+    }
+    if (v.kind !== "call" && v.recurrence) {
+      const problem = recurrenceError(v.recurrence);
+      if (problem) ctx.addIssue({ code: "custom", path: ["recurrence"], message: problem });
+      else if (v.kind === "task" && !v.due_date) ctx.addIssue({ code: "custom", path: ["recurrence"], message: "Pick a due date to repeat this task." });
     }
     if (v.kind === "meeting") {
       if (!v.start_at) ctx.addIssue({ code: "custom", path: ["start_at"], message: "Choose when the meeting starts." });
@@ -132,6 +140,7 @@ export function initialValues(
       reminder: activity.reminder_minutes === null ? NONE : String(activity.reminder_minutes),
       owner_id: activity.owner?.id ?? membershipId ?? "",
       mark_done: false,
+      recurrence: activity.recurrence ?? "",
     };
   }
   const start = defaultStart(kind, mode, defaults?.start_at);
@@ -154,6 +163,7 @@ export function initialValues(
     reminder: mode === "log" ? NONE : "30",
     owner_id: membershipId ?? "",
     mark_done: false,
+    recurrence: "",
   };
 }
 
@@ -165,6 +175,12 @@ export function initialRelated(activity: Activity | null, defaults: FormDefaults
 function iso(input: string): string | null {
   const d = parseLocal(input);
   return d ? toIsoWithOffset(d) : null;
+}
+
+/** Tasks and events can repeat: sent when set, and always on edit so "" stops a series. Calls never repeat. */
+function setRecurrence(payload: ActivityInput, values: ActivityFormValues, options: { mode: FormMode; editing: boolean }) {
+  if (options.mode === "log" && !options.editing) return;
+  if (options.editing || values.recurrence) payload.recurrence = values.recurrence;
 }
 
 /** Build the request body. Only fields the kind accepts are sent (the API rejects the rest). */
@@ -194,6 +210,7 @@ export function toPayload(
       payload.all_day = false;
     }
     if (!options.editing && values.mark_done) payload.completed = true;
+    setRecurrence(payload, values, options);
   } else if (values.kind === "call") {
     payload.priority = values.priority;
     payload.start_at = iso(values.start_at);
@@ -221,6 +238,7 @@ export function toPayload(
     } else {
       payload.reminder_minutes = values.reminder === NONE ? null : Number(values.reminder);
     }
+    setRecurrence(payload, values, options);
   }
   return payload;
 }

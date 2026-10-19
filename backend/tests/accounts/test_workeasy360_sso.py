@@ -2,20 +2,27 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 import time
 import uuid
 from io import StringIO
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from allauth.account.models import EmailAddress
+from cryptography.fernet import Fernet
 from django.core import mail
+from django.core.checks import run_checks
 from django.core.management import CommandError, call_command
+from django.core.management.base import SystemCheckError
 from rest_framework.test import APIClient
 
 from apps.accounts import services
 from apps.accounts.models import ExternalIdentity, Membership, Organization, User
-from apps.accounts.workeasy360 import config
+from apps.accounts.workeasy360 import config, views
 from apps.audit.models import AuditEvent
 from apps.authz.actor import FEDERATED_AAL_SESSION_KEY
 from apps.core.tenancy.context import system_context, tenant_context
@@ -115,6 +122,139 @@ def test_start_without_configuration_goes_back_to_login():
     assert _error_of(resp) == "unavailable"
 
 
+# ----------------------------------------------------------------------------- signed-out marker (integration guide 6b)
+
+
+def test_the_marker_is_named_like_the_csrf_cookie_host_prefixed_over_https_and_plain_over_http():
+    assert views.SIGNED_OUT_MARKER_COOKIES == ("__Host-keel_signed_out", "keel_signed_out")
+
+
+def test_a_successful_sign_in_clears_the_signed_out_marker_under_both_names(provider):
+    """Signing out of WorkEasy CRM leaves a session cookie that stops the frontend from starting a Workeasy360
+    sign-in by itself (frontend/src/lib/direct-sign-in.ts); the next successful sign-in removes it."""
+    client = APIClient()
+    for name in views.SIGNED_OUT_MARKER_COOKIES:
+        client.cookies[name] = "1"
+    resp = _sign_in(client, provider)
+    assert resp.status_code == 302
+    for name in views.SIGNED_OUT_MARKER_COOKIES:
+        cleared = resp.cookies[name]
+        assert cleared.value == "" and cleared["max-age"] == 0 and cleared["path"] == "/"
+        assert cleared["samesite"] == "Lax" and not cleared["domain"]
+    # A __Host- cookie can only be replaced by a Secure Set-Cookie, so its deletion carries the flag.
+    assert resp.cookies["__Host-keel_signed_out"]["secure"] is True
+    assert not resp.cookies["keel_signed_out"]["secure"]
+
+
+def test_a_refused_sign_in_leaves_the_signed_out_marker_alone(provider):
+    client = APIClient()
+    for name in views.SIGNED_OUT_MARKER_COOKIES:
+        client.cookies[name] = "1"
+    resp = _sign_in(client, provider, email_verified=False)
+    assert _error_of(resp) == "email_unverified"
+    assert not set(views.SIGNED_OUT_MARKER_COOKIES) & set(resp.cookies)
+    resp = client.get(CALLBACK, {"error": "access_denied", "state": "x"})
+    assert _error_of(resp) == "cancelled"
+    assert not set(views.SIGNED_OUT_MARKER_COOKIES) & set(resp.cookies)
+
+
+def test_the_start_endpoint_never_sets_or_clears_the_marker(provider):
+    """Starting is not signing in: the marker survives until a sign-in actually succeeds."""
+    client = APIClient()
+    for name in views.SIGNED_OUT_MARKER_COOKIES:
+        client.cookies[name] = "1"
+    resp = client.get(START, {"next": "/contacts"})
+    assert resp.status_code == 302
+    assert not set(views.SIGNED_OUT_MARKER_COOKIES) & set(resp.cookies)
+
+
+# ----------------------------------------------------------------------------- product binding cannot be switched off
+
+
+def _product_code_errors() -> list[str]:
+    return [message.id for message in run_checks() if message.id == "workeasy360.E001"]
+
+
+def test_the_product_code_defaults_to_easy_crm(settings):
+    assert settings.WORKEASY360_PRODUCT_CODE == "easy_crm"
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\t"])
+def test_a_blank_product_code_is_a_system_check_error_where_sign_in_is_configured(provider, settings, blank):
+    settings.WORKEASY360_PRODUCT_CODE = blank
+    assert _product_code_errors() == ["workeasy360.E001"]
+    with pytest.raises(SystemCheckError, match="WORKEASY360_PRODUCT_CODE"):
+        call_command("check", stdout=StringIO(), stderr=StringIO())
+
+
+def test_the_default_and_an_explicit_product_code_pass_the_check(provider, settings):
+    assert _product_code_errors() == []
+    call_command("check", stdout=StringIO(), stderr=StringIO())
+    settings.WORKEASY360_PRODUCT_CODE = "easy_crm"
+    assert _product_code_errors() == []
+
+
+def test_a_blank_product_code_is_not_an_error_where_sign_in_is_not_configured(settings):
+    assert not config.is_configured()
+    settings.WORKEASY360_PRODUCT_CODE = ""
+    assert _product_code_errors() == []
+
+
+@pytest.mark.parametrize("claims", [{}, {"product_code": None}, {"product_code": "easy_helpdesk"}])
+def test_a_blank_product_code_refuses_every_sign_in_instead_of_checking_nothing(provider, settings, claims):
+    """If the startup checks were bypassed, an empty setting must not switch the comparison off."""
+    settings.WORKEASY360_PRODUCT_CODE = ""
+    client = APIClient()
+    assert _error_of(_sign_in(client, provider, **claims)) == "unavailable"
+    assert "_auth_user_id" not in client.session
+    assert not User.objects.filter(email="ada@example.com").exists()
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
+def _import_production_settings(**overrides: str) -> subprocess.CompletedProcess[str]:
+    """Import config.settings.prod in a clean interpreter, as gunicorn does, with a complete environment."""
+    env = {key: value for key, value in os.environ.items() if not key.startswith("WORKEASY360_")}
+    env.update(
+        ENVIRONMENT="staging",
+        ALLOWED_HOSTS="crm.example.test",
+        CSRF_TRUSTED_ORIGINS="https://crm.example.test",
+        SECRET_KEY="k" * 60,
+        MESSAGING_ENCRYPTION_KEYS=Fernet.generate_key().decode(),
+        ALLOW_LOCAL_PRIVATE_STORAGE="true",
+        DATABASE_URL="postgres://u:p@localhost:5433/keel",
+        WORKEASY360_ISSUER="https://id.example.test",
+        WORKEASY360_CLIENT_ID="client",
+        WORKEASY360_REDIRECT_URI="https://crm.example.test/api/auth/callback/workeasy360",
+        WORKEASY360_KEY_ID="key",
+        WORKEASY360_PRIVATE_KEY="pem",
+    )
+    env.update(overrides)
+    code = "import config.settings.prod as m; print('STARTED', repr(m.WORKEASY360_PRODUCT_CODE))"
+    return subprocess.run(  # noqa: S603 - our own interpreter and a fixed program
+        [sys.executable, "-c", code], cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120
+    )
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_production_refuses_to_start_with_a_blank_product_code(blank):
+    done = _import_production_settings(WORKEASY360_PRODUCT_CODE=blank)
+    assert done.returncode != 0 and "STARTED" not in done.stdout
+    assert "WORKEASY360_PRODUCT_CODE must not be empty" in done.stderr
+
+
+def test_production_starts_with_the_default_product_code():
+    done = _import_production_settings()
+    assert done.returncode == 0, done.stderr
+    assert "STARTED 'easy_crm'" in done.stdout
+
+
+def test_production_does_not_mind_a_blank_product_code_where_sign_in_is_not_configured():
+    done = _import_production_settings(WORKEASY360_PRODUCT_CODE="", WORKEASY360_KEY_ID="", WORKEASY360_SSO_ONLY="false")
+    assert done.returncode == 0, done.stderr
+
+
 # ----------------------------------------------------------------------------- callback: provisioning
 
 
@@ -208,6 +348,44 @@ def test_missing_email_claim_is_refused(provider):
 
 def test_token_for_another_product_is_refused(provider):
     assert _error_of(_sign_in(APIClient(), provider, product_code="easy_helpdesk")) == "wrong_product"
+
+
+def test_token_without_a_product_code_is_refused_like_a_wrong_product(provider):
+    """A token that does not say which product it is for is no evidence it is for this one."""
+    client = APIClient()
+    assert _error_of(_sign_in(client, provider, product_code=None)) == "wrong_product"
+    assert "_auth_user_id" not in client.session
+    assert not User.objects.filter(email="ada@example.com").exists()
+
+
+@pytest.mark.parametrize("claims", [{"azp": "another-client"}, {"aud": [fake.CLIENT_ID, "another-client"]}])
+def test_token_issued_to_another_client_is_refused(provider, claims):
+    client = APIClient()
+    assert _error_of(_sign_in(client, provider, **claims)) == "refused"
+    assert "_auth_user_id" not in client.session
+    assert not User.objects.filter(email="ada@example.com").exists()
+
+
+def test_a_successful_callback_issues_a_new_session_key_so_a_planted_one_is_worthless(provider, settings):
+    """Session fixation: whoever planted the session id a browser had before signing in must not be signed in
+    by the sign-in. The key changes across the callback and the old one is gone."""
+    client = APIClient()
+    resp = client.get(START)
+    assert resp.status_code == 302
+    before = client.session.session_key
+    assert before and client.session["workeasy360_flows"]
+
+    code, state = provider.authorize(resp["Location"])
+    done = client.get(CALLBACK, {"code": code, "state": state})
+    assert done.status_code == 302 and _error_of(done) is None
+
+    after = client.session.session_key
+    assert after and after != before
+    assert client.get("/api/v1/session/").status_code == 200
+    attacker = APIClient()
+    attacker.cookies[settings.SESSION_COOKIE_NAME] = before
+    refused = attacker.get("/api/v1/session/")
+    assert refused.status_code in (401, 403) and "user" not in refused.json()
 
 
 def test_suspended_keel_membership_is_refused(provider, make_user):

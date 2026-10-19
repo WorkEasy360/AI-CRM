@@ -4,7 +4,7 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Archive, ArrowDown, ArrowUp, Check, GripVertical, KanbanSquare, MoreHorizontal, Pencil, Plus, Star, X } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Check, CornerDownRight, GripVertical, KanbanSquare, Lock, MoreHorizontal, Pencil, Plus, Star, X } from "lucide-react";
 import { z } from "zod";
 import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
@@ -21,7 +21,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { addStage, archivePipeline, archiveStage, createPipeline, listPipelines, reorderStages, updatePipeline, updateStage } from "@/lib/api/crm";
+import {
+  addStage,
+  archivePipeline,
+  archiveStage,
+  createPipeline,
+  listPipelines,
+  listPipelineTemplates,
+  reorderStages,
+  updatePipeline,
+  updateStage,
+} from "@/lib/api/crm";
+import { orderFamilies } from "@/lib/crm/pipelines";
+import { PipelineAccessCard } from "@/components/settings/pipeline-access-card";
 import type { Pipeline, PipelineStage, StageInput, StageKind } from "@/lib/api/crm-types";
 import { TAG_COLORS } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
@@ -77,7 +89,7 @@ export function PipelinesPage() {
   const list = React.useMemo(() => pipelines.data?.results ?? [], [pipelines.data]);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const selected = list.find((p) => p.id === selectedId) ?? list.find((p) => p.is_default) ?? list[0] ?? null;
-  const [editing, setEditing] = React.useState<Pipeline | "new" | null>(null);
+  const [editing, setEditing] = React.useState<PipelineDialogTarget | null>(null);
   const [archiving, setArchiving] = React.useState<Pipeline | null>(null);
 
   const invalidate = () => Promise.all([queryClient.invalidateQueries({ queryKey: crmKeys.pipelines }), queryClient.invalidateQueries({ queryKey: ["crm", "deals", "board"] })]);
@@ -114,7 +126,7 @@ export function PipelinesPage() {
         description="Define the stages deals move through. Every pipeline needs at least one won and one lost stage."
         actions={
           canManage ? (
-            <Button onClick={() => setEditing("new")}>
+            <Button onClick={() => setEditing({ create: true })}>
               <Plus /> New pipeline
             </Button>
           ) : null
@@ -130,21 +142,28 @@ export function PipelinesPage() {
           icon={<KanbanSquare />}
           title="No pipelines yet"
           description="Create your first pipeline; it starts with a sensible set of stages you can adjust."
-          action={canManage ? <Button onClick={() => setEditing("new")}>Create a pipeline</Button> : null}
+          action={canManage ? <Button onClick={() => setEditing({ create: true })}>Create a pipeline</Button> : null}
         />
       ) : (
         <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
           <ul className="flex flex-col gap-2" aria-label="Pipelines">
-            {list.map((p) => {
+            {orderFamilies(list).map((p) => {
               const isSelected = selected?.id === p.id;
               return (
-                <li key={p.id}>
+                <li key={p.id} className={p.parent_id ? "pl-5" : undefined}>
                   <Card className={cn("transition-colors", isSelected && "border-primary")}>
                     <CardContent className="flex items-start gap-2 px-4 py-3">
                       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setSelectedId(p.id)} aria-pressed={isSelected}>
                         <div className="flex flex-wrap items-center gap-2">
+                          {p.parent_id ? <CornerDownRight className="size-3.5 text-fg-subtle" aria-label="Sub-pipeline" /> : null}
                           <span className="truncate font-semibold">{p.name}</span>
                           {p.is_default ? <Badge variant="primary">Default</Badge> : null}
+                          {p.restricted ? (
+                            <Badge>
+                              <Lock className="mr-1 size-3" aria-hidden />
+                              Restricted
+                            </Badge>
+                          ) : null}
                         </div>
                         <p className="mt-0.5 text-xs text-fg-subtle">
                           {activeStages(p).length} {activeStages(p).length === 1 ? "stage" : "stages"}
@@ -158,10 +177,15 @@ export function PipelinesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => setEditing(p)}>
+                            <DropdownMenuItem onSelect={() => setEditing({ rename: p })}>
                               <Pencil /> Rename
                             </DropdownMenuItem>
-                            {!p.is_default ? (
+                            {!p.parent_id ? (
+                              <DropdownMenuItem onSelect={() => setEditing({ parent: p })}>
+                                <CornerDownRight /> Add sub-pipeline
+                              </DropdownMenuItem>
+                            ) : null}
+                            {!p.is_default && !p.parent_id ? (
                               <DropdownMenuItem onSelect={() => makeDefault.mutate(p)}>
                                 <Star /> Make default
                               </DropdownMenuItem>
@@ -179,7 +203,17 @@ export function PipelinesPage() {
               );
             })}
           </ul>
-          {selected ? <StageEditor key={selected.id} pipeline={selected} canManage={canManage} /> : null}
+          {selected ? (
+            <div className="flex min-w-0 flex-col gap-4">
+              <StageEditor key={selected.id} pipeline={selected} canManage={canManage} />
+              <PipelineAccessCard
+                key={`access:${selected.id}:${selected.version}`}
+                pipeline={selected}
+                parent={list.find((p) => p.id === selected.parent_id) ?? null}
+                canManage={canManage}
+              />
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -198,12 +232,28 @@ export function PipelinesPage() {
   );
 }
 
-function PipelineDialog({ pipeline, onOpenChange, onCreated }: { pipeline: Pipeline | "new" | null; onOpenChange: (open: boolean) => void; onCreated: (p: Pipeline) => void }) {
+/** New team pipeline, new sub-pipeline of `parent`, or rename. */
+type PipelineDialogTarget = { create: true } | { parent: Pipeline } | { rename: Pipeline };
+
+function PipelineDialog({
+  pipeline: target,
+  onOpenChange,
+  onCreated,
+}: {
+  pipeline: PipelineDialogTarget | null;
+  onOpenChange: (open: boolean) => void;
+  onCreated: (p: Pipeline) => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
-  const isNew = pipeline === "new";
-  const existing = pipeline && pipeline !== "new" ? pipeline : null;
+  const pipeline = target;
+  const existing = target && "rename" in target ? target.rename : null;
+  const parent = target && "parent" in target ? target.parent : null;
+  const isNew = Boolean(target) && !existing;
+  const [template, setTemplate] = React.useState("sales");
+  const templates = useQuery({ queryKey: crmKeys.pipelineTemplates, queryFn: listPipelineTemplates, enabled: isNew, staleTime: 300_000 });
+  const chosen = templates.data?.results.find((t) => t.key === template);
   const form = useForm<PipelineFormValues>({ resolver: zodResolver(pipelineSchema), defaultValues: { name: "" } });
 
   React.useEffect(() => {
@@ -214,7 +264,10 @@ function PipelineDialog({ pipeline, onOpenChange, onCreated }: { pipeline: Pipel
   }, [pipeline, existing, form]);
 
   const mutation = useMutation({
-    mutationFn: (values: PipelineFormValues) => (existing ? updatePipeline(existing.id, { name: values.name, version: existing.version }) : createPipeline({ name: values.name })),
+    mutationFn: (values: PipelineFormValues) =>
+      existing
+        ? updatePipeline(existing.id, { name: values.name, version: existing.version })
+        : createPipeline({ name: values.name, template, ...(parent ? { parent_id: parent.id } : {}) }),
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: crmKeys.pipelines });
       toast({ tone: "success", title: isNew ? "Pipeline created" : "Pipeline renamed", description: saved.name });
@@ -233,13 +286,43 @@ function PipelineDialog({ pipeline, onOpenChange, onCreated }: { pipeline: Pipel
       <DialogContent>
         <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="grid gap-4" noValidate>
           <DialogHeader>
-            <DialogTitle>{isNew ? "New pipeline" : "Rename pipeline"}</DialogTitle>
-            <DialogDescription>{isNew ? "New pipelines start with default stages you can edit afterwards." : "Deals keep their stages; only the name changes."}</DialogDescription>
+            <DialogTitle>{parent ? `New sub-pipeline of ${parent.name}` : isNew ? "New pipeline" : "Rename pipeline"}</DialogTitle>
+            <DialogDescription>
+              {parent
+                ? "A variant with its own stages that shares the team pipeline’s access and card layout. It does not count towards your plan’s pipeline limit."
+                : isNew
+                  ? "Start from a template; you can edit the stages afterwards."
+                  : "Deals keep their stages; only the name changes."}
+            </DialogDescription>
           </DialogHeader>
           <FormError message={fieldErrors.non_field_errors} />
           <FormField control={form.control} name="name" label="Pipeline name" serverError={fieldErrors.name}>
             {(field) => <Input {...field} autoFocus maxLength={80} placeholder="Sales" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
           </FormField>
+          {isNew ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="pipeline-template" className="text-sm font-medium">
+                Stages from
+              </label>
+              <Select value={template} onValueChange={setTemplate}>
+                <SelectTrigger id="pipeline-template">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(templates.data?.results ?? []).map((t) => (
+                    <SelectItem key={t.key} value={t.key}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {chosen ? (
+                <p className="text-xs text-fg-muted">
+                  {chosen.description} Stages: {chosen.stages.map((st) => st.name).join(" → ")}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel

@@ -41,7 +41,7 @@ class RequirePermissions(BasePermission):
             raise PermissionDenied(
                 detail="Multi-factor authentication is required by your organization.", code="mfa_required"
             )
-        # Workeasy360 entitlement: no tenant data once the organization's access to Easy CRM has ended, and
+        # Workeasy360 entitlement: no tenant data once the organization's access to WorkEasy CRM has ended, and
         # no writes while it is read-only (re-checked on Workeasy360's cadence, never per request). Asked per
         # person where the session has a Workeasy360 identity: a removed member or seat ends their access alone.
         write = request.method not in SAFE_METHODS and getattr(view, "action", None) not in getattr(

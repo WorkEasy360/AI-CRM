@@ -38,6 +38,21 @@ class Download:
     url: str | None = None
 
 
+def _announce(attachment_id, organization_id, owner_id, change: str, entity_type: str, entity_id) -> None:
+    from apps.core.domain_events import RecordChanged, publish
+
+    publish(
+        RecordChanged(
+            organization_id=organization_id,
+            entity_type="file",
+            entity_ids=(attachment_id,),
+            change=change,
+            owner_id=owner_id,
+            related=((entity_type, str(entity_id)),),
+        )
+    )
+
+
 def _safe_filename(name: str) -> str:
     cleaned = _FILENAME_RE.sub("_", (name or "").strip())[:255].lstrip(".")
     return cleaned or "attachment"
@@ -81,6 +96,7 @@ def upload_file(
     except Exception:
         storage.delete(key)  # never leave an orphaned blob behind
         raise
+    _announce(attachment.pk, attachment.organization_id, actor.membership.pk, "created", entity_type, record.pk)
     transaction.on_commit(
         lambda: audit.record(
             "files.uploaded",
@@ -138,6 +154,7 @@ def delete_file(actor: Actor, attachment: FileAttachment, *, request: Any = None
     check(actor, "files.delete", attachment)
     file_id, entity_type, entity_id = attachment.pk, attachment.entity_type, attachment.entity_id
     filename, key = attachment.filename, attachment.storage_key
+    _announce(file_id, attachment.organization_id, actor.membership.pk, "deleted", entity_type, entity_id)
     attachment.delete()
     transaction.on_commit(lambda: storage.delete(key))  # only drop the blob once the row is really gone
     audit.record(

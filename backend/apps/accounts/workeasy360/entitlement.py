@@ -1,6 +1,6 @@
-"""Is this organization still entitled to Easy CRM? Asked of Workeasy360 on a cadence, never assumed.
+"""Is this organization still entitled to WorkEasy CRM? Asked of Workeasy360 on a cadence, never assumed.
 
-A Workeasy360 sign-in proves the organization held Easy CRM at that moment; Keel's own session then lives
+A Workeasy360 sign-in proves the organization held WorkEasy CRM at that moment; Keel's own session then lives
 on (up to ``SESSION_COOKIE_AGE``). The Workeasy360 integration contract closes that gap (product
 integration guide section 6, entitlement API): re-check on the advertised cadence and stop serving an
 organization whose access has ended - a trial that ran out, a lapsed or cancelled subscription - within
@@ -16,13 +16,13 @@ that window, not whenever a session happens to expire.
 - An outage (5xx, 429, timeout, network) is never a denial. The last known answer stands; with none,
   access continues - the provider's own rule, so an outage cannot lock out paying customers. After a
   failure the next attempt waits ``FAILURE_BACKOFF_SECONDS``.
-- A refusal is not an outage: when Workeasy360 answers but refuses Easy CRM's own client (400/401/403 - a
+- A refusal is not an outage: when Workeasy360 answers but refuses WorkEasy CRM's own client (400/401/403 - a
   revoked or wrong credential, a suspended integration), access is refused too
   (``workeasy360_access_unverified``), re-asked every ``DENIAL_RECHECK_SECONDS``. Keeping on serving would
   let every expired organization in for as long as nobody noticed.
 - A known denial never lapses into access: it is kept without expiry, and every process also keeps its
   own copy of the last answers, so a cache outage or eviction cannot hand access back.
-- A refusal is about Easy CRM's client, not about one organization or person, so it is client-wide: for
+- A refusal is about WorkEasy CRM's client, not about one organization or person, so it is client-wide: for
   ``CLIENT_REFUSED_SECONDS`` after one, every question (a person's, an organization's, a job's) fails closed
   without being asked, and a 429 (Workeasy360 limits failed client authentications) within
   ``RATE_LIMIT_AFTER_REFUSAL_SECONDS`` of the last refusal counts as a refusal too, not as the outage it
@@ -64,14 +64,14 @@ DEFAULT_REVALIDATE_SECONDS = 900
 MIN_REVALIDATE_SECONDS = 30
 #: A denial (or a refusal) is re-asked this soon, so an owner who renews is not kept out for the window.
 DENIAL_RECHECK_SECONDS = 60
-#: How long a refusal of Easy CRM's own client closes every question (and how long a 429 is read as part of it).
+#: How long a refusal of WorkEasy CRM's own client closes every question (and how long a 429 is read as part of it).
 CLIENT_REFUSED_SECONDS = 60
 #: A 429 this soon after the last refusal (not only inside the mark above) is read as a refusal.
 RATE_LIMIT_AFTER_REFUSAL_SECONDS = 300
 #: After a failed check, how long before the provider is asked again (the last answer stands meanwhile).
 FAILURE_BACKOFF_SECONDS = 60
 #: A denial is trusted this long by background work: an expired organization's jobs must not each cost a
-#: question a minute. (A refusal of Easy CRM's own client is still re-asked every ``DENIAL_RECHECK_SECONDS``.)
+#: question a minute. (A refusal of WorkEasy CRM's own client is still re-asked every ``DENIAL_RECHECK_SECONDS``.)
 BACKGROUND_DENIAL_SECONDS = 900
 #: One request asks; the others use the last answer until it has.
 REFRESH_LOCK_SECONDS = 15
@@ -85,7 +85,7 @@ ACCESS_UNVERIFIED = "workeasy360_access_unverified"
 #: SSO-only, linked organization, and the signed-in account has no Workeasy360 identity to ask about.
 SIGN_IN_REQUIRED = "workeasy360_sign_in_required"
 READ_ONLY = "workeasy360_read_only"
-#: The reason recorded when Workeasy360 refused Easy CRM's own client.
+#: The reason recorded when Workeasy360 refused WorkEasy CRM's own client.
 REFUSED = "refused"
 #: Reasons only a per-person answer carries: the person's own access ended, the organization's did not.
 PERSON_REASONS = frozenset({"membership_inactive", "no_seat"})
@@ -96,7 +96,7 @@ class Access:
     allowed: bool
     write_allowed: bool
     #: The provider's reason (``entitled``, ``expired``, ``not_entitled``, ``suspended``...), ``refused``
-    #: when Workeasy360 refused Easy CRM's client, or ``unchecked`` when no answer was ever available.
+    #: when Workeasy360 refused WorkEasy CRM's client, or ``unchecked`` when no answer was ever available.
     reason: str
 
 
@@ -222,7 +222,7 @@ def check(
     known = _last_known(key)
     now = time.time()
     if _client_refused(now):
-        # Workeasy360 has just refused Easy CRM's own client: nobody can be confirmed, so nobody is served.
+        # Workeasy360 has just refused WorkEasy CRM's own client: nobody can be confirmed, so nobody is served.
         return Access(allowed=False, write_allowed=False, reason=REFUSED)
     if known and now - known.get("checked_at", 0) < _trusted_for(known, background):
         return _access(known)
@@ -243,7 +243,7 @@ def check(
             isinstance(exc, SSOError) and exc.code == "provider_rate_limited" and _recently_refused(time.time())
         )
         if (isinstance(exc, SSOError) and exc.code == "provider_refused") or rate_limited_after_refusal:
-            # Workeasy360 answered and refused Easy CRM's own client: not an outage. Fail closed, loudly - for
+            # Workeasy360 answered and refused WorkEasy CRM's own client: not an outage. Fail closed, loudly - for
             # the whole client, not just this key.
             log.error(
                 "workeasy360.entitlement_refused",
@@ -262,7 +262,7 @@ def check(
             _remember(key, record)
             return _access(record)
         # An outage: never a denial. Logged loudly enough to be noticed - while it lasts, access changes
-        # made in Workeasy360 are not reaching Easy CRM.
+        # made in Workeasy360 are not reaching WorkEasy CRM.
         # (A non-SSOError - an unreadable key file, a broken HTTP reply - is logged by its type only.)
         log.warning(
             "workeasy360.entitlement_unavailable",
@@ -324,7 +324,7 @@ def subject_for_session(session, user, organization) -> str:
 
 
 def require(organization, *, write: bool, subject: str = "", person_required: bool = False) -> None:
-    """Refuse the request when Workeasy360 says the organization's access to Easy CRM - or, with
+    """Refuse the request when Workeasy360 says the organization's access to WorkEasy CRM - or, with
     ``subject``, this person's access in it - has ended (or will not confirm it), or that it is read-only
     and this is a write.
 
@@ -341,7 +341,7 @@ def require(organization, *, write: bool, subject: str = "", person_required: bo
         and config.sso_only()
     ):
         raise PermissionDenied(
-            detail="Sign in with Workeasy360 to keep using Easy CRM.",
+            detail="Sign in with Workeasy360 to keep using WorkEasy CRM.",
             code=SIGN_IN_REQUIRED,
         )
     access = access_for(organization, subject)
@@ -350,25 +350,25 @@ def require(organization, *, write: bool, subject: str = "", person_required: bo
     if not access.allowed and access.reason == REFUSED:
         raise PermissionDenied(
             detail=(
-                "Easy CRM cannot confirm your organization's access with Workeasy360 at the moment. Try again"
+                "WorkEasy CRM cannot confirm your organization's access with Workeasy360 at the moment. Try again"
                 " in a few minutes; if this continues, contact support."
             ),
             code=ACCESS_UNVERIFIED,
         )
     if not access.allowed and access.reason in PERSON_REASONS:
         raise PermissionDenied(
-            detail=("Your access to Easy CRM in this organization has ended. Ask an administrator in Workeasy360."),
+            detail=("Your access to WorkEasy CRM in this organization has ended. Ask an administrator in Workeasy360."),
             code=ACCESS_ENDED,
         )
     if not access.allowed:
         raise PermissionDenied(
-            detail="Your organization's access to Easy CRM has ended. An owner can renew it in Workeasy360.",
+            detail="Your organization's access to WorkEasy CRM has ended. An owner can renew it in Workeasy360.",
             code=ACCESS_ENDED,
         )
     if write and not access.write_allowed:
         raise PermissionDenied(
             detail=(
-                "Your organization's Easy CRM subscription is read-only at the moment: you can view and export"
+                "Your organization's WorkEasy CRM subscription is read-only at the moment: you can view and export"
                 " your data but not change it. An owner can resolve this in Workeasy360."
             ),
             code=READ_ONLY,

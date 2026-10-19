@@ -53,9 +53,10 @@ export function formatCustomValue(definition: CustomFieldDefinition, value: Cust
 export function colorClasses(token: string | undefined): string {
   switch (token) {
     case "blue":
-      return "bg-primary-soft text-primary";
+      return "bg-[#e3eefb] text-[#1d5fa8] dark:bg-[#132a45] dark:text-[#9cc4f2]";
     case "teal":
-      return "bg-accent-soft text-accent";
+      // A fixed teal: the accent is navy now, which would collide with "blue" and "slate".
+      return "bg-[#dcf2f1] text-[#0f6b66] dark:bg-[#0d3a3a] dark:text-[#7fd6d0]";
     case "green":
       return "bg-success-soft text-success";
     case "amber":
@@ -74,9 +75,10 @@ export function colorClasses(token: string | undefined): string {
 export function stageDotClass(token: string | undefined): string {
   switch (token) {
     case "blue":
-      return "bg-primary";
+      // A fixed blue: primary is the brand green, which would collide with the "green" stage.
+      return "bg-[#2b7bd6]";
     case "teal":
-      return "bg-accent";
+      return "bg-[#1f8a82]";
     case "green":
       return "bg-success";
     case "amber":

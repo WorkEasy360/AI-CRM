@@ -62,11 +62,11 @@ def test_import_end_to_end(org_a, owner_client, crm, django_capture_on_commit_ca
         "First name": "first_name",
         "Last Name": "last_name",
         "E-mail": "email",
-        "Company": "company_name",
-        "Priority": "custom.priority",
+        "Company": "company",
+        "Priority": "custom_data.priority",
     }
     assert job["preview"][2]["First name"].startswith("'=")  # preview cells are neutralised
-    assert "custom.priority" in job["targets"] and "owner_id" not in job["targets"]
+    assert "custom_data.priority" in job["targets"] and "owner_id" not in job["targets"]
     # mapping validation
     jid = job["id"]
     assert (

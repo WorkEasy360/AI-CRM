@@ -1,28 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bell,
-  Building2,
-  CalendarCheck,
-  Contact,
-  DatabaseZap,
-  KanbanSquare,
-  LayoutDashboard,
-  ListChecks,
-  Lock,
-  Mail,
-  MessageCircle,
-  Package,
-  PlugZap,
-  Settings,
-  Settings2,
-  SlidersHorizontal,
-  Sparkles,
-  Tag,
-  Users,
-} from "lucide-react";
+import { Bell, BookOpen, Building2, CalendarCheck, Contact, CreditCard, DatabaseZap, KanbanSquare, LayoutDashboard, ListChecks, Lock, Mail, MessageCircle, Package, PlugZap, Settings, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Tag, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { ActiveContext, Session } from "@/lib/api/types";
 import { hasPermission } from "@/lib/session";
@@ -63,7 +44,10 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
     also: ["/settings/teams"],
     visible: (a) => anyOf(a, ["members.invite", "members.update_role", "members.disable", "members.remove", "teams.manage"]),
   },
+  { href: "/settings/roles", label: "Roles & permissions", icon: ShieldCheck, visible: (a) => hasPermission(a, "roles.manage") },
+  { href: "/settings/billing", label: "Plan & usage", icon: CreditCard, visible: (a) => anyOf(a, ["org.billing", "org.update"]) },
   { href: "/settings/pipelines", label: "Pipelines", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
+  { href: "/settings/price-books", label: "Price books", icon: BookOpen, visible: (a) => hasPermission(a, "pricebooks.manage") },
   { href: "/settings/custom-fields", label: "Custom fields", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
   { href: "/settings/tags", label: "Tags", icon: Tag, visible: (a) => hasPermission(a, "tags.manage") },
   { href: "/settings/email", label: "Email", icon: Mail, visible: (a) => hasPermission(a, "email.view") },
@@ -77,7 +61,7 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
     label: "Import / Export",
     icon: DatabaseZap,
     visible: (a) =>
-      anyOf(a, ["contacts.import", "companies.import", "products.import", "contacts.export", "companies.export", "products.export", "deals.export"]),
+      anyOf(a, ["contacts.import", "companies.import", "products.import", "deals.import", "contacts.export", "companies.export", "products.export", "deals.export"]),
   },
   { href: "/settings/audit-log", label: "Audit log", icon: ListChecks, visible: (a) => hasPermission(a, "audit.view") },
 ];
@@ -110,6 +94,9 @@ function isCurrent(pathname: string, href: string): boolean {
  */
 const PREFETCH_PRIMARY = true;
 
+/** The sidebar sits on the navy chrome: the current page is a lighter navy band with a green edge. */
+const ACTIVE_LINK = "bg-chrome-active text-fg shadow-[inset_3px_0_0_var(--kl-chrome-indicator)]";
+
 export function SideNav({ session, onNavigate }: { session: Session; onNavigate?: () => void }) {
   const pathname = usePathname();
   const active = session.active;
@@ -128,7 +115,7 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
                 aria-current={current ? "page" : undefined}
                 className={cn(
                   "flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium transition-colors",
-                  current ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+                  current ? ACTIVE_LINK : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
                 )}
               >
                 <item.icon className="size-4 shrink-0" />
@@ -147,7 +134,7 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
           aria-current={isCurrent(pathname, "/settings") ? "page" : undefined}
           className={cn(
             "flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium transition-colors",
-            isCurrent(pathname, "/settings") ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+            isCurrent(pathname, "/settings") ? ACTIVE_LINK : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
           )}
         >
           <Settings className="size-4 shrink-0" />
@@ -170,15 +157,16 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
   );
 }
 
+/** The WorkEasy mark (public/brand/logo.png, transparent). Decorative: callers carry the accessible name. */
+export function BrandLogo({ size = 24, className }: { size?: number; className?: string }) {
+  return <Image src="/brand/logo.png" alt="" aria-hidden width={size} height={size} unoptimized priority className={cn("shrink-0", className)} />;
+}
+
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <Link href="/pipeline" className={cn("flex items-center gap-2 font-semibold text-fg", className)} aria-label="Keel CRM home">
-      <span className="flex size-6 items-center justify-center rounded-sm bg-primary text-primary-fg">
-        <svg viewBox="0 0 20 20" className="size-3.5" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M5 3v14M5 10l8-7M5 10l8 7" />
-        </svg>
-      </span>
-      <span className="text-sm tracking-tight">Keel</span>
+    <Link href="/pipeline" className={cn("flex items-center gap-2 font-semibold text-fg", className)} aria-label="WorkEasy CRM home">
+      <BrandLogo size={26} />
+      <span className="text-sm tracking-tight">WorkEasy CRM</span>
     </Link>
   );
 }

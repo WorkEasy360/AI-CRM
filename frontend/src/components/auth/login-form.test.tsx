@@ -1,6 +1,6 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginForm } from "@/components/auth/login-form";
@@ -8,6 +8,7 @@ import { ApiError, parseProblem } from "@/lib/api/problem";
 
 vi.mock("@/lib/api/allauth", () => ({ login: vi.fn(), mfaAuthenticate: vi.fn() }));
 vi.mock("@/lib/api/endpoints", () => ({ getSession: vi.fn() }));
+vi.mock("@/lib/external-navigation", () => ({ replaceLocation: vi.fn(), navigateExternal: vi.fn() }));
 
 let methods: { data?: { password: boolean; workeasy360: boolean }; isError: boolean } = {
   data: { password: true, workeasy360: false },
@@ -27,6 +28,8 @@ vi.mock("next/navigation", () => ({
 
 import { login, mfaAuthenticate } from "@/lib/api/allauth";
 import { getSession } from "@/lib/api/endpoints";
+import { clearSignedOutMarker } from "@/lib/direct-sign-in";
+import { navigateExternal, replaceLocation } from "@/lib/external-navigation";
 
 const notAuthenticated = () => new ApiError(parseProblem(401, { type: "not_authenticated", title: "Not authenticated", status: 401 }));
 
@@ -120,21 +123,21 @@ describe("LoginForm", () => {
     methods = { data: { password: true, workeasy360: true }, isError: false };
     renderForm();
     expect(screen.getByRole("heading", { name: "Already a Workeasy360 user?" })).toBeInTheDocument();
-    expect(screen.getByText("Access Easy CRM using your Workeasy360 account.")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "Access Easy CRM" });
+    expect(screen.getByText("Access WorkEasy CRM using your Workeasy360 account.")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Access WorkEasy CRM" });
     expect(link).toHaveAttribute("href", "/api/auth/workeasy360/start?next=%2Fcontacts");
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     const other = screen.getByRole("button", { name: "Use another sign-in method" });
     expect(other).toHaveAttribute("aria-expanded", "false");
     await userEvent.setup().click(other);
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Access Easy CRM" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Access WorkEasy CRM" })).toBeInTheDocument();
   });
 
   it("shows only Workeasy360 when password sign-in is off", () => {
     methods = { data: { password: false, workeasy360: true }, isError: false };
     renderForm();
-    expect(screen.getByRole("link", { name: "Access Easy CRM" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Access WorkEasy CRM" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use another sign-in method" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     expect(screen.queryByText("Forgot password?")).not.toBeInTheDocument();
@@ -160,5 +163,37 @@ describe("LoginForm", () => {
     methods = { data: undefined, isError: true };
     renderForm();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
+  });
+
+  describe("never starts a Workeasy360 sign-in by itself (Workeasy360 integration guide 6b)", () => {
+    // The sign-in page is where a visitor lands after a refusal or a sign-out: it shows "Access WorkEasy CRM"
+    // and waits for the click, whatever its query, with no session, no marker and no recent start.
+    beforeEach(() => {
+      methods = { data: { password: false, workeasy360: true }, isError: false };
+      vi.mocked(replaceLocation).mockReset();
+      vi.mocked(navigateExternal).mockReset();
+      clearSignedOutMarker();
+      window.sessionStorage.clear();
+    });
+
+    it.each([
+      ["no query", ""],
+      ["a next path", "next=/contacts"],
+      ["a refusal (sso_error)", "sso_error=cancelled"],
+      ["a refusal and a next path", "sso_error=not_entitled&next=/deals"],
+      ["an unknown sso_error", "sso_error=whatever"],
+    ])("waits for the click, with %s", async (_label, query) => {
+      search = new URLSearchParams(query);
+      renderForm();
+      expect(screen.getByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Access WorkEasy CRM" })).toHaveAttribute("href", expect.stringContaining("/api/auth/workeasy360/start"));
+      // Give any effect the chance to navigate.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      expect(replaceLocation).not.toHaveBeenCalled();
+      expect(navigateExternal).not.toHaveBeenCalled();
+      expect(replace).not.toHaveBeenCalled();
+    });
   });
 });

@@ -26,6 +26,8 @@ class DomainError(KeelError):
 
     code = "domain_error"
     status_code = 400
+    # Extra top-level members for the problem response (e.g. ``upgrade`` on a plan limit).
+    extra: dict | None = None
 
     def __init__(self, message: str, *, code: str | None = None, status_code: int | None = None):
         super().__init__(message)

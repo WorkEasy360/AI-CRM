@@ -3,26 +3,29 @@
  * A light, compact, data-dense workspace is the default. Dark is opt-in via [data-theme="dark"]
  * (set by the account menu; "System" resolves to light/dark on the client) and never inferred
  * from the OS alone, so the CRM always opens light on a fresh browser.
- * Palette: the Workeasy 360 brand — azure blue primary, growth green accent, navy-tinted neutrals
- * on near-white grounds. Every ramp step below was checked against its background for WCAG AA
- * (4.5:1 for text), so a brand hue is never used at a shade that cannot be read.
+ * Palette: navy chrome (#1B3040 top bar and sub-panels, a darker rail, #27455A for the current item),
+ * brand green #4ADE80 for solid actions, a navy accent, and blue-tinted greys on a soft canvas with
+ * white cards. Every ramp step below was checked against its background for WCAG AA (4.5:1 for
+ * text), so a hue is never used at a shade that cannot be read. White on #4ADE80 is only 1.7:1, so
+ * brand-green fills carry navy text (7.8:1); text and borders in green use the darker --kl-primary.
  */
 :root {
   /* Primitive scales */
-  /* Brand azure: 500 is the logo/CTA blue; 600 is the darkest step that still reads as that blue
-     while carrying white text at AA (5.05:1), so solid buttons use 600 and 500 stays for fills. */
-  --kl-primary-50: #eaf6ff;
-  --kl-primary-100: #d2ebff;
-  --kl-primary-200: #a8d8fd;
-  --kl-primary-300: #72c0fa;
-  --kl-primary-400: #3aa6f4;
-  --kl-primary-500: #1c9bf0;
-  --kl-primary-600: #0a72bd;
-  --kl-primary-700: #095e9c;
-  --kl-primary-800: #084a7b;
-  --kl-primary-900: #0a3354;
+  /* Primary green, the readable "ink": 600 is the darkest step that still reads as green while
+     carrying white text at AA (5.3:1, and 4.7:1 on the grey canvas), so links, outlines, badges and
+     progress use 600. The brighter brand fill (#4ADE80, --kl-brand) is for solid buttons only. */
+  --kl-primary-50: #e7f5ec;
+  --kl-primary-100: #d0ecdb;
+  --kl-primary-200: #a3d9b8;
+  --kl-primary-300: #6fd59a;
+  --kl-primary-400: #4ade80;
+  --kl-primary-500: #00bf62;
+  --kl-primary-600: #127a3c;
+  --kl-primary-700: #0f6532;
+  --kl-primary-800: #0d5029;
+  --kl-primary-900: #0d3a24;
 
-  /* Brand green: 500 is the logo green; 700/800 are the readable steps for text and solid fills. */
+  /* Success green (kept apart from primary so status colours do not move with the brand). */
   --kl-green-100: #dcf6e6;
   --kl-green-200: #b2ecc9;
   --kl-green-300: #74dc9f;
@@ -33,19 +36,33 @@
   --kl-green-800: #0b6b34;
   --kl-green-900: #08542a;
 
-  /* Neutrals carry a navy cast so greys sit with the brand blue instead of fighting it. */
+  /* Navy: the chrome and the accent. 800 is the top bar and sub-panels, 900 the rail, 700 the
+     current-item band. */
+  --kl-navy-50: #e8eff5;
+  --kl-navy-300: #8db8d6;
+  --kl-navy-700: #27455a;
+  --kl-navy-800: #1b3040;
+  --kl-navy-900: #13232f;
+
+  /* Brand green fill and the text that sits on it. */
+  --kl-brand: #4ade80;
+  --kl-brand-hover: #22c55e;
+  --kl-brand-fg: #1b3040;
+
+  /* Neutrals carry a navy cast so greys sit with the chrome instead of fighting it. */
   --kl-slate-0: #ffffff;
-  --kl-slate-50: #f5f9fd;
-  --kl-slate-100: #ecf3fa;
-  --kl-slate-200: #dde7f2;
-  --kl-slate-300: #c6d4e4;
-  --kl-slate-400: #90a2bb;
-  --kl-slate-500: #5d6e87;
-  --kl-slate-600: #46566d;
-  --kl-slate-700: #324156;
-  --kl-slate-800: #1e2c3e;
-  --kl-slate-900: #0e1c2e;
-  --kl-slate-950: #081321;
+  --kl-slate-50: #f6f8f9;
+  --kl-slate-100: #eef1f4;
+  --kl-slate-150: #e4e9ed;
+  --kl-slate-200: #dae1e6;
+  --kl-slate-300: #c4ced6;
+  --kl-slate-400: #8f9da8;
+  --kl-slate-500: #576571;
+  --kl-slate-600: #45535f;
+  --kl-slate-700: #32404b;
+  --kl-slate-800: #1e2a34;
+  --kl-slate-900: #101a23;
+  --kl-slate-950: #081119;
 
   /* Status hues sit outside the brand: dark enough to read on white, with a light step for dark mode. */
   --kl-amber-300: #e8b055;
@@ -87,8 +104,8 @@
   --kl-leading-2xl: 1.25;
 
   /* Semantic: light (default) */
-  --kl-bg: var(--kl-slate-50);
-  --kl-bg-subtle: var(--kl-slate-100);
+  --kl-bg: var(--kl-slate-100);
+  --kl-bg-subtle: var(--kl-slate-150);
   --kl-surface: var(--kl-slate-0);
   --kl-surface-raised: var(--kl-slate-0);
   --kl-surface-sunken: var(--kl-slate-50);
@@ -101,11 +118,21 @@
   --kl-primary-hover: var(--kl-primary-700);
   --kl-primary-soft: var(--kl-primary-50);
   --kl-primary-fg: #ffffff;
-  --kl-accent: var(--kl-green-700);
-  --kl-accent-hover: var(--kl-green-800);
-  --kl-accent-soft: var(--kl-green-100);
+  --kl-accent: var(--kl-navy-700);
+  --kl-accent-hover: var(--kl-navy-800);
+  --kl-accent-soft: var(--kl-navy-50);
   --kl-accent-fg: #ffffff;
-  --kl-ring: var(--kl-primary-500);
+  /* The dark ink green: 5.3:1 against white, so a focus ring is visible on the page (the brand fill is not). */
+  --kl-ring: var(--kl-primary-600);
+  /* App chrome: the top bar and sub-panels are navy, the rail a step darker, all with light text.
+     Components inside them read these through the .kl-chrome scope in globals.css rather than
+     hard-coding colours. */
+  --kl-chrome: var(--kl-navy-800);
+  --kl-chrome-sidebar: var(--kl-navy-900);
+  --kl-chrome-active: var(--kl-navy-700);
+  --kl-chrome-indicator: var(--kl-brand);
+  --kl-chrome-fg: #ffffff;
+  --kl-chrome-fg-muted: #b7c6d2;
   --kl-success: var(--kl-green-800);
   --kl-success-soft: var(--kl-green-100);
   --kl-warning: var(--kl-amber-500);
@@ -114,10 +141,10 @@
   --kl-danger-hover: var(--kl-red-600);
   --kl-danger-soft: var(--kl-red-100);
   --kl-danger-fg: #ffffff;
-  --kl-shadow-sm: 0 1px 1px rgb(14 28 46 / 0.04), 0 1px 2px rgb(14 28 46 / 0.06);
-  --kl-shadow-md: 0 3px 10px rgb(14 28 46 / 0.08), 0 1px 3px rgb(14 28 46 / 0.06);
-  --kl-shadow-lg: 0 14px 36px rgb(14 28 46 / 0.16);
-  --kl-overlay: rgb(8 19 33 / 0.5);
+  --kl-shadow-sm: 0 1px 1px rgb(19 35 47 / 0.04), 0 1px 2px rgb(19 35 47 / 0.06);
+  --kl-shadow-md: 0 3px 10px rgb(19 35 47 / 0.08), 0 1px 3px rgb(19 35 47 / 0.06);
+  --kl-shadow-lg: 0 14px 36px rgb(19 35 47 / 0.16);
+  --kl-overlay: rgb(8 17 25 / 0.5);
   color-scheme: light;
 }
 
@@ -135,13 +162,15 @@
   --kl-primary: var(--kl-primary-400);
   --kl-primary-hover: var(--kl-primary-300);
   --kl-primary-soft: var(--kl-primary-900);
-  /* Navy, not white: white on the light azure used here is only 2.6:1. */
+  /* Near-black, not white: white on the light green used here is under 2.5:1. */
   --kl-primary-fg: var(--kl-slate-950);
-  --kl-accent: var(--kl-green-400);
-  --kl-accent-hover: var(--kl-green-300);
-  --kl-accent-soft: var(--kl-green-900);
+  --kl-accent: var(--kl-navy-300);
+  --kl-accent-hover: #a7cbe3;
+  --kl-accent-soft: #14303f;
   --kl-accent-fg: var(--kl-slate-950);
   --kl-ring: var(--kl-primary-300);
+  --kl-chrome: #14232f;
+  --kl-chrome-sidebar: #0d1a24;
   --kl-success: var(--kl-green-400);
   --kl-success-soft: #0c3423;
   --kl-warning: var(--kl-amber-300);

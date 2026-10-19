@@ -4,19 +4,19 @@ import { Providers } from "@/app/providers";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 
 export const metadata: Metadata = {
-  title: { default: "Keel CRM", template: "%s · Keel CRM" },
-  description: "Keel CRM",
-  applicationName: "Keel CRM",
+  title: { default: "WorkEasy CRM", template: "%s · WorkEasy CRM" },
+  description: "WorkEasy CRM",
+  applicationName: "WorkEasy CRM",
   robots: { index: false, follow: false },
   // The manifest link itself comes from app/manifest.ts.
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
     ],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
-  appleWebApp: { capable: true, title: "Keel", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "WorkEasy", statusBarStyle: "default" },
 };
 
 /**
@@ -32,8 +32,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f9fd" },
-    { media: "(prefers-color-scheme: dark)", color: "#f5f9fd" },
+    { media: "(prefers-color-scheme: light)", color: "#1b3040" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b3040" },
   ],
 };
 

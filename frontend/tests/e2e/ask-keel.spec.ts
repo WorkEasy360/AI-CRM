@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { RUN_ID, apiFromPage, login, users } from "./helpers";
 
 /**
- * Ask Keel end to end, against a live stack (see helpers.ts):
+ * Ask WorkEasy end to end, against a live stack (see helpers.ts):
  *
  *   login -> dashboard -> ask about a customer -> structured CRM facts + retrieved evidence + sources
  *         -> switch generative AI off (the user-visible equivalent of a provider outage)
@@ -15,7 +15,7 @@ import { RUN_ID, apiFromPage, login, users } from "./helpers";
  * in backend/tests/crm/test_assistant.py, where they can be induced precisely.
  */
 const HAVE_STACK = Boolean(process.env.E2E_BASE_URL && process.env.E2E_USERS_FILE);
-test.skip(!HAVE_STACK, "E2E_BASE_URL / E2E_USERS_FILE not set; skipping Ask Keel workflow");
+test.skip(!HAVE_STACK, "E2E_BASE_URL / E2E_USERS_FILE not set; skipping Ask WorkEasy workflow");
 test.describe.configure({ mode: "serial" });
 
 const U = HAVE_STACK ? users() : ({} as ReturnType<typeof users>);
@@ -33,9 +33,9 @@ async function setGenerativeAI(enabled: boolean): Promise<void> {
 /** Ask a question from the dashboard card and wait for the answer panel. */
 async function ask(question: string) {
   await page.goto("/dashboard");
-  const card = page.getByRole("region", { name: "Ask Keel" });
+  const card = page.getByRole("region", { name: "Ask WorkEasy" });
   await expect(card).toBeVisible({ timeout: 20_000 });
-  await card.getByLabel("Ask Keel a question").fill(question);
+  await card.getByLabel("Ask WorkEasy a question").fill(question);
   await card.getByRole("button", { name: "Ask" }).click();
   const panel = page.getByRole("dialog");
   // Which sections an answer carries depends on the question: a record question renders "From your CRM",
@@ -89,11 +89,11 @@ test("1. a customer with a deal and a conversation to find", async () => {
 
 test("2. the dashboard offers one assistant, with suggested questions", async () => {
   await page.goto("/dashboard");
-  const card = page.getByRole("region", { name: "Ask Keel" });
+  const card = page.getByRole("region", { name: "Ask WorkEasy" });
   await expect(card).toBeVisible({ timeout: 20_000 });
   await expect(card.getByText("Ask anything about your customers")).toBeVisible();
   await expect(card.getByRole("button", { name: /deals|pipeline|follow up/i }).first()).toBeVisible();
-  // Global search stays a separate, faster thing; Ask Keel does not replace it.
+  // Global search stays a separate, faster thing; Ask WorkEasy does not replace it.
   await expect(page.getByRole("button", { name: /search/i }).first()).toBeVisible();
 });
 
@@ -102,7 +102,7 @@ test("3. with AI available: CRM facts, analysis and sources", async () => {
   const panel = await ask(`What happened with ${companyName}?`);
 
   await expect(panel.getByRole("region", { name: "From your CRM" })).toContainText(dealName);
-  await expect(panel.getByRole("region", { name: "Keel's analysis" })).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByRole("region", { name: "WorkEasy's analysis" })).toBeVisible({ timeout: 60_000 });
   await expect(panel.getByRole("region", { name: "Sources" })).toContainText(companyName);
   // Nothing technical is exposed to a salesperson.
   await expect(panel).not.toContainText(/anthropic|openai|pgvector|embedding|503/i);
@@ -122,7 +122,7 @@ test("5. with AI unavailable: same interface, same facts, no invented prose", as
   await expect(panel.getByRole("region", { name: "Sources" })).toContainText(companyName);
   await expect(panel.getByText(/retrieved directly from your CRM/i)).toBeVisible();
   // No written analysis, and no apology masquerading as an answer.
-  await expect(panel.getByRole("region", { name: "Keel's analysis" })).toHaveCount(0);
+  await expect(panel.getByRole("region", { name: "WorkEasy's analysis" })).toHaveCount(0);
   await expect(panel).not.toContainText(/^AI unavailable\.?$/);
   await expect(panel.getByText("Knowledge search mode").first()).toBeVisible();
 });
@@ -130,7 +130,7 @@ test("5. with AI unavailable: same interface, same facts, no invented prose", as
 test("6. restoring AI resumes normal mode", async () => {
   await setGenerativeAI(true);
   const panel = await ask(`What happened with ${companyName}?`);
-  await expect(panel.getByRole("region", { name: "Keel's analysis" })).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByRole("region", { name: "WorkEasy's analysis" })).toBeVisible({ timeout: 60_000 });
   await expect(panel.getByText(/retrieved directly from your CRM/i)).toHaveCount(0);
 });
 

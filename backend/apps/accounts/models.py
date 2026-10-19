@@ -221,6 +221,10 @@ class Membership(TenantModel):
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
     role = models.ForeignKey("authz.Role", on_delete=models.PROTECT, related_name="memberships")
+    # Position in the reporting hierarchy; decides what the "subordinates" scope reaches. Optional.
+    hierarchy_role = models.ForeignKey(
+        "authz.HierarchyRole", null=True, blank=True, on_delete=models.SET_NULL, related_name="memberships"
+    )
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
     invited_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     joined_at = models.DateTimeField(default=timezone.now)

@@ -18,6 +18,7 @@ from config.settings.base import (
     WORKEASY360_POST_LOGOUT_REDIRECT_URI,
     WORKEASY360_PRIVATE_KEY,
     WORKEASY360_PRIVATE_KEY_FILE,
+    WORKEASY360_PRODUCT_CODE,
     WORKEASY360_REDIRECT_URI,
     WORKEASY360_SSO_ONLY,
     env,
@@ -59,6 +60,9 @@ if WORKEASY360_SSO_ONLY and not _workeasy360_configured:
         "(or WORKEASY360_PRIVATE_KEY_FILE), or set WORKEASY360_SSO_ONLY=false."
     )
 if _workeasy360_configured:
+    if not WORKEASY360_PRODUCT_CODE.strip():
+        # An empty code would switch off the check that an ID token names this product.
+        raise RuntimeError("WORKEASY360_PRODUCT_CODE must not be empty when Workeasy360 sign-in is configured.")
     if not WORKEASY360_ISSUER.startswith("https://") or not WORKEASY360_REDIRECT_URI.startswith("https://"):
         raise RuntimeError("WORKEASY360_ISSUER and WORKEASY360_REDIRECT_URI must be https:// in production.")
     if WORKEASY360_PRIVATE_KEY_FILE and not Path(WORKEASY360_PRIVATE_KEY_FILE).is_file():
@@ -96,3 +100,8 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = False
 
 LOGGING = configure_logging(json_output=True, level=env("LOG_LEVEL", default="INFO"))
+
+# No payment provider is wired yet: production keeps the full product for every tenant and plan changes
+# go through support, so nobody can self-upgrade without paying. Flip both once checkout exists.
+BILLING_ENABLED = env.bool("BILLING_ENABLED", default=False)
+BILLING_SELF_SERVICE = env.bool("BILLING_SELF_SERVICE", default=False)

@@ -84,7 +84,7 @@ class AuthMethodsView(APIView):
             {
                 "password": workeasy360.password_sign_in_enabled(),
                 "workeasy360": workeasy360.is_configured(),
-                # "Sign out of Easy CRM and Workeasy360" (RP-initiated logout) is offered.
+                # "Sign out of WorkEasy CRM and Workeasy360" (RP-initiated logout) is offered.
                 "workeasy360_sign_out": workeasy360.sign_out_of_workeasy360_available(),
             }
         )

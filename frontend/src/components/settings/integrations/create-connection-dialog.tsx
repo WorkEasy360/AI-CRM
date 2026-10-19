@@ -257,7 +257,7 @@ export function CreateConnectionDialog({ open, onOpenChange }: { open: boolean; 
             <DialogHeader>
               <DialogTitle>Finish connecting {created.name}</DialogTitle>
               <DialogDescription>
-                The connection is saved. Sign in to the external system to authorize Keel. You can also do this later from the connection page.
+                The connection is saved. Sign in to the external system to authorize WorkEasy CRM. You can also do this later from the connection page.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -306,7 +306,7 @@ export function CreateConnectionDialog({ open, onOpenChange }: { open: boolean; 
 
             {authType === "signed_webhook" ? (
               <p className="text-sm text-fg-muted">
-                A receive-only connection: the external system sends signed webhooks to Keel. After creating it, enable the inbound webhook to get the URL and secret.
+                A receive-only connection: the external system sends signed webhooks to WorkEasy CRM. After creating it, enable the inbound webhook to get the URL and secret.
               </p>
             ) : (
               <TextField

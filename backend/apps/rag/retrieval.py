@@ -38,7 +38,6 @@ from django.utils import timezone
 from pgvector.django import CosineDistance
 
 from apps.authz.actor import Actor
-from apps.authz.catalogue import SCOPE_ALL, SCOPE_OWN, SCOPE_TEAM
 from apps.authz.service import scope
 from apps.rag.embeddings import EmbeddingError, current_model, get_embedder
 from apps.rag.indexing import FTS_CONFIG
@@ -130,13 +129,14 @@ def _owner_clause(actor: Actor, permission: str, column: str) -> Q | None:
     and it is the direction a mistake here has to fail in.
     """
     granted = actor.scope_for(permission)
-    if granted == SCOPE_ALL:
+    if granted is None:
+        return None
+    owners = actor.owner_ids_for(granted)
+    if owners is None:
         return Q()  # no owner restriction; the organization boundary still applies
-    if granted == SCOPE_OWN:
-        return Q(**{column: actor.membership.id})
-    if granted == SCOPE_TEAM:
-        return Q(**{f"{column}__in": list(actor.team_member_ids)})
-    return None
+    if not owners:
+        return None
+    return Q(**{f"{column}__in": list(owners)})
 
 
 def base_queryset(actor: Actor) -> QuerySet | None:

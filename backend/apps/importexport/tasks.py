@@ -30,7 +30,7 @@ EXPORT_TIME_LIMIT = 1800
 # also the sweeper's marker: ``resume_stalled_imports`` picks those jobs up again once the organization is
 # allowed, clearing the marker in the same UPDATE that claims the job.
 WAITING_FOR_ACCESS_MESSAGE = (
-    "Paused: your organization's Easy CRM access has ended. It continues once access is renewed."
+    "Paused: your organization's WorkEasy CRM access has ended. It continues once access is renewed."
 )
 
 # Jobs resumed per sweep. Bounded so one bad deploy cannot make the sweeper itself the outage.
@@ -85,6 +85,55 @@ def run_import(*, job_id: str, organization_id, actor_membership_id: str, **kwar
         # to pick up, and the sweeper will resume this job from there.
         service.interrupt_import(job, reason)
         return "interrupted"
+
+
+@tenant_task(
+    name="importexport.run_import_preview",
+    soft_time_limit=IMPORT_TIME_LIMIT - 60,
+    time_limit=IMPORT_TIME_LIMIT,
+    atomic=False,
+)
+def run_import_preview(*, job_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
+    """Dry-run an import: validate every row and record what a commit would do. Writes nothing else."""
+    with tenant_atomic():
+        job = ImportJob.objects.filter(pk=job_id, status=JobStatus.PREVIEWING).first()
+    if job is None:
+        return "skipped"
+    try:
+        actor = service._actor_for_task(uuid.UUID(str(actor_membership_id)))
+        service.run_preview(job, actor)
+        return "previewed"
+    except Exception as exc:
+        log.exception("importexport.preview_failed", job_id=job_id)
+        with tenant_atomic():
+            # Back to UPLOADED so the member can fix the mapping and check again.
+            ImportJob.objects.filter(pk=job.pk).update(
+                status=JobStatus.UPLOADED, error_message=str(getattr(exc, "message", "Check failed."))[:255]
+            )
+        return "failed"
+
+
+@tenant_task(
+    name="importexport.run_import_rollback",
+    soft_time_limit=IMPORT_TIME_LIMIT - 60,
+    time_limit=IMPORT_TIME_LIMIT,
+    atomic=False,
+)
+def run_import_rollback(*, job_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
+    """Undo an import. Re-runnable: rows already undone are marked and skipped on a retry."""
+    with tenant_atomic():
+        job = ImportJob.objects.filter(pk=job_id, status=JobStatus.ROLLING_BACK).first()
+    if job is None:
+        return "skipped"
+    try:
+        actor = service._actor_for_task(uuid.UUID(str(actor_membership_id)))
+        service.process_rollback(job, actor)
+        return "rolled_back"
+    except Exception as exc:
+        log.exception("importexport.rollback_failed", job_id=job_id)
+        with tenant_atomic():
+            ImportJob.objects.filter(pk=job.pk).update(error_message=str(getattr(exc, "message", exc))[:255])
+        return "failed"
 
 
 @shared_task(name="importexport.resume_stalled_imports", ignore_result=True, soft_time_limit=120, time_limit=150)

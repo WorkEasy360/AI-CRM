@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { KanbanSquare, List, Plus, Search, Settings2, X } from "lucide-react";
+import { CornerDownRight, KanbanSquare, Lock, Plus, Search, Settings2, X } from "lucide-react";
 import { DealsList } from "@/components/crm/pipeline/deals-list";
 import { KanbanBoard, type BoardSort } from "@/components/crm/pipeline/kanban-board";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,13 @@ import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
 import { useDebounced, useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { orderFamilies } from "@/lib/crm/pipelines";
+import { VIEW_KEYS, columnsOf, filterParams, viewKindOf } from "@/lib/views";
+import { ViewBar } from "@/components/views/view-bar";
+
+const SheetView = dynamic(() => import("@/components/views/sheet-view").then((m) => m.SheetView), { ssr: false });
+const RecordCalendar = dynamic(() => import("@/components/views/record-calendar").then((m) => m.RecordCalendar), { ssr: false });
+const RecordChart = dynamic(() => import("@/components/views/record-chart").then((m) => m.RecordChart), { ssr: false });
 
 // The new-deal form is a click away, not part of the board: it is imported lazily and mounted only
 // while it is open. `useWarmRecordForm` loads it, and the deal custom fields it renders, ahead of the
@@ -30,7 +37,9 @@ const importDealForm = () => import("@/components/crm/deals/deal-form-dialog");
 const DealFormDialog = dynamic(() => importDealForm().then((m) => m.DealFormDialog), { ssr: false });
 
 const ALL = "__all__";
-const URL_KEYS = ["pipeline", "view", "new", "company", "contact", "q", "owner", "status", "stage", "sort", "archived"] as const;
+const URL_KEYS = ["pipeline", "new", "company", "contact", "q", "owner", "status", "stage", "sort", "archived", ...VIEW_KEYS] as const;
+/** Cards per column on the first board load; the rest page in as a column is scrolled. */
+const BOARD_PER_STAGE = 200;
 const BOARD_KEYS = ["q", "owner", "status"] as const;
 
 const BOARD_SORTS: { value: BoardSort; label: string }[] = [
@@ -58,7 +67,8 @@ export function PipelinePage() {
   const showRisk = can(active, "ai.scores.view");
 
   const { params, setParam, setParams, clear } = useListParams(URL_KEYS);
-  const view = params.view === "list" ? "list" : "board";
+  const kind = viewKindOf(params.view, "kanban");
+  const view = kind === "kanban" ? "board" : kind;
   const newOpen = params.new === "1";
 
   // `?new=1&company=<id>&contact=<id>` (from the record pages' quick actions) prefills the new-deal form.
@@ -105,7 +115,7 @@ export function PipelinePage() {
   // the API picks the default pipeline exactly as `selectedPipeline` does below.
   const board = useQuery({
     queryKey: crmKeys.board(params.pipeline, boardParams),
-    queryFn: () => getBoard(params.pipeline, boardParams),
+    queryFn: () => getBoard(params.pipeline, boardParams, BOARD_PER_STAGE),
     enabled: view === "board",
     placeholderData: (prev) => prev,
   });
@@ -113,17 +123,20 @@ export function PipelinePage() {
   const summary = React.useMemo(() => {
     if (!board.data) return null;
     let open = 0;
-    let openAmount = 0;
     let total = 0;
     for (const stage of board.data.stages) {
       total += stage.deal_count;
-      if (stage.kind === "open") {
-        open += stage.deal_count;
-        openAmount += Number(stage.total_amount_base || 0);
-      }
+      if (stage.kind === "open") open += stage.deal_count;
     }
-    return { open, openAmount, total };
+    // Totals come from the server: computed over every deal in scope, hidden with the amount field.
+    const totals = board.data.totals;
+    return { open, total, openAmount: totals?.open_amount_base ?? null, weighted: totals?.weighted_forecast_base ?? null };
   }, [board.data]);
+  // Filters for the generic views: the board/list filters plus the selected pipeline (a deal filter).
+  const viewFilters = React.useMemo<ListParams>(
+    () => ({ ...filterParams(params, ["pipeline"]), ...(pipelineId ? { pipeline: pipelineId } : {}), company: undefined, contact: undefined }),
+    [params, pipelineId],
+  );
 
   const warmForm = useWarmRecordForm("deal", importDealForm);
   const setNewOpen = (open: boolean) => (open ? setParam("new", "1") : setParams({ new: undefined, company: undefined, contact: undefined }));
@@ -147,7 +160,9 @@ export function PipelinePage() {
             )}
             {summary ? (
               <p className="text-xs text-fg-muted" aria-live="polite">
-                {summary.open} open {summary.open === 1 ? "deal" : "deals"} · {formatMoney(summary.openAmount, baseCurrency)}
+                {summary.open} open {summary.open === 1 ? "deal" : "deals"}
+                {summary.openAmount !== null ? ` · ${formatMoney(summary.openAmount, baseCurrency)}` : ""}
+                {summary.weighted !== null ? ` · ${formatMoney(summary.weighted, baseCurrency)} weighted forecast` : ""}
                 {summary.total !== summary.open ? ` · ${summary.total} shown` : ""}
               </p>
             ) : null}
@@ -167,10 +182,6 @@ export function PipelinePage() {
             </Select>
           ) : null}
           <div className="ml-auto flex items-center gap-2">
-            <div className="inline-flex h-8 items-center gap-0.5 rounded-sm bg-bg-subtle p-0.5" role="group" aria-label="View">
-              <ViewButton active={view === "board"} onClick={() => setParam("view", undefined)} icon={<KanbanSquare />} label="Kanban" />
-              <ViewButton active={view === "list"} onClick={() => setParam("view", "list")} icon={<List />} label="List" />
-            </div>
             {canCreate ? (
               <Button size="sm" onClick={() => setNewOpen(true)} onPointerEnter={warmForm} onFocus={warmForm} disabled={pipelineList.length === 0}>
                 <Plus /> Deal
@@ -179,6 +190,26 @@ export function PipelinePage() {
           </div>
         </div>
 
+        <ViewBar entity="deal" kind={kind} defaultKind="kanban" params={params} setParams={setParams} ownedKeys={["pipeline"]} extraFilterKeys={["pipeline"]} />
+        {board.data?.family && board.data.family.length > 1 && view === "board" ? (
+          <div className="mb-2 flex flex-wrap items-center gap-1" role="group" aria-label="Sub-pipelines">
+            {board.data.family.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => selectPipeline(f.id)}
+                aria-pressed={f.id === board.data?.pipeline?.id}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium",
+                  f.id === board.data?.pipeline?.id ? "border-primary bg-primary-soft text-primary" : "border-border text-fg-muted hover:text-fg",
+                )}
+              >
+                {f.parent_id ? <CornerDownRight className="size-3" aria-hidden /> : null}
+                {f.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {pipelines.isError ? (
           <EmptyState title="Could not load pipelines" description={errorMessage(pipelines.error)} action={<Button variant="secondary" onClick={() => pipelines.refetch()}>Retry</Button>} />
         ) : pipelines.isSuccess && pipelineList.length === 0 ? (
@@ -194,6 +225,31 @@ export function PipelinePage() {
               ) : null
             }
           />
+        ) : view === "sheet" || view === "calendar" || view === "chart" ? (
+          pipelines.isPending ? (
+            <SkeletonRows rows={6} />
+          ) : view === "sheet" ? (
+            <SheetView entity="deal" filters={viewFilters} columns={columnsOf(params)} onColumnsChange={(cols) => setParam("cols", cols.join(",") || undefined)} />
+          ) : view === "calendar" ? (
+            <RecordCalendar
+              entity="deal"
+              filters={viewFilters}
+              dateField={params.datef ?? "expected_close_date"}
+              onDateFieldChange={(f) => setParam("datef", f)}
+              includeActivities={params.acts !== "0"}
+              onIncludeActivitiesChange={(on) => setParam("acts", on ? undefined : "0")}
+            />
+          ) : (
+            <RecordChart
+              entity="deal"
+              filters={viewFilters}
+              groupBy={params.group ?? "stage"}
+              measure={params.measure === "count" ? "count" : "sum"}
+              field={params.mfield ?? "amount"}
+              baseCurrency={baseCurrency}
+              onChange={(patch) => setParams(patch)}
+            />
+          )
         ) : view === "list" ? (
           pipelines.isPending ? (
             // The list is scoped to the resolved pipeline. Mounted before the pipelines arrive it fetched
@@ -219,7 +275,15 @@ export function PipelinePage() {
             ) : board.isError ? (
               <EmptyState title="Could not load the board" description={errorMessage(board.error)} action={<Button variant="secondary" onClick={() => board.refetch()}>Retry</Button>} />
             ) : (
-              <KanbanBoard board={board.data} baseCurrency={baseCurrency} canMove={canMove} showRisk={showRisk} isFetching={board.isFetching} sort={boardSortOf(params.sort)} />
+              <KanbanBoard
+                board={board.data}
+                baseCurrency={baseCurrency}
+                canMove={canMove}
+                showRisk={showRisk}
+                isFetching={board.isFetching}
+                sort={boardSortOf(params.sort)}
+                filters={boardParams}
+              />
             )}
           </>
         )}
@@ -244,24 +308,26 @@ function PipelinePanel({
   canManage: boolean;
 }) {
   return (
-    <aside className="hidden w-44 shrink-0 xl:block" aria-label="Pipelines">
+    // A second navy column beside the sidebar; the negative margins cancel <main>'s padding (xl only).
+    <aside className="kl-chrome -my-4 -ml-5 hidden w-48 shrink-0 overflow-y-auto bg-chrome px-2 py-4 xl:block" aria-label="Pipelines">
       <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Pipelines</p>
       <ul className="flex flex-col gap-0.5">
-        {pipelines.map((p) => {
+        {orderFamilies(pipelines).map((p) => {
           const current = p.id === selectedId;
           return (
-            <li key={p.id}>
+            <li key={p.id} className={p.parent_id ? "pl-3" : undefined}>
               <button
                 type="button"
                 onClick={() => onSelect(p.id)}
                 aria-current={current ? "true" : undefined}
                 className={cn(
                   "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm font-medium transition-colors",
-                  current ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+                  current ? "bg-chrome-active text-fg shadow-[inset_3px_0_0_var(--kl-chrome-indicator)]" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
                 )}
               >
-                <KanbanSquare className="size-4 shrink-0" aria-hidden />
+                {p.parent_id ? <CornerDownRight className="size-3.5 shrink-0" aria-hidden /> : <KanbanSquare className="size-4 shrink-0" aria-hidden />}
                 <span className="truncate">{p.name}</span>
+                {p.restricted ? <Lock className="ml-auto size-3 shrink-0 text-fg-subtle" aria-label="Restricted" /> : null}
               </button>
             </li>
           );
@@ -285,22 +351,6 @@ function PipelinePanel({
   );
 }
 
-function ViewButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs font-medium transition-colors [&_svg]:size-3.5",
-        active ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
-      )}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
 
 function BoardFilters({ params, setParam, onClear }: { params: ListParams; setParam: (key: string, value: string | undefined) => void; onClear: () => void }) {
   const [draft, setDraft] = React.useState(params.q ?? "");

@@ -54,6 +54,12 @@ MAX_PENDING_FLOWS = 5
 FLOW_TTL_SECONDS = 600
 BACKEND = "allauth.account.auth_backends.AuthenticationBackend"
 DEFAULT_NEXT = "/"
+#: Session cookie the frontend sets (script-readable, no secret) when the person signs out of WorkEasy CRM, so that
+#: opening the product directly shows the sign-in page instead of starting a Workeasy360 sign-in by itself
+#: (Workeasy360 integration guide 6b). Named like the CSRF cookie: ``__Host-`` over https (no sibling subdomain
+#: can set or shadow it), plain over http. A successful sign-in clears both. Keep equal to the names in
+#: frontend/src/lib/direct-sign-in.ts.
+SIGNED_OUT_MARKER_COOKIES = ("__Host-keel_signed_out", "keel_signed_out")
 
 #: The only values ``sso_error`` ever takes. The frontend maps each to a message.
 ERROR_CODES = frozenset(
@@ -63,8 +69,8 @@ ERROR_CODES = frozenset(
         "unavailable",  # Workeasy360 unreachable, misconfigured on either side, or not configured here
         "refused",  # the response failed verification or Workeasy360 refused for an unlisted reason
         "rate_limited",
-        "not_entitled",  # the Workeasy360 organization has no Easy CRM subscription
-        "no_seat",  # the person has no Easy CRM seat in that organization
+        "not_entitled",  # the Workeasy360 organization has no WorkEasy CRM subscription
+        "no_seat",  # the person has no WorkEasy CRM seat in that organization
         "provider_membership_inactive",  # their Workeasy360 membership is suspended or removed
         "organization_inactive",  # the Workeasy360 organization is suspended
         "access_policy",  # a Workeasy360 access policy (network, MFA, ...) denied the sign-in
@@ -92,7 +98,7 @@ _PROVIDER_ERRORS = {
     "organization_inactive": "organization_inactive",
     "access_policy_denied": "access_policy",
     "integration_suspended": "unavailable",
-    # Workeasy360 says Easy CRM is not registered to use its sign-in (sign_in_mode local_only).
+    # Workeasy360 says WorkEasy CRM is not registered to use its sign-in (sign_in_mode local_only).
     "unauthorized_client": "unavailable",
     # Only answered to prompt=none, which Keel never sends; treated like a lapsed flow.
     "interaction_required": "expired",
@@ -280,7 +286,10 @@ def callback(request: HttpRequest) -> HttpResponse:
         subject=claims.subject,
         auth_time=_auth_time(raw_claims),
     )
-    return HttpResponseRedirect(flow["next"] or DEFAULT_NEXT)
+    response = HttpResponseRedirect(flow["next"] or DEFAULT_NEXT)
+    for name in SIGNED_OUT_MARKER_COOKIES:
+        response.delete_cookie(name, path="/", samesite="Lax")
+    return response
 
 
 #: Clock skew allowed between Workeasy360's auth_time and the moment the flow started here.
@@ -323,7 +332,7 @@ def _sign_in(
 @never_cache
 @require_GET
 def end_session(request: HttpRequest) -> HttpResponse:
-    """GET /api/auth/workeasy360/logout - "sign out of Easy CRM and Workeasy360".
+    """GET /api/auth/workeasy360/logout - "sign out of WorkEasy CRM and Workeasy360".
 
     The frontend ends Keel's own session first (allauth's session DELETE, a CSRF-protected write);
     this only sends the browser on to Workeasy360, which asks the person to confirm before signing

@@ -6,7 +6,7 @@ from django.db import models
 
 from apps.core.models import TenantModel
 
-NOTE_ENTITY_TYPES = ("contact", "company", "deal", "product")
+NOTE_ENTITY_TYPES = ("contact", "company", "deal", "product", "activity")
 MAX_NOTE_LENGTH = 20_000
 
 

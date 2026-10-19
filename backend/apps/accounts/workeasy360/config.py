@@ -55,6 +55,12 @@ def issuer() -> str:
     return str(settings.WORKEASY360_ISSUER)
 
 
+def product_code() -> str:
+    """The product an ID token must name (``product_code``). Blank is a misconfiguration, never "check nothing":
+    see ``checks.check_product_code`` and ``provisioning.read_claims``."""
+    return str(settings.WORKEASY360_PRODUCT_CODE or "").strip()
+
+
 def post_logout_redirect_uri() -> str:
     """Where Workeasy360 returns the browser after "sign out of Workeasy360 too" - registered for
     this client in Workeasy360 exactly. Empty: the option is not offered."""

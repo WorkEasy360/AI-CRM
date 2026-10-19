@@ -6,7 +6,7 @@ runtime; only the issuer is configured. The ID token is verified offline
 against the provider's published key set, in the seven steps the Workeasy360
 product integration guide requires (docs/workeasy360-sso.md). Each step closes
 a named attack, so none of them is optional. The same client asks the
-entitlement API whether an organization may still use Easy CRM
+entitlement API whether an organization may still use WorkEasy CRM
 (``verify_entitlement``, used by ``entitlement.py``).
 
 No Django import: the module is pure protocol, which keeps it testable with a
@@ -318,6 +318,15 @@ class Workeasy360Client:
             raise SSOError("invalid_token", str(exc)) from None
         if claims.get("typ") != "id_token":  # 6. not an access token
             raise SSOError("invalid_token", "typ is not id_token")
+        # OIDC Core 3.1.3.7: azp, when present, is the client the token was issued to; with several
+        # audiences it must be present and be us. A token minted for another client that merely lists us
+        # among its audiences is not a token for us.
+        authorized_party = claims.get("azp")
+        if authorized_party is not None and authorized_party != self.client_id:
+            raise SSOError("invalid_token", "azp names another client")
+        audience = claims.get("aud")
+        if isinstance(audience, list) and audience != [self.client_id] and authorized_party != self.client_id:
+            raise SSOError("invalid_token", "aud lists other audiences and azp is not this client")
         returned_nonce = str(claims.get("nonce") or "")
         if not nonce or not hmac.compare_digest(returned_nonce.encode(), nonce.encode()):  # 7. our request
             raise SSOError("invalid_token", "nonce mismatch")

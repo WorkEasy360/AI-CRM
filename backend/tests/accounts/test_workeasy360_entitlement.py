@@ -222,7 +222,7 @@ def test_a_read_only_organization_can_still_export(provider):
 
 # --- per person (completion design section 4): the question names the person signed in -------------------
 
-PERSON_ENDED = "Your access to Easy CRM in this organization has ended. Ask an administrator in Workeasy360."
+PERSON_ENDED = "Your access to WorkEasy CRM in this organization has ended. Ask an administrator in Workeasy360."
 
 
 def _sign_in_as(provider, subject: str, email: str) -> APIClient:

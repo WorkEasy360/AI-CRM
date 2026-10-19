@@ -72,7 +72,10 @@ def _validate_timezone(name: str) -> str:
 
 def _assert_can_assign_role(actor: Actor, role_key: str) -> Role:
     if role_key not in SYSTEM_ROLES:
-        raise DomainError("Unknown role.", code="invalid_role")
+        # A custom permission set: assignable by anyone who already holds everything it grants.
+        from apps.authz.profiles import assignable_custom_role
+
+        return assignable_custom_role(actor, role_key)
     if actor.role_key == OWNER:
         return _system_role(role_key)
     if actor.role_key == ADMIN and role_key in ASSIGNABLE_BY_ADMIN:

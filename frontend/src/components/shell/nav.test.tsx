@@ -52,8 +52,10 @@ const ADMIN = active(
   {
     "org.update": "all",
     "members.invite": "all",
+    "roles.manage": "all",
     "teams.manage": "all",
     "pipelines.manage": "all",
+    "pricebooks.manage": "all",
     "customfields.manage": "all",
     "tags.manage": "all",
     "contacts.export": "all",
@@ -115,7 +117,10 @@ describe("navigation", () => {
     expect(SETTINGS_NAV.map((i) => i.href)).toEqual([
       "/settings/general",
       "/settings/users",
+      "/settings/roles",
+      "/settings/billing",
       "/settings/pipelines",
+      "/settings/price-books",
       "/settings/custom-fields",
       "/settings/tags",
       "/settings/email",

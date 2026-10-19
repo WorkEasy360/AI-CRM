@@ -114,4 +114,29 @@ class TimelineView(TenantAPIView):
         kinds = {k.strip() for k in raw_kinds.split(",") if k.strip()} if raw_kinds else None
         if kinds is not None and (len(kinds) > 20 or any(len(k) > 40 for k in kinds)):
             raise serializers.ValidationError({"kinds": "Too many or too long kind filters."})
-        return Response({"results": timeline.build(request.actor, entity_type, record, kinds=kinds)})
+        page = TimelinePageSerializer(data=request.query_params)
+        page.is_valid(raise_exception=True)
+        raw_sources = page.validated_data.get("sources") or ""
+        only = {s.strip() for s in raw_sources.split(",") if s.strip()} or None
+        events, next_before = timeline.build_page(
+            request.actor,
+            entity_type,
+            record,
+            kinds=kinds,
+            only_sources=only,
+            before=page.validated_data.get("before"),
+            limit=page.validated_data.get("limit") or timeline.MAX_EVENTS,
+        )
+        return Response(
+            {
+                "results": events,
+                "next_before": next_before,
+                "sources": [{"key": s.key, "label": s.label} for s in timeline.sources(entity_type)],
+            }
+        )
+
+
+class TimelinePageSerializer(serializers.Serializer):
+    before = serializers.DateTimeField(required=False)
+    limit = serializers.IntegerField(min_value=1, max_value=timeline.MAX_EVENTS, required=False)
+    sources = serializers.CharField(max_length=300, required=False, allow_blank=True)

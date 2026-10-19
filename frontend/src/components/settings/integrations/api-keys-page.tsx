@@ -124,7 +124,7 @@ export function ApiKeysPage() {
       {backLink}
       <PageHeader
         title="API keys"
-        description="Keys let external software use the Keel API with only the permissions you grant. A key can never do more than the member who created it."
+        description="Keys let external software use the WorkEasy CRM API with only the permissions you grant. A key can never do more than the member who created it."
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>

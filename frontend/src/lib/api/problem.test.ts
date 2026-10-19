@@ -104,3 +104,23 @@ describe("Workeasy360 entitlement problems", () => {
     expect(new ApiError(parseProblem(403, { type: "workeasy360_access_ended", title: "Forbidden", status: 403 })).isSignInRequired).toBe(false);
   });
 });
+
+describe("plan boundaries", () => {
+  it("keeps the upgrade member of a plan-limit problem", () => {
+    const err = new ApiError(
+      parseProblem(403, {
+        type: "plan_limit_reached",
+        title: "Forbidden",
+        status: 403,
+        detail: "Your Free plan allows 1 team pipelines.",
+        upgrade: { kind: "limit", metric: "pipelines", limit: 1, used: 1, required_edition: { key: "express", name: "Express" }, url: "/settings/billing" },
+      }),
+    );
+    expect(err.upgrade?.required_edition?.name).toBe("Express");
+    expect(err.upgrade?.url).toBe("/settings/billing");
+  });
+
+  it("ignores a malformed upgrade member", () => {
+    expect(parseProblem(403, { type: "x", status: 403, upgrade: "nope" }).upgrade).toBeUndefined();
+  });
+});

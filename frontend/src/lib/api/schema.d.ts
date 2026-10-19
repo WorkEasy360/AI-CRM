@@ -96,6 +96,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/activities/bulk/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Reassign or complete up to 500 activities in one request (all in scope, or nothing). */
+        post: operations["activities_bulk_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activities/calendar/": {
         parameters: {
             query?: never;
@@ -105,6 +122,23 @@ export interface paths {
         };
         /** @description Everything with a start inside ``from``..``to`` (max 62 days), for the month/week/day views. */
         get: operations["activities_calendar_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/my-day/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The signed-in member's day: overdue, today (tasks, events, calls), undated tasks, done today. */
+        get: operations["activities_my_day_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -324,6 +358,131 @@ export interface paths {
             cookie?: never;
         };
         get: operations["audit_events_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/methods/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Which ways in the sign-in page should offer. Public: it says nothing about any account. */
+        get: operations["auth_methods_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/addons/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Add-on purchases
+         * @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``.
+         */
+        get: operations["billing_addons_list"];
+        put?: never;
+        /**
+         * Buy an add-on
+         * @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``.
+         */
+        post: operations["billing_addons_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/addons/{addon_id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an add-on
+         * @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``.
+         */
+        post: operations["billing_addons_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/editions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Editions, limits, features and add-ons
+         * @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``.
+         */
+        get: operations["billing_editions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/subscription/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization's subscription
+         * @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``.
+         */
+        get: operations["billing_subscription_retrieve"];
+        put?: never;
+        /**
+         * Change plan
+         * @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``.
+         */
+        post: operations["billing_subscription_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every metered counter against its limit
+         * @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``.
+         */
+        get: operations["billing_usage_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -728,6 +887,55 @@ export interface paths {
         patch: operations["deals_partial_update"];
         trace?: never;
     };
+    "/api/v1/deals/{id}/connections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Deals connected to this one, in both directions (only those the actor may view). */
+        get: operations["deals_connections_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deals/{id}/connections/{connection_id}/remove/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deals_connections_remove_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deals/{id}/connections/add/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deals_connections_add_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/deals/{id}/contacts/": {
         parameters: {
             query?: never;
@@ -928,8 +1136,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals. */
+        /**
+         * @description Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals.
+         *
+         *     ``per_stage`` (default 50, max ``BOARD_MAX_PER_STAGE``) cards per column; a column with more
+         *     reports ``has_more`` and pages through ``board/stage``. Counts, value totals and the weighted
+         *     forecast are computed over every deal in scope, not only the cards sent.
+         */
         get: operations["deals_board_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deals/board/stage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description More cards for one Kanban column: ``?stage=<id>&offset=<n>&limit=<n>`` (same filters as the board). */
+        get: operations["deals_board_stage_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1138,6 +1369,78 @@ export interface paths {
         };
         /** @description The template with placeholders filled from a contact/deal the caller may view. */
         get: operations["email_templates_render_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/all/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).
+         *
+         *     The route only needs membership; the service exports just the modules the requester holds
+         *     ``<module>.export`` for and refuses with 403 when that is none.
+         */
+        get: operations["exports_all_list"];
+        put?: never;
+        /**
+         * @description Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).
+         *
+         *     The route only needs membership; the service exports just the modules the requester holds
+         *     ``<module>.export`` for and refuses with 403 when that is none.
+         */
+        post: operations["exports_all_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/all/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).
+         *
+         *     The route only needs membership; the service exports just the modules the requester holds
+         *     ``<module>.export`` for and refuses with 403 when that is none.
+         */
+        get: operations["exports_all_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/all/{id}/download/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).
+         *
+         *     The route only needs membership; the service exports just the modules the requester holds
+         *     ``<module>.export`` for and refuses with 403 when that is none.
+         */
+        get: operations["exports_all_download_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1423,6 +1726,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hierarchy-roles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reporting hierarchy that the "subordinates" scope follows. */
+        get: operations["hierarchy_roles_list"];
+        put?: never;
+        /** @description The reporting hierarchy that the "subordinates" scope follows. */
+        post: operations["hierarchy_roles_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hierarchy-roles/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reporting hierarchy that the "subordinates" scope follows. */
+        get: operations["hierarchy_roles_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description The reporting hierarchy that the "subordinates" scope follows. */
+        delete: operations["hierarchy_roles_destroy"];
+        options?: never;
+        head?: never;
+        /** @description The reporting hierarchy that the "subordinates" scope follows. */
+        patch: operations["hierarchy_roles_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/hierarchy-roles/assign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The reporting hierarchy that the "subordinates" scope follows. */
+        post: operations["hierarchy_roles_assign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/companies/": {
         parameters: {
             query?: never;
@@ -1455,6 +1812,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/companies/{id}/check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job). */
+        post: operations["imports_companies_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/companies/{id}/preview/": {
         parameters: {
             query?: never;
@@ -1462,9 +1836,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description The first rows of the file (raw) and the fields they may be mapped to. */
         get: operations["imports_companies_preview_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/companies/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Undo this import: delete what it created, restore what it updated; conflicts are reported. */
+        post: operations["imports_companies_rollback_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1481,6 +1873,40 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["imports_companies_start_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/companies/{id}/suggest/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A suggested mapping for this file's headers, optionally from a migration preset. */
+        post: operations["imports_companies_suggest_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/companies/presets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive). */
+        get: operations["imports_companies_presets_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1519,6 +1945,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/contacts/{id}/check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job). */
+        post: operations["imports_contacts_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/contacts/{id}/preview/": {
         parameters: {
             query?: never;
@@ -1526,9 +1969,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description The first rows of the file (raw) and the fields they may be mapped to. */
         get: operations["imports_contacts_preview_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/contacts/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Undo this import: delete what it created, restore what it updated; conflicts are reported. */
+        post: operations["imports_contacts_rollback_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1545,6 +2006,173 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["imports_contacts_start_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/contacts/{id}/suggest/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A suggested mapping for this file's headers, optionally from a migration preset. */
+        post: operations["imports_contacts_suggest_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/contacts/presets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive). */
+        get: operations["imports_contacts_presets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["imports_deals_list"];
+        put?: never;
+        post: operations["imports_deals_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["imports_deals_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/{id}/check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job). */
+        post: operations["imports_deals_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/{id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The first rows of the file (raw) and the fields they may be mapped to. */
+        get: operations["imports_deals_preview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Undo this import: delete what it created, restore what it updated; conflicts are reported. */
+        post: operations["imports_deals_rollback_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/{id}/start/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["imports_deals_start_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/{id}/suggest/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A suggested mapping for this file's headers, optionally from a migration preset. */
+        post: operations["imports_deals_suggest_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/deals/presets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive). */
+        get: operations["imports_deals_presets_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1583,6 +2211,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/products/{id}/check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job). */
+        post: operations["imports_products_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/products/{id}/preview/": {
         parameters: {
             query?: never;
@@ -1590,9 +2235,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description The first rows of the file (raw) and the fields they may be mapped to. */
         get: operations["imports_products_preview_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/products/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Undo this import: delete what it created, restore what it updated; conflicts are reported. */
+        post: operations["imports_products_rollback_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1609,6 +2272,40 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["imports_products_start_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/products/{id}/suggest/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A suggested mapping for this file's headers, optionally from a migration preset. */
+        post: operations["imports_products_suggest_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/products/presets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive). */
+        get: operations["imports_products_presets_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2535,6 +3232,23 @@ export interface paths {
         patch: operations["pipelines_partial_update"];
         trace?: never;
     };
+    "/api/v1/pipelines/{id}/access/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replace the teams and hierarchy roles that may use this (restricted) pipeline. */
+        put: operations["pipelines_access_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pipelines/{id}/stages/": {
         parameters: {
             query?: never;
@@ -2561,6 +3275,94 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["pipelines_stages_reorder_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The pipeline templates shipped with the product (original wording, DECISIONS M2.5). */
+        get: operations["pipelines_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/price-books/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Price books (``products.view`` to read, ``pricebooks.manage`` to change). */
+        get: operations["price_books_list"];
+        put?: never;
+        /** @description Price books (``products.view`` to read, ``pricebooks.manage`` to change). */
+        post: operations["price_books_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/price-books/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Price books (``products.view`` to read, ``pricebooks.manage`` to change). */
+        get: operations["price_books_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Price books (``products.view`` to read, ``pricebooks.manage`` to change). */
+        delete: operations["price_books_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Price books (``products.view`` to read, ``pricebooks.manage`` to change). */
+        patch: operations["price_books_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/price-books/{id}/entries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Price books (``products.view`` to read, ``pricebooks.manage`` to change). */
+        get: operations["price_books_entries_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/price-books/{id}/entries/set/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Price books (``products.view`` to read, ``pricebooks.manage`` to change). */
+        put: operations["price_books_entries_set_update"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2653,6 +3455,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/records/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Modules the actor can open (the registry, filtered by ``<module>.view``). */
+        get: operations["records_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{entity_type}/calendar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Records by one of their date fields: ``?date_field=&from=&to=&<filters>``. */
+        get: operations["records_calendar_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{entity_type}/chart/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One grouped series: ``?group_by=&measure=count|sum&field=&<filters>``. */
+        get: operations["records_chart_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{entity_type}/edits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sheet edits: ``{"rows": [{"id", "version", "values": {field: value}}]}``; per-row and per-cell results. */
+        post: operations["records_edits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{entity_type}/groups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Generic Kanban: ``?group_by=<field>&per_group=&columns=&<filters>``. */
+        get: operations["records_groups_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{entity_type}/groups/page/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description More cards for one generic Kanban column: ``?group_by=&value=&offset=&limit=``. */
+        get: operations["records_groups_page_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{entity_type}/rows/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Sheet/List window: ``?offset=&limit=&columns=a,b&sort=&<filters>``. */
+        get: operations["records_rows_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{entity_type}/schema/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The fields of one module as this actor may see them (hidden fields absent, read-only flagged). */
+        get: operations["records_schema_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roles/": {
         parameters: {
             query?: never;
@@ -2660,9 +3598,59 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        /**
+         * System and custom permission sets
+         * @description System roles and the organization's custom permission sets ("profiles").
+         */
         get: operations["roles_retrieve"];
         put?: never;
+        /**
+         * Create a permission set
+         * @description System roles and the organization's custom permission sets ("profiles").
+         */
+        post: operations["roles_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{key}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        get: operations["roles_detail_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        delete: operations["roles_destroy"];
+        options?: never;
+        head?: never;
+        /** @description APIView keyed by HTTP method: ``permission_map = {"GET": "x.view", "PATCH": "x.update"}``. */
+        patch: operations["roles_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/roles/{key}/field-permissions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Field rules of a permission set
+         * @description Field-level read/write restrictions of one permission set.
+         */
+        get: operations["roles_field_permissions_list"];
+        /**
+         * Replace field rules
+         * @description Field-level read/write restrictions of one permission set.
+         */
+        put: operations["roles_field_permissions_update"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2887,6 +3875,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/views/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams. */
+        get: operations["views_list"];
+        put?: never;
+        /** @description Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams. */
+        post: operations["views_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/views/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams. */
+        get: operations["views_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams. */
+        delete: operations["views_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams. */
+        patch: operations["views_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/views/{id}/default/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams. */
+        post: operations["views_default_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/views/default/clear/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams. */
+        post: operations["views_default_clear_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/whatsapp/account/": {
         parameters: {
             query?: never;
@@ -3010,6 +4069,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description * `hidden` - hidden
+         *     * `read_only` - read_only
+         * @enum {string}
+         */
+        AccessEnum: "hidden" | "read_only";
         Activity: {
             /** Format: uuid */
             readonly id: string;
@@ -3040,6 +4105,15 @@ export interface components {
                 [key: string]: unknown;
             }[];
             readonly is_overdue: boolean;
+            /** Format: uuid */
+            readonly parent_id: string | null;
+            /** @default 0 */
+            readonly subtask_count: number;
+            /** @default 0 */
+            readonly subtasks_done: number;
+            readonly recurrence: string;
+            /** Format: uuid */
+            readonly series_id: string | null;
             readonly version: number;
             /** Format: date-time */
             readonly created_at: string;
@@ -3069,6 +4143,62 @@ export interface components {
          * @enum {string}
          */
         ActorTypeEnum: "user" | "system" | "ai" | "integration";
+        /**
+         * @description * `extra_records` - extra_records
+         *     * `extra_automations` - extra_automations
+         *     * `extra_pipelines` - extra_pipelines
+         *     * `extra_booking_pages` - extra_booking_pages
+         *     * `extra_mass_emails` - extra_mass_emails
+         *     * `ai_credits` - ai_credits
+         *     * `extra_storage` - extra_storage
+         *     * `data_backup` - data_backup
+         * @enum {string}
+         */
+        AddonInputAddonEnum: "extra_records" | "extra_automations" | "extra_pipelines" | "extra_booking_pages" | "extra_mass_emails" | "ai_credits" | "extra_storage" | "data_backup";
+        AddonInputRequest: {
+            addon: components["schemas"]["AddonInputAddonEnum"];
+            /** @default 1 */
+            quantity: number;
+        };
+        AddonOut: {
+            key: string;
+            label: string;
+            metric: string | null;
+            feature: string | null;
+            unit_amount: number;
+            price_cents: number;
+            recurring: boolean;
+        };
+        AddonPurchase: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly addon: components["schemas"]["AddonPurchaseAddonEnum"];
+            readonly quantity: number;
+            readonly status: components["schemas"]["AddonPurchaseStatusEnum"];
+            readonly period_key: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly cancelled_at: string | null;
+        };
+        /**
+         * @description * `extra_records` - 5,000 extra records
+         *     * `extra_automations` - 10 extra automation rules
+         *     * `extra_pipelines` - 1 extra team pipeline
+         *     * `extra_booking_pages` - 1 extra booking page
+         *     * `extra_mass_emails` - 500 extra mass emails per day
+         *     * `ai_credits` - 1,000 AI credits (this month)
+         *     * `extra_storage` - 5 GB extra File Cabinet storage
+         *     * `data_backup` - Scheduled data backup
+         * @enum {string}
+         */
+        AddonPurchaseAddonEnum: "extra_records" | "extra_automations" | "extra_pipelines" | "extra_booking_pages" | "extra_mass_emails" | "ai_credits" | "extra_storage" | "data_backup";
+        /**
+         * @description * `active` - Active
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        AddonPurchaseStatusEnum: "active" | "cancelled";
         ApiCredential: {
             /** Format: uuid */
             readonly id: string;
@@ -3111,6 +4241,25 @@ export interface components {
          * @enum {string}
          */
         AuthTypeEnum: "oauth2_code" | "oauth2_client_credentials" | "api_key" | "bearer_token" | "signed_webhook";
+        CellEditRequest: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * @description * `monthly` - monthly
+         *     * `annual` - annual
+         * @enum {string}
+         */
+        ChangePlanBillingCycleEnum: "monthly" | "annual";
+        ChangePlanRequest: {
+            edition: string;
+            billing_cycle?: components["schemas"]["ChangePlanBillingCycleEnum"];
+            seats?: number;
+        };
         /** @description Base read serializer: owner/tag/custom-field output resolved from batch-loaded context. */
         Company: {
             /** Format: uuid */
@@ -3270,7 +4419,7 @@ export interface components {
         CustomFieldDefinition: {
             /** Format: uuid */
             readonly id: string;
-            readonly entity_type: components["schemas"]["EntityTypeEnum"];
+            readonly entity_type: components["schemas"]["CustomFieldDefinitionEntityTypeEnum"];
             readonly key: string;
             readonly label: string;
             readonly description: string;
@@ -3285,6 +4434,14 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        /**
+         * @description * `contact` - Contact
+         *     * `company` - Company
+         *     * `deal` - Deal
+         *     * `product` - Product
+         * @enum {string}
+         */
+        CustomFieldDefinitionEntityTypeEnum: "contact" | "company" | "deal" | "product";
         /** @description Base read serializer: owner/tag/custom-field output resolved from batch-loaded context. */
         Deal: {
             /** Format: uuid */
@@ -3301,6 +4458,8 @@ export interface components {
             readonly exchange_rate: string;
             /** Format: decimal */
             readonly amount_base: string;
+            readonly amount_from_lines: boolean;
+            readonly price_book: components["schemas"]["Ref"] | null;
             readonly probability: number;
             readonly probability_overridden: boolean;
             /** @description Deal value x probability, computed on the server so no client arithmetic is authoritative. */
@@ -3356,6 +4515,33 @@ export interface components {
          * @enum {string}
          */
         DisplayStatusEnum: "active" | "suspended" | "disabled";
+        EditionCatalogOut: {
+            editions: components["schemas"]["EditionOut"][];
+            features: components["schemas"]["KeyLabel"][];
+            metrics: {
+                [key: string]: unknown;
+            }[];
+            addons: components["schemas"]["AddonOut"][];
+        };
+        EditionOut: {
+            key: string;
+            name: string;
+            rank: number;
+            tagline: string;
+            price_monthly_cents: number;
+            price_annual_cents: number;
+            limits: {
+                [key: string]: number | null;
+            };
+            features: string[];
+        };
+        EditionRef: {
+            key: string;
+            name: string;
+        };
+        EditsRequest: {
+            rows: components["schemas"]["CellEditRequest"][];
+        };
         EmailAccount: {
             /** Format: uuid */
             readonly id: string;
@@ -3414,12 +4600,14 @@ export interface components {
         };
         /**
          * @description * `queued` - Queued
+         *     * `sending` - Sending
          *     * `sent` - Sent
          *     * `failed` - Failed
+         *     * `unconfirmed` - Delivery unconfirmed
          *     * `received` - Received
          * @enum {string}
          */
-        EmailMessageStatusEnum: "queued" | "sent" | "failed" | "received";
+        EmailMessageStatusEnum: "queued" | "sending" | "sent" | "failed" | "unconfirmed" | "received";
         EmailTemplate: {
             /** Format: uuid */
             readonly id: string;
@@ -3433,19 +4621,11 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
-        /**
-         * @description * `contact` - Contact
-         *     * `company` - Company
-         *     * `deal` - Deal
-         *     * `product` - Product
-         * @enum {string}
-         */
-        EntityTypeEnum: "contact" | "company" | "deal" | "product";
         ExportJob: {
             /** Format: uuid */
             readonly id: string;
             readonly entity_type: string;
-            readonly status: components["schemas"]["StatusA50Enum"];
+            readonly status: components["schemas"]["Status845Enum"];
             readonly filters: unknown;
             readonly row_count: number;
             readonly size_bytes: number;
@@ -3460,6 +4640,31 @@ export interface components {
             readonly download_count: number;
             /** Format: date-time */
             readonly created_at: string;
+        };
+        FieldRule: {
+            field: string;
+            access: components["schemas"]["AccessEnum"];
+        };
+        FieldRuleRequest: {
+            field: string;
+            access: components["schemas"]["AccessEnum"];
+        };
+        FieldRulesInput: {
+            entity_type: components["schemas"]["FieldRulesInputEntityTypeEnum"];
+            rules: components["schemas"]["FieldRule"][];
+        };
+        /**
+         * @description * `contact` - contact
+         *     * `company` - company
+         *     * `deal` - deal
+         *     * `product` - product
+         *     * `deal_line` - deal_line
+         * @enum {string}
+         */
+        FieldRulesInputEntityTypeEnum: "contact" | "company" | "deal" | "product" | "deal_line";
+        FieldRulesInputRequest: {
+            entity_type: components["schemas"]["FieldRulesInputEntityTypeEnum"];
+            rules: components["schemas"]["FieldRuleRequest"][];
         };
         /**
          * @description * `text` - Text
@@ -3492,22 +4697,62 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        HierarchyAssign: {
+            /** Format: uuid */
+            membership_id: string;
+            /** Format: uuid */
+            hierarchy_role_id: string | null;
+        };
+        HierarchyAssignRequest: {
+            /** Format: uuid */
+            membership_id: string;
+            /** Format: uuid */
+            hierarchy_role_id: string | null;
+        };
+        HierarchyRole: {
+            /** Format: uuid */
+            readonly id: string;
+            name: string;
+            description?: string;
+            /** Format: uuid */
+            parent_id?: string | null;
+            share_with_peers?: boolean;
+            /** @default 0 */
+            readonly member_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        HierarchyRoleRequest: {
+            name: string;
+            description?: string;
+            /** Format: uuid */
+            parent_id?: string | null;
+            share_with_peers?: boolean;
+        };
         ImportJob: {
             /** Format: uuid */
             readonly id: string;
             readonly entity_type: string;
-            readonly status: components["schemas"]["StatusA50Enum"];
+            readonly status: components["schemas"]["Status845Enum"];
             readonly original_filename: string;
             readonly size_bytes: number;
             readonly headers: unknown;
             readonly mapping: unknown;
             readonly options: unknown;
+            readonly file_format: string;
             readonly total_rows: number;
             readonly processed_rows: number;
             readonly created_rows: number;
+            readonly updated_rows: number;
+            readonly skipped_rows: number;
             readonly error_rows: number;
             readonly errors: unknown;
             readonly error_message: string;
+            readonly preview: unknown;
+            readonly stop: unknown;
+            readonly rollback: unknown;
+            /** Format: date-time */
+            readonly rolled_back_at: string | null;
             readonly requested_by: components["schemas"]["MembershipRef"];
             /** Format: date-time */
             readonly started_at: string | null;
@@ -3533,6 +4778,10 @@ export interface components {
             readonly last_sent_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
+        };
+        KeyLabel: {
+            key: string;
+            label: string;
         };
         /**
          * @description * `open` - Open
@@ -3560,6 +4809,8 @@ export interface components {
             readonly id: string;
             readonly user: components["schemas"]["UserPublic"];
             readonly role: components["schemas"]["RoleRef"];
+            /** Format: uuid */
+            readonly hierarchy_role_id: string | null;
             readonly status: components["schemas"]["Status7d0Enum"];
             readonly display_status: components["schemas"]["DisplayStatusEnum"];
             readonly teams: components["schemas"]["TeamRef"][];
@@ -3586,6 +4837,12 @@ export interface components {
          * @enum {string}
          */
         MessageTypeEnum: "text" | "template";
+        Module: {
+            entity_type: string;
+            label: string;
+            label_plural: string;
+            counts_as_record: boolean;
+        };
         Note: {
             /** Format: uuid */
             readonly id: string;
@@ -3886,6 +5143,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Pipeline"][];
         };
+        PaginatedPriceBookList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["PriceBook"][];
+        };
         PaginatedProductList: {
             /**
              * Format: uri
@@ -3898,6 +5168,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Product"][];
+        };
+        PaginatedSavedViewList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["SavedView"][];
         };
         PaginatedTagList: {
             /**
@@ -3964,10 +5247,47 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["WhatsAppTemplate"][];
         };
+        PatchedHierarchyRoleRequest: {
+            name?: string;
+            description?: string;
+            /** Format: uuid */
+            parent_id?: string | null;
+            share_with_peers?: boolean;
+        };
+        PatchedProfileInputRequest: {
+            name?: string;
+            description?: string;
+            grants?: {
+                [key: string]: "own" | "subordinates" | "team" | "all";
+            };
+            clone_from?: string;
+        };
         PatchedTeamRequest: {
             name?: string;
             /** Format: uuid */
             manager_id?: string | null;
+        };
+        /**
+         * @description * `count` - count
+         *     * `monthly` - monthly
+         *     * `daily` - daily
+         * @enum {string}
+         */
+        PeriodEnum: "count" | "monthly" | "daily";
+        PermissionSet: {
+            key: string;
+            name: string;
+            description: string;
+            is_system: boolean;
+            grants: {
+                [key: string]: "own" | "subordinates" | "team" | "all";
+            };
+            member_count: number;
+        };
+        PermissionSetList: {
+            results: components["schemas"]["PermissionSet"][];
+            permissions: string[];
+            scopes: components["schemas"]["ScopesEnum"][];
         };
         Pipeline: {
             /** Format: uuid */
@@ -3975,7 +5295,36 @@ export interface components {
             readonly name: string;
             readonly position: number;
             readonly is_default: boolean;
+            /** Format: uuid */
+            readonly parent_id: string | null;
+            readonly restricted: boolean;
+            readonly layout: unknown;
+            /** @description The layout this pipeline renders with: its own, or its parent's for a sub-pipeline. */
+            readonly effective_layout: {
+                [key: string]: unknown;
+            };
+            readonly template_key: string;
+            readonly access: {
+                [key: string]: string[];
+            };
             readonly stages: unknown;
+            readonly version: number;
+            /** Format: date-time */
+            readonly archived_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        PriceBook: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly currency: string;
+            readonly description: string;
+            readonly is_active: boolean;
+            /** @default 0 */
+            readonly entry_count: number;
             readonly version: number;
             /** Format: date-time */
             readonly archived_at: string | null;
@@ -4006,6 +5355,7 @@ export interface components {
             readonly tax_rate: string;
             readonly tax_label: string;
             readonly status: components["schemas"]["ProductStatusEnum"];
+            readonly in_stock: boolean;
             readonly owner: components["schemas"]["MembershipRef"];
             readonly tags: unknown;
             readonly custom_data: {
@@ -4025,6 +5375,14 @@ export interface components {
          * @enum {string}
          */
         ProductStatusEnum: "active" | "inactive";
+        ProfileInputRequest: {
+            name?: string;
+            description?: string;
+            grants?: {
+                [key: string]: "own" | "subordinates" | "team" | "all";
+            };
+            clone_from?: string;
+        };
         /**
          * @description * `gmail` - Gmail
          *     * `microsoft` - Microsoft 365
@@ -4040,6 +5398,47 @@ export interface components {
             readonly key: string;
             readonly name: string;
         };
+        /** @description A view as the requesting member may use it (``for_viewer``), plus whether it is theirs/default. */
+        SavedView: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly entity_type: string;
+            readonly name: string;
+            readonly kind: components["schemas"]["SavedViewKindEnum"];
+            readonly filters: unknown;
+            readonly sort: string;
+            readonly columns: unknown;
+            readonly config: unknown;
+            readonly visibility: components["schemas"]["VisibilityEnum"];
+            readonly team_ids: unknown;
+            readonly owner: components["schemas"]["MembershipRef"];
+            readonly is_owner: boolean;
+            readonly is_default: boolean;
+            /** @default false */
+            readonly restricted: boolean;
+            readonly version: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `list` - List
+         *     * `kanban` - Kanban
+         *     * `sheet` - Sheet
+         *     * `calendar` - Calendar
+         *     * `chart` - Chart
+         * @enum {string}
+         */
+        SavedViewKindEnum: "list" | "kanban" | "sheet" | "calendar" | "chart";
+        /**
+         * @description * `own` - own
+         *     * `subordinates` - subordinates
+         *     * `team` - team
+         *     * `all` - all
+         * @enum {string}
+         */
+        ScopesEnum: "own" | "subordinates" | "team" | "all";
         Stage: {
             /** Format: uuid */
             readonly id: string;
@@ -4062,6 +5461,15 @@ export interface components {
             readonly color_token: string;
         };
         /**
+         * @description * `ok` - ok
+         *     * `warning` - warning
+         *     * `at_limit` - at_limit
+         *     * `unlimited` - unlimited
+         *     * `not_included` - not_included
+         * @enum {string}
+         */
+        StateEnum: "ok" | "warning" | "at_limit" | "unlimited" | "not_included";
+        /**
          * @description * `active` - Active
          *     * `suspended` - Suspended
          *     * `disabled` - Disabled
@@ -4070,13 +5478,18 @@ export interface components {
         Status7d0Enum: "active" | "suspended" | "disabled";
         /**
          * @description * `uploaded` - Uploaded
+         *     * `previewing` - Checking
+         *     * `previewed` - Checked
          *     * `pending` - Pending
          *     * `running` - Running
          *     * `completed` - Completed
+         *     * `stopped` - Stopped at limit
          *     * `failed` - Failed
+         *     * `rolling_back` - Rolling back
+         *     * `rolled_back` - Rolled back
          * @enum {string}
          */
-        StatusA50Enum: "uploaded" | "pending" | "running" | "completed" | "failed";
+        Status845Enum: "uploaded" | "previewing" | "previewed" | "pending" | "running" | "completed" | "stopped" | "failed" | "rolling_back" | "rolled_back";
         /**
          * @description * `open` - Open
          *     * `won` - Won
@@ -4084,6 +5497,36 @@ export interface components {
          * @enum {string}
          */
         StatusCffEnum: "open" | "won" | "lost";
+        SubscriptionOut: {
+            /** @description The edition in force now (a lapsed trial resolves to Free). */
+            edition: components["schemas"]["EditionRef"];
+            subscribed_edition: string;
+            status: components["schemas"]["SubscriptionOutStatusEnum"];
+            billing_cycle: components["schemas"]["SubscriptionOutBillingCycleEnum"];
+            seats: number;
+            seat_limit: number | null;
+            /** Format: date-time */
+            trial_ends_at: string | null;
+            /** Format: date-time */
+            current_period_end: string | null;
+            grandfathered: boolean;
+            features: string[];
+            self_service: boolean;
+        };
+        /**
+         * @description * `monthly` - Monthly
+         *     * `annual` - Annual
+         * @enum {string}
+         */
+        SubscriptionOutBillingCycleEnum: "monthly" | "annual";
+        /**
+         * @description * `trialing` - Trial
+         *     * `active` - Active
+         *     * `past_due` - Past due
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        SubscriptionOutStatusEnum: "trialing" | "active" | "past_due" | "cancelled";
         Tag: {
             /** Format: uuid */
             readonly id: string;
@@ -4116,6 +5559,28 @@ export interface components {
             /** Format: uuid */
             manager_id?: string | null;
         };
+        UsageMetric: {
+            key: string;
+            label: string;
+            period: components["schemas"]["PeriodEnum"];
+            unit: string;
+            used: number;
+            limit: number | null;
+            addon_amount: number;
+            modules: {
+                [key: string]: unknown;
+            }[] | null;
+            state: components["schemas"]["StateEnum"];
+            upgrade_edition: components["schemas"]["EditionRef"] | null;
+            addon: string | null;
+        };
+        UsageReport: {
+            edition: components["schemas"]["EditionRef"];
+            features: string[];
+            metrics: components["schemas"]["UsageMetric"][];
+            /** @description What counts towards the record limit. */
+            record_definition: string;
+        };
         UserPublic: {
             /** Format: uuid */
             readonly id: string;
@@ -4123,6 +5588,13 @@ export interface components {
             readonly email: string;
             readonly display_name: string;
         };
+        /**
+         * @description * `private` - Only me
+         *     * `organization` - Everyone
+         *     * `teams` - Selected teams
+         * @enum {string}
+         */
+        VisibilityEnum: "private" | "organization" | "teams";
         WebhookSubscription: {
             /** Format: uuid */
             readonly id: string;
@@ -4175,14 +5647,16 @@ export interface components {
         };
         /**
          * @description * `queued` - Queued
+         *     * `sending` - Sending
          *     * `sent` - Sent
          *     * `delivered` - Delivered
          *     * `read` - Read
          *     * `failed` - Failed
+         *     * `unconfirmed` - Delivery unconfirmed
          *     * `received` - Received
          * @enum {string}
          */
-        WhatsAppMessageStatusEnum: "queued" | "sent" | "delivered" | "read" | "failed" | "received";
+        WhatsAppMessageStatusEnum: "queued" | "sending" | "sent" | "delivered" | "read" | "failed" | "unconfirmed" | "received";
         WhatsAppTemplate: {
             /** Format: uuid */
             readonly id: string;
@@ -4351,7 +5825,45 @@ export interface operations {
             };
         };
     };
+    activities_bulk_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
     activities_calendar_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+        };
+    };
+    activities_my_day_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -4636,6 +6148,167 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditEvent"];
+                };
+            };
+        };
+    };
+    auth_methods_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    billing_addons_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddonPurchase"][];
+                };
+            };
+        };
+    };
+    billing_addons_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddonInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddonPurchase"];
+                };
+            };
+        };
+    };
+    billing_addons_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                addon_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddonPurchase"];
+                };
+            };
+        };
+    };
+    billing_editions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditionCatalogOut"];
+                };
+            };
+        };
+    };
+    billing_subscription_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
+                };
+            };
+        };
+    };
+    billing_subscription_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePlanRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
+                };
+            };
+        };
+    };
+    billing_usage_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReport"];
                 };
             };
         };
@@ -5335,6 +7008,70 @@ export interface operations {
             };
         };
     };
+    deals_connections_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+        };
+    };
+    deals_connections_remove_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connection_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+        };
+    };
+    deals_connections_add_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+        };
+    };
     deals_contacts_retrieve: {
         parameters: {
             query?: never;
@@ -5590,6 +7327,25 @@ export interface operations {
         };
     };
     deals_board_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+        };
+    };
+    deals_board_stage_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -5954,6 +7710,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmailTemplate"];
+                };
+            };
+        };
+    };
+    exports_all_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedExportJobList"];
+                };
+            };
+        };
+    };
+    exports_all_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJob"];
+                };
+            };
+        };
+    };
+    exports_all_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJob"];
+                };
+            };
+        };
+    };
+    exports_all_download_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJob"];
                 };
             };
         };
@@ -6421,6 +8262,137 @@ export interface operations {
             };
         };
     };
+    hierarchy_roles_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HierarchyRole"][];
+                };
+            };
+        };
+    };
+    hierarchy_roles_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HierarchyRoleRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HierarchyRole"];
+                };
+            };
+        };
+    };
+    hierarchy_roles_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HierarchyRole"];
+                };
+            };
+        };
+    };
+    hierarchy_roles_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hierarchy_roles_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedHierarchyRoleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HierarchyRole"];
+                };
+            };
+        };
+    };
+    hierarchy_roles_assign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HierarchyAssignRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HierarchyAssign"];
+                };
+            };
+        };
+    };
     imports_companies_list: {
         parameters: {
             query?: {
@@ -6485,7 +8457,49 @@ export interface operations {
             };
         };
     };
+    imports_companies_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
     imports_companies_preview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_companies_rollback_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -6513,6 +8527,46 @@ export interface operations {
             path: {
                 id: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_companies_suggest_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_companies_presets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -6591,7 +8645,49 @@ export interface operations {
             };
         };
     };
+    imports_contacts_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
     imports_contacts_preview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_contacts_rollback_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -6619,6 +8715,234 @@ export interface operations {
             path: {
                 id: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_contacts_suggest_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_contacts_presets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedImportJobList"];
+                };
+            };
+        };
+    };
+    imports_deals_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_preview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_rollback_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_start_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_suggest_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_deals_presets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -6697,7 +9021,49 @@ export interface operations {
             };
         };
     };
+    imports_products_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
     imports_products_preview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_products_rollback_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -6725,6 +9091,46 @@ export interface operations {
             path: {
                 id: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_products_suggest_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+        };
+    };
+    imports_products_presets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -8221,6 +10627,27 @@ export interface operations {
             };
         };
     };
+    pipelines_access_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pipeline"];
+                };
+            };
+        };
+    };
     pipelines_stages_create: {
         parameters: {
             query?: never;
@@ -8259,6 +10686,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Pipeline"];
+                };
+            };
+        };
+    };
+    pipelines_templates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pipeline"];
+                };
+            };
+        };
+    };
+    price_books_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPriceBookList"];
+                };
+            };
+        };
+    };
+    price_books_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+        };
+    };
+    price_books_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+        };
+    };
+    price_books_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    price_books_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+        };
+    };
+    price_books_entries_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+        };
+    };
+    price_books_entries_set_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
                 };
             };
         };
@@ -8429,11 +11022,32 @@ export interface operations {
             };
         };
     };
-    roles_retrieve: {
+    records_list: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Module"][];
+                };
+            };
+        };
+    };
+    records_calendar_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "company" | "contact" | "deal" | "product";
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -8444,6 +11058,284 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    records_chart_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "company" | "contact" | "deal" | "product";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    records_edits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "company" | "contact" | "deal" | "product";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditsRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    records_groups_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "company" | "contact" | "deal" | "product";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    records_groups_page_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "company" | "contact" | "deal" | "product";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    records_rows_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "company" | "contact" | "deal" | "product";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    records_schema_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "company" | "contact" | "deal" | "product";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    roles_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionSetList"];
+                };
+            };
+        };
+    };
+    roles_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProfileInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionSet"];
+                };
+            };
+        };
+    };
+    roles_detail_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionSet"];
+                };
+            };
+        };
+    };
+    roles_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    roles_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedProfileInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionSet"];
+                };
+            };
+        };
+    };
+    roles_field_permissions_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldRulesInput"][];
+                };
+            };
+        };
+    };
+    roles_field_permissions_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldRulesInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldRulesInput"];
+                };
             };
         };
     };
@@ -8885,6 +11777,151 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    views_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSavedViewList"];
+                };
+            };
+        };
+    };
+    views_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    views_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    views_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    views_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    views_default_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    views_default_clear_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
             };
         };
     };

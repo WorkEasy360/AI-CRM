@@ -10,9 +10,14 @@ import { setAccessEndedHandler, setUnauthenticatedHandler } from "@/lib/api/clie
 import { bootstrapSession, switchOrganization } from "@/lib/api/endpoints";
 import { errorMessage, isApiError, PROBLEM_TYPES } from "@/lib/api/problem";
 import type { Session } from "@/lib/api/types";
-import { workeasy360StartUrl } from "@/lib/auth-methods";
+import { useAuthMethods, workeasy360StartUrl } from "@/lib/auth-methods";
+import { claimAutoStart, clearAutoStartGuard } from "@/lib/direct-sign-in";
+import { replaceLocation } from "@/lib/external-navigation";
 import { loginUrlFor } from "@/lib/safe-next";
 import { queryKeys, useSession } from "@/lib/session";
+
+/** How long the start of a Workeasy360 sign-in may take before the person is offered a way on. */
+const STARTING_TAKES_LONG_MS = 5000;
 
 /**
  * Client-side session gate.
@@ -25,6 +30,13 @@ import { queryKeys, useSession } from "@/lib/session";
  * auto-login the backend opens a session on the first request, so this
  * redirect never fires there.) Any other failure to load the session shows a
  * retryable message.
+ *
+ * When Workeasy360 is the only sign-in (the server offers no password), that visitor is not sent
+ * to a sign-in page they would only click through: the gate starts the Workeasy360 sign-in itself,
+ * for the page they asked for, so someone already signed in to Workeasy360 arrives signed in. It
+ * never does that after a sign-out here, or when this browser started one less than a minute ago
+ * and still has no session (lib/direct-sign-in.ts); those visitors see the sign-in page. Only this
+ * gate does it: API calls still answer 401, and a session whose access ended keeps its explanation.
  *
  * A signed-in session without an active organization is not a setup step
  * the user has to complete: the gate asks the backend to bootstrap it (the
@@ -63,7 +75,7 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
     return () => setUnauthenticatedHandler(null);
   }, [queryClient]);
 
-  // Workeasy360 says the organization's access to Easy CRM has ended (its entitlement re-check, enforced
+  // Workeasy360 says the organization's access to WorkEasy CRM has ended (its entitlement re-check, enforced
   // by the API). Any call can discover it; one explanation replaces the CRM instead of an error on every
   // page. The session itself is fine, so signing out stays possible.
   // The same screen explains "sign in with Workeasy360" (a session that never came from it, in a deployment
@@ -80,8 +92,8 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
           error.type === PROBLEM_TYPES.signInRequired
             ? "Sign in with Workeasy360"
             : error.type === PROBLEM_TYPES.accessUnverified
-              ? "Easy CRM can't confirm your access"
-              : "Easy CRM access has ended",
+              ? "WorkEasy CRM can't confirm your access"
+              : "WorkEasy CRM access has ended",
         message: error.message,
         signInRequired: error.type === PROBLEM_TYPES.signInRequired,
       }),
@@ -102,9 +114,59 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
   // Signed out (never signed in, expired or revoked), as opposed to the session endpoint failing.
   const signedOut = sessionGone && isApiError(sessionError) && sessionError.isNotAuthenticated;
 
+  // Whether Workeasy360 is the only sign-in here: the server offers no password and does offer Workeasy360.
+  // Asked of the server rather than assumed; until it answers nothing is decided, and if it cannot be
+  // asked the visitor gets the sign-in page, which falls back to the password form.
+  const methods = useAuthMethods();
+  const workeasy360Only = Boolean(methods.data && !methods.data.password && methods.data.workeasy360);
+  const [startingSignIn, setStartingSignIn] = React.useState(false);
+  const [startingTakesLong, setStartingTakesLong] = React.useState(false);
+  // Bumped when the browser brings this page back from its back/forward cache, to decide again.
+  const [restores, setRestores] = React.useState(0);
+  const signedOutHandled = React.useRef(false);
+  const { isPending: methodsPending } = methods;
+
   React.useEffect(() => {
-    if (signedOut) router.replace(loginUrlFor(currentPath));
-  }, [signedOut, router, currentPath]);
+    if (!signedOut) {
+      signedOutHandled.current = false;
+      return;
+    }
+    if (methodsPending || signedOutHandled.current) return;
+    signedOutHandled.current = true;
+    if (workeasy360Only && claimAutoStart()) {
+      setStartingSignIn(true);
+      replaceLocation(workeasy360StartUrl(currentPath));
+      return;
+    }
+    router.replace(loginUrlFor(currentPath));
+  }, [signedOut, methodsPending, workeasy360Only, router, currentPath, restores]);
+
+  // While the start is under way: say so if it takes long, and start over if the browser restores this page
+  // from its back/forward cache (the person came back from Workeasy360; the page would otherwise sit on
+  // "Signing you in" for ever). Deciding again goes through the loop guard, so a restore soon after a start
+  // gets the sign-in page rather than another start.
+  React.useEffect(() => {
+    if (!startingSignIn) return;
+    const timer = window.setTimeout(() => setStartingTakesLong(true), STARTING_TAKES_LONG_MS);
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      signedOutHandled.current = false;
+      setStartingSignIn(false);
+      setStartingTakesLong(false);
+      setRestores((n) => n + 1);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [startingSignIn]);
+
+  // A session exists, so a sign-in started earlier did what it was for: the loop guard is spent.
+  const hasSession = session.isSuccess;
+  React.useEffect(() => {
+    if (hasSession) clearAutoStartGuard();
+  }, [hasSession]);
 
   const signOut = useMutation({
     mutationFn: logout,
@@ -145,8 +207,30 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
     }
   }, [needsBootstrap, runBootstrap]);
 
-  if (session.isPending || signedOut) {
-    return <>{fallback ?? <GateSkeleton />}</>;
+  if (session.isPending || signedOut || startingSignIn) {
+    // One status region for the whole wait, there from the first render so that screen readers announce
+    // each change of its text (a region inserted together with its text is often not announced).
+    const status = !startingSignIn
+      ? "Loading"
+      : startingTakesLong
+        ? "Signing in with Workeasy360 is taking longer than expected."
+        : "Signing you in with Workeasy360…";
+    return (
+      <>
+        <div role="status" className="sr-only">
+          {status}
+        </div>
+        {startingSignIn ? (
+          <StartingSignIn
+            takesLong={startingTakesLong}
+            startHref={workeasy360StartUrl(currentPath)}
+            loginHref={loginUrlFor(currentPath)}
+          />
+        ) : (
+          (fallback ?? <GateSkeleton announce={false} />)
+        )}
+      </>
+    );
   }
 
   if (sessionGone) {
@@ -243,9 +327,35 @@ function GateMessage({ title, description, children }: { title: string; descript
   );
 }
 
-export function GateSkeleton() {
+/**
+ * Shown for the moment between deciding to start the Workeasy360 sign-in and the browser leaving. If it
+ * is still here after a few seconds something is wrong (or the person came back), so two ways on appear.
+ */
+function StartingSignIn({ takesLong, startHref, loginHref }: { takesLong: boolean; startHref: string; loginHref: string }) {
   return (
-    <div className="flex min-h-dvh" role="status" aria-label="Loading">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
+      <h1 className="text-md font-semibold">Signing you in with Workeasy360…</h1>
+      {takesLong ? (
+        <>
+          <p className="max-w-md text-sm text-fg-muted">This is taking longer than expected.</p>
+          <div className="mt-1 flex items-center gap-2">
+            <Button asChild>
+              <a href={startHref}>Continue with Workeasy360</a>
+            </Button>
+            <Button asChild variant="secondary">
+              <a href={loginHref}>Go to the sign-in page</a>
+            </Button>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** `announce` false: the caller already has a status region for this wait (see AuthGate). */
+export function GateSkeleton({ announce = true }: { announce?: boolean } = {}) {
+  return (
+    <div className="flex min-h-dvh" {...(announce ? { role: "status", "aria-label": "Loading" } : {})}>
       <div className="hidden w-56 border-r border-border bg-surface p-3 lg:block">
         <Skeleton className="mb-5 h-7 w-24" />
         <div className="flex flex-col gap-1.5">

@@ -9,6 +9,20 @@ export interface FieldError {
   message: string;
 }
 
+/** The plan boundary an action hit, and what lifts it (the backend's `upgrade` member). */
+export interface UpgradeInfo {
+  kind: "limit" | "feature";
+  metric?: string;
+  feature?: string;
+  label?: string;
+  limit?: number | null;
+  used?: number;
+  current_edition?: { key: string; name: string };
+  required_edition?: { key: string; name: string } | null;
+  addon?: string | null;
+  url: string;
+}
+
 export interface ProblemDetails {
   type: string;
   title: string;
@@ -16,15 +30,16 @@ export interface ProblemDetails {
   detail?: string;
   errors?: FieldError[];
   request_id?: string;
+  upgrade?: UpgradeInfo;
 }
 
 export const PROBLEM_TYPES = {
   reauthRequired: "reauth_required",
-  /** Workeasy360 says the organization's access to Easy CRM has ended (its entitlement re-check). */
+  /** Workeasy360 says the organization's access to WorkEasy CRM has ended (its entitlement re-check). */
   accessEnded: "workeasy360_access_ended",
   /** ... or that it is read-only for now: reads work, writes are refused. */
   readOnly: "workeasy360_read_only",
-  /** Workeasy360 refused Easy CRM's own client, so the access cannot be confirmed: refused too. */
+  /** Workeasy360 refused WorkEasy CRM's own client, so the access cannot be confirmed: refused too. */
   accessUnverified: "workeasy360_access_unverified",
   /** Workeasy360 is the only way in and this session has no Workeasy360 identity: sign in with it. */
   signInRequired: "workeasy360_sign_in_required",
@@ -117,6 +132,7 @@ export function parseProblem(status: number, body: unknown): ProblemDetails {
     ...(detail ? { detail } : {}),
     ...(errors ? { errors } : {}),
     ...(str(body.request_id) ? { request_id: str(body.request_id) } : {}),
+    ...(isRecord(body.upgrade) && str(body.upgrade.url) ? { upgrade: body.upgrade as unknown as UpgradeInfo } : {}),
   };
 }
 
@@ -139,7 +155,7 @@ export class ApiError extends Error {
     return this.status === 403 && this.type === PROBLEM_TYPES.reauthRequired;
   }
 
-  /** The organization's access to Easy CRM has ended, or cannot be confirmed: either way, no CRM. */
+  /** The organization's access to WorkEasy CRM has ended, or cannot be confirmed: either way, no CRM. */
   get isAccessEnded(): boolean {
     return (
       this.status === 403 && (this.type === PROBLEM_TYPES.accessEnded || this.type === PROBLEM_TYPES.accessUnverified)
@@ -153,6 +169,11 @@ export class ApiError extends Error {
 
   get isNotAuthenticated(): boolean {
     return (this.status === 401 || this.status === 403) && this.type === PROBLEM_TYPES.notAuthenticated;
+  }
+
+  /** Set when the organization's plan blocked the action; the UI offers the upgrade path. */
+  get upgrade(): UpgradeInfo | undefined {
+    return this.problem.upgrade;
   }
 
   get isValidation(): boolean {

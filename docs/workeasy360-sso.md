@@ -1,6 +1,6 @@
 # Sign in with Workeasy360
 
-Keel is the Workeasy360 product **Easy CRM** (product code `easy_crm`). People sign in to it with
+Keel is the Workeasy360 product **WorkEasy CRM** (product code `easy_crm`). People sign in to it with
 their Workeasy360 account; Workeasy360 is the identity provider ([ADR-0013](adr/ADR-0013-workeasy360-identity-provider.md)).
 With `WORKEASY360_SSO_ONLY` on (the default outside local development) it is the **only** way in.
 
@@ -30,9 +30,13 @@ next (default "/")          — or /login?sso_error=<code> on any failure
   the key set are cached for an hour; an unknown `kid` refreshes the key set once, then fails.
 * ID token checks (`apps/accounts/workeasy360/oidc.py`): key by `kid` from the cached key set,
   algorithm from the key (RS256/ES256, never from the header), `aud` = client id, `iss`, `exp`/`nbf`
-  with 30 s leeway, `typ == "id_token"`, `nonce` matches the session, `organization_id` present. Then
-  `product_code` must be `easy_crm` when present, and when the launcher named an organization the
-  token must be for that organization.
+  with 30 s leeway, `typ == "id_token"`, `nonce` matches the session, `organization_id` present. `azp`,
+  when present, must be the client id, and an `aud` that is a list must be exactly `[client id]` or come with
+  `azp` = client id (a token minted for another client that merely lists us is refused). Then `product_code`
+  must be present and equal `easy_crm` (a token that says nothing about its product is refused like a wrong
+  one: `wrong_product`), and when the launcher named an organization the token must be for that organization.
+  The callback signs in with Django's `login()`, which rotates the session key (or flushes another person's
+  session), so a session id planted in the browser beforehand is worthless afterwards (tested).
 * Keel's session is the product session after that: Workeasy360 is not called per request.
 
 ### Who signs in (`apps/accounts/workeasy360/provisioning.py`)
@@ -131,16 +135,16 @@ details are logged (`workeasy360.sign_in_failed`). Workeasy360 authorize errors 
 | `WORKEASY360_KEY_ID` | — | the credential id Workeasy360 returned for our public key |
 | `WORKEASY360_PRIVATE_KEY` / `WORKEASY360_PRIVATE_KEY_FILE` | — | PEM (RSA or EC P-256), from the secret store; inline `\n` escapes allowed |
 | `WORKEASY360_SCOPES` | `openid email profile organization` | |
-| `WORKEASY360_PRODUCT_CODE` | `easy_crm` | ID tokens for another product are refused; empty disables |
+| `WORKEASY360_PRODUCT_CODE` | `easy_crm` | ID tokens for another product, or without a `product_code`, are refused. It must not be empty or blank where sign-in is configured (an empty value would switch the check off): production refuses to start, `manage.py check` fails (`workeasy360.E001`), and if it happens anyway every sign-in is refused (`unavailable`). Leave it unset for the default |
 | `WORKEASY360_DEFAULT_ROLE` | `sales_rep` | role for people joining an existing organization; never `owner` |
 | `WORKEASY360_SSO_ONLY` | `true` (`false` in dev and test) | |
 
 Sign-in is offered when issuer, client id, redirect URI, key id and a private key are all set.
 `config.settings.prod` refuses to start when `WORKEASY360_SSO_ONLY` is on and sign-in is not
-configured (nobody could sign in), when the issuer or redirect URI is not https, or when the key file
-does not exist.
+configured (nobody could sign in), when the issuer or redirect URI is not https, when the key file
+does not exist, or when sign-in is configured and `WORKEASY360_PRODUCT_CODE` is empty or blank.
 
-## Registering Easy CRM in Workeasy360
+## Registering WorkEasy CRM in Workeasy360
 
 1. Generate a key pair (keep the private key out of the repository; gitleaks will block it):
 
@@ -150,7 +154,7 @@ does not exist.
    ```
 
    (or EC P-256: `openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out easy-crm-w360.key`).
-2. In Workeasy360, on the Easy CRM integration (product `easy_crm`): token endpoint authentication
+2. In Workeasy360, on the WorkEasy CRM integration (product `easy_crm`): token endpoint authentication
    `private_key_jwt`; redirect URI `https://crm.workeasy360.com/api/auth/callback/workeasy360`; launch URL
    `https://crm.workeasy360.com/`; scopes **`openid email profile organization`** (all four must be
    registered, or Workeasy360 answers `invalid_scope`). Upload `easy-crm-w360.pub`.
@@ -184,13 +188,16 @@ Workeasy360 now lets each person choose how it signs them in to products (Workea
 automatically, after asking ("Ask me each time", the default), or by preferring the product's own sign-in.
 Nothing about that choice lives in Keel; what it means here:
 
-* **The sign-in page** asks "Already a Workeasy360 user?" with **Access Easy CRM**. When password sign-in
-  is also on, Keel's own form sits behind **Use another sign-in method**.
+* **The sign-in page** asks "Already a Workeasy360 user?" with **Access WorkEasy CRM**. When password sign-in
+  is also on, Keel's own form sits behind **Use another sign-in method**. The sign-in page itself **never
+  starts a Workeasy360 sign-in by itself**, whatever its query (including `?sso_error=` after a refusal); only
+  a visit to a page that needs a signed-in person does, and only when Workeasy360 is the only sign-in (see
+  "Opening WorkEasy CRM directly" below).
 * **Workeasy360's access chooser.** When the person's preference is to be asked, Workeasy360 shows its
-  own "How would you like to access Easy CRM?" page before returning a code. Keel sees nothing new: either
+  own "How would you like to access WorkEasy CRM?" page before returning a code. Keel sees nothing new: either
   the usual callback with a code, the product's own sign-in page (if registered and chosen), or
   `error=access_denied` when the person chose Cancel (shown as `cancelled`).
-* **Error codes added on the Workeasy360 side:** `unauthorized_client` (Easy CRM is registered there as
+* **Error codes added on the Workeasy360 side:** `unauthorized_client` (WorkEasy CRM is registered there as
   not using Workeasy360 sign-in) maps to `unavailable`; `interaction_required` (only an answer to
   `prompt=none`, which Keel never sends) maps to `expired`.
 * **"Confirm it's you" is a real confirmation.** Before, a round trip on a still-open Workeasy360 session
@@ -205,12 +212,12 @@ Nothing about that choice lives in Keel; what it means here:
 * **Access is re-checked after sign-in, per person** (`apps/accounts/workeasy360/entitlement.py`).
   Workeasy360 checks the trial or plan, the membership and the seat at sign-in; Keel's own session then lasts
   up to 14 days. So Keel asks Workeasy360's entitlement API, as the integration guide requires, whether each
-  organization linked to Workeasy360 may still use Easy CRM. A signed-in request asks for the organization
+  organization linked to Workeasy360 may still use WorkEasy CRM. A signed-in request asks for the organization
   **and the person** (`organization_id` + `subject`, the ID token `sub` the person signed in with, kept on the
   session at sign-in so a request costs no query; a session without it looks it up once). Workeasy360 then
   also denies with `membership_inactive` (account disabled or locked, membership suspended or removed) or
   `no_seat` (per-seat product, seat unassigned): a removed member stops working within the window instead of
-  when the session ends, and the app says "Your access to Easy CRM in this organization has ended. Ask an
+  when the session ends, and the app says "Your access to WorkEasy CRM in this organization has ended. Ask an
   administrator in Workeasy360." A Keel-only account in a linked organization has no `sub` and is asked at
   organization level, as background work is - unless `WORKEASY360_SSO_ONLY` is on: Workeasy360 is then the
   only way in, an account without a Workeasy360 identity cannot be asked about, and its request is refused
@@ -223,12 +230,12 @@ Nothing about that choice lives in Keel; what it means here:
   CRM's own `private_key_jwt` credential. Every tenant API request (`RequirePermissions`, after the MFA
   policy) is refused with `403 workeasy360_access_ended` once the answer is `deny`, and every write with
   `workeasy360_read_only` while `write_allowed` is false; API credentials included. The session and sign-out
-  stay reachable, and the app shows one "Easy CRM access has ended" screen (Try again, Sign out). A
+  stay reachable, and the app shows one "WorkEasy CRM access has ended" screen (Try again, Sign out). A
   Workeasy360 outage is never a denial: the last answer stands, with none access continues, and after a
   failure the next attempt waits 60 s. A Keel-only organization is never checked. The worst case after
   access ends is one window (15 minutes).
-  A refusal is not an outage: when Workeasy360 refuses Easy CRM's own client (400/401/403 - a revoked
-  credential, a suspended integration) access is refused too (`workeasy360_access_unverified`, "Easy CRM can't
+  A refusal is not an outage: when Workeasy360 refuses WorkEasy CRM's own client (400/401/403 - a revoked
+  credential, a suspended integration) access is refused too (`workeasy360_access_unverified`, "WorkEasy CRM can't
   confirm your access"), logged as an error, and **client-wide**: for 60 s after one, every question (a person's, an
   organization's, a job's) fails closed without being asked, and a 429 (Workeasy360 limits failed client
   authentications) within 5 minutes of the last refusal counts as a refusal, not an outage (the one question
@@ -287,15 +294,60 @@ Nothing about that choice lives in Keel; what it means here:
 * **No local password for a Workeasy360 account**, even with password sign-in on: setting, changing or
   resetting one is refused (`password_managed_by_workeasy360`) and no reset link is sent. A local password
   would be a second way in that skips Workeasy360's MFA, access policy and membership checks.
-* **Sign-out.** "Sign out of Easy CRM" ends Keel's session only. With
+* **Sign-out.** "Sign out of WorkEasy CRM" ends Keel's session only. With
   `WORKEASY360_POST_LOGOUT_REDIRECT_URI` set (and registered in Workeasy360 as a post-logout URI of the
-  Easy CRM integration), the account menu also offers **Sign out of Easy CRM and Workeasy360**: Keel's
+  WorkEasy CRM integration), the account menu also offers **Sign out of WorkEasy CRM and Workeasy360**: Keel's
   session ends first, then `GET /api/auth/workeasy360/logout` sends the browser to Workeasy360's
   `end_session_endpoint`, which asks the person to confirm and returns them to that URI. Other products'
-  sessions are not ended - no product implements a logout contract Workeasy360 could call.
+  sessions are not ended - no product implements a logout contract Workeasy360 could call. Both sign-outs
+  leave the signed-out marker (below), so neither is followed by an automatic sign-in.
 * **Account switching.** A callback for a different person than the one signed in flushes the session
   (`django_login`), so nothing of the first person's session survives.
 
 | Setting | Default | |
 |---|---|---|
 | `WORKEASY360_POST_LOGOUT_REDIRECT_URI` | — | e.g. `https://crm.workeasy360.com/login`; https in production; exact match with Workeasy360's registration. Empty: only Keel's own sign-out |
+
+## Opening WorkEasy CRM directly (2026-10-12)
+
+Workeasy360 integration guide 6b. A person who is already signed in to Workeasy360 and types WorkEasy CRM's
+address arrives signed in: no WorkEasy CRM sign-in page and no password. Workeasy360 needs no change for this
+(its authorization endpoint already reuses its own session and applies the person's preference).
+
+**Start, don't ask.** When `WORKEASY360_SSO_ONLY` is on, a browser with no WorkEasy CRM session that navigates to
+a page needing a signed-in person goes straight to `/api/auth/workeasy360/start?next=<that page>` (no
+organization hint). It is the client-side `AuthGate` (`frontend/src/components/auth-gate.tsx`) that does it,
+the one place every such page passes through: `GET /api/v1/session/` answers 401, the gate has learned from
+`GET /api/v1/auth/methods/` that the server offers **no password and does offer Workeasy360**
+(`password: false`, `workeasy360: true`), and it replaces the page with the start URL (`location.replace`,
+so the page leaves the history like a server redirect). Meanwhile it shows only "Signing you in with
+Workeasy360..." (one `h1`, no form). That wait has one persistent status region (`role="status"`, visually
+hidden) whose text goes from "Loading" to "Signing you in with Workeasy360..." so screen readers announce it;
+if the browser is still on that page after about 5 seconds the page offers **Continue with Workeasy360** (the
+same start URL) and **Go to the sign-in page**, and if the browser restores the page from its back/forward
+cache the gate decides again (through the loop guard, so normally the sign-in page). `next` is the current path and query through the same validation as
+everywhere (`safe-next`: a same-site path or nothing; a hostile value is dropped, never forwarded). `/`
+redirects to `/pipeline` first, so a direct visit to the root continues to `/pipeline`. What Workeasy360 does
+next depends on the person: it completes silently when it has a session and the preference is Automatic (the
+default), asks first when the preference is "Ask me each time", and shows its central sign-in when it has no
+session. The launcher's `/?organization=<uuid>` entry is unchanged (the middleware still sends it to
+`start` for that organization).
+
+**Never by itself.** The sign-in page, with "Continue with Workeasy360" (**Access WorkEasy CRM**), is shown instead of
+an automatic start when:
+
+| Case | How it works |
+|---|---|
+| The sign-in page itself | It never starts anything, whatever its query, including `/login?sso_error=...` after a refusal. |
+| The person signed out of WorkEasy CRM in this browser | The **signed-out marker**: a session cookie (no `Max-Age`, so every tab sees it and it ends with the browser session) with value `1`, `Path=/`, `SameSite=Lax`, readable by script because it carries no secret. It is named like the CSRF cookie: **`__Host-keel_signed_out`** over https (with `Secure`; the prefix means only this exact host can set it, so a sibling subdomain can neither plant nor shadow it) and **`keel_signed_out`** over http. The marker counts as set if ANY cookie of either name has the value `1` (`document.cookie` can list several; the first is not necessarily ours). `logout()` (`lib/api/allauth.ts`), which both "Sign out of WorkEasy CRM" and "Sign out of WorkEasy CRM and Workeasy360" (and the sign-out buttons of the gate's messages) call, sets it before the request. It stays set when the outcome is unclear (a network error, a 5xx: the session may already be gone) and is taken back only when the server clearly refused (a 4xx other than 401, such as a 403 for a failed CSRF check: the person is still signed in). A successful sign-in clears it under both names: the callback (`SIGNED_OUT_MARKER_COOKIES` in `apps/accounts/workeasy360/views.py`) answers with `Set-Cookie: <name>=; Max-Age=0; Path=/` for each (the `__Host-` one with `Secure`), and a successful password or second-factor sign-in clears it in the browser. While it is set the gate sends a visitor to `/login?next=...`. Starting a sign-in does not clear it; only a sign-in that succeeded does. |
+| The loop guard | This browser tab already started automatically less than 60 seconds ago and still has no session (a dropped cookie, a failure not reported as `sso_error`). `sessionStorage["keel.sso.auto-start"]` holds the time of the last automatic start; within 60 s the gate shows the sign-in page instead. The first resolved session removes the entry (so a sign-in that worked, followed by a later revocation, starts again). If the browser blocks storage the start cannot be remembered, so none is made. |
+
+**Everything else is unchanged.**
+
+* A session that exists but whose access ended keeps its explanation ("WorkEasy CRM access has ended", "Sign in with
+  Workeasy360"): automatic start is only for "no session at all", and nothing replaces a session silently.
+* API calls are never redirected; they answer 401 as before. Only the gate (a page navigation) starts a sign-in.
+* If the methods endpoint cannot be reached, or Workeasy360 sign-in is not configured here, the visitor gets the
+  sign-in page (which falls back to the password form), never a start that cannot work.
+* **Not SSO-only** (password sign-in is also on): unchanged. A visitor without a session goes to
+  `/login?next=<page>`, which offers both ways in (the person may want either).

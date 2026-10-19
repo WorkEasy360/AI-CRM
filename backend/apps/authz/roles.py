@@ -83,6 +83,8 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
                 if p.split(".")[0] in {"contacts", "companies", "deals", "activities", "notes", "files"}
             },
             "pipelines.manage": SCOPE_ALL,
+            "pricebooks.manage": SCOPE_ALL,
+            "views.share": SCOPE_ALL,
             "tags.manage": SCOPE_ALL,
             "dashboards.manage_own": SCOPE_ALL,
             "dashboards.manage_shared": SCOPE_ALL,

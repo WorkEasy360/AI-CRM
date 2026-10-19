@@ -2,18 +2,29 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Building2, CalendarClock, CalendarDays, GripVertical, MoreHorizontal, User } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Building2, CalendarClock, CalendarDays, GripVertical, MoreHorizontal, Pencil, User } from "lucide-react";
 import { isPastClose, weightedTotal } from "@/components/crm/deals/deal-helpers";
 import { useMoveStage, type StageTarget } from "@/components/crm/deals/move-stage-dialog";
 import { RiskBadge } from "@/components/crm/risk-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { Board, BoardStage, DealCard } from "@/lib/api/crm-types";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
+import { getBoardStage, updateDeal } from "@/lib/api/crm";
+import type { Board, BoardStage, DealCard, ListParams } from "@/lib/api/crm-types";
+import { errorMessage, isApiError } from "@/lib/api/problem";
+import { useWindowedList } from "@/lib/use-windowed-list";
 import { formatMoney, stageDotClass } from "@/lib/crm/format";
 import { cn, formatDate } from "@/lib/utils";
 
 const DRAG_MIME = "application/x-keel-deal";
+/** Typical card height (with its gap) for windowing a column; cards vary a little around it. */
+const CARD_HEIGHT = 112;
+const PAGE = 200;
 
 /** Client-side ordering inside each column; "recent" keeps the server order (most recently moved first). */
 export type BoardSort = "recent" | "amount" | "close" | "name";
@@ -59,8 +70,11 @@ export function KanbanBoard({
   showRisk = true,
   isFetching,
   sort = "recent",
+  filters = {},
 }: {
   board: Board;
+  /** The board's filters, re-sent when a column pages in more cards. */
+  filters?: ListParams;
   baseCurrency: string;
   /** Whether the actor holds `deals.change_stage`; the API re-checks per deal. */
   canMove?: boolean;
@@ -70,6 +84,39 @@ export function KanbanBoard({
   sort?: BoardSort;
 }) {
   const [pending, setPending] = React.useState<Record<string, PendingMove>>({});
+  // Cards paged in beyond the first load, per column, and whether each column has still more.
+  const [extra, setExtra] = React.useState<Record<string, DealCard[]>>({});
+  const [more, setMore] = React.useState<Record<string, boolean>>({});
+  const [loadingMore, setLoadingMore] = React.useState<string | null>(null);
+  const [editing, setEditing] = React.useState<DealCard | null>(null);
+  const { toast } = useToast();
+  React.useEffect(() => {
+    setExtra({});
+    setMore({});
+  }, [board]);
+  const merged = React.useMemo<Board>(
+    () => ({
+      ...board,
+      stages: board.stages.map((s) => {
+        const seen = new Set(s.deals.map((d) => d.id));
+        const added = (extra[s.id] ?? []).filter((d) => !seen.has(d.id));
+        return { ...s, deals: [...s.deals, ...added], has_more: s.id in more ? Boolean(more[s.id]) : s.has_more };
+      }),
+    }),
+    [board, extra, more],
+  );
+  const loadMore = async (stage: BoardStage) => {
+    setLoadingMore(stage.id);
+    try {
+      const page = await getBoardStage(stage.id, stage.deals.length, PAGE, filters);
+      setExtra((prev) => ({ ...prev, [stage.id]: [...(prev[stage.id] ?? []), ...page.deals] }));
+      setMore((prev) => ({ ...prev, [stage.id]: page.has_more }));
+    } catch (error) {
+      toast({ tone: "error", title: "Could not load more deals", description: errorMessage(error) });
+    } finally {
+      setLoadingMore(null);
+    }
+  };
   const [dragging, setDragging] = React.useState<string | null>(null);
   const [overStage, setOverStage] = React.useState<string | null>(null);
 
@@ -104,7 +151,7 @@ export function KanbanBoard({
     });
   }, [board]);
 
-  const stages = React.useMemo(() => applyPending(board, pending).map((s) => ({ ...s, deals: sortDeals(s.deals, sort) })), [board, pending, sort]);
+  const stages = React.useMemo(() => applyPending(merged, pending).map((s) => ({ ...s, deals: sortDeals(s.deals, sort) })), [merged, pending, sort]);
   const targets: StageTarget[] = React.useMemo(() => board.stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), [board.stages]);
   const dealsById = React.useMemo(() => {
     const map = new Map<string, DealCard>();
@@ -127,8 +174,15 @@ export function KanbanBoard({
       <ol className="flex h-full min-w-max items-stretch gap-2.5 px-1" aria-label="Pipeline stages">
         {stages.map((stage) => {
           const isOver = overStage === stage.id && dragging !== null;
-          // Weighted total is only meaningful when every card of the column is loaded.
-          const weighted = stage.kind === "open" && !stage.has_more && stage.deals.length > 0 ? weightedTotal(stage.deals) : null;
+          // Server-computed over every deal in the column (null when amounts are hidden from the member).
+          const weighted =
+            stage.kind !== "open" || stage.deal_count === 0
+              ? null
+              : stage.weighted_amount_base !== undefined
+                ? stage.weighted_amount_base
+                : stage.has_more
+                  ? null
+                  : weightedTotal(stage.deals);
           return (
             <li
               key={stage.id}
@@ -154,9 +208,9 @@ export function KanbanBoard({
               }}
               data-testid={`column-${stage.id}`}
             >
+              <span className={cn("-mx-px -mt-px h-[3px] shrink-0 rounded-t-md", stageDotClass(stage.color_token))} aria-hidden />
               <header className="px-2.5 pb-1.5 pt-2">
                 <div className="flex items-center gap-2">
-                  <span className={cn("size-2 shrink-0 rounded-full", stageDotClass(stage.color_token))} aria-hidden />
                   <h3 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-fg" title={stage.name}>
                     {stage.name}
                   </h3>
@@ -164,11 +218,12 @@ export function KanbanBoard({
                     {stage.deal_count}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs font-medium tabular-nums text-fg-muted">{formatMoney(stage.total_amount_base, baseCurrency)}</p>
+                {stage.total_amount_base !== null ? <p className="mt-0.5 text-xs font-medium tabular-nums text-fg-muted">{formatMoney(stage.total_amount_base, baseCurrency)}</p> : null}
                 {weighted !== null ? <p className="text-[12px] tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
               </header>
-              <ul className="flex min-h-20 flex-1 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5" aria-label={`${stage.name} deals`}>
-                {stage.deals.map((deal) => (
+              <ColumnCards
+                stage={stage}
+                render={(deal) => (
                   <DealCard
                     key={deal.id}
                     deal={deal}
@@ -188,21 +243,124 @@ export function KanbanBoard({
                       setOverStage(null);
                     }}
                     onMove={(target) => move.requestMove(deal, target)}
+                    onEdit={() => setEditing(deal)}
                   />
-                ))}
-                {stage.deals.length === 0 ? <li className="py-5 text-center text-xs text-fg-subtle">No deals</li> : null}
-              </ul>
+                )}
+              />
               {stage.has_more ? (
-                <p className="border-t border-border px-2.5 py-1.5 text-[12px] text-fg-subtle">
-                  +{Math.max(stage.deal_count - stage.deals.length, 1)} more in the list view
-                </p>
+                <button
+                  type="button"
+                  className="border-t border-border px-2.5 py-1.5 text-left text-[12px] text-primary hover:underline disabled:text-fg-subtle"
+                  onClick={() => loadMore(stage)}
+                  disabled={loadingMore === stage.id}
+                >
+                  {loadingMore === stage.id ? "Loading…" : `Show ${Math.min(PAGE, Math.max(stage.deal_count - stage.deals.length, 1))} more`}
+                </button>
               ) : null}
             </li>
           );
         })}
       </ol>
       {move.dialog}
+      {editing ? <QuickEditDialog deal={editing} onClose={() => setEditing(null)} /> : null}
     </div>
+  );
+}
+
+/** Display text for a card-layout value (plain value, reference or member). */
+function layoutText(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.map(layoutText).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    const v = value as { name?: string; display_name?: string };
+    return v.name ?? v.display_name ?? "";
+  }
+  return String(value);
+}
+
+/** A column's cards, windowed: a column of hundreds of deals keeps only the visible cards in the DOM. */
+function ColumnCards({ stage, render }: { stage: BoardStage; render: (deal: DealCard) => React.ReactNode }) {
+  const win = useWindowedList({ count: stage.deals.length, itemHeight: CARD_HEIGHT, enabled: stage.deals.length > 40 });
+  return (
+    <ul
+      ref={win.ref as React.RefObject<HTMLUListElement>}
+      className="flex min-h-20 flex-1 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5"
+      aria-label={`${stage.name} deals`}
+    >
+      {win.padTop ? <li aria-hidden style={{ height: win.padTop, flexShrink: 0 }} /> : null}
+      {stage.deals.slice(win.start, win.end).map(render)}
+      {win.padBottom ? <li aria-hidden style={{ height: win.padBottom, flexShrink: 0 }} /> : null}
+      {stage.deals.length === 0 ? <li className="py-5 text-center text-xs text-fg-subtle">No deals</li> : null}
+    </ul>
+  );
+}
+
+/** Inline edit from the card: name, amount and expected close, versioned like any edit. */
+function QuickEditDialog({ deal, onClose }: { deal: DealCard; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [name, setName] = React.useState(deal.name);
+  const [amount, setAmount] = React.useState(deal.amount);
+  const [close, setClose] = React.useState(deal.expected_close_date ?? "");
+  const [busy, setBusy] = React.useState(false);
+  const save = async () => {
+    setBusy(true);
+    const input: { name?: string; amount?: string; expected_close_date?: string | null } = {};
+    if (name.trim() !== deal.name) input.name = name.trim();
+    if (amount !== deal.amount) input.amount = amount;
+    if ((close || null) !== deal.expected_close_date) input.expected_close_date = close || null;
+    try {
+      if (Object.keys(input).length) await updateDeal(deal.id, deal.version, input);
+      await qc.invalidateQueries({ queryKey: ["crm", "deals"] });
+      onClose();
+    } catch (error) {
+      const conflict = isApiError(error) && error.status === 409;
+      toast({ tone: "error", title: conflict ? "This deal changed meanwhile" : "Could not save the deal", description: errorMessage(error) });
+      if (conflict) await qc.invalidateQueries({ queryKey: ["crm", "deals"] });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Edit deal</DialogTitle>
+          <DialogDescription>Changes save straight to the deal.</DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+        >
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="qe-name">Name</Label>
+            <Input id="qe-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={160} required />
+          </div>
+          {deal.amount !== undefined ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="qe-amount">Amount ({deal.currency})</Label>
+              <Input id="qe-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="qe-close">Expected close</Label>
+            <Input id="qe-close" type="date" value={close} onChange={(e) => setClose(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy || !name.trim()}>
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -216,6 +374,7 @@ function DealCard({
   onDragStart,
   onDragEnd,
   onMove,
+  onEdit,
 }: {
   deal: DealCard;
   stages: StageTarget[];
@@ -226,6 +385,7 @@ function DealCard({
   onDragStart: (e: React.DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
   onMove: (stage: StageTarget) => void;
+  onEdit: () => void;
 }) {
   const who = deal.company?.name || deal.primary_contact?.name || "";
   const open = deal.status === "open";
@@ -266,6 +426,10 @@ function DealCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onEdit}>
+                <Pencil /> Edit details…
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>Move to…</DropdownMenuLabel>
               {stages
                 .filter((s) => s.id !== deal.stage.id)
@@ -293,6 +457,19 @@ function DealCard({
           </span>
         ) : null}
       </div>
+      {deal.extra?.length ? (
+        <dl className="mt-1 flex flex-col gap-0.5 text-[12px]">
+          {deal.extra.map((e) => {
+            const text = layoutText(e.value);
+            return text ? (
+              <div key={e.key} className="flex min-w-0 gap-1">
+                <dt className="shrink-0 text-fg-subtle">{e.label}</dt>
+                <dd className="truncate text-fg-muted">{text}</dd>
+              </div>
+            ) : null;
+          })}
+        </dl>
+      ) : null}
       <div className="mt-1 flex items-center justify-between gap-2">
         {deal.next_activity_title ? (
           <span className="inline-flex min-w-0 items-center gap-1 text-[12px] text-fg-muted" title={`Next: ${deal.next_activity_title}`}>

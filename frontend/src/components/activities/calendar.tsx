@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Repeat } from "lucide-react";
 import { formatTime, kindColorClasses, startOfDay, toDateInput } from "@/components/activities/activity-utils";
 import { Button } from "@/components/ui/button";
 import { calendarActivities } from "@/lib/api/crm";
@@ -88,6 +88,7 @@ function EventChip({ activity, onSelect, className, style }: { activity: Activit
     >
       <span className="shrink-0 tabular-nums">{activity.all_day ? "" : formatTime(activity.start_at)}</span>
       <span className="truncate font-medium">{activity.title}</span>
+      {activity.recurrence ? <Repeat className="size-3 shrink-0 self-center" aria-label="Repeats" /> : null}
     </button>
   );
 }
@@ -219,12 +220,12 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
                   type="button"
                   onClick={() => (onCreate && list.length === 0 ? onCreate(`${toDateInput(day)}T09:00`) : openDay(day))}
                   aria-label={`${day.toDateString()}${list.length ? `, ${list.length} activities` : onCreate ? ", schedule here" : ""}`}
-                  className={cn("inline-flex size-5 items-center justify-center self-start rounded-full tabular-nums hover:bg-bg-subtle", isToday && "bg-primary font-semibold text-primary-fg hover:bg-primary-hover")}
+                  className={cn("inline-flex size-5 items-center justify-center self-start rounded-full tabular-nums hover:bg-bg-subtle", isToday && "bg-brand font-semibold text-brand-fg hover:bg-brand-hover")}
                 >
                   {day.getDate()}
                 </button>
                 {list.slice(0, MAX_MONTH_CHIPS).map((a) => (
-                  <EventChip key={a.id} activity={a} onSelect={onSelect} />
+                  <EventChip key={a.occurrence_key ?? a.id} activity={a} onSelect={onSelect} />
                 ))}
                 {extra > 0 ? (
                   <button type="button" onClick={() => openDay(day)} className="self-start px-1 text-[12px] font-medium text-fg-muted hover:text-fg">
@@ -242,7 +243,7 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
             {days.map((day) => (
               <div key={day.toISOString()} role="columnheader" className="sticky top-0 z-10 border-b border-l border-border bg-surface px-2 py-1 text-xs">
                 <span className="text-fg-subtle">{new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(day)}</span>{" "}
-                <span className={cn("font-semibold tabular-nums", sameDay(day, today) && "rounded-full bg-primary px-1.5 text-primary-fg")}>{day.getDate()}</span>
+                <span className={cn("font-semibold tabular-nums", sameDay(day, today) && "rounded-full bg-brand px-1.5 text-brand-fg")}>{day.getDate()}</span>
               </div>
             ))}
             {/* all-day row */}
@@ -252,7 +253,7 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
               return (
                 <div key={`allday-${day.toISOString()}`} role="gridcell" className="flex min-h-6 flex-col gap-0.5 border-b border-l border-border p-0.5">
                   {list.map((a) => (
-                    <EventChip key={a.id} activity={a} onSelect={onSelect} />
+                    <EventChip key={a.occurrence_key ?? a.id} activity={a} onSelect={onSelect} />
                   ))}
                 </div>
               );
@@ -284,7 +285,7 @@ export function Calendar({ onSelect, onCreate }: { onSelect: (activity: Activity
                     const height = Math.max(22, Math.min(minutes / 60, LAST_HOUR + 1 - startHour) * ROW_PX);
                     return (
                       <EventChip
-                        key={a.id}
+                        key={a.occurrence_key ?? a.id}
                         activity={a}
                         onSelect={onSelect}
                         className="absolute left-0.5 right-0.5 items-start"

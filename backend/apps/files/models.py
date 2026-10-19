@@ -6,7 +6,7 @@ from django.db import models
 
 from apps.core.models import TenantModel
 
-FILE_ENTITY_TYPES = ("contact", "company", "deal", "product")
+FILE_ENTITY_TYPES = ("contact", "company", "deal", "product", "activity")
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_FILES_PER_RECORD = 25

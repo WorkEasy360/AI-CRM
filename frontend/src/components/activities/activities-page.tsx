@@ -7,6 +7,7 @@ import { CalendarDays, ChevronDown, ListTodo, Phone, PhoneIncoming, Plus } from 
 import { ActivityList } from "@/components/activities/activity-list";
 import { KIND_LABELS } from "@/components/activities/activity-utils";
 import { Calendar } from "@/components/activities/calendar";
+import { MyDay } from "@/components/activities/my-day";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -25,9 +26,17 @@ import { cn } from "@/lib/utils";
 // Rendered only while creating or editing; its form code loads at that moment.
 const ActivityFormDialog = dynamic(() => import("@/components/activities/activity-form-dialog").then((m) => m.ActivityFormDialog), { ssr: false });
 
-const TABS = ["calendar", "tasks", "meetings", "calls"] as const;
+const TABS = ["calendar", "day", "tasks", "meetings", "calls"] as const;
 type Tab = (typeof TABS)[number];
-const TAB_KIND: Record<Exclude<Tab, "calendar">, ActivityKind> = { tasks: "task", meetings: "meeting", calls: "call" };
+type ListTab = Exclude<Tab, "calendar" | "day">;
+const TAB_KIND: Record<ListTab, ActivityKind> = { tasks: "task", meetings: "meeting", calls: "call" };
+const TAB_LABELS: Partial<Record<Tab, string>> = { day: "my day" };
+
+function tabKind(tab: Tab): ActivityKind {
+  if (tab === "calendar") return "meeting";
+  if (tab === "day") return "task";
+  return TAB_KIND[tab];
+}
 const URL_KEYS = ["tab", "view", "q", "due", "sort", "new", "kind", "open"] as const;
 
 function tabOf(value: string | undefined): Tab {
@@ -77,12 +86,13 @@ function SummaryChips({ onPick }: { onPick: (tab: Tab, due?: string) => void }) 
 }
 
 /**
- * Activities: Calendar | Tasks | Meetings | Calls. The tab and list filters live in the URL;
+ * Activities: Calendar | My day | Tasks | Meetings | Calls. The tab and list filters live in the URL;
  * `?new=1&kind=…` opens the create dialog and `?open=<id>` opens an activity for editing.
  */
 export function ActivitiesPage() {
   const { data: session } = useSession();
   const canCreate = can(session?.active, "activities.create");
+  const canBulk = can(session?.active, "activities.bulk_update");
   const { params, setParam, setParams } = useListParams(URL_KEYS);
   const tab = tabOf(params.tab);
   const { toast } = useToast();
@@ -92,7 +102,7 @@ export function ActivitiesPage() {
   // ?new=1&kind=task|call|meeting (from the sidebar "+ New" menu)
   React.useEffect(() => {
     if (params.new !== "1") return;
-    const kind = kindOf(params.kind) ?? (tab === "calendar" ? "meeting" : TAB_KIND[tab]);
+    const kind = kindOf(params.kind) ?? tabKind(tab);
     if (canCreate) setCreating({ kind, mode: "schedule" });
     setParams({ new: undefined, kind: undefined });
   }, [params.new, params.kind, tab, canCreate, setParams]);
@@ -111,7 +121,7 @@ export function ActivitiesPage() {
     }
   }, [openId, opened.data, opened.isError, opened.error, setParam, toast]);
 
-  const defaultKind: ActivityKind = tab === "calendar" ? "meeting" : TAB_KIND[tab];
+  const defaultKind: ActivityKind = tabKind(tab);
   const startCreate = (kind: ActivityKind, mode: "schedule" | "log" = "schedule") => setCreating({ kind, mode });
 
   return (
@@ -127,7 +137,7 @@ export function ActivitiesPage() {
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" aria-label="More ways to add" className="rounded-l-none border-l border-primary-fg/20 px-2">
+                  <Button size="sm" aria-label="More ways to add" className="rounded-l-none border-l border-brand-fg/20 px-2">
                     <ChevronDown />
                   </Button>
                 </DropdownMenuTrigger>
@@ -155,18 +165,25 @@ export function ActivitiesPage() {
         <TabsList aria-label="Activity views" className="h-8 w-fit">
           {TABS.map((t) => (
             <TabsTrigger key={t} value={t} className="h-6 px-2.5 text-xs capitalize">
-              {t}
+              {TAB_LABELS[t] ?? t}
             </TabsTrigger>
           ))}
         </TabsList>
         <TabsContent value="calendar" className="mt-3 flex min-h-0 flex-1 flex-col">
           {tab === "calendar" ? (
-            <Calendar onSelect={setEditing} onCreate={canCreate ? (start_at) => setCreating({ kind: "meeting", mode: "schedule", start_at }) : undefined} />
+            <Calendar
+              // A repeating event's occurrence opens the event itself, so saving never moves the series.
+              onSelect={(a) => (a.occurrence_of ? setParam("open", a.occurrence_of) : setEditing(a))}
+              onCreate={canCreate ? (start_at) => setCreating({ kind: "meeting", mode: "schedule", start_at }) : undefined}
+            />
           ) : null}
+        </TabsContent>
+        <TabsContent value="day" className="mt-3">
+          {tab === "day" ? <MyDay onCreate={canCreate ? () => startCreate("task") : undefined} /> : null}
         </TabsContent>
         {(["tasks", "meetings", "calls"] as const).map((key) => (
           <TabsContent key={key} value={key} className="mt-3">
-            {tab === key ? <ActivityList kind={TAB_KIND[key]} params={params} setParam={setParam} setParams={setParams} canCreate={canCreate} onCreate={startCreate} /> : null}
+            {tab === key ? <ActivityList kind={TAB_KIND[key]} params={params} setParam={setParam} setParams={setParams} canCreate={canCreate} canBulk={canBulk} onCreate={startCreate} /> : null}
           </TabsContent>
         ))}
       </Tabs>

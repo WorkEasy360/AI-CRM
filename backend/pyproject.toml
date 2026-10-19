@@ -25,6 +25,7 @@ dependencies = [
     "cryptography>=45",
     # PyJWT: signs the private_key_jwt client assertion and verifies Workeasy360 ID tokens (docs/workeasy360-sso.md).
     "pyjwt>=2.15",
+    "openpyxl>=3.1",
 ]
 
 [dependency-groups]
@@ -80,7 +81,7 @@ module = ["apps.core.tenancy.*", "apps.authz.service", "apps.authz.catalogue", "
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["allauth.*", "django_celery_beat.*", "django_redis.*", "environ.*", "csp.*", "celery.*", "boto3.*", "botocore.*", "redis.*", "anthropic.*"]
+module = ["allauth.*", "django_celery_beat.*", "django_redis.*", "environ.*", "csp.*", "celery.*", "boto3.*", "botocore.*", "redis.*", "anthropic.*", "openpyxl.*", "dateutil.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]

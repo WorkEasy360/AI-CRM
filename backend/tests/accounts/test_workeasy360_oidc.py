@@ -140,6 +140,42 @@ def test_id_token_checks(provider, overrides, fragment):
     assert fragment in exc.value.detail.lower()
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"azp": "another-client"},
+        {"azp": ""},
+        {"azp": ["keel-test-client"]},
+        {"aud": [fake.CLIENT_ID, "another-client"]},
+        {"aud": [fake.CLIENT_ID, "another-client"], "azp": "another-client"},
+        {"aud": ["another-client", fake.CLIENT_ID]},
+        {"aud": [fake.CLIENT_ID, fake.CLIENT_ID]},
+    ],
+)
+def test_a_token_issued_to_another_client_is_refused(provider, overrides):
+    """aud must be exactly this client, or (several audiences) azp must be this client; azp, if present, is us."""
+    token = provider.id_token(nonce="n", **overrides)
+    with pytest.raises(SSOError) as exc:
+        _client(provider).verify_id_token(token, nonce="n")
+    assert exc.value.code == "invalid_token"
+    assert "azp" in exc.value.detail or "aud" in exc.value.detail
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {},
+        {"azp": fake.CLIENT_ID},
+        {"aud": [fake.CLIENT_ID]},
+        {"aud": [fake.CLIENT_ID], "azp": fake.CLIENT_ID},
+        {"aud": [fake.CLIENT_ID, "another-client"], "azp": fake.CLIENT_ID},
+    ],
+)
+def test_a_token_issued_to_this_client_is_accepted(provider, overrides):
+    claims = _client(provider).verify_id_token(provider.id_token(nonce="n", **overrides), nonce="n")
+    assert claims["sub"] == "w360-user-1"
+
+
 def test_expiry_within_leeway_is_accepted(provider):
     now = int(time.time())
     token = provider.id_token(nonce="n", exp=now - 10, iat=now - 300)

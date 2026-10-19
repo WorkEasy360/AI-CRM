@@ -3,7 +3,7 @@
 **Status:** Accepted (2026-10-12)
 
 ## Context
-Keel ships inside the Workeasy360 ecosystem as **Easy CRM** (product code `easy_crm`). The product owner
+Keel ships inside the Workeasy360 ecosystem as **WorkEasy CRM** (product code `easy_crm`). The product owner
 decided that every Workeasy360 product signs in with the same credentials as the Workeasy360 account,
 and that Workeasy360 becomes the only sign-in. Workeasy360 is an OpenID Provider with a published
 product integration contract: authorization code + PKCE, `private_key_jwt` client authentication,
@@ -37,6 +37,11 @@ existing session, allauth authentication records, login signal, audit and MFA ma
 - `WORKEASY360_SSO_ONLY` (default on; off in development and tests) closes every allauth way in
   (password, sign-up, passkey, password reset), invitation sign-up and self-service organization
   creation. Production refuses to start when it is on and Workeasy360 is not configured.
+- With it on, opening the product directly signs a person who is already signed in to Workeasy360 in without
+  showing the sign-in page (integration guide 6b): the client-side route guard starts the flow itself instead of
+  redirecting to `/login`. It never does so on the sign-in page, after a sign-out of WorkEasy CRM (a session-cookie
+  marker, cleared by the next sign-in), or within 60 seconds of a previous automatic start that left no session.
+  Session-less API calls still answer 401, and a session whose access ended keeps its explanation.
 
 ## Consequences
 - Keel's availability for *new* sign-ins depends on Workeasy360; existing sessions do not.

@@ -36,6 +36,9 @@ NOTICES = {
     "user_quota": (
         "You have reached your AI limit for this hour. The information above was retrieved directly from your CRM."
     ),
+    "plan": (
+        "AI answers are part of the Premier and 360 plans. The information above was retrieved directly from your CRM."
+    ),
     "org_quota": (
         "This workspace has used its AI budget for today. The information above was retrieved directly from your CRM."
     ),

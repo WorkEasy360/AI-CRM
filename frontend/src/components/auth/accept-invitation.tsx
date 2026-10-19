@@ -170,7 +170,7 @@ function CreateAccountForm({
   if (accountExists) {
     return (
       <div className="grid gap-3">
-        <FormError message={`${invitation.email} already has a Keel account. Sign in to accept the invitation.`} />
+        <FormError message={`${invitation.email} already has a WorkEasy CRM account. Sign in to accept the invitation.`} />
         <Button asChild className="w-full">
           <Link href={signInHref}>Sign in to accept</Link>
         </Button>
@@ -201,7 +201,7 @@ function CreateAccountForm({
         Create account and join
       </Button>
       <p className="text-center text-sm text-fg-muted">
-        Already have a Keel account?{" "}
+        Already have a WorkEasy CRM account?{" "}
         <Link href={signInHref} className="font-medium text-primary hover:underline">
           Sign in
         </Link>

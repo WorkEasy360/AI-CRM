@@ -104,8 +104,14 @@ app = [
     f"CSRF_TRUSTED_ORIGINS=https://{host}",
     f"FRONTEND_ORIGIN=https://{host}",
 ]
-# Optional settings: absent means "feature not configured", never a weaker default.
-for key in ("EMAIL_URL", "DEFAULT_FROM_EMAIL", "ANTHROPIC_API_KEY", "SECURE_HSTS_SECONDS", "LOG_LEVEL"):
+# Optional settings: absent means "feature not configured", never a weaker default. WORKEASY360_SSO_ONLY
+# defaults to on in config/settings/prod.py, which refuses to start until Workeasy360 sign-in is configured
+# or the parameter explicitly says false. WORKEASY360_PRIVATE_KEY must be one line with literal \n escapes.
+for key in ("EMAIL_URL", "DEFAULT_FROM_EMAIL", "ANTHROPIC_API_KEY", "SECURE_HSTS_SECONDS", "LOG_LEVEL",
+            "WORKEASY360_ISSUER", "WORKEASY360_CLIENT_ID", "WORKEASY360_REDIRECT_URI", "WORKEASY360_KEY_ID",
+            "WORKEASY360_PRIVATE_KEY", "WORKEASY360_PRODUCT_CODE", "WORKEASY360_DEFAULT_ROLE",
+            "WORKEASY360_SSO_ONLY", "WORKEASY360_POST_LOGOUT_REDIRECT_URI", "WORKEASY360_SCOPES",
+            "BILLING_ENABLED", "BILLING_SELF_SERVICE", "BILLING_DEFAULT_EDITION"):
     if p.get(key):
         app.append(f"{key}={p[key]}")
 write(f"{etc}/keel.env", app)
