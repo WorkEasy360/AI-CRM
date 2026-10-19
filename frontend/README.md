@@ -78,7 +78,7 @@ Everything is pinned to exact versions; `pnpm-lock.yaml` is committed. `.npmrc` 
 - `GET /api/v1/session/` is mounted first on every page tree (auth pages via `CsrfBootstrap`, app pages via `AuthGate`) so the CSRF cookie is set before any POST.
 - Errors are RFC 9457 problem details, normalised by `parseProblem` (allauth's `{status, errors[]}` envelope and DRF `{detail}` bodies are mapped to the same shape). `ApiError` exposes `isReauthRequired`, `isNotAuthenticated`, `fieldErrors()`.
 - `reauth_required` (403) — any mutation wrapped in `useReauth().runSensitive(...)` opens a password dialog, calls `POST /_allauth/browser/v1/auth/reauthenticate`, then retries the original call once. allauth's own "401 + pending `reauthenticate` flow" is mapped to the same problem type.
-- `not_authenticated` (401/403) — inside the app shell a handler redirects to `/login?next=<path>`; the auth pages register no handler so they can probe the session freely.
+- `not_authenticated` (401/403) — inside the app shell a handler redirects to `/login?next=<path>` (or, when Workeasy360 is the only sign-in, starts it for that path); the auth pages register no handler so they can probe the session freely.
 - The `next` parameter is only honoured when `isSafeNextPath` accepts it: a string starting with exactly one `/`, no `//`, no backslashes, no whitespace/control characters, no scheme, no encoded leading slashes; auth routes are never used as a target.
 
 ## Security notes
@@ -92,7 +92,7 @@ Everything is pinned to exact versions; `pnpm-lock.yaml` is committed. `.npmrc` 
 
 ### Client-side session gating (known limitation)
 
-Protected routes are gated **client-side** in `src/components/auth-gate.tsx`. The Django session cookie is only visible to the browser and to Django behind the same-origin rewrite; the Next.js server never sees it, so it cannot verify the session during server rendering. The `(app)` layout therefore renders a skeleton until `GET /api/v1/session/` resolves, then redirects to `/login?next=…` (unauthenticated) or calls `POST /api/v1/session/bootstrap/` (no active organisation: the server creates the personal workspace and activates a membership, so there is no onboarding wizard). True server-side gating arrives with the shared-origin reverse proxy in staging, when Next.js route handlers/middleware can forward the cookie to the backend.
+Protected routes are gated **client-side** in `src/components/auth-gate.tsx`. The Django session cookie is only visible to the browser and to Django behind the same-origin rewrite; the Next.js server never sees it, so it cannot verify the session during server rendering. The `(app)` layout therefore renders a skeleton until `GET /api/v1/session/` resolves, then redirects to `/login?next=…` (unauthenticated; when Workeasy360 is the only sign-in it starts the Workeasy360 sign-in for the requested page instead, see `docs/workeasy360-sso.md`, "Opening WorkEasy CRM directly") or calls `POST /api/v1/session/bootstrap/` (no active organisation: the server creates the personal workspace and activates a membership, so there is no onboarding wizard). True server-side gating arrives with the shared-origin reverse proxy in staging, when Next.js route handlers/middleware can forward the cookie to the backend.
 
 ## Docker
 

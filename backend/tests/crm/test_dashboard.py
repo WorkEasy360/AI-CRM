@@ -25,17 +25,22 @@ def _seed(crm, org, owner=None):
     crm.make_contact(org, owner=owner)
     crm.make_deal(org, owner=owner, company=company, amount="1000.00", amount_base="1000.00")
     crm.make_deal(
-        org, owner=owner, company=other, stage=stage_named(pipeline, "Proposal"), amount="250.00", amount_base="250.00"
+        org,
+        owner=owner,
+        company=other,
+        stage=stage_named(pipeline, "Proposal sent"),
+        amount="250.00",
+        amount_base="250.00",
     )
     won = crm.make_deal(
         org,
         owner=owner,
         company=company,
-        stage=stage_named(pipeline, "Closed won"),
+        stage=stage_named(pipeline, "Won"),
         amount="5000.00",
         amount_base="5000.00",
     )
-    crm.make_deal(org, owner=owner, stage=stage_named(pipeline, "Closed lost"), amount="700.00", amount_base="700.00")
+    crm.make_deal(org, owner=owner, stage=stage_named(pipeline, "Lost"), amount="700.00", amount_base="700.00")
     return pipeline, company, won
 
 
@@ -55,11 +60,11 @@ def test_owner_sees_organization_wide_numbers(org_a, owner_client, crm):
     by_stage = data["deals_by_stage"]
     assert by_stage["pipeline"]["id"] == str(pipeline.pk)
     counts = {s["name"]: (s["count"], s["amount"]) for s in by_stage["stages"]}
-    assert counts["Qualification"] == (1, "1000.00")
-    assert counts["Proposal"] == (1, "250.00")
-    assert counts["Closed won"] == (1, "5000.00")
-    assert counts["Closed lost"] == (1, "700.00")
-    assert counts["Negotiation"] == (0, "0.00")
+    assert counts["Discovery"] == (1, "1000.00")
+    assert counts["Proposal sent"] == (1, "250.00")
+    assert counts["Won"] == (1, "5000.00")
+    assert counts["Lost"] == (1, "700.00")
+    assert counts["Terms agreed"] == (0, "0.00")
 
     trend = data["revenue_trend"]
     assert len(trend) == 6

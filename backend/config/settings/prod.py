@@ -1,5 +1,7 @@
 """Production settings. The process refuses to start if any hardening requirement is missing."""
 
+from pathlib import Path
+
 from config.settings.base import *  # noqa: F403
 from config.settings.base import (
     ALLOWED_HOSTS,
@@ -10,6 +12,15 @@ from config.settings.base import (
     PRIVATE_STORAGE_BACKEND,
     PRIVATE_STORAGE_BUCKET,
     SECRET_KEY,
+    WORKEASY360_CLIENT_ID,
+    WORKEASY360_ISSUER,
+    WORKEASY360_KEY_ID,
+    WORKEASY360_POST_LOGOUT_REDIRECT_URI,
+    WORKEASY360_PRIVATE_KEY,
+    WORKEASY360_PRIVATE_KEY_FILE,
+    WORKEASY360_PRODUCT_CODE,
+    WORKEASY360_REDIRECT_URI,
+    WORKEASY360_SSO_ONLY,
     env,
 )
 from security.logging import configure_logging
@@ -33,6 +44,31 @@ if env.bool("AUTO_LOGIN_ENABLED", default=False):
 if PRIVATE_STORAGE_BACKEND == "filesystem" and not env.bool("ALLOW_LOCAL_PRIVATE_STORAGE", default=False):
     # A second instance or a redeploy would lose in-flight imports/exports on a container filesystem.
     raise RuntimeError("PRIVATE_STORAGE_BACKEND=filesystem is single-instance only; use s3 in production.")
+
+_workeasy360_configured = bool(
+    WORKEASY360_ISSUER
+    and WORKEASY360_CLIENT_ID
+    and WORKEASY360_REDIRECT_URI
+    and WORKEASY360_KEY_ID
+    and (WORKEASY360_PRIVATE_KEY or WORKEASY360_PRIVATE_KEY_FILE)
+)
+if WORKEASY360_SSO_ONLY and not _workeasy360_configured:
+    # Password sign-in is off, so without Workeasy360 nobody could sign in at all.
+    raise RuntimeError(
+        "WORKEASY360_SSO_ONLY is on but Workeasy360 sign-in is not configured: set WORKEASY360_ISSUER, "
+        "WORKEASY360_CLIENT_ID, WORKEASY360_REDIRECT_URI, WORKEASY360_KEY_ID and WORKEASY360_PRIVATE_KEY "
+        "(or WORKEASY360_PRIVATE_KEY_FILE), or set WORKEASY360_SSO_ONLY=false."
+    )
+if _workeasy360_configured:
+    if not WORKEASY360_PRODUCT_CODE.strip():
+        # An empty code would switch off the check that an ID token names this product.
+        raise RuntimeError("WORKEASY360_PRODUCT_CODE must not be empty when Workeasy360 sign-in is configured.")
+    if not WORKEASY360_ISSUER.startswith("https://") or not WORKEASY360_REDIRECT_URI.startswith("https://"):
+        raise RuntimeError("WORKEASY360_ISSUER and WORKEASY360_REDIRECT_URI must be https:// in production.")
+    if WORKEASY360_PRIVATE_KEY_FILE and not Path(WORKEASY360_PRIVATE_KEY_FILE).is_file():
+        raise RuntimeError("WORKEASY360_PRIVATE_KEY_FILE does not name a readable file.")
+    if WORKEASY360_POST_LOGOUT_REDIRECT_URI and not WORKEASY360_POST_LOGOUT_REDIRECT_URI.startswith("https://"):
+        raise RuntimeError("WORKEASY360_POST_LOGOUT_REDIRECT_URI must be https:// in production.")
 
 AUTO_LOGIN_ENABLED = False
 
@@ -64,3 +100,8 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = False
 
 LOGGING = configure_logging(json_output=True, level=env("LOG_LEVEL", default="INFO"))
+
+# No payment provider is wired yet: production keeps the full product for every tenant and plan changes
+# go through support, so nobody can self-upgrade without paying. Flip both once checkout exists.
+BILLING_ENABLED = env.bool("BILLING_ENABLED", default=False)
+BILLING_SELF_SERVICE = env.bool("BILLING_SELF_SERVICE", default=False)

@@ -7,10 +7,24 @@ time by ``apps.authz.roles`` and at runtime by ``apps.authz.service``.
 from __future__ import annotations
 
 SCOPE_OWN = "own"
+# Own records plus those owned by members whose hierarchy role sits below the actor's (apps.authz.hierarchy).
+SCOPE_SUBORDINATES = "subordinates"
 SCOPE_TEAM = "team"
 SCOPE_ALL = "all"
-SCOPES: tuple[str, ...] = (SCOPE_OWN, SCOPE_TEAM, SCOPE_ALL)
-SCOPE_RANK = {SCOPE_OWN: 0, SCOPE_TEAM: 1, SCOPE_ALL: 2}
+SCOPES: tuple[str, ...] = (SCOPE_OWN, SCOPE_SUBORDINATES, SCOPE_TEAM, SCOPE_ALL)
+SCOPE_RANK = {SCOPE_OWN: 0, SCOPE_SUBORDINATES: 1, SCOPE_TEAM: 1, SCOPE_ALL: 2}
+
+
+def scope_covers(granted: str | None, requested: str) -> bool:
+    """Whether holding ``granted`` includes everything ``requested`` reaches.
+
+    "subordinates" and "team" reach different people, so neither covers the other; only "all" covers both.
+    """
+    if granted is None:
+        return False
+    if granted in (requested, SCOPE_ALL):
+        return True
+    return requested == SCOPE_OWN
 
 
 def _crud(module: str, *extra: str) -> list[str]:
@@ -43,13 +57,17 @@ PERMISSIONS: frozenset[str] = frozenset(
         *_crud("deals", "change_stage", "reassign", "export", "import", "bulk_update"),
         "pipelines.view",
         "pipelines.manage",
+        # price books are organization-wide price lists (Milestone 2)
+        "pricebooks.manage",
+        # saved views: everyone saves private views; sharing one with others is separate
+        "views.share",
         "customfields.view",
         "customfields.manage",
         "tags.view",
         "tags.manage",
         "notes.view",
         # sales operations (Phase 3)
-        *_crud("activities"),
+        *_crud("activities", "bulk_update"),
         "notes.create",
         "notes.update",
         "notes.delete",

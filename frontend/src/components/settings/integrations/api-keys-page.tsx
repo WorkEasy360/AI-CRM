@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, KeyRound, Plus } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { CodeBlock, SecretRevealDialog, type SecretReveal } from "@/components/settings/integrations/secret-reveal-dialog";
@@ -123,7 +124,7 @@ export function ApiKeysPage() {
       {backLink}
       <PageHeader
         title="API keys"
-        description="Keys let external software use the Keel API with only the permissions you grant. A key can never do more than the member who created it."
+        description="Keys let external software use the WorkEasy CRM API with only the permissions you grant. A key can never do more than the member who created it."
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>

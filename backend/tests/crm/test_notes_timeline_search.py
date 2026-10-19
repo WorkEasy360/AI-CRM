@@ -66,7 +66,7 @@ def test_timeline_merges_events(org_a, owner_client, crm):
     )
     owner_client.post(
         f"/api/v1/deals/{deal.pk}/stage/",
-        {"stage_id": str(crm.stage_named(pipeline, "Proposal").pk), "version": 1},
+        {"stage_id": str(crm.stage_named(pipeline, "Proposal sent").pk), "version": 1},
         format="json",
     )
     resp = owner_client.get(f"/api/v1/timeline/?entity_type=deal&entity_id={deal.pk}")

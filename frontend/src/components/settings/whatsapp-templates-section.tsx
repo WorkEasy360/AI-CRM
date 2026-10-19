@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileText, Plus, Trash2 } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { countTemplateParams } from "@/components/messaging/whatsapp-template-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
 import { logout } from "@/lib/api/allauth";
+import { useAuthMethods, WORKEASY360_SIGN_OUT_URL } from "@/lib/auth-methods";
 import { switchOrganization } from "@/lib/api/endpoints";
 import { errorMessage } from "@/lib/api/problem";
 import type { Session } from "@/lib/api/types";
+import { navigateExternal } from "@/lib/external-navigation";
 import { DEFAULT_NEXT } from "@/lib/safe-next";
 import { useTheme, type ThemePreference } from "@/lib/theme";
 
@@ -38,11 +40,25 @@ export function UserMenu({ session }: { session: Session }) {
   const name = session.user.display_name || session.user.email;
   const switchable = session.memberships.filter((m) => m.status === "active");
 
+  const methods = useAuthMethods();
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: () => {
       queryClient.clear();
       router.replace("/login");
+    },
+    onError: (error) => toast({ tone: "error", title: "Sign out failed", description: errorMessage(error) }),
+  });
+  // "Sign out of WorkEasy CRM and Workeasy360": Keel's own session ends first (a CSRF-protected write),
+  // then the browser goes to Workeasy360, which asks before signing anyone out of it. Both sign-outs
+  // leave the signed-out marker (logout() sets it), so neither ends in an automatic sign-in.
+  const offerWorkeasy360SignOut =
+    session.identity_provider === "workeasy360" && Boolean(methods.data?.workeasy360_sign_out);
+  const everywhereMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.clear();
+      navigateExternal(WORKEASY360_SIGN_OUT_URL);
     },
     onError: (error) => toast({ tone: "error", title: "Sign out failed", description: errorMessage(error) }),
   });
@@ -115,8 +131,13 @@ export function UserMenu({ session }: { session: Session }) {
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
-          <LogOut /> Sign out
+          <LogOut /> {offerWorkeasy360SignOut ? "Sign out of WorkEasy CRM" : "Sign out"}
         </DropdownMenuItem>
+        {offerWorkeasy360SignOut ? (
+          <DropdownMenuItem onSelect={() => everywhereMutation.mutate()} disabled={everywhereMutation.isPending}>
+            <LogOut /> Sign out of WorkEasy CRM and Workeasy360
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

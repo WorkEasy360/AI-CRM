@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 

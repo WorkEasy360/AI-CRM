@@ -85,13 +85,19 @@ def _on_record_changed(event: domain_events.RecordChanged) -> None:
         return
     if event.entity_type not in {t for _, t in _ENTITY_MODELS}:
         return
+    from apps.rag.sources import SOURCES
+
+    # Only an entity that is itself a knowledge source is re-indexed (deals). Contacts and companies are
+    # not sources: queueing them only produced index jobs that failed with "unknown source type".
+    reindex = event.entity_type in SOURCES
     for entity_id in event.entity_ids:
-        events.enqueue(
-            organization_id=event.organization_id,
-            source_type=event.entity_type,
-            source_id=entity_id,
-            operation=IndexEvent.Operation.UPSERT,
-        )
+        if reindex:
+            events.enqueue(
+                organization_id=event.organization_id,
+                source_type=event.entity_type,
+                source_id=entity_id,
+                operation=IndexEvent.Operation.UPSERT,
+            )
         if event.owner_changed:
             events.refresh_entity_owner(
                 organization_id=event.organization_id,

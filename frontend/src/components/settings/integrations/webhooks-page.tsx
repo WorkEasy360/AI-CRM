@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, History, MoreHorizontal, Pause, Play, Plus, RotateCw, Send, Trash2, Webhook } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { DeliveriesTable } from "@/components/settings/integrations/deliveries-table";
@@ -128,7 +129,7 @@ export function WebhooksPage() {
       revealSecret(
         `New signing secret for ${subscription.name}`,
         secret,
-        "Copy the secret now; it will not be shown again. For the next 24 hours Keel signs with both the new and the previous secret, so switch the receiver over within that time.",
+        "Copy the secret now; it will not be shown again. For the next 24 hours WorkEasy CRM signs with both the new and the previous secret, so switch the receiver over within that time.",
       );
       return subscription;
     },
@@ -169,7 +170,7 @@ export function WebhooksPage() {
       {backLink}
       <PageHeader
         title="Webhooks"
-        description="Keel sends a signed HTTPS request to your endpoint when the selected events happen."
+        description="WorkEasy CRM sends a signed HTTPS request to your endpoint when the selected events happen."
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>
@@ -192,7 +193,7 @@ export function WebhooksPage() {
           }
         />
       ) : webhooks.items.length === 0 ? (
-        <EmptyState icon={<Webhook />} title="No webhooks yet" description="Add a webhook to notify another system when records change in Keel." />
+        <EmptyState icon={<Webhook />} title="No webhooks yet" description="Add a webhook to notify another system when records change in WorkEasy CRM." />
       ) : (
         <Table>
           <TableHeader>
@@ -289,7 +290,7 @@ export function WebhooksPage() {
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title={`Delete ${deleteTarget?.name ?? "this webhook"}?`}
-        description="Keel stops sending events to this endpoint immediately. This cannot be undone."
+        description="WorkEasy CRM stops sending events to this endpoint immediately. This cannot be undone."
         confirmLabel="Delete"
         destructive
         loading={remove.isPending}
@@ -365,7 +366,7 @@ export function CreateWebhookDialog({
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
           <DialogHeader>
             <DialogTitle>Add webhook</DialogTitle>
-            <DialogDescription>Keel signs every request so the receiving system can verify it came from Keel.</DialogDescription>
+            <DialogDescription>WorkEasy CRM signs every request so the receiving system can verify it came from WorkEasy CRM.</DialogDescription>
           </DialogHeader>
           <FormError message={general || null} />
           <FormField control={form.control} name="name" label="Name" required serverError={fieldErrors.name}>

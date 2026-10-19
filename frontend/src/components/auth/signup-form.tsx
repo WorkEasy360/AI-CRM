@@ -8,12 +8,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MailCheck } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { AuthHeading } from "@/components/auth/auth-heading";
 import { Button } from "@/components/ui/button";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { signup } from "@/lib/api/allauth";
 import { errorMessage, isApiError } from "@/lib/api/problem";
+import { useAuthMethods } from "@/lib/auth-methods";
 import { DEFAULT_NEXT } from "@/lib/safe-next";
 import { queryKeys } from "@/lib/session";
 import { emailSchema, nameSchema, PASSWORD_HINT, passwordSchema } from "@/lib/validation";
@@ -35,6 +37,11 @@ export function SignupForm() {
   const [done, setDone] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+  // Accounts come from Workeasy360 when password sign-in is off; the server refuses sign-up then.
+  const signupClosed = useAuthMethods().data?.password === false;
+  React.useEffect(() => {
+    if (signupClosed) router.replace("/login");
+  }, [signupClosed, router]);
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(schema),
@@ -57,6 +64,8 @@ export function SignupForm() {
       setError(errorMessage(err, "Could not create your account."));
     }
   });
+
+  if (signupClosed) return null;
 
   if (done) {
     return (

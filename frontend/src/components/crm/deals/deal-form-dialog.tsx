@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { RecordPicker } from "@/components/activities/pickers";
 import { CustomFieldsForm, useCustomFields } from "@/components/crm/custom-fields-form";
 import { InlineContactForm } from "@/components/crm/deals/inline-contact-form";
@@ -328,8 +329,24 @@ export function DealFormDialog({
                   </div>
                 ) : null}
 
-                <FormField control={form.control} name="amount" label="Amount" orientation="horizontal" serverError={fieldErrors.amount}>
-                  {(field) => <Input {...field} inputMode="decimal" placeholder="0.00" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  label="Amount"
+                  orientation="horizontal"
+                  serverError={fieldErrors.amount}
+                  description={existing?.amount_from_lines ? "Total of the product lines; change the lines to change it." : undefined}
+                >
+                  {(field) => (
+                    <Input
+                      {...field}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={field.value}
+                      readOnly={Boolean(existing?.amount_from_lines)}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    />
+                  )}
                 </FormField>
 
                 <FormField control={form.control} name="currency" label="Currency" orientation="horizontal" required serverError={fieldErrors.currency}>

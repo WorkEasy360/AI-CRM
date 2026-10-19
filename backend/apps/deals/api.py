@@ -2,8 +2,21 @@ from __future__ import annotations
 
 import datetime as dt
 from decimal import Decimal
+from typing import Any
 
-from django.db.models import Count, IntegerField, OuterRef, Subquery, Sum, Value, prefetch_related_objects
+from django.db.models import (
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    IntegerField,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+    prefetch_related_objects,
+)
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
@@ -20,10 +33,10 @@ from apps.core.api.filters import Filter, FilterSet
 from apps.core.api.serializers import CrmReadSerializer, CustomDataField, MembershipRefSerializer, owner_field
 from apps.core.concurrency import expected_version
 from apps.deals import services
-from apps.deals.models import Deal, DealContact, DealProduct, DealStageHistory
+from apps.deals.models import Deal, DealConnection, DealContact, DealProduct, DealStageHistory
 from apps.pipelines.api import StageSerializer
 from apps.pipelines.models import Pipeline, PipelineStage
-from apps.products.models import Product
+from apps.products.models import PriceBook, Product
 
 
 class RefSerializer(serializers.Serializer):
@@ -69,6 +82,7 @@ class DealSerializer(CrmReadSerializer):
     stage = StageRefSerializer(read_only=True)
     company = RefSerializer(read_only=True)
     primary_contact = ContactRefSerializer(read_only=True)
+    price_book = RefSerializer(read_only=True, allow_null=True)
     line_count = serializers.IntegerField(read_only=True, default=0)
     contact_count = serializers.IntegerField(read_only=True, default=0)
     products_total = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=Decimal("0.00"))
@@ -98,6 +112,8 @@ class DealSerializer(CrmReadSerializer):
             "currency",
             "exchange_rate",
             "amount_base",
+            "amount_from_lines",
+            "price_book",
             "probability",
             "probability_overridden",
             "weighted_amount_base",
@@ -161,6 +177,19 @@ class DealCardSerializer(serializers.Serializer):
     risk_level = serializers.SerializerMethodField()
     version = serializers.IntegerField(read_only=True)
 
+    def to_representation(self, instance: Deal) -> dict:
+        from apps.authz import fields as field_rules
+        from apps.crm import schema
+
+        data = field_rules.mask(self.context.get("actor"), "deal", super().to_representation(instance))
+        # The pipeline's card layout: extra fields, already narrowed to those the actor may see.
+        card_fields = self.context.get("card_fields") or []
+        if card_fields:
+            data["extra"] = [
+                {"key": f.key, "label": f.label, "value": schema.read_value(instance, f)} for f in card_fields
+            ]
+        return data
+
     def get_primary_contact(self, obj: Deal) -> dict[str, str] | None:
         """Name only: the card shows a name, so the board ships a name."""
         contact = obj.primary_contact
@@ -195,6 +224,10 @@ def _active_products():
     return Product.objects.filter(archived_at__isnull=True, status=Product.Status.ACTIVE)
 
 
+def _active_price_books():
+    return PriceBook.objects.filter(archived_at__isnull=True, is_active=True)
+
+
 class DealWriteSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=160)
     pipeline_id = TenantPrimaryKeyRelatedField(
@@ -216,6 +249,9 @@ class DealWriteSerializer(serializers.Serializer):
     expected_close_date = serializers.DateField(required=False, allow_null=True)
     lost_reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
     description = serializers.CharField(max_length=5000, required=False, allow_blank=True)
+    price_book_id = TenantPrimaryKeyRelatedField(
+        source="price_book", model=PriceBook, queryset_fn=_active_price_books, required=False, allow_null=True
+    )
     owner_id = owner_field()
     custom_data = CustomDataField("deal")
 
@@ -256,7 +292,12 @@ class StageMoveSerializer(serializers.Serializer):
     lost_reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
 
+LINE_MONEY_FIELDS = ("unit_price", "subtotal", "tax_amount", "line_total")
+
+
 class DealProductSerializer(serializers.ModelSerializer):
+    """One product line. Obeys the "deal_line" field rules, and a hidden deal amount hides line money too."""
+
     product = RefSerializer(read_only=True)
     sku = serializers.CharField(source="product.sku", read_only=True)
 
@@ -271,10 +312,22 @@ class DealProductSerializer(serializers.ModelSerializer):
             "currency",
             "discount_percent",
             "tax_rate",
+            "subtotal",
+            "tax_amount",
             "line_total",
             "created_at",
         ]
         read_only_fields = fields
+
+    def to_representation(self, instance: DealProduct) -> dict:
+        from apps.authz import fields as field_rules
+
+        actor = self.context.get("actor")
+        data = field_rules.mask(actor, "deal_line", super().to_representation(instance))
+        if "amount" in field_rules.hidden_fields(actor, "deal"):
+            for f in LINE_MONEY_FIELDS:
+                data.pop(f, None)
+        return data
 
 
 class DealProductInputSerializer(serializers.Serializer):
@@ -289,6 +342,35 @@ class DealProductInputSerializer(serializers.Serializer):
     tax_rate = serializers.DecimalField(
         max_digits=5, decimal_places=2, required=False, min_value=Decimal(0), max_value=Decimal(100)
     )
+    version = serializers.IntegerField(min_value=1, required=False)
+
+
+class ConnectionSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    direction = serializers.CharField(read_only=True)
+    origin = serializers.CharField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    deal = serializers.SerializerMethodField()
+
+    def get_deal(self, obj: dict) -> dict:
+        deal = obj["deal"]
+        data = {
+            "id": str(deal.pk),
+            "name": deal.name,
+            "pipeline": {"id": str(deal.pipeline_id), "name": deal.pipeline.name},
+            "stage": {"id": str(deal.stage_id), "name": deal.stage.name, "kind": deal.stage.kind},
+            "status": deal.status,
+            "amount": str(deal.amount),
+            "currency": deal.currency,
+            "owner": {"id": str(deal.owner_id), "display_name": deal.owner.user.display_name} if deal.owner else None,
+        }
+        from apps.authz import fields as field_rules
+
+        return field_rules.mask(self.context.get("actor"), "deal", data)
+
+
+class ConnectInputSerializer(serializers.Serializer):
+    target_id = serializers.UUIDField()
 
 
 class DealContactSerializer(serializers.ModelSerializer):
@@ -351,9 +433,25 @@ FILTERS = FilterSet(
     custom_field_entity="deal",
 )
 
-# Cards rendered per column; the column footer links to the list view for the rest. 100 cards x 6 stages
-# cost ~200 ms of serialization per board load on a 12k-deal tenant; 50 keeps the board interactive.
+# Cards per column on the first load; a column pages through ``board/stage`` for the rest and the client
+# renders columns windowed, so a 1,000-deal board stays interactive (load-tested in tests/scaling).
 BOARD_DEALS_PER_STAGE = 50
+BOARD_MAX_PER_STAGE = 500
+
+
+def _bounded_int(raw: str | None, default: int, maximum: int) -> int:
+    try:
+        value = int(raw) if raw not in (None, "") else default
+    except (TypeError, ValueError) as exc:
+        raise serializers.ValidationError({"limit": "Expected a whole number."}) from exc
+    return max(0, min(value, maximum))
+
+
+def validators_uuid(raw: str) -> Any:
+    try:
+        return serializers.UUIDField().to_internal_value(raw)
+    except serializers.ValidationError as exc:
+        raise serializers.ValidationError({"id": "Expected a UUID."}) from exc
 
 
 class DealViewSet(CrmViewSet):
@@ -374,6 +472,10 @@ class DealViewSet(CrmViewSet):
         add_contact="deals.update",
         remove_contact="deals.update",
         insights="deals.view",
+        board_stage="deals.view",
+        connections="deals.view",
+        connect="deals.update",
+        disconnect="deals.update",
     )
 
     def base_queryset(self):
@@ -396,7 +498,7 @@ class DealViewSet(CrmViewSet):
         # the ordered ``(organization, created_at)`` index serves a page in ~1 ms. RLS is unchanged.
         return (
             Deal.objects.select_related("owner__user", "company", "primary_contact")
-            .prefetch_related("pipeline", "stage")
+            .prefetch_related("pipeline", "stage", "price_book")
             .defer("search_vector")  # maintained by a trigger, only ever read inside SQL
             .annotate(
                 line_count=Coalesce(
@@ -452,7 +554,7 @@ class DealViewSet(CrmViewSet):
         )
         return Response({"results": StageHistorySerializer(qs, many=True).data})
 
-    def board_queryset(self):
+    def board_queryset(self, extra_columns: tuple[str, ...] = ()):
         """Cards only: the columns ``DealCardSerializer`` emits, plus the ones risk scoring reads.
 
         The list queryset annotates four correlated subqueries and loads every deal column; a board
@@ -488,6 +590,7 @@ class DealViewSet(CrmViewSet):
                 "next_activity_at",
                 "stage_entered_at",
                 "created_at",
+                *extra_columns,
             )
             .annotate(
                 contact_count=Coalesce(
@@ -497,44 +600,93 @@ class DealViewSet(CrmViewSet):
             )
         )
 
+    def _board_pipeline(self, request) -> tuple[Pipeline | None, list[Pipeline]]:
+        """The board's pipeline and its family (team pipeline + sub-pipelines), within what the actor
+        may see (a restricted pipeline answers 404). Pipelines are few: one query reads them all."""
+        visible = list(
+            scope(request.actor, "pipelines.view", Pipeline.objects.filter(archived_at__isnull=True)).order_by(
+                "position", "name"
+            )
+        )
+        pipeline_id = request.query_params.get("pipeline")
+        if pipeline_id:
+            wanted = validators_uuid(pipeline_id)
+            pipeline = next((p for p in visible if p.pk == wanted), None)
+            if pipeline is None:
+                from django.http import Http404
+
+                raise Http404
+        else:
+            roots = sorted((p for p in visible if p.parent_id is None), key=lambda p: (not p.is_default, p.position))
+            pipeline = roots[0] if roots else None
+        if pipeline is None:
+            return None, []
+        root_id = pipeline.parent_id or pipeline.pk
+        family = [p for p in visible if p.pk == root_id] + [p for p in visible if p.parent_id == root_id]
+        return pipeline, family
+
+    def _card_fields(self, request, pipeline: Pipeline) -> list:
+        """The layout's card fields the actor may see (hidden ones are dropped, not refused)."""
+        from apps.crm import schema
+
+        root = (pipeline.parent if pipeline.parent_id else None) or pipeline
+        keys = (root.layout or {}).get("card_fields") or []
+        if not keys:
+            return []
+        visible = schema.field_map(request.actor, "deal")
+        return [visible[k] for k in keys if k in visible]
+
+    def _board_cards(self, request, pipeline: Pipeline, params: dict) -> Any:
+        concrete = {f.name for f in Deal._meta.concrete_fields}
+        extra: set[str] = set()
+        for f in self._card_fields(request, pipeline):
+            if f.custom:
+                extra.add("custom_data")
+            elif f.key in concrete:
+                extra.add(f.key)
+        annotated, _ = self.filterset.apply(
+            scope(
+                request.actor,
+                "deals.view",
+                self.board_queryset(tuple(sorted(extra))).filter(pipeline=pipeline, archived_at__isnull=True),
+            ),
+            params,
+            actor=request.actor,
+        )
+        return annotated.prefetch_related(None)
+
     @action(detail=False, methods=["get"])
     def board(self, request):
-        """Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals."""
-        pipeline_id = request.query_params.get("pipeline")
-        pipeline = (
-            get_object_or_404(Pipeline.objects.filter(archived_at__isnull=True), pk=pipeline_id)
-            if pipeline_id
-            else Pipeline.objects.filter(archived_at__isnull=True).order_by("-is_default", "position").first()
-        )
+        """Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals.
+
+        ``per_stage`` (default 50, max ``BOARD_MAX_PER_STAGE``) cards per column; a column with more
+        reports ``has_more`` and pages through ``board/stage``. Counts, value totals and the weighted
+        forecast are computed over every deal in scope, not only the cards sent.
+        """
+        pipeline, family = self._board_pipeline(request)
         if pipeline is None:
             return Response({"pipeline": None, "stages": []})
-        # Totals and ranking use a plain queryset; the per-row annotations are only needed for the
-        # rows actually rendered (see ``annotated`` below).
+        per_stage = _bounded_int(request.query_params.get("per_stage"), BOARD_DEALS_PER_STAGE, BOARD_MAX_PER_STAGE)
+        params = {k: v for k, v in request.query_params.items() if k not in {"pipeline", "per_stage"}}
         base = scope(request.actor, "deals.view", Deal.objects.filter(pipeline=pipeline, archived_at__isnull=True))
-        params = {k: v for k, v in request.query_params.items() if k not in {"pipeline"}}
         base, _ = self.filterset.apply(base, params, actor=request.actor)
+        weighted_expr = ExpressionWrapper(
+            F("amount_base") * F("probability") / Value(Decimal(100)),
+            output_field=DecimalField(max_digits=22, decimal_places=4),
+        )
         totals = {
             row["stage_id"]: row
-            for row in base.values("stage_id").annotate(total=Sum("amount_base"), count=Count("id")).order_by()
+            for row in base.values("stage_id")
+            .annotate(total=Sum("amount_base"), weighted=Sum(weighted_expr), count=Count("id"))
+            .order_by()
         }
         stages = list(pipeline.stages.filter(archived_at__isnull=True).order_by("position"))
         # One small LIMIT query per stage (index deal_org_stage_entered_idx, annotations evaluated for
         # the returned rows only) instead of ranking every deal of the pipeline and shipping hundreds
         # of ids back to the database. Stages are few; deals are not.
-        annotated, _ = self.filterset.apply(
-            scope(
-                request.actor, "deals.view", self.board_queryset().filter(pipeline=pipeline, archived_at__isnull=True)
-            ),
-            params,
-            actor=request.actor,
-        )
+        cards = self._board_cards(request, pipeline, params)
         by_stage: dict = {
-            s.pk: list(
-                annotated.prefetch_related(None)
-                .filter(stage_id=s.pk)
-                .order_by("-stage_entered_at", "-id")[:BOARD_DEALS_PER_STAGE]
-            )
-            for s in stages
+            s.pk: list(cards.filter(stage_id=s.pk).order_by("-stage_entered_at", "-id")[:per_stage]) for s in stages
         }
         all_deals = [d for bucket in by_stage.values() for d in bucket]
         # One prefetch for the whole board rather than one per stage bucket.
@@ -542,26 +694,89 @@ class DealViewSet(CrmViewSet):
         # Cards carry no tags and no custom data, so the board needs neither the tag window query that
         # ranked the rendered ids nor the custom-field definitions - two queries and a window scan gone.
         ctx = dict(self.get_serializer_context())
+        ctx["card_fields"] = self._card_fields(request, pipeline)
+        from apps.authz import fields as field_rules
+
+        # A stage total is the sum of the amounts: hidden with them.
+        hide_totals = "amount" in field_rules.hidden_fields(request.actor, "deal")
+
+        def money(value: Any) -> str | None:
+            if hide_totals:
+                return None
+            return str(Decimal(value or 0).quantize(services.CENT))
+
         payload = []
+        open_weighted = Decimal(0)
+        open_total = Decimal(0)
         for stage in stages:
             agg = totals.get(stage.pk, {})
+            if stage.kind == PipelineStage.Kind.OPEN:
+                open_weighted += Decimal(agg.get("weighted") or 0)
+                open_total += Decimal(agg.get("total") or 0)
             payload.append(
                 {
                     **StageSerializer(stage).data,
                     "deal_count": agg.get("count", 0),
-                    "total_amount_base": str(agg.get("total") or Decimal("0.00")),
+                    "total_amount_base": money(agg.get("total")),
+                    "weighted_amount_base": money(agg.get("weighted")),
                     "deals": DealCardSerializer(by_stage[stage.pk], many=True, context=ctx).data,
                     "has_more": agg.get("count", 0) > len(by_stage[stage.pk]),
                 }
             )
-        return Response({"pipeline": {"id": str(pipeline.pk), "name": pipeline.name}, "stages": payload})
+        root = family[0] if family and family[0].parent_id is None else pipeline
+        return Response(
+            {
+                "pipeline": {
+                    "id": str(pipeline.pk),
+                    "name": pipeline.name,
+                    "parent_id": str(pipeline.parent_id) if pipeline.parent_id else None,
+                    "layout": root.layout or {},
+                },
+                "family": [
+                    {"id": str(p.pk), "name": p.name, "parent_id": str(p.parent_id) if p.parent_id else None}
+                    for p in family
+                ],
+                "totals": {
+                    "deal_count": sum(int(t.get("count", 0)) for t in totals.values()),
+                    "open_amount_base": money(open_total),
+                    "weighted_forecast_base": money(open_weighted),
+                },
+                "stages": payload,
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="board/stage")
+    def board_stage(self, request):
+        """More cards for one Kanban column: ``?stage=<id>&offset=<n>&limit=<n>`` (same filters as the board)."""
+        stage_id = validators_uuid(request.query_params.get("stage", ""))
+        stage = get_object_or_404(
+            scope(request.actor, "pipelines.view", PipelineStage.objects.filter(archived_at__isnull=True)),
+            pk=stage_id,
+        )
+        offset = _bounded_int(request.query_params.get("offset"), 0, 1_000_000)
+        limit = _bounded_int(request.query_params.get("limit"), BOARD_DEALS_PER_STAGE, BOARD_MAX_PER_STAGE)
+        params = {k: v for k, v in request.query_params.items() if k not in {"stage", "offset", "limit"}}
+        cards = self._board_cards(request, stage.pipeline, params).filter(stage_id=stage.pk)
+        rows = list(cards.order_by("-stage_entered_at", "-id")[offset : offset + limit + 1])
+        prefetch_related_objects(rows, "stage")
+        ctx = dict(self.get_serializer_context())
+        ctx["card_fields"] = self._card_fields(request, stage.pipeline)
+        return Response(
+            {
+                "stage_id": str(stage.pk),
+                "offset": offset,
+                "deals": DealCardSerializer(rows[:limit], many=True, context=ctx).data,
+                "has_more": len(rows) > limit,
+            }
+        )
 
     # ------------------------------------------------------------------ product lines
     @action(detail=True, methods=["get"])
     def products(self, request, pk=None):
         deal = self.get_object()
         lines = DealProduct.objects.filter(deal=deal).select_related("product")
-        return Response({"results": DealProductSerializer(lines, many=True).data})
+        ctx = {"actor": request.actor}
+        return Response({"results": DealProductSerializer(lines, many=True, context=ctx).data})
 
     @action(detail=True, methods=["post"], url_path="products/add")
     def add_product(self, request, pk=None):
@@ -579,10 +794,13 @@ class DealViewSet(CrmViewSet):
             unit_price=data.get("unit_price"),
             discount_percent=data.get("discount_percent", Decimal(0)),
             tax_rate=data.get("tax_rate"),
+            expected_version=data.get("version"),
             request=request._request,
         )
         line = DealProduct.objects.select_related("product").get(pk=line.pk)
-        return Response(DealProductSerializer(line).data, status=status.HTTP_201_CREATED)
+        return Response(
+            DealProductSerializer(line, context={"actor": request.actor}).data, status=status.HTTP_201_CREATED
+        )
 
     @action(detail=True, methods=["patch"], url_path=r"products/(?P<line_id>[0-9a-f-]{36})")
     def update_product(self, request, pk=None, line_id=None):
@@ -590,16 +808,66 @@ class DealViewSet(CrmViewSet):
         line = get_object_or_404(DealProduct.objects.filter(deal=deal), pk=line_id)
         ser = DealProductInputSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        data = {k: v for k, v in ser.validated_data.items() if k != "product"}
-        services.update_product_line(request.actor, deal, line, request=request._request, **data)
+        data = {k: v for k, v in ser.validated_data.items() if k not in {"product", "version"}}
+        services.update_product_line(
+            request.actor,
+            deal,
+            line,
+            expected_version=ser.validated_data.get("version"),
+            request=request._request,
+            **data,
+        )
         line = DealProduct.objects.select_related("product").get(pk=line.pk)
-        return Response(DealProductSerializer(line).data)
+        return Response(DealProductSerializer(line, context={"actor": request.actor}).data)
 
     @action(detail=True, methods=["post"], url_path=r"products/(?P<line_id>[0-9a-f-]{36})/remove")
     def remove_product(self, request, pk=None, line_id=None):
         deal = self.get_object()
         line = get_object_or_404(DealProduct.objects.filter(deal=deal), pk=line_id)
-        services.remove_product(request.actor, deal, line, request=request._request)
+        version = request.data.get("version") if isinstance(request.data, dict) else None
+        services.remove_product(
+            request.actor,
+            deal,
+            line,
+            expected_version=int(version) if isinstance(version, int) else None,
+            request=request._request,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ------------------------------------------------------------------ connected deals
+    @action(detail=True, methods=["get"])
+    def connections(self, request, pk=None):
+        """Deals connected to this one, in both directions (only those the actor may view)."""
+        deal = self.get_object()
+        items = services.connections_for(request.actor, deal)
+        return Response({"results": ConnectionSerializer(items, many=True, context={"actor": request.actor}).data})
+
+    @action(detail=True, methods=["post"], url_path="connections/add")
+    def connect(self, request, pk=None):
+        deal = self.get_object()
+        ser = ConnectInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        target = (
+            scope(request.actor, "deals.view", Deal.objects.filter(pk=ser.validated_data["target_id"]))
+            .select_related("pipeline", "stage", "owner__user")
+            .first()
+        )
+        if target is None:
+            raise serializers.ValidationError({"target_id": "Unknown deal."})
+        link = services.connect_deals(request.actor, deal, target, request=request._request)
+        item = {"id": link.pk, "direction": "outgoing", "origin": link.origin, "created_at": link.created_at}
+        item["deal"] = target
+        return Response(
+            ConnectionSerializer(item, context={"actor": request.actor}).data, status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=["post"], url_path=r"connections/(?P<connection_id>[0-9a-f-]{36})/remove")
+    def disconnect(self, request, pk=None, connection_id=None):
+        deal = self.get_object()
+        link = get_object_or_404(
+            DealConnection.objects.filter(Q(source=deal) | Q(target=deal)), pk=validators_uuid(connection_id)
+        )
+        services.disconnect_deals(request.actor, deal, link, request=request._request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ------------------------------------------------------------------ contacts

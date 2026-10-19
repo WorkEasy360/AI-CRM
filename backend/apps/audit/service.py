@@ -41,6 +41,44 @@ REDACTED = "[redacted]"
 # Set while an integration (API credential, sync job, inbound webhook) acts: events written meanwhile are
 # attributed to it (actor_type=integration plus its id) even though they run through a member's grants.
 _integration: ContextVar[dict[str, str] | None] = ContextVar("audit_integration", default=None)
+# Extra metadata merged into every event written inside ``annotated()`` (e.g. the import job a row came from).
+_annotations: ContextVar[dict[str, Any] | None] = ContextVar("audit_annotations", default=None)
+# Set inside ``batched()``: events are collected and inserted together when the block ends.
+_batch: ContextVar[list[AuditEvent] | None] = ContextVar("audit_batch", default=None)
+
+
+@contextlib.contextmanager
+def annotated(**metadata: Any) -> Iterator[None]:
+    """Attribute every event written inside the block, e.g. ``annotated(import_job_id=...)``."""
+    token = _annotations.set({**(_annotations.get() or {}), **metadata})
+    try:
+        yield
+    finally:
+        _annotations.reset(token)
+
+
+@contextlib.contextmanager
+def batched() -> Iterator[None]:
+    """Write the events recorded inside the block with one INSERT when the block exits cleanly.
+
+    Every event is still one row per change (individually attributable); only the round trips are
+    shared. Nested blocks hand their events to the enclosing block only on a clean exit, so wrapping a
+    savepoint in its own ``batched()`` drops the audit events of a change that was rolled back.
+    """
+    outer = _batch.get()
+    events: list[AuditEvent] = []
+    token = _batch.set(events)
+    try:
+        yield
+    finally:
+        _batch.reset(token)
+    if outer is not None:
+        outer.extend(events)
+    elif events:
+        try:
+            AuditEvent.objects.bulk_create(events, batch_size=500)
+        except Exception:
+            log.exception("audit.batch_failed", count=len(events))
 
 
 @contextlib.contextmanager
@@ -117,6 +155,9 @@ def record(
     if integration is not None:
         actor_type = AuditEvent.ActorType.INTEGRATION
         metadata = {**(metadata or {}), **integration}
+    annotations = _annotations.get()
+    if annotations:
+        metadata = {**annotations, **(metadata or {})}
     if resource is not None:
         resource_type = resource_type or type(resource).__name__.lower()
         resource_id = resource_id if resource_id is not None else getattr(resource, "pk", None)
@@ -135,6 +176,10 @@ def record(
     )
     try:
         needs_system = organization_id is None or ctx is None or ctx.organization_id != organization_id
+        pending = _batch.get()
+        if pending is not None and not needs_system:
+            pending.append(event)
+            return event
         if needs_system:
             with system_context(reason=f"audit.record:{action}"):
                 event.save(force_insert=True)

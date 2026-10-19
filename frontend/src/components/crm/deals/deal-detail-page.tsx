@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRightLeft, Globe, Mail, Pencil, Phone, RotateCcw, Trash2 } from "lucide-react";
 import { RecordActivities } from "@/components/activities/record-activities";
 import { CustomFieldsSummary, useCustomFields } from "@/components/crm/custom-fields-form";
+import { DealConnectionsSection } from "@/components/crm/deals/deal-connections-section";
 import { DealContactsSection } from "@/components/crm/deals/deal-contacts-section";
 import { relativeDayLabel } from "@/components/crm/deals/deal-helpers";
 import { DealLinesSection } from "@/components/crm/deals/deal-lines-section";
@@ -136,6 +137,7 @@ export function DealDetailPage({ id }: { id: string }) {
     },
     { value: "contacts", label: `Contacts${record.contact_count ? ` (${record.contact_count})` : ""}`, content: <DealContactsSection deal={record} editable={editable} /> },
     { value: "products", label: `Products${record.line_count ? ` (${record.line_count})` : ""}`, content: <DealLinesSection deal={record} editable={editable} /> },
+    { value: "connected", label: "Connected", content: <DealConnectionsSection deal={record} editable={editable} /> },
     ...(showActivities
       ? [
           {

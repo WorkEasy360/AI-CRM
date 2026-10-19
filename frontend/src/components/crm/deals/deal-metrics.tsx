@@ -72,12 +72,12 @@ export function StageProgress({
         const reached = status === "open" ? currentIndex >= 0 && index < currentIndex : false;
         const classes = cn(
           "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors",
-          isCurrent ? "border-primary bg-primary text-primary-fg" : reached ? "border-primary/40 bg-primary-soft text-primary" : "border-border bg-surface text-fg-muted",
+          isCurrent ? "border-brand bg-brand text-brand-fg" : reached ? "border-primary/40 bg-primary-soft text-primary" : "border-border bg-surface text-fg-muted",
           canMove && !isCurrent && "hover:border-primary hover:text-primary",
         );
         const inner = (
           <>
-            <span className={cn("size-2 rounded-full", isCurrent ? "bg-primary-fg" : stageDotClass(stage.color_token))} aria-hidden />
+            <span className={cn("size-2 rounded-full", isCurrent ? "bg-brand-fg" : stageDotClass(stage.color_token))} aria-hidden />
             {stage.name}
             {isCurrent ? <Check className="size-3" aria-hidden /> : null}
           </>

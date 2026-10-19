@@ -31,6 +31,7 @@ from rest_framework.exceptions import ValidationError
 from apps.audit import service as audit
 from apps.authz.actor import Actor
 from apps.authz.service import check, scope
+from apps.billing import entitlements
 from apps.core import crypto, validators
 from apps.core.exceptions import DomainError
 from apps.core.tenancy.context import tenant_atomic
@@ -180,6 +181,7 @@ def _redirect_uri() -> str:
 
 def start_oauth(actor: Actor, provider: str, *, request: Any = None) -> str:
     check(actor, "email.connect")
+    entitlements.check_feature(actor.organization, "email_integration")
     if provider not in EmailProvider.values:
         raise ValidationError({"provider": "Choose gmail or microsoft."})
     if not providers.email_provider_configured(provider):
@@ -210,6 +212,7 @@ def start_oauth(actor: Actor, provider: str, *, request: Any = None) -> str:
 @transaction.atomic
 def complete_oauth(actor: Actor, *, state: str, code: str, request: Any = None) -> EmailAccount:
     check(actor, "email.connect")
+    entitlements.check_feature(actor.organization, "email_integration")
     key = f"oauth:email:{state}"
     pending = cache.get(key) if state and len(state) <= 128 else None
     if (
@@ -390,6 +393,7 @@ def send_email(
     actor: Actor, data: dict[str, Any], *, attachments: list[tuple[str, str, bytes]] | None = None, request: Any = None
 ) -> EmailMessage:
     check(actor, "email.send")
+    entitlements.check_feature(actor.organization, "email_integration")
     account = usable_account(actor.membership.pk)
     if account is None:
         raise DomainError(
@@ -730,6 +734,7 @@ def connect_whatsapp(
     actor: Actor, *, phone_number_id: str, access_token: str, business_account_id: str = "", request: Any = None
 ) -> WhatsAppAccount:
     check(actor, "whatsapp.manage")
+    entitlements.check_feature(actor.organization, "whatsapp")
     phone_number_id = validators.clean_text(phone_number_id, max_length=64)
     business_account_id = validators.clean_text(business_account_id, max_length=64)
     access_token = (access_token or "").strip()
@@ -853,6 +858,7 @@ def within_service_window(wa_id: str, *, now: dt.datetime | None = None) -> bool
 @transaction.atomic
 def send_whatsapp(actor: Actor, data: dict[str, Any], *, request: Any = None) -> WhatsAppMessage:
     check(actor, "whatsapp.send")
+    entitlements.check_feature(actor.organization, "whatsapp")
     account = whatsapp_account()
     if account is None:
         raise DomainError(

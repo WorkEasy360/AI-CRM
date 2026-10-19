@@ -32,6 +32,15 @@ SECURE_SSL_REDIRECT = False
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
 # The suite asserts real authentication; never inherit a developer's AUTO_LOGIN_ENABLED from .env.
 AUTO_LOGIN_ENABLED = False
+# Password sign-in stays on for the suite and Workeasy360 is unconfigured unless a test configures it;
+# a developer's WORKEASY360_* values in .env must not change what the suite exercises.
+WORKEASY360_SSO_ONLY = False
+WORKEASY360_ISSUER = ""
+WORKEASY360_CLIENT_ID = ""
+WORKEASY360_REDIRECT_URI = ""
+WORKEASY360_KEY_ID = ""
+WORKEASY360_PRIVATE_KEY = ""
+WORKEASY360_PRIVATE_KEY_FILE = ""
 
 # Generous default rates so functional tests never trip throttles; throttle tests override these.
 REST_FRAMEWORK = {

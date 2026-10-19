@@ -12,27 +12,20 @@ from rest_framework.exceptions import ValidationError
 from apps.audit import service as audit
 from apps.authz.actor import Actor
 from apps.authz.service import check
+from apps.billing import entitlements
 from apps.core import validators
 from apps.core.concurrency import save_with_version
 from apps.core.exceptions import ConflictError, DomainError
-from apps.pipelines.models import STAGE_COLORS, Pipeline, PipelineStage
+from apps.pipelines.models import STAGE_COLORS, Pipeline, PipelineAccess, PipelineStage
+from apps.pipelines.templates import DEFAULT_TEMPLATE, TEMPLATES
 
 MAX_PIPELINES = 20
 MAX_STAGES = 30
+MAX_VARIANTS_PER_PIPELINE = 10
+MAX_ACCESS_GRANTS = 50
+LAYOUT_LIMITS = {"card_fields": 8, "form_fields": 60}
 
-
-def _stage(name: str, kind: str, probability: int, color: str) -> dict[str, Any]:
-    return {"name": name, "kind": kind, "default_probability": probability, "color_token": color}
-
-
-DEFAULT_STAGES: list[dict[str, Any]] = [
-    _stage("Qualification", "open", 10, "slate"),
-    _stage("Needs analysis", "open", 25, "blue"),
-    _stage("Proposal", "open", 50, "teal"),
-    _stage("Negotiation", "open", 75, "amber"),
-    _stage("Closed won", "won", 100, "green"),
-    _stage("Closed lost", "lost", 0, "red"),
-]
+DEFAULT_STAGES: list[dict[str, Any]] = TEMPLATES[DEFAULT_TEMPLATE].stage_specs()
 
 
 def _clean_name(name: str, *, field: str = "name", max_length: int = 80) -> str:
@@ -81,7 +74,7 @@ def ensure_default_pipeline(*, name: str = "Sales pipeline") -> Pipeline:
     existing = Pipeline.objects.filter(archived_at__isnull=True).first()
     if existing is not None:
         return existing
-    pipeline = Pipeline.objects.create(name=name, position=0, is_default=True)
+    pipeline = Pipeline.objects.create(name=name, position=0, is_default=True, template_key=DEFAULT_TEMPLATE)
     PipelineStage.objects.bulk_create(
         [
             PipelineStage(pipeline=pipeline, position=i, organization_id=pipeline.organization_id, **s)
@@ -91,20 +84,83 @@ def ensure_default_pipeline(*, name: str = "Sales pipeline") -> Pipeline:
     return pipeline
 
 
+def clean_layout(layout: Any) -> dict[str, list[str]]:
+    """``{"card_fields": [...], "form_fields": [...]}`` of deal field keys known to the schema registry."""
+    from apps.crm import schema
+
+    if layout in (None, {}):
+        return {}
+    if not isinstance(layout, dict) or set(layout) - set(LAYOUT_LIMITS):
+        raise ValidationError({"layout": f"Allowed keys: {', '.join(LAYOUT_LIMITS)}."})
+    cleaned: dict[str, list[str]] = {}
+    for key, limit in LAYOUT_LIMITS.items():
+        if key not in layout:
+            continue
+        values = layout[key]
+        if not isinstance(values, list) or len(values) > limit:
+            raise ValidationError({"layout": f"{key} must be a list of at most {limit} field keys."})
+        cleaned[key] = schema.validate_keys(None, "deal", values, what="layout")
+    return cleaned
+
+
+def templates() -> list[dict[str, Any]]:
+    return [
+        {"key": t.key, "name": t.name, "description": t.description, "stages": t.stage_specs()}
+        for t in TEMPLATES.values()
+    ]
+
+
 @transaction.atomic
 def create_pipeline(
-    actor: Actor, *, name: str, stages: list[dict[str, Any]] | None = None, request: Any = None
+    actor: Actor,
+    *,
+    name: str,
+    stages: list[dict[str, Any]] | None = None,
+    template: str | None = None,
+    parent: Pipeline | None = None,
+    layout: Any = None,
+    restricted: bool = False,
+    request: Any = None,
 ) -> Pipeline:
+    """A team pipeline, or with ``parent`` a sub-pipeline (variant) of one.
+
+    Stages come from ``stages``, else from ``template``, else from the default template. A variant shares
+    its parent's layout and access rules and does not count against the edition's pipeline limit.
+    """
     check(actor, "pipelines.manage")
     name = _clean_name(name)
     if Pipeline.objects.filter(name__iexact=name).exists():
         raise ConflictError("A pipeline with this name already exists.", code="pipeline_name_taken")
-    if Pipeline.objects.filter(archived_at__isnull=True).count() >= MAX_PIPELINES:
-        raise DomainError(f"At most {MAX_PIPELINES} pipelines.", code="pipeline_limit")
-    is_default = not Pipeline.objects.filter(is_default=True).exists()
+    if template is not None and template not in TEMPLATES:
+        raise ValidationError({"template": "Unknown template."})
+    if parent is not None:
+        if parent.parent_id is not None:
+            raise ValidationError({"parent_id": "A sub-pipeline cannot have sub-pipelines of its own."})
+        if parent.archived_at is not None:
+            raise ValidationError({"parent_id": "The parent pipeline is archived."})
+        Pipeline.objects.select_for_update().filter(pk=parent.pk).first()
+        if parent.variants.filter(archived_at__isnull=True).count() >= MAX_VARIANTS_PER_PIPELINE:
+            raise DomainError(
+                f"At most {MAX_VARIANTS_PER_PIPELINE} sub-pipelines per pipeline.", code="pipeline_variant_limit"
+            )
+        if layout not in (None, {}) or restricted:
+            raise ValidationError({"parent_id": "A sub-pipeline uses its parent's layout and access."})
+    else:
+        if Pipeline.objects.filter(archived_at__isnull=True, parent__isnull=True).count() >= MAX_PIPELINES:
+            raise DomainError(f"At most {MAX_PIPELINES} pipelines.", code="pipeline_limit")
+        entitlements.check_capacity(actor.organization, "pipelines")
+    is_default = parent is None and not Pipeline.objects.filter(is_default=True).exists()
     position = Pipeline.objects.count()
-    pipeline = Pipeline.objects.create(name=name, position=position, is_default=is_default)
-    spec = stages if stages else DEFAULT_STAGES
+    pipeline = Pipeline.objects.create(
+        name=name,
+        position=position,
+        is_default=is_default,
+        parent=parent,
+        layout=clean_layout(layout) if parent is None else {},
+        restricted=bool(restricted) and parent is None,
+        template_key=template or ("" if stages else DEFAULT_TEMPLATE),
+    )
+    spec = stages if stages else TEMPLATES[template or DEFAULT_TEMPLATE].stage_specs()
     if len(spec) > MAX_STAGES:
         raise ValidationError({"stages": f"At most {MAX_STAGES} stages."})
     rows = []
@@ -131,7 +187,18 @@ def create_pipeline(
         )
     PipelineStage.objects.bulk_create(rows)
     _assert_terminal_stages(pipeline)
-    audit.record("pipelines.created", request=request, user=actor.user, resource=pipeline, metadata={"name": name})
+    audit.record(
+        "pipelines.created",
+        request=request,
+        user=actor.user,
+        resource=pipeline,
+        metadata={
+            "name": name,
+            "parent_id": str(parent.pk) if parent else None,
+            "template": pipeline.template_key,
+            "restricted": pipeline.restricted,
+        },
+    )
     return pipeline
 
 
@@ -148,6 +215,8 @@ def update_pipeline(
         pipeline.name = name
         changed.append("name")
     if changes.get("is_default") is True and not pipeline.is_default:
+        if pipeline.parent_id is not None:
+            raise DomainError("A sub-pipeline cannot be the default.", code="pipeline_variant_default")
         if pipeline.archived_at is not None:
             raise DomainError("An archived pipeline cannot be the default.", code="pipeline_archived")
         Pipeline.objects.filter(is_default=True).update(is_default=False)
@@ -156,6 +225,16 @@ def update_pipeline(
     if changes.get("position") is not None:
         pipeline.position = int(changes["position"])
         changed.append("position")
+    if changes.get("layout") is not None:
+        if pipeline.parent_id is not None:
+            raise ValidationError({"layout": "A sub-pipeline uses its parent's layout."})
+        pipeline.layout = clean_layout(changes["layout"])
+        changed.append("layout")
+    if changes.get("restricted") is not None and bool(changes["restricted"]) != pipeline.restricted:
+        if pipeline.parent_id is not None:
+            raise ValidationError({"restricted": "A sub-pipeline follows its parent's access."})
+        pipeline.restricted = bool(changes["restricted"])
+        changed.append("restricted")
     if changed:
         save_with_version(pipeline, expected_version, changed)
         audit.record(
@@ -177,10 +256,68 @@ def archive_pipeline(actor: Actor, pipeline: Pipeline, *, request: Any = None) -
         )
     if pipeline.is_default:
         raise DomainError("Make another pipeline the default first.", code="pipeline_is_default", status_code=409)
+    if pipeline.variants.filter(archived_at__isnull=True).exists():
+        raise DomainError("Archive its sub-pipelines first.", code="pipeline_has_variants", status_code=409)
     pipeline.archived_at = timezone.now()
     save_with_version(pipeline, None, ["archived_at"])
     audit.record("pipelines.archived", request=request, user=actor.user, resource=pipeline)
     return pipeline
+
+
+@transaction.atomic
+def set_access(
+    actor: Actor,
+    pipeline: Pipeline,
+    *,
+    team_ids: list[uuid.UUID],
+    hierarchy_role_ids: list[uuid.UUID],
+    request: Any = None,
+) -> list[PipelineAccess]:
+    """Replace who may use a restricted pipeline. Grants live on the top-level pipeline only."""
+    from apps.authz.models import HierarchyRole
+    from apps.teams.models import Team
+
+    check(actor, "pipelines.manage", pipeline)
+    if pipeline.parent_id is not None:
+        raise ValidationError({"pipeline": "A sub-pipeline follows its parent's access."})
+    team_ids = list(dict.fromkeys(team_ids))
+    role_ids = list(dict.fromkeys(hierarchy_role_ids))
+    if len(team_ids) + len(role_ids) > MAX_ACCESS_GRANTS:
+        raise ValidationError({"team_ids": f"At most {MAX_ACCESS_GRANTS} grants."})
+    # Tenant-scoped lookups: an id from another organization is simply unknown here.
+    teams = {t.pk: t for t in Team.objects.filter(pk__in=team_ids)}
+    roles = {r.pk: r for r in HierarchyRole.objects.filter(pk__in=role_ids)}
+    if len(teams) != len(team_ids):
+        raise ValidationError({"team_ids": "Unknown team."})
+    if len(roles) != len(role_ids):
+        raise ValidationError({"hierarchy_role_ids": "Unknown role."})
+    existing = PipelineAccess.objects.filter(pipeline=pipeline)
+    before = {
+        "team_ids": sorted(str(t) for t in existing.filter(team__isnull=False).values_list("team_id", flat=True)),
+        "hierarchy_role_ids": sorted(
+            str(r) for r in existing.filter(hierarchy_role__isnull=False).values_list("hierarchy_role_id", flat=True)
+        ),
+    }
+    existing.delete()
+    rows = [
+        PipelineAccess(pipeline=pipeline, team=teams[t], organization_id=pipeline.organization_id) for t in team_ids
+    ]
+    rows += [
+        PipelineAccess(pipeline=pipeline, hierarchy_role=roles[r], organization_id=pipeline.organization_id)
+        for r in role_ids
+    ]
+    PipelineAccess.objects.bulk_create(rows)
+    audit.record(
+        "pipelines.access_changed",
+        request=request,
+        user=actor.user,
+        resource=pipeline,
+        metadata={
+            "before": before,
+            "after": {"team_ids": sorted(map(str, team_ids)), "hierarchy_role_ids": sorted(map(str, role_ids))},
+        },
+    )
+    return rows
 
 
 # ----------------------------------------------------------------------------- stages

@@ -90,7 +90,7 @@ def test_deal_create_stage_rules_and_money(org_a, owner_client, crm):
     deal = resp.json()
     assert deal["currency"] == "USD"
     assert deal["amount_base"] == "83500.00"
-    assert deal["stage"]["name"] == "Qualification" and deal["status"] == "open"
+    assert deal["stage"]["name"] == "Discovery" and deal["status"] == "open"
     assert deal["pipeline"]["id"] == str(pipeline.pk)
     assert deal["probability"] == 10
     # explicit stage must belong to the pipeline
@@ -102,7 +102,7 @@ def test_deal_create_stage_rules_and_money(org_a, owner_client, crm):
     )
     assert resp.status_code == 400
     # creating directly in a won stage closes the deal
-    won = crm.stage_named(pipeline, "Closed won")
+    won = crm.stage_named(pipeline, "Won")
     resp = owner_client.post(
         "/api/v1/deals/", {"name": "Won already", "stage_id": str(won.pk), "amount": "10"}, format="json"
     )
@@ -121,7 +121,7 @@ def test_deal_create_stage_rules_and_money(org_a, owner_client, crm):
 def test_stage_move_records_history_status_and_audit(org_a, owner_client, crm):
     pipeline = crm.make_pipeline(org_a)
     deal = crm.make_deal(org_a)
-    proposal = crm.stage_named(pipeline, "Proposal")
+    proposal = crm.stage_named(pipeline, "Proposal sent")
     resp = owner_client.post(
         f"/api/v1/deals/{deal.pk}/stage/", {"stage_id": str(proposal.pk), "version": 1}, format="json"
     )
@@ -134,7 +134,7 @@ def test_stage_move_records_history_status_and_audit(org_a, owner_client, crm):
     # stale version → 409, nothing changes
     resp = owner_client.post(
         f"/api/v1/deals/{deal.pk}/stage/",
-        {"stage_id": str(crm.stage_named(pipeline, "Negotiation").pk), "version": 1},
+        {"stage_id": str(crm.stage_named(pipeline, "Terms agreed").pk), "version": 1},
         format="json",
     )
     assert resp.status_code == 409
@@ -150,7 +150,7 @@ def test_stage_move_records_history_status_and_audit(org_a, owner_client, crm):
         == 428
     )
     # lost with reason
-    lost = crm.stage_named(pipeline, "Closed lost")
+    lost = crm.stage_named(pipeline, "Lost")
     resp = owner_client.post(
         f"/api/v1/deals/{deal.pk}/stage/",
         {"stage_id": str(lost.pk), "version": 2, "lost_reason": "Budget"},
@@ -164,12 +164,12 @@ def test_stage_move_records_history_status_and_audit(org_a, owner_client, crm):
     # reopen
     resp = owner_client.post(
         f"/api/v1/deals/{deal.pk}/stage/",
-        {"stage_id": str(crm.stage_named(pipeline, "Qualification").pk), "version": 3},
+        {"stage_id": str(crm.stage_named(pipeline, "Discovery").pk), "version": 3},
         format="json",
     )
     assert resp.json()["status"] == "open" and resp.json()["closed_at"] is None and resp.json()["lost_reason"] == ""
     history = owner_client.get(f"/api/v1/deals/{deal.pk}/history/").json()["results"]
-    assert [h["to_stage"]["name"] for h in history] == ["Qualification", "Closed lost", "Proposal", "Qualification"]
+    assert [h["to_stage"]["name"] for h in history] == ["Discovery", "Lost", "Proposal sent", "Discovery"]
     assert history[0]["changed_by"]["id"] == str(org_a.owner_membership.pk)
     assert history[0]["duration_seconds"] is not None
     with tenant_context(org_a.org.pk):
@@ -189,7 +189,7 @@ def test_stage_move_authorization(org_a, crm, make_member, client_for):
     viewer = make_member(org_a, "viewer")
     manager = make_member(org_a, "sales_manager")
     pipeline = crm.make_pipeline(org_a)
-    target = crm.stage_named(pipeline, "Proposal")
+    target = crm.stage_named(pipeline, "Proposal sent")
     own_deal = crm.make_deal(org_a, owner=rep)
     other_deal = crm.make_deal(org_a, owner=manager)
     repc = client_for(rep.user, rep)
@@ -224,7 +224,7 @@ def test_concurrent_stage_moves_apply_exactly_once(org_a, crm, client_for):
     """Two clients race with the same version: one wins (200), the other conflicts (409)."""
     pipeline = crm.make_pipeline(org_a)
     deal = crm.make_deal(org_a)
-    targets = [crm.stage_named(pipeline, "Proposal"), crm.stage_named(pipeline, "Negotiation")]
+    targets = [crm.stage_named(pipeline, "Proposal sent"), crm.stage_named(pipeline, "Terms agreed")]
     results: list[int] = []
     bodies: list[bytes] = []
     barrier = threading.Barrier(2)
@@ -265,7 +265,11 @@ def test_deal_products_and_contacts(org_a, owner_client, crm):
     )
     assert resp.status_code == 201, resp.content
     line = resp.json()
-    assert line["line_total"] == "675.00" and line["tax_rate"] == "18.00" and line["currency"] == deal.currency
+    # 3 x 250 less 10% = 675.00 subtotal; 18% tax on that = 121.50; the line total includes tax.
+    assert line["subtotal"] == "675.00" and line["tax_amount"] == "121.50" and line["line_total"] == "796.50"
+    assert line["tax_rate"] == "18.00" and line["currency"] == deal.currency
+    detail = owner_client.get(f"/api/v1/deals/{deal.pk}/").json()
+    assert detail["amount"] == "796.50" and detail["amount_from_lines"] is True
     assert (
         owner_client.post(
             f"/api/v1/deals/{deal.pk}/products/add/", {"product_id": str(product.pk)}, format="json"
@@ -287,9 +291,9 @@ def test_deal_products_and_contacts(org_a, owner_client, crm):
     resp = owner_client.patch(
         f"/api/v1/deals/{deal.pk}/products/{line['id']}/", {"quantity": "2", "discount_percent": "0"}, format="json"
     )
-    assert resp.status_code == 200 and resp.json()["line_total"] == "500.00"
+    assert resp.status_code == 200 and resp.json()["line_total"] == "590.00"
     detail = owner_client.get(f"/api/v1/deals/{deal.pk}/").json()
-    assert detail["line_count"] == 1 and detail["products_total"] == "500.00"
+    assert detail["line_count"] == 1 and detail["products_total"] == "590.00" and detail["amount"] == "590.00"
     assert owner_client.post(f"/api/v1/deals/{deal.pk}/products/{line['id']}/remove/").status_code == 204
     assert owner_client.get(f"/api/v1/deals/{deal.pk}/products/").json()["results"] == []
 
@@ -318,17 +322,17 @@ def test_board_is_scoped_and_aggregated(org_a, crm, make_member, client_for):
     rep = make_member(org_a, "sales_rep")
     manager = make_member(org_a, "sales_manager")
     pipeline = crm.make_pipeline(org_a)
-    proposal = crm.stage_named(pipeline, "Proposal")
+    proposal = crm.stage_named(pipeline, "Proposal sent")
     crm.make_deal(org_a, owner=rep, amount="100.00", amount_base="100.00")
     crm.make_deal(org_a, owner=rep, stage=proposal, amount="50.00", amount_base="50.00")
     crm.make_deal(org_a, owner=manager, stage=proposal, amount="1000.00", amount_base="1000.00")
     mgr = client_for(manager.user, manager).get(f"/api/v1/deals/board/?pipeline={pipeline.pk}").json()
     by_name = {s["name"]: s for s in mgr["stages"]}
-    assert by_name["Proposal"]["deal_count"] == 2 and by_name["Proposal"]["total_amount_base"] == "1050.00"
+    assert by_name["Proposal sent"]["deal_count"] == 2 and by_name["Proposal sent"]["total_amount_base"] == "1050.00"
     repb = client_for(rep.user, rep).get(f"/api/v1/deals/board/?pipeline={pipeline.pk}").json()
     by_name = {s["name"]: s for s in repb["stages"]}
-    assert by_name["Proposal"]["deal_count"] == 1 and by_name["Proposal"]["total_amount_base"] == "50.00"
-    assert by_name["Qualification"]["deal_count"] == 1
+    assert by_name["Proposal sent"]["deal_count"] == 1 and by_name["Proposal sent"]["total_amount_base"] == "50.00"
+    assert by_name["Discovery"]["deal_count"] == 1
     assert {d["id"] for s in repb["stages"] for d in s["deals"]} <= {d["id"] for s in mgr["stages"] for d in s["deals"]}
     assert (
         client_for(rep.user, rep).get("/api/v1/deals/board/?pipeline=00000000-0000-0000-0000-000000000000").status_code
@@ -379,7 +383,7 @@ def test_board_query_count_does_not_grow_with_the_number_of_deals(org_a, crm, ow
     serializer, a per-card lookup), which is the regression that actually hurts a large tenant.
     """
     pipeline = crm.make_pipeline(org_a)
-    proposal = crm.stage_named(pipeline, "Proposal")
+    proposal = crm.stage_named(pipeline, "Proposal sent")
     for i in range(3):
         crm.make_deal(org_a, name=f"small {i}", stage=proposal)
     owner_client.get(f"/api/v1/deals/board/?pipeline={pipeline.pk}")  # warm caches

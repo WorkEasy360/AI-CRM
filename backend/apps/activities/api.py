@@ -3,7 +3,8 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from django.db.models import Count, Q
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
@@ -43,6 +44,9 @@ class ActivitySerializer(serializers.ModelSerializer):
     deal = RefSerializer(read_only=True)
     attendees = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
+    parent_id = serializers.UUIDField(read_only=True, allow_null=True)
+    subtask_count = serializers.IntegerField(read_only=True, default=0)
+    subtasks_done = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Activity
@@ -70,6 +74,11 @@ class ActivitySerializer(serializers.ModelSerializer):
             "deal",
             "attendees",
             "is_overdue",
+            "parent_id",
+            "subtask_count",
+            "subtasks_done",
+            "recurrence",
+            "series_id",
             "version",
             "created_at",
             "updated_at",
@@ -85,6 +94,17 @@ class ActivitySerializer(serializers.ModelSerializer):
 
     def get_is_overdue(self, obj: Activity) -> bool:
         return bool(obj.is_open and obj.start_at is not None and obj.start_at < timezone.now())
+
+    def to_representation(self, instance: Activity) -> dict[str, Any]:
+        data = super().to_representation(instance)
+        # A deal in a restricted pipeline the actor cannot open is not named on its activities either.
+        if instance.deal_id is not None:
+            from apps.pipelines.access import can_access
+
+            deal = instance.deal
+            if deal is None or not can_access(self.context.get("actor"), deal.pipeline_id):
+                data["deal"] = None
+        return data
 
 
 def _active_contacts():
@@ -129,6 +149,16 @@ class ActivityWriteSerializer(serializers.Serializer):
     )
     attendee_ids = serializers.ListField(child=serializers.UUIDField(), required=False, max_length=50)
     completed = serializers.BooleanField(required=False)
+    parent_id = TenantPrimaryKeyRelatedField(
+        source="parent", model=Activity, queryset_fn=lambda: Activity.objects.all(), required=False
+    )
+    recurrence = serializers.CharField(max_length=300, required=False, allow_blank=True)
+
+
+class BulkActivitySerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.UUIDField(), min_length=1, max_length=services.MAX_BULK_IDS)
+    action = serializers.ChoiceField(choices=[(a, a) for a in services.BULK_ACTIONS])
+    payload = serializers.DictField(required=False, default=dict)
 
 
 class CompleteSerializer(serializers.Serializer):
@@ -161,6 +191,12 @@ def _open_filter(qs, key, raw):
     return qs.filter(status__in=OPEN_STATUSES) if _bool(raw) else qs.exclude(status__in=OPEN_STATUSES)
 
 
+def _top_level_filter(qs, key, raw):
+    from apps.core.api.filters import _bool
+
+    return qs.filter(parent__isnull=True) if _bool(raw) else qs.filter(parent__isnull=False)
+
+
 FILTERS = FilterSet(
     filters={
         "owner": Filter("owner", "owner_id"),
@@ -170,6 +206,7 @@ FILTERS = FilterSet(
         "contact": Filter("uuid", "contact_id"),
         "company": Filter("uuid", "company_id"),
         "deal": Filter("uuid", "deal_id"),
+        "parent": Filter("uuid", "parent_id"),
         "from": Filter("date_from", "start_at__date"),
         "to": Filter("date_to", "start_at__date"),
         "ids": Filter("uuid_list", "id"),
@@ -183,7 +220,7 @@ FILTERS = FilterSet(
     },
     default_sort="start_at",
     search_fields=("title", "description"),
-    extra={"due": _due_filter, "open": _open_filter},
+    extra={"due": _due_filter, "open": _open_filter, "top_level": _top_level_filter},
 )
 
 
@@ -201,17 +238,35 @@ class ActivityViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantVi
         "reopen": "activities.update",
         "calendar": "activities.view",
         "summary": "activities.view",
+        "bulk": "activities.bulk_update",
+        "my_day": "activities.view",
     }
     serializer_class = ActivitySerializer
     filterset = FILTERS
     resolved_ordering: tuple[str, ...] | None = None
 
     def base_queryset(self):
-        return Activity.objects.select_related("owner__user", "contact", "company", "deal").defer("search_vector")
+        subtasks = Activity.objects.filter(parent=OuterRef("pk")).order_by().values("parent")
+        return (
+            Activity.objects.select_related("owner__user", "contact", "company", "deal")
+            .defer("search_vector")
+            .annotate(
+                subtask_count=Coalesce(
+                    Subquery(subtasks.annotate(n=Count("id")).values("n"), output_field=IntegerField()), Value(0)
+                ),
+                subtasks_done=Coalesce(
+                    Subquery(
+                        subtasks.filter(status=Activity.Status.COMPLETED).annotate(n=Count("id")).values("n"),
+                        output_field=IntegerField(),
+                    ),
+                    Value(0),
+                ),
+            )
+        )
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.action in {"list", "calendar", "summary", "retrieve"}:
+        if self.action in {"list", "calendar", "summary", "retrieve", "my_day"}:
             # Attendees always see what they were invited to, whatever their owner scope says.
             invited = ActivityAttendee.objects.filter(membership_id=self.request.actor.membership.id).values(
                 "activity_id"
@@ -317,7 +372,11 @@ class ActivityViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantVi
             raise ValidationError({"from": "Provide from and to as ISO dates (YYYY-MM-DD)."}) from exc
         if end < start or (end - start).days > MAX_CALENDAR_DAYS:
             raise ValidationError({"to": f"The range must cover at most {MAX_CALENDAR_DAYS} days."})
-        qs = self.get_queryset().filter(start_at__date__gte=start, start_at__date__lte=end)
+        # Rows starting in the range, plus repeating rows that started earlier and may recur inside it.
+        qs = self.get_queryset().filter(
+            Q(start_at__date__gte=start, start_at__date__lte=end)
+            | (Q(start_at__date__lt=start) & ~Q(recurrence="") & Q(status__in=OPEN_STATUSES))
+        )
         owner = request.query_params.get("owner")
         if owner == "me":
             qs = qs.filter(
@@ -334,7 +393,52 @@ class ActivityViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantVi
                 raise ValidationError({"kind": "Unknown kind."})
             qs = qs.filter(kind__in=kinds)
         objs = list(qs.order_by("start_at", "id")[:MAX_CALENDAR_ROWS])
-        return Response({"results": ActivitySerializer(objs, many=True, context=self._context(objs)).data})
+        data = ActivitySerializer(objs, many=True, context=self._context(objs)).data
+        return Response({"results": _expand_occurrences(objs, data, start, end)})
+
+    @action(detail=False, methods=["post"])
+    def bulk(self, request):
+        """Reassign or complete up to 500 activities in one request (all in scope, or nothing)."""
+        ser = BulkActivitySerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        result = services.bulk(
+            request.actor,
+            ids=ser.validated_data["ids"],
+            action=ser.validated_data["action"],
+            payload=ser.validated_data.get("payload") or {},
+            request=request._request,
+        )
+        return Response(result)
+
+    @action(detail=False, methods=["get"], url_path="my-day")
+    def my_day(self, request):
+        """The signed-in member's day: overdue, today (tasks, events, calls), undated tasks, done today."""
+        day = services.my_day(request.actor, tz=request.query_params.get("tz", ""))
+        rows = [*day["overdue"], *day["today"], *day["no_date"], *(a for a, _ in day["recurring_today"])]
+        ctx = self._context(rows)
+
+        def ser(items):
+            return ActivitySerializer(items, many=True, context=ctx).data
+
+        recurring = []
+        for activity, when in day["recurring_today"]:
+            item = dict(ActivitySerializer(activity, context=ctx).data)
+            item.update(_occurrence_fields(activity, when))
+            recurring.append(item)
+        today = ser(day["today"]) + recurring
+        today.sort(key=lambda a: a["start_at"] or "")
+        return Response(
+            {
+                "date": day["date"],
+                "timezone": day["timezone"],
+                "overdue": ser(day["overdue"]),
+                "tasks": [a for a in today if a["kind"] == Activity.Kind.TASK],
+                "events": [a for a in today if a["kind"] == Activity.Kind.MEETING],
+                "calls": [a for a in today if a["kind"] == Activity.Kind.CALL],
+                "no_date": ser(day["no_date"]),
+                "completed_today": day["completed_today"],
+            }
+        )
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
@@ -365,3 +469,33 @@ class ActivityViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantVi
             ),
         )
         return Response(agg)
+
+
+def _occurrence_fields(activity: Activity, when: dt.datetime) -> dict[str, Any]:
+    duration = (activity.end_at - activity.start_at) if activity.end_at and activity.start_at else None
+    return {
+        "start_at": when.isoformat(),
+        "end_at": (when + duration).isoformat() if duration is not None else None,
+        "occurrence_of": str(activity.pk),
+        "occurrence_key": f"{activity.pk}:{when.isoformat()}",
+    }
+
+
+def _expand_occurrences(objs: list[Activity], data: list[dict], start: dt.date, end: dt.date) -> list[dict]:
+    """Replace each repeating row with its occurrences inside ``start``..``end`` (inclusive dates)."""
+    from apps.activities import recurrence
+
+    range_start = dt.datetime.combine(start, dt.time.min, tzinfo=dt.UTC)
+    range_end = dt.datetime.combine(end, dt.time.max, tzinfo=dt.UTC)
+    out: list[dict] = []
+    for obj, item in zip(objs, data, strict=True):
+        if not obj.recurrence or obj.start_at is None or obj.kind != Activity.Kind.MEETING:
+            if obj.start_at is not None and start <= obj.start_at.date() <= end:
+                out.append(item)
+            continue
+        for when in recurrence.occurrences(obj.recurrence, obj.start_at, range_start, range_end):
+            occ = dict(item)
+            occ.update(_occurrence_fields(obj, when))
+            out.append(occ)
+    out.sort(key=lambda a: a["start_at"] or "")
+    return out[:MAX_CALENDAR_ROWS]

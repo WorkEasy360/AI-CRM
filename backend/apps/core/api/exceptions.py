@@ -38,6 +38,7 @@ def _flatten_errors(detail: Any, prefix: str = "") -> list[dict[str, str]]:
 
 
 def problem_details_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
+    extra = exc.extra if isinstance(exc, DomainError) and exc.extra else None
     if isinstance(exc, DjangoValidationError):
         exc = exceptions.ValidationError(detail=exc.message_dict if hasattr(exc, "message_dict") else exc.messages)
     elif isinstance(exc, ReauthenticationRequired):
@@ -80,6 +81,8 @@ def problem_details_exception_handler(exc: Exception, context: dict[str, Any]) -
         body["detail"] = str(detail) if not isinstance(detail, dict | list) else "Request failed."
     else:
         body["detail"] = _title_for(response.status_code)
+    if extra:
+        body.update({k: v for k, v in extra.items() if k not in body})
 
     response.data = body
     return response

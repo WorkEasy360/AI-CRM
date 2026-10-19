@@ -19,3 +19,18 @@ class PipelinesConfig(AppConfig):
             ensure_default_pipeline()
 
         domain_events.subscribe_bootstrap(_seed_default_pipeline)
+
+        from apps.billing import entitlements
+
+        def _count_pipelines(_module: str | None) -> int:
+            from apps.pipelines.models import Pipeline
+
+            # Sub-pipelines are variants of a team pipeline, not team pipelines (DECISIONS M2.4).
+            return Pipeline.objects.filter(archived_at__isnull=True, parent__isnull=True).count()
+
+        entitlements.register_counter("pipelines", _count_pipelines)
+
+        # Restricted team pipelines hide themselves and their deals from members outside their grants.
+        from apps.pipelines import access
+
+        access.register()

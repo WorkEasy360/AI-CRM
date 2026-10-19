@@ -71,6 +71,8 @@ const deal: Deal = {
   risk_level: "high",
   contact_count: 1,
   products_total: null,
+  amount_from_lines: false,
+  price_book: null,
 };
 
 const insights: DealInsights = {

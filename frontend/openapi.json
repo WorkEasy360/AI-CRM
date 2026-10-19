@@ -1,7 +1,7 @@
 {
     "openapi": "3.0.3",
     "info": {
-        "title": "Keel CRM API",
+        "title": "WorkEasy CRM API",
         "version": "1.0.0"
     },
     "paths": {
@@ -265,10 +265,68 @@
                 }
             }
         },
+        "/api/v1/activities/bulk/": {
+            "post": {
+                "operationId": "activities_bulk_create",
+                "description": "Reassign or complete up to 500 activities in one request (all in scope, or nothing).",
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/activities/calendar/": {
             "get": {
                 "operationId": "activities_calendar_retrieve",
                 "description": "Everything with a start inside ``from``..``to`` (max 62 days), for the month/week/day views.",
+                "tags": [
+                    "activities"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Activity"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/activities/my-day/": {
+            "get": {
+                "operationId": "activities_my_day_retrieve",
+                "description": "The signed-in member's day: overdue, today (tasks, events, calls), undated tasks, done today.",
                 "tags": [
                     "activities"
                 ],
@@ -683,6 +741,269 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/AuditEvent"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/methods/": {
+            "get": {
+                "operationId": "auth_methods_retrieve",
+                "description": "Which ways in the sign-in page should offer. Public: it says nothing about any account.",
+                "tags": [
+                    "auth"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/billing/addons/": {
+            "get": {
+                "operationId": "billing_addons_list",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "summary": "Add-on purchases",
+                "tags": [
+                    "billing"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AddonPurchase"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "billing_addons_create",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "summary": "Buy an add-on",
+                "tags": [
+                    "billing"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AddonInputRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AddonPurchase"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/billing/addons/{addon_id}/cancel/": {
+            "post": {
+                "operationId": "billing_addons_cancel_create",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "summary": "Cancel an add-on",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "addon_id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "billing"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AddonPurchase"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/billing/editions/": {
+            "get": {
+                "operationId": "billing_editions_retrieve",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "summary": "Editions, limits, features and add-ons",
+                "tags": [
+                    "billing"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EditionCatalogOut"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/billing/subscription/": {
+            "get": {
+                "operationId": "billing_subscription_retrieve",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "summary": "The organization's subscription",
+                "tags": [
+                    "billing"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SubscriptionOut"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "billing_subscription_create",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "summary": "Change plan",
+                "tags": [
+                    "billing"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePlanRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SubscriptionOut"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/billing/usage/": {
+            "get": {
+                "operationId": "billing_usage_retrieve",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "summary": "Every metered counter against its limit",
+                "tags": [
+                    "billing"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UsageReport"
                                 }
                             }
                         },
@@ -1846,6 +2167,130 @@
                 }
             }
         },
+        "/api/v1/deals/{id}/connections/": {
+            "get": {
+                "operationId": "deals_connections_retrieve",
+                "description": "Deals connected to this one, in both directions (only those the actor may view).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "deals"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Deal"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/deals/{id}/connections/{connection_id}/remove/": {
+            "post": {
+                "operationId": "deals_connections_remove_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "connection_id",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f-]{36}$"
+                        },
+                        "required": true
+                    },
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "deals"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Deal"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/deals/{id}/connections/add/": {
+            "post": {
+                "operationId": "deals_connections_add_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "deals"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Deal"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/deals/{id}/contacts/": {
             "get": {
                 "operationId": "deals_contacts_retrieve",
@@ -2324,7 +2769,36 @@
         "/api/v1/deals/board/": {
             "get": {
                 "operationId": "deals_board_retrieve",
-                "description": "Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals.",
+                "description": "Kanban payload: stages of one pipeline with the actor's visible deals and per-stage totals.\n\n``per_stage`` (default 50, max ``BOARD_MAX_PER_STAGE``) cards per column; a column with more\nreports ``has_more`` and pages through ``board/stage``. Counts, value totals and the weighted\nforecast are computed over every deal in scope, not only the cards sent.",
+                "tags": [
+                    "deals"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Deal"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/deals/board/stage/": {
+            "get": {
+                "operationId": "deals_board_stage_retrieve",
+                "description": "More cards for one Kanban column: ``?stage=<id>&offset=<n>&limit=<n>`` (same filters as the board).",
                 "tags": [
                     "deals"
                 ],
@@ -2935,6 +3409,160 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/EmailTemplate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/exports/all/": {
+            "get": {
+                "operationId": "exports_all_list",
+                "description": "Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).\n\nThe route only needs membership; the service exports just the modules the requester holds\n``<module>.export`` for and refuses with 403 when that is none.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "exports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedExportJobList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "exports_all_create",
+                "description": "Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).\n\nThe route only needs membership; the service exports just the modules the requester holds\n``<module>.export`` for and refuses with 403 when that is none.",
+                "tags": [
+                    "exports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/exports/all/{id}/": {
+            "get": {
+                "operationId": "exports_all_retrieve",
+                "description": "Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).\n\nThe route only needs membership; the service exports just the modules the requester holds\n``<module>.export`` for and refuses with 403 when that is none.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "exports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/exports/all/{id}/download/": {
+            "get": {
+                "operationId": "exports_all_download_retrieve",
+                "description": "Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).\n\nThe route only needs membership; the service exports just the modules the requester holds\n``<module>.export`` for and refuses with 403 when that is none.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "exports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExportJob"
                                 }
                             }
                         },
@@ -3749,6 +4377,229 @@
                 }
             }
         },
+        "/api/v1/hierarchy-roles/": {
+            "get": {
+                "operationId": "hierarchy_roles_list",
+                "description": "The reporting hierarchy that the \"subordinates\" scope follows.",
+                "tags": [
+                    "hierarchy-roles"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/HierarchyRole"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "hierarchy_roles_create",
+                "description": "The reporting hierarchy that the \"subordinates\" scope follows.",
+                "tags": [
+                    "hierarchy-roles"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HierarchyRoleRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HierarchyRole"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/hierarchy-roles/{id}/": {
+            "get": {
+                "operationId": "hierarchy_roles_retrieve",
+                "description": "The reporting hierarchy that the \"subordinates\" scope follows.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "hierarchy-roles"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HierarchyRole"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "hierarchy_roles_partial_update",
+                "description": "The reporting hierarchy that the \"subordinates\" scope follows.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "hierarchy-roles"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedHierarchyRoleRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HierarchyRole"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "hierarchy_roles_destroy",
+                "description": "The reporting hierarchy that the \"subordinates\" scope follows.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "hierarchy-roles"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/hierarchy-roles/assign/": {
+            "post": {
+                "operationId": "hierarchy_roles_assign_create",
+                "description": "The reporting hierarchy that the \"subordinates\" scope follows.",
+                "tags": [
+                    "hierarchy-roles"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HierarchyAssignRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HierarchyAssign"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/imports/companies/": {
             "get": {
                 "operationId": "imports_companies_list",
@@ -3861,9 +4712,88 @@
                 }
             }
         },
+        "/api/v1/imports/companies/{id}/check/": {
+            "post": {
+                "operationId": "imports_companies_check_create",
+                "description": "Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/imports/companies/{id}/preview/": {
             "get": {
                 "operationId": "imports_companies_preview_retrieve",
+                "description": "The first rows of the file (raw) and the fields they may be mapped to.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/companies/{id}/rollback/": {
+            "post": {
+                "operationId": "imports_companies_rollback_create",
+                "description": "Undo this import: delete what it created, restore what it updated; conflicts are reported.",
                 "parameters": [
                     {
                         "in": "path",
@@ -3912,6 +4842,74 @@
                         "required": true
                     }
                 ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/companies/{id}/suggest/": {
+            "post": {
+                "operationId": "imports_companies_suggest_create",
+                "description": "A suggested mapping for this file's headers, optionally from a migration preset.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/companies/presets/": {
+            "get": {
+                "operationId": "imports_companies_presets_retrieve",
+                "description": "Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive).",
                 "tags": [
                     "imports"
                 ],
@@ -4049,9 +5047,88 @@
                 }
             }
         },
+        "/api/v1/imports/contacts/{id}/check/": {
+            "post": {
+                "operationId": "imports_contacts_check_create",
+                "description": "Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/imports/contacts/{id}/preview/": {
             "get": {
                 "operationId": "imports_contacts_preview_retrieve",
+                "description": "The first rows of the file (raw) and the fields they may be mapped to.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/contacts/{id}/rollback/": {
+            "post": {
+                "operationId": "imports_contacts_rollback_create",
+                "description": "Undo this import: delete what it created, restore what it updated; conflicts are reported.",
                 "parameters": [
                     {
                         "in": "path",
@@ -4100,6 +5177,409 @@
                         "required": true
                     }
                 ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/contacts/{id}/suggest/": {
+            "post": {
+                "operationId": "imports_contacts_suggest_create",
+                "description": "A suggested mapping for this file's headers, optionally from a migration preset.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/contacts/presets/": {
+            "get": {
+                "operationId": "imports_contacts_presets_retrieve",
+                "description": "Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive).",
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/": {
+            "get": {
+                "operationId": "imports_deals_list",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedImportJobList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "imports_deals_create",
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/{id}/": {
+            "get": {
+                "operationId": "imports_deals_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/{id}/check/": {
+            "post": {
+                "operationId": "imports_deals_check_create",
+                "description": "Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/{id}/preview/": {
+            "get": {
+                "operationId": "imports_deals_preview_retrieve",
+                "description": "The first rows of the file (raw) and the fields they may be mapped to.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/{id}/rollback/": {
+            "post": {
+                "operationId": "imports_deals_rollback_create",
+                "description": "Undo this import: delete what it created, restore what it updated; conflicts are reported.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/{id}/start/": {
+            "post": {
+                "operationId": "imports_deals_start_create",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/{id}/suggest/": {
+            "post": {
+                "operationId": "imports_deals_suggest_create",
+                "description": "A suggested mapping for this file's headers, optionally from a migration preset.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/deals/presets/": {
+            "get": {
+                "operationId": "imports_deals_presets_retrieve",
+                "description": "Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive).",
                 "tags": [
                     "imports"
                 ],
@@ -4237,9 +5717,88 @@
                 }
             }
         },
+        "/api/v1/imports/products/{id}/check/": {
+            "post": {
+                "operationId": "imports_products_check_create",
+                "description": "Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/imports/products/{id}/preview/": {
             "get": {
                 "operationId": "imports_products_preview_retrieve",
+                "description": "The first rows of the file (raw) and the fields they may be mapped to.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/products/{id}/rollback/": {
+            "post": {
+                "operationId": "imports_products_rollback_create",
+                "description": "Undo this import: delete what it created, restore what it updated; conflicts are reported.",
                 "parameters": [
                     {
                         "in": "path",
@@ -4288,6 +5847,74 @@
                         "required": true
                     }
                 ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/products/{id}/suggest/": {
+            "post": {
+                "operationId": "imports_products_suggest_create",
+                "description": "A suggested mapping for this file's headers, optionally from a migration preset.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportJob"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/imports/products/presets/": {
+            "get": {
+                "operationId": "imports_products_presets_retrieve",
+                "description": "Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive).",
                 "tags": [
                     "imports"
                 ],
@@ -6816,6 +8443,45 @@
                 }
             }
         },
+        "/api/v1/pipelines/{id}/access/": {
+            "put": {
+                "operationId": "pipelines_access_update",
+                "description": "Replace the teams and hierarchy roles that may use this (restricted) pipeline.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "pipelines"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Pipeline"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/pipelines/{id}/stages/": {
             "post": {
                 "operationId": "pipelines_stages_create",
@@ -6884,6 +8550,295 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Pipeline"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/pipelines/templates/": {
+            "get": {
+                "operationId": "pipelines_templates_retrieve",
+                "description": "The pipeline templates shipped with the product (original wording, DECISIONS M2.5).",
+                "tags": [
+                    "pipelines"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Pipeline"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/price-books/": {
+            "get": {
+                "operationId": "price_books_list",
+                "description": "Price books (``products.view`` to read, ``pricebooks.manage`` to change).",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "price-books"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedPriceBookList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "price_books_create",
+                "description": "Price books (``products.view`` to read, ``pricebooks.manage`` to change).",
+                "tags": [
+                    "price-books"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PriceBook"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/price-books/{id}/": {
+            "get": {
+                "operationId": "price_books_retrieve",
+                "description": "Price books (``products.view`` to read, ``pricebooks.manage`` to change).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "price-books"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PriceBook"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "price_books_partial_update",
+                "description": "Price books (``products.view`` to read, ``pricebooks.manage`` to change).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "price-books"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PriceBook"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "price_books_destroy",
+                "description": "Price books (``products.view`` to read, ``pricebooks.manage`` to change).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "price-books"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/price-books/{id}/entries/": {
+            "get": {
+                "operationId": "price_books_entries_retrieve",
+                "description": "Price books (``products.view`` to read, ``pricebooks.manage`` to change).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "price-books"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PriceBook"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/price-books/{id}/entries/set/": {
+            "put": {
+                "operationId": "price_books_entries_set_update",
+                "description": "Price books (``products.view`` to read, ``pricebooks.manage`` to change).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "price-books"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PriceBook"
                                 }
                             }
                         },
@@ -7174,10 +9129,319 @@
                 }
             }
         },
+        "/api/v1/records/": {
+            "get": {
+                "operationId": "records_list",
+                "description": "Modules the actor can open (the registry, filtered by ``<module>.view``).",
+                "tags": [
+                    "records"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Module"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/records/{entity_type}/calendar/": {
+            "get": {
+                "operationId": "records_calendar_retrieve",
+                "description": "Records by one of their date fields: ``?date_field=&from=&to=&<filters>``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "entity_type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "company",
+                                "contact",
+                                "deal",
+                                "product"
+                            ]
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "records"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/records/{entity_type}/chart/": {
+            "get": {
+                "operationId": "records_chart_retrieve",
+                "description": "One grouped series: ``?group_by=&measure=count|sum&field=&<filters>``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "entity_type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "company",
+                                "contact",
+                                "deal",
+                                "product"
+                            ]
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "records"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/records/{entity_type}/edits/": {
+            "post": {
+                "operationId": "records_edits_create",
+                "description": "Sheet edits: ``{\"rows\": [{\"id\", \"version\", \"values\": {field: value}}]}``; per-row and per-cell results.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "entity_type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "company",
+                                "contact",
+                                "deal",
+                                "product"
+                            ]
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "records"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EditsRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/records/{entity_type}/groups/": {
+            "get": {
+                "operationId": "records_groups_retrieve",
+                "description": "Generic Kanban: ``?group_by=<field>&per_group=&columns=&<filters>``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "entity_type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "company",
+                                "contact",
+                                "deal",
+                                "product"
+                            ]
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "records"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/records/{entity_type}/groups/page/": {
+            "get": {
+                "operationId": "records_groups_page_retrieve",
+                "description": "More cards for one generic Kanban column: ``?group_by=&value=&offset=&limit=``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "entity_type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "company",
+                                "contact",
+                                "deal",
+                                "product"
+                            ]
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "records"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/records/{entity_type}/rows/": {
+            "get": {
+                "operationId": "records_rows_retrieve",
+                "description": "Sheet/List window: ``?offset=&limit=&columns=a,b&sort=&<filters>``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "entity_type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "company",
+                                "contact",
+                                "deal",
+                                "product"
+                            ]
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "records"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/records/{entity_type}/schema/": {
+            "get": {
+                "operationId": "records_schema_retrieve",
+                "description": "The fields of one module as this actor may see them (hidden fields absent, read-only flagged).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "entity_type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "company",
+                                "contact",
+                                "deal",
+                                "product"
+                            ]
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "records"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
         "/api/v1/roles/": {
             "get": {
                 "operationId": "roles_retrieve",
-                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "description": "System roles and the organization's custom permission sets (\"profiles\").",
+                "summary": "System and custom permission sets",
                 "tags": [
                     "roles"
                 ],
@@ -7191,7 +9455,257 @@
                 ],
                 "responses": {
                     "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PermissionSetList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "roles_create",
+                "description": "System roles and the organization's custom permission sets (\"profiles\").",
+                "summary": "Create a permission set",
+                "tags": [
+                    "roles"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProfileInputRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PermissionSet"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/roles/{key}/": {
+            "get": {
+                "operationId": "roles_detail_retrieve",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PermissionSet"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "roles_partial_update",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedProfileInputRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PermissionSet"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "roles_destroy",
+                "description": "APIView keyed by HTTP method: ``permission_map = {\"GET\": \"x.view\", \"PATCH\": \"x.update\"}``.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
                         "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/roles/{key}/field-permissions/": {
+            "get": {
+                "operationId": "roles_field_permissions_list",
+                "description": "Field-level read/write restrictions of one permission set.",
+                "summary": "Field rules of a permission set",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/FieldRulesInput"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "put": {
+                "operationId": "roles_field_permissions_update",
+                "description": "Field-level read/write restrictions of one permission set.",
+                "summary": "Replace field rules",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FieldRulesInputRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FieldRulesInput"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -7914,6 +10428,256 @@
                 }
             }
         },
+        "/api/v1/views/": {
+            "get": {
+                "operationId": "views_list",
+                "description": "Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "views"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedSavedViewList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "views_create",
+                "description": "Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams.",
+                "tags": [
+                    "views"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedView"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/views/{id}/": {
+            "get": {
+                "operationId": "views_retrieve",
+                "description": "Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "views"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedView"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "views_partial_update",
+                "description": "Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "views"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedView"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "views_destroy",
+                "description": "Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "views"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/views/{id}/default/": {
+            "post": {
+                "operationId": "views_default_create",
+                "description": "Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "views"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedView"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/views/default/clear/": {
+            "post": {
+                "operationId": "views_default_clear_create",
+                "description": "Saved views (``?entity_type=deal``). Visible: own, shared with everyone, or with one of my teams.",
+                "tags": [
+                    "views"
+                ],
+                "security": [
+                    {
+                        "apiCredential": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedView"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/whatsapp/account/": {
             "get": {
                 "operationId": "whatsapp_account_retrieve",
@@ -8294,6 +11058,14 @@
     },
     "components": {
         "schemas": {
+            "AccessEnum": {
+                "enum": [
+                    "hidden",
+                    "read_only"
+                ],
+                "type": "string",
+                "description": "* `hidden` - hidden\n* `read_only` - read_only"
+            },
             "Activity": {
                 "type": "object",
                 "properties": {
@@ -8438,6 +11210,32 @@
                         "type": "boolean",
                         "readOnly": true
                     },
+                    "parent_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "subtask_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "subtasks_done": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "recurrence": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "series_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true,
+                        "nullable": true
+                    },
                     "version": {
                         "type": "integer",
                         "readOnly": true
@@ -8472,10 +11270,15 @@
                     "meeting_url",
                     "outcome",
                     "owner",
+                    "parent_id",
                     "priority",
+                    "recurrence",
                     "reminder_minutes",
+                    "series_id",
                     "start_at",
                     "status",
+                    "subtask_count",
+                    "subtasks_done",
                     "timezone",
                     "title",
                     "updated_at",
@@ -8510,6 +11313,150 @@
                 ],
                 "type": "string",
                 "description": "* `user` - User\n* `system` - System\n* `ai` - AI\n* `integration` - Integration"
+            },
+            "AddonInputAddonEnum": {
+                "enum": [
+                    "extra_records",
+                    "extra_automations",
+                    "extra_pipelines",
+                    "extra_booking_pages",
+                    "extra_mass_emails",
+                    "ai_credits",
+                    "extra_storage",
+                    "data_backup"
+                ],
+                "type": "string",
+                "description": "* `extra_records` - extra_records\n* `extra_automations` - extra_automations\n* `extra_pipelines` - extra_pipelines\n* `extra_booking_pages` - extra_booking_pages\n* `extra_mass_emails` - extra_mass_emails\n* `ai_credits` - ai_credits\n* `extra_storage` - extra_storage\n* `data_backup` - data_backup"
+            },
+            "AddonInputRequest": {
+                "type": "object",
+                "properties": {
+                    "addon": {
+                        "$ref": "#/components/schemas/AddonInputAddonEnum"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "maximum": 1000,
+                        "minimum": 1,
+                        "default": 1
+                    }
+                },
+                "required": [
+                    "addon"
+                ]
+            },
+            "AddonOut": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "metric": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "feature": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "unit_amount": {
+                        "type": "integer"
+                    },
+                    "price_cents": {
+                        "type": "integer"
+                    },
+                    "recurring": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "feature",
+                    "key",
+                    "label",
+                    "metric",
+                    "price_cents",
+                    "recurring",
+                    "unit_amount"
+                ]
+            },
+            "AddonPurchase": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "addon": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AddonPurchaseAddonEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AddonPurchaseStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "period_key": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "cancelled_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "addon",
+                    "cancelled_at",
+                    "created_at",
+                    "id",
+                    "period_key",
+                    "quantity",
+                    "status"
+                ]
+            },
+            "AddonPurchaseAddonEnum": {
+                "enum": [
+                    "extra_records",
+                    "extra_automations",
+                    "extra_pipelines",
+                    "extra_booking_pages",
+                    "extra_mass_emails",
+                    "ai_credits",
+                    "extra_storage",
+                    "data_backup"
+                ],
+                "type": "string",
+                "description": "* `extra_records` - 5,000 extra records\n* `extra_automations` - 10 extra automation rules\n* `extra_pipelines` - 1 extra team pipeline\n* `extra_booking_pages` - 1 extra booking page\n* `extra_mass_emails` - 500 extra mass emails per day\n* `ai_credits` - 1,000 AI credits (this month)\n* `extra_storage` - 5 GB extra File Cabinet storage\n* `data_backup` - Scheduled data backup"
+            },
+            "AddonPurchaseStatusEnum": {
+                "enum": [
+                    "active",
+                    "cancelled"
+                ],
+                "type": "string",
+                "description": "* `active` - Active\n* `cancelled` - Cancelled"
             },
             "ApiCredential": {
                 "type": "object",
@@ -8660,6 +11607,57 @@
                 ],
                 "type": "string",
                 "description": "* `oauth2_code` - OAuth 2.0 (authorization code + PKCE)\n* `oauth2_client_credentials` - OAuth 2.0 (client credentials)\n* `api_key` - API key\n* `bearer_token` - Bearer token\n* `signed_webhook` - Signed webhook only"
+            },
+            "CellEditRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "values": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "required": [
+                    "id",
+                    "values",
+                    "version"
+                ]
+            },
+            "ChangePlanBillingCycleEnum": {
+                "enum": [
+                    "monthly",
+                    "annual"
+                ],
+                "type": "string",
+                "description": "* `monthly` - monthly\n* `annual` - annual"
+            },
+            "ChangePlanRequest": {
+                "type": "object",
+                "properties": {
+                    "edition": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 24
+                    },
+                    "billing_cycle": {
+                        "$ref": "#/components/schemas/ChangePlanBillingCycleEnum"
+                    },
+                    "seats": {
+                        "type": "integer",
+                        "maximum": 10000,
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "edition"
+                ]
             },
             "Company": {
                 "type": "object",
@@ -9233,7 +12231,7 @@
                     "entity_type": {
                         "allOf": [
                             {
-                                "$ref": "#/components/schemas/EntityTypeEnum"
+                                "$ref": "#/components/schemas/CustomFieldDefinitionEntityTypeEnum"
                             }
                         ],
                         "readOnly": true
@@ -9301,6 +12299,16 @@
                     "updated_at"
                 ]
             },
+            "CustomFieldDefinitionEntityTypeEnum": {
+                "enum": [
+                    "contact",
+                    "company",
+                    "deal",
+                    "product"
+                ],
+                "type": "string",
+                "description": "* `contact` - Contact\n* `company` - Company\n* `deal` - Deal\n* `product` - Product"
+            },
             "Deal": {
                 "type": "object",
                 "description": "Base read serializer: owner/tag/custom-field output resolved from batch-loaded context.",
@@ -9367,6 +12375,19 @@
                         "format": "decimal",
                         "pattern": "^-?\\d{0,16}(?:\\.\\d{0,2})?$",
                         "readOnly": true
+                    },
+                    "amount_from_lines": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "price_book": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Ref"
+                            }
+                        ],
+                        "readOnly": true,
+                        "nullable": true
                     },
                     "probability": {
                         "type": "integer",
@@ -9492,6 +12513,7 @@
                 "required": [
                     "amount",
                     "amount_base",
+                    "amount_from_lines",
                     "archived_at",
                     "closed_at",
                     "company",
@@ -9511,6 +12533,7 @@
                     "next_activity_title",
                     "owner",
                     "pipeline",
+                    "price_book",
                     "primary_contact",
                     "probability",
                     "probability_overridden",
@@ -9541,6 +12564,118 @@
                 ],
                 "type": "string",
                 "description": "* `active` - Active\n* `suspended` - Suspended\n* `disabled` - Disabled"
+            },
+            "EditionCatalogOut": {
+                "type": "object",
+                "properties": {
+                    "editions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EditionOut"
+                        }
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KeyLabel"
+                        }
+                    },
+                    "metrics": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        }
+                    },
+                    "addons": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AddonOut"
+                        }
+                    }
+                },
+                "required": [
+                    "addons",
+                    "editions",
+                    "features",
+                    "metrics"
+                ]
+            },
+            "EditionOut": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rank": {
+                        "type": "integer"
+                    },
+                    "tagline": {
+                        "type": "string"
+                    },
+                    "price_monthly_cents": {
+                        "type": "integer"
+                    },
+                    "price_annual_cents": {
+                        "type": "integer"
+                    },
+                    "limits": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer",
+                            "nullable": true
+                        }
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "features",
+                    "key",
+                    "limits",
+                    "name",
+                    "price_annual_cents",
+                    "price_monthly_cents",
+                    "rank",
+                    "tagline"
+                ]
+            },
+            "EditionRef": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "key",
+                    "name"
+                ]
+            },
+            "EditsRequest": {
+                "type": "object",
+                "properties": {
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CellEditRequest"
+                        },
+                        "maxItems": 500
+                    }
+                },
+                "required": [
+                    "rows"
+                ]
             },
             "EmailAccount": {
                 "type": "object",
@@ -9794,12 +12929,14 @@
             "EmailMessageStatusEnum": {
                 "enum": [
                     "queued",
+                    "sending",
                     "sent",
                     "failed",
+                    "unconfirmed",
                     "received"
                 ],
                 "type": "string",
-                "description": "* `queued` - Queued\n* `sent` - Sent\n* `failed` - Failed\n* `received` - Received"
+                "description": "* `queued` - Queued\n* `sending` - Sending\n* `sent` - Sent\n* `failed` - Failed\n* `unconfirmed` - Delivery unconfirmed\n* `received` - Received"
             },
             "EmailTemplate": {
                 "type": "object",
@@ -9855,16 +12992,6 @@
                     "updated_at"
                 ]
             },
-            "EntityTypeEnum": {
-                "enum": [
-                    "contact",
-                    "company",
-                    "deal",
-                    "product"
-                ],
-                "type": "string",
-                "description": "* `contact` - Contact\n* `company` - Company\n* `deal` - Deal\n* `product` - Product"
-            },
             "ExportJob": {
                 "type": "object",
                 "properties": {
@@ -9880,7 +13007,7 @@
                     "status": {
                         "allOf": [
                             {
-                                "$ref": "#/components/schemas/StatusA50Enum"
+                                "$ref": "#/components/schemas/Status845Enum"
                             }
                         ],
                         "readOnly": true
@@ -9950,6 +13077,88 @@
                     "size_bytes",
                     "started_at",
                     "status"
+                ]
+            },
+            "FieldRule": {
+                "type": "object",
+                "properties": {
+                    "field": {
+                        "type": "string",
+                        "maxLength": 80
+                    },
+                    "access": {
+                        "$ref": "#/components/schemas/AccessEnum"
+                    }
+                },
+                "required": [
+                    "access",
+                    "field"
+                ]
+            },
+            "FieldRuleRequest": {
+                "type": "object",
+                "properties": {
+                    "field": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    },
+                    "access": {
+                        "$ref": "#/components/schemas/AccessEnum"
+                    }
+                },
+                "required": [
+                    "access",
+                    "field"
+                ]
+            },
+            "FieldRulesInput": {
+                "type": "object",
+                "properties": {
+                    "entity_type": {
+                        "$ref": "#/components/schemas/FieldRulesInputEntityTypeEnum"
+                    },
+                    "rules": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FieldRule"
+                        },
+                        "maxItems": 200
+                    }
+                },
+                "required": [
+                    "entity_type",
+                    "rules"
+                ]
+            },
+            "FieldRulesInputEntityTypeEnum": {
+                "enum": [
+                    "contact",
+                    "company",
+                    "deal",
+                    "product",
+                    "deal_line"
+                ],
+                "type": "string",
+                "description": "* `contact` - contact\n* `company` - company\n* `deal` - deal\n* `product` - product\n* `deal_line` - deal_line"
+            },
+            "FieldRulesInputRequest": {
+                "type": "object",
+                "properties": {
+                    "entity_type": {
+                        "$ref": "#/components/schemas/FieldRulesInputEntityTypeEnum"
+                    },
+                    "rules": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FieldRuleRequest"
+                        },
+                        "maxItems": 200
+                    }
+                },
+                "required": [
+                    "entity_type",
+                    "rules"
                 ]
             },
             "FieldTypeEnum": {
@@ -10026,6 +13235,109 @@
                     "uploaded_by"
                 ]
             },
+            "HierarchyAssign": {
+                "type": "object",
+                "properties": {
+                    "membership_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "hierarchy_role_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "hierarchy_role_id",
+                    "membership_id"
+                ]
+            },
+            "HierarchyAssignRequest": {
+                "type": "object",
+                "properties": {
+                    "membership_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "hierarchy_role_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "hierarchy_role_id",
+                    "membership_id"
+                ]
+            },
+            "HierarchyRole": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 80
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "share_with_peers": {
+                        "type": "boolean"
+                    },
+                    "member_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "id",
+                    "member_count",
+                    "name"
+                ]
+            },
+            "HierarchyRoleRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "share_with_peers": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "name"
+                ]
+            },
             "ImportJob": {
                 "type": "object",
                 "properties": {
@@ -10041,7 +13353,7 @@
                     "status": {
                         "allOf": [
                             {
-                                "$ref": "#/components/schemas/StatusA50Enum"
+                                "$ref": "#/components/schemas/Status845Enum"
                             }
                         ],
                         "readOnly": true
@@ -10063,6 +13375,10 @@
                     "options": {
                         "readOnly": true
                     },
+                    "file_format": {
+                        "type": "string",
+                        "readOnly": true
+                    },
                     "total_rows": {
                         "type": "integer",
                         "readOnly": true
@@ -10072,6 +13388,14 @@
                         "readOnly": true
                     },
                     "created_rows": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "updated_rows": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "skipped_rows": {
                         "type": "integer",
                         "readOnly": true
                     },
@@ -10085,6 +13409,21 @@
                     "error_message": {
                         "type": "string",
                         "readOnly": true
+                    },
+                    "preview": {
+                        "readOnly": true
+                    },
+                    "stop": {
+                        "readOnly": true
+                    },
+                    "rollback": {
+                        "readOnly": true
+                    },
+                    "rolled_back_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
                     },
                     "requested_by": {
                         "allOf": [
@@ -10119,18 +13458,25 @@
                     "error_message",
                     "error_rows",
                     "errors",
+                    "file_format",
                     "finished_at",
                     "headers",
                     "id",
                     "mapping",
                     "options",
                     "original_filename",
+                    "preview",
                     "processed_rows",
                     "requested_by",
+                    "rollback",
+                    "rolled_back_at",
                     "size_bytes",
+                    "skipped_rows",
                     "started_at",
                     "status",
-                    "total_rows"
+                    "stop",
+                    "total_rows",
+                    "updated_rows"
                 ]
             },
             "Invitation": {
@@ -10214,6 +13560,21 @@
                     "team"
                 ]
             },
+            "KeyLabel": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "key",
+                    "label"
+                ]
+            },
             "KindCffEnum": {
                 "enum": [
                     "open",
@@ -10276,6 +13637,12 @@
                         ],
                         "readOnly": true
                     },
+                    "hierarchy_role_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true,
+                        "nullable": true
+                    },
                     "status": {
                         "allOf": [
                             {
@@ -10330,6 +13697,7 @@
                 "required": [
                     "created_at",
                     "display_status",
+                    "hierarchy_role_id",
                     "id",
                     "joined_at",
                     "last_active_at",
@@ -10367,6 +13735,29 @@
                 ],
                 "type": "string",
                 "description": "* `text` - Text\n* `template` - Template"
+            },
+            "Module": {
+                "type": "object",
+                "properties": {
+                    "entity_type": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "label_plural": {
+                        "type": "string"
+                    },
+                    "counts_as_record": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "counts_as_record",
+                    "entity_type",
+                    "label",
+                    "label_plural"
+                ]
             },
             "Note": {
                 "type": "object",
@@ -11008,6 +14399,32 @@
                     }
                 }
             },
+            "PaginatedPriceBookList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PriceBook"
+                        }
+                    }
+                }
+            },
             "PaginatedProductList": {
                 "type": "object",
                 "required": [
@@ -11030,6 +14447,32 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Product"
+                        }
+                    }
+                }
+            },
+            "PaginatedSavedViewList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SavedView"
                         }
                     }
                 }
@@ -11164,6 +14607,61 @@
                     }
                 }
             },
+            "PatchedHierarchyRoleRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "share_with_peers": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "PatchedProfileInputRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "grants": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "enum": [
+                                "own",
+                                "subordinates",
+                                "team",
+                                "all"
+                            ],
+                            "type": "string",
+                            "description": "* `own` - own\n* `subordinates` - subordinates\n* `team` - team\n* `all` - all"
+                        }
+                    },
+                    "clone_from": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40,
+                        "pattern": "^[-a-zA-Z0-9_]+$"
+                    }
+                }
+            },
             "PatchedTeamRequest": {
                 "type": "object",
                 "properties": {
@@ -11178,6 +14676,84 @@
                         "nullable": true
                     }
                 }
+            },
+            "PeriodEnum": {
+                "enum": [
+                    "count",
+                    "monthly",
+                    "daily"
+                ],
+                "type": "string",
+                "description": "* `count` - count\n* `monthly` - monthly\n* `daily` - daily"
+            },
+            "PermissionSet": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "is_system": {
+                        "type": "boolean"
+                    },
+                    "grants": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "enum": [
+                                "own",
+                                "subordinates",
+                                "team",
+                                "all"
+                            ],
+                            "type": "string",
+                            "description": "* `own` - own\n* `subordinates` - subordinates\n* `team` - team\n* `all` - all"
+                        }
+                    },
+                    "member_count": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "description",
+                    "grants",
+                    "is_system",
+                    "key",
+                    "member_count",
+                    "name"
+                ]
+            },
+            "PermissionSetList": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PermissionSet"
+                        }
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "scopes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ScopesEnum"
+                        }
+                    }
+                },
+                "required": [
+                    "permissions",
+                    "results",
+                    "scopes"
+                ]
             },
             "Pipeline": {
                 "type": "object",
@@ -11197,6 +14773,39 @@
                     },
                     "is_default": {
                         "type": "boolean",
+                        "readOnly": true
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "restricted": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "layout": {
+                        "readOnly": true
+                    },
+                    "effective_layout": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "description": "The layout this pipeline renders with: its own, or its parent's for a sub-pipeline.",
+                        "readOnly": true
+                    },
+                    "template_key": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "access": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "readOnly": true
                     },
                     "stages": {
@@ -11224,13 +14833,82 @@
                     }
                 },
                 "required": [
+                    "access",
                     "archived_at",
                     "created_at",
+                    "effective_layout",
                     "id",
                     "is_default",
+                    "layout",
                     "name",
+                    "parent_id",
                     "position",
+                    "restricted",
                     "stages",
+                    "template_key",
+                    "updated_at",
+                    "version"
+                ]
+            },
+            "PriceBook": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "currency": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "entry_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "version": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "archived_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "archived_at",
+                    "created_at",
+                    "currency",
+                    "description",
+                    "entry_count",
+                    "id",
+                    "is_active",
+                    "name",
                     "updated_at",
                     "version"
                 ]
@@ -11294,6 +14972,10 @@
                         ],
                         "readOnly": true
                     },
+                    "in_stock": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
                     "owner": {
                         "allOf": [
                             {
@@ -11338,6 +15020,7 @@
                     "custom_data",
                     "description",
                     "id",
+                    "in_stock",
                     "name",
                     "owner",
                     "sku",
@@ -11357,6 +15040,39 @@
                 ],
                 "type": "string",
                 "description": "* `active` - Active\n* `inactive` - Inactive"
+            },
+            "ProfileInputRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "grants": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "enum": [
+                                "own",
+                                "subordinates",
+                                "team",
+                                "all"
+                            ],
+                            "type": "string",
+                            "description": "* `own` - own\n* `subordinates` - subordinates\n* `team` - team\n* `all` - all"
+                        }
+                    },
+                    "clone_from": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40,
+                        "pattern": "^[-a-zA-Z0-9_]+$"
+                    }
+                }
             },
             "ProviderEnum": {
                 "enum": [
@@ -11400,6 +15116,132 @@
                     "key",
                     "name"
                 ]
+            },
+            "SavedView": {
+                "type": "object",
+                "description": "A view as the requesting member may use it (``for_viewer``), plus whether it is theirs/default.",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "entity_type": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SavedViewKindEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "filters": {
+                        "readOnly": true
+                    },
+                    "sort": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "columns": {
+                        "readOnly": true
+                    },
+                    "config": {
+                        "readOnly": true
+                    },
+                    "visibility": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/VisibilityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "team_ids": {
+                        "readOnly": true
+                    },
+                    "owner": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MembershipRef"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "is_owner": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "is_default": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "restricted": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "default": false
+                    },
+                    "version": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "columns",
+                    "config",
+                    "created_at",
+                    "entity_type",
+                    "filters",
+                    "id",
+                    "is_default",
+                    "is_owner",
+                    "kind",
+                    "name",
+                    "owner",
+                    "restricted",
+                    "sort",
+                    "team_ids",
+                    "updated_at",
+                    "version",
+                    "visibility"
+                ]
+            },
+            "SavedViewKindEnum": {
+                "enum": [
+                    "list",
+                    "kanban",
+                    "sheet",
+                    "calendar",
+                    "chart"
+                ],
+                "type": "string",
+                "description": "* `list` - List\n* `kanban` - Kanban\n* `sheet` - Sheet\n* `calendar` - Calendar\n* `chart` - Chart"
+            },
+            "ScopesEnum": {
+                "enum": [
+                    "own",
+                    "subordinates",
+                    "team",
+                    "all"
+                ],
+                "type": "string",
+                "description": "* `own` - own\n* `subordinates` - subordinates\n* `team` - team\n* `all` - all"
             },
             "Stage": {
                 "type": "object",
@@ -11489,6 +15331,17 @@
                     "name"
                 ]
             },
+            "StateEnum": {
+                "enum": [
+                    "ok",
+                    "warning",
+                    "at_limit",
+                    "unlimited",
+                    "not_included"
+                ],
+                "type": "string",
+                "description": "* `ok` - ok\n* `warning` - warning\n* `at_limit` - at_limit\n* `unlimited` - unlimited\n* `not_included` - not_included"
+            },
             "Status7d0Enum": {
                 "enum": [
                     "active",
@@ -11498,16 +15351,21 @@
                 "type": "string",
                 "description": "* `active` - Active\n* `suspended` - Suspended\n* `disabled` - Disabled"
             },
-            "StatusA50Enum": {
+            "Status845Enum": {
                 "enum": [
                     "uploaded",
+                    "previewing",
+                    "previewed",
                     "pending",
                     "running",
                     "completed",
-                    "failed"
+                    "stopped",
+                    "failed",
+                    "rolling_back",
+                    "rolled_back"
                 ],
                 "type": "string",
-                "description": "* `uploaded` - Uploaded\n* `pending` - Pending\n* `running` - Running\n* `completed` - Completed\n* `failed` - Failed"
+                "description": "* `uploaded` - Uploaded\n* `previewing` - Checking\n* `previewed` - Checked\n* `pending` - Pending\n* `running` - Running\n* `completed` - Completed\n* `stopped` - Stopped at limit\n* `failed` - Failed\n* `rolling_back` - Rolling back\n* `rolled_back` - Rolled back"
             },
             "StatusCffEnum": {
                 "enum": [
@@ -11517,6 +15375,88 @@
                 ],
                 "type": "string",
                 "description": "* `open` - Open\n* `won` - Won\n* `lost` - Lost"
+            },
+            "SubscriptionOut": {
+                "type": "object",
+                "properties": {
+                    "edition": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EditionRef"
+                            }
+                        ],
+                        "description": "The edition in force now (a lapsed trial resolves to Free)."
+                    },
+                    "subscribed_edition": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/SubscriptionOutStatusEnum"
+                    },
+                    "billing_cycle": {
+                        "$ref": "#/components/schemas/SubscriptionOutBillingCycleEnum"
+                    },
+                    "seats": {
+                        "type": "integer"
+                    },
+                    "seat_limit": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "trial_ends_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "current_period_end": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "grandfathered": {
+                        "type": "boolean"
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "self_service": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "billing_cycle",
+                    "current_period_end",
+                    "edition",
+                    "features",
+                    "grandfathered",
+                    "seat_limit",
+                    "seats",
+                    "self_service",
+                    "status",
+                    "subscribed_edition",
+                    "trial_ends_at"
+                ]
+            },
+            "SubscriptionOutBillingCycleEnum": {
+                "enum": [
+                    "monthly",
+                    "annual"
+                ],
+                "type": "string",
+                "description": "* `monthly` - Monthly\n* `annual` - Annual"
+            },
+            "SubscriptionOutStatusEnum": {
+                "enum": [
+                    "trialing",
+                    "active",
+                    "past_due",
+                    "cancelled"
+                ],
+                "type": "string",
+                "description": "* `trialing` - Trial\n* `active` - Active\n* `past_due` - Past due\n* `cancelled` - Cancelled"
             },
             "Tag": {
                 "type": "object",
@@ -11629,6 +15569,99 @@
                     "name"
                 ]
             },
+            "UsageMetric": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "period": {
+                        "$ref": "#/components/schemas/PeriodEnum"
+                    },
+                    "unit": {
+                        "type": "string"
+                    },
+                    "used": {
+                        "type": "integer"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "addon_amount": {
+                        "type": "integer"
+                    },
+                    "modules": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        },
+                        "nullable": true
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/StateEnum"
+                    },
+                    "upgrade_edition": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EditionRef"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "addon": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "addon",
+                    "addon_amount",
+                    "key",
+                    "label",
+                    "limit",
+                    "modules",
+                    "period",
+                    "state",
+                    "unit",
+                    "upgrade_edition",
+                    "used"
+                ]
+            },
+            "UsageReport": {
+                "type": "object",
+                "properties": {
+                    "edition": {
+                        "$ref": "#/components/schemas/EditionRef"
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "metrics": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UsageMetric"
+                        }
+                    },
+                    "record_definition": {
+                        "type": "string",
+                        "description": "What counts towards the record limit."
+                    }
+                },
+                "required": [
+                    "edition",
+                    "features",
+                    "metrics",
+                    "record_definition"
+                ]
+            },
             "UserPublic": {
                 "type": "object",
                 "properties": {
@@ -11652,6 +15685,15 @@
                     "email",
                     "id"
                 ]
+            },
+            "VisibilityEnum": {
+                "enum": [
+                    "private",
+                    "organization",
+                    "teams"
+                ],
+                "type": "string",
+                "description": "* `private` - Only me\n* `organization` - Everyone\n* `teams` - Selected teams"
             },
             "WebhookSubscription": {
                 "type": "object",
@@ -11877,14 +15919,16 @@
             "WhatsAppMessageStatusEnum": {
                 "enum": [
                     "queued",
+                    "sending",
                     "sent",
                     "delivered",
                     "read",
                     "failed",
+                    "unconfirmed",
                     "received"
                 ],
                 "type": "string",
-                "description": "* `queued` - Queued\n* `sent` - Sent\n* `delivered` - Delivered\n* `read` - Read\n* `failed` - Failed\n* `received` - Received"
+                "description": "* `queued` - Queued\n* `sending` - Sending\n* `sent` - Sent\n* `delivered` - Delivered\n* `read` - Read\n* `failed` - Failed\n* `unconfirmed` - Delivery unconfirmed\n* `received` - Received"
             },
             "WhatsAppTemplate": {
                 "type": "object",

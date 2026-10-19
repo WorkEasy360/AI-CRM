@@ -4,7 +4,6 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.accounts.models import Invitation, Membership, Organization
-from apps.authz.roles import ROLE_ORDER
 
 
 class UserPublicSerializer(serializers.Serializer):
@@ -53,6 +52,7 @@ class MembershipSerializer(serializers.ModelSerializer):
     display_status = serializers.SerializerMethodField()
     mfa_enabled = serializers.BooleanField(read_only=True, default=False)
     last_login = serializers.DateTimeField(source="user.last_login", read_only=True, allow_null=True)
+    hierarchy_role_id = serializers.UUIDField(read_only=True, allow_null=True)
 
     class Meta:
         model = Membership
@@ -60,6 +60,7 @@ class MembershipSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "role",
+            "hierarchy_role_id",
             "status",
             "display_status",
             "teams",
@@ -94,7 +95,8 @@ class MembershipSummarySerializer(serializers.ModelSerializer):
 
 
 class RoleChangeSerializer(serializers.Serializer):
-    role = serializers.ChoiceField(choices=[(k, k) for k in ROLE_ORDER])
+    # A system role key or a custom role's key; the service resolves and authorizes it.
+    role = serializers.SlugField(max_length=40)
 
 
 class SwitchOrganizationSerializer(serializers.Serializer):
@@ -134,7 +136,7 @@ class InvitationSerializer(serializers.ModelSerializer):
 
 class InvitationCreateSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
-    role = serializers.ChoiceField(choices=[(k, k) for k in ROLE_ORDER])
+    role = serializers.SlugField(max_length=40)
     name = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
     team_id = serializers.UUIDField(required=False, allow_null=True, default=None)
 

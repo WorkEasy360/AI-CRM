@@ -140,6 +140,31 @@ FILTERS = FilterSet(
 )
 
 
+def create_company(actor, data, *, request=None):
+    stage = data.pop("lifecycle_stage", None)
+    if stage is not None:
+        data["lifecycle_stage"] = lifecycle.clean_stage(stage)
+    obj = records.create(actor, SPEC, data, request=request)
+    if stage is not None and stage != LifecycleStage.LEAD:
+        lifecycle.record_initial_stage(actor, obj)
+    return obj
+
+
+def update_company(actor, obj, data, *, expected_version, request=None):
+    stage = data.pop("lifecycle_stage", None)
+    extra: list[str] = []
+    if stage is not None and lifecycle.clean_stage(stage) != obj.lifecycle_stage:
+        records.check_update(actor, SPEC, obj)
+        from apps.authz import fields as field_rules
+
+        field_rules.assert_writable(actor, SPEC.entity_type, {"lifecycle_stage": stage})
+        lifecycle.set_stage(actor, obj, stage, request=request)
+        extra = ["lifecycle_stage", "lifecycle_changed_at"]
+    return records.update(
+        actor, SPEC, obj, data, expected_version=expected_version, request=request, extra_update_fields=extra
+    )
+
+
 class CompanyViewSet(CrmViewSet):
     spec = SPEC
     filterset = FILTERS
@@ -148,30 +173,10 @@ class CompanyViewSet(CrmViewSet):
     permission_map = crud_permission_map("companies", stats="companies.view", duplicates="companies.view")
 
     def perform_create(self, data):
-        stage = data.pop("lifecycle_stage", None)
-        if stage is not None:
-            data["lifecycle_stage"] = lifecycle.clean_stage(stage)
-        obj = super().perform_create(data)
-        if stage is not None and stage != LifecycleStage.LEAD:
-            lifecycle.record_initial_stage(self.request.actor, obj)
-        return obj
+        return create_company(self.request.actor, data, request=self.request._request)
 
     def perform_update(self, obj, data, version):
-        stage = data.pop("lifecycle_stage", None)
-        extra: list[str] = []
-        if stage is not None and lifecycle.clean_stage(stage) != obj.lifecycle_stage:
-            records.check_update(self.request.actor, self.spec, obj)
-            lifecycle.set_stage(self.request.actor, obj, stage, request=self.request._request)
-            extra = ["lifecycle_stage", "lifecycle_changed_at"]
-        return records.update(
-            self.request.actor,
-            self.spec,
-            obj,
-            data,
-            expected_version=version,
-            request=self.request._request,
-            extra_update_fields=extra,
-        )
+        return update_company(self.request.actor, obj, data, expected_version=version, request=self.request._request)
 
     @action(detail=False, methods=["get"])
     def duplicates(self, request):

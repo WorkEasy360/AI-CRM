@@ -18,7 +18,10 @@ import type {
   AssistantConversation,
   AssistantHome,
   Board,
+  BoardStagePage,
   BulkResult,
+  CalendarResponse,
+  ChartResponse,
   Company,
   CompanyDuplicate,
   CompanyInput,
@@ -31,12 +34,15 @@ import type {
   CustomFieldDefinition,
   CustomFieldUpdateInput,
   Deal,
+  DealConnection,
   DealContactLink,
   DealInput,
   DealInsights,
   DealLine,
   DealLineInput,
   DealSummary,
+  DedupeMode,
+  EditsResponse,
   EmailAccount,
   EmailDraft,
   EmailMessage,
@@ -50,19 +56,30 @@ import type {
   FileAttachment,
   FollowUpDraft,
   Forecast,
+  GroupsResponse,
   ForecastGroupBy,
   ForecastPeriod,
   ImportJob,
+  ImportPreset,
   LeadScore,
   ListParams,
+  ModuleSchema,
+  MyDay,
   Note,
   Notification,
   NotificationPreferences,
   Pipeline,
+  PipelineLayout,
   PipelineStage,
+  PipelineTemplate,
+  PriceBook,
+  PriceBookEntry,
   Product,
   ProductInput,
   RelatedEntityType,
+  RowsResponse,
+  SavedView,
+  SavedViewInput,
   SearchEntityType,
   SearchResponse,
   StageHistoryEntry,
@@ -70,6 +87,7 @@ import type {
   Tag,
   TagRef,
   TimelineEvent,
+  TimelinePage,
   WhatsAppAccountStatus,
   WhatsAppMessage,
   WhatsAppSendInput,
@@ -146,9 +164,23 @@ export const updateProduct = (id: string, version: number, input: ProductInput) 
 export const listPipelines = (archived = false) =>
   api.get<Paginated<Pipeline>>("/api/v1/pipelines/", archived ? { archived: "true" } : undefined);
 export const getPipeline = (id: string) => api.get<Pipeline>(`/api/v1/pipelines/${enc(id)}/`);
-export const createPipeline = (input: { name: string; stages?: StageInput[] }) => api.post<Pipeline>("/api/v1/pipelines/", input);
-export const updatePipeline = (id: string, input: { name?: string; is_default?: boolean; position?: number; version?: number }) =>
-  api.patch<Pipeline>(`/api/v1/pipelines/${enc(id)}/`, input);
+export const listPipelineTemplates = () => api.get<{ results: PipelineTemplate[] }>("/api/v1/pipelines/templates/");
+/** A team pipeline, or with `parent_id` a sub-pipeline (variant) of one. */
+export const createPipeline = (input: {
+  name: string;
+  stages?: StageInput[];
+  template?: string;
+  parent_id?: string;
+  layout?: PipelineLayout;
+  restricted?: boolean;
+}) => api.post<Pipeline>("/api/v1/pipelines/", input);
+export const updatePipeline = (
+  id: string,
+  input: { name?: string; is_default?: boolean; position?: number; version?: number; layout?: PipelineLayout; restricted?: boolean },
+) => api.patch<Pipeline>(`/api/v1/pipelines/${enc(id)}/`, input);
+/** Who may use a restricted pipeline (teams and hierarchy roles); replaces the current grants. */
+export const setPipelineAccess = (id: string, input: { team_ids: string[]; hierarchy_role_ids: string[] }) =>
+  api.put<Pipeline>(`/api/v1/pipelines/${enc(id)}/access/`, input);
 export const archivePipeline = (id: string) => api.delete(`/api/v1/pipelines/${enc(id)}/`);
 export const addStage = (pipelineId: string, input: StageInput) =>
   api.post<PipelineStage>(`/api/v1/pipelines/${enc(pipelineId)}/stages/`, input);
@@ -163,8 +195,11 @@ export const listDeals = (params: ListParams, cursor?: string | null) => listRec
 export const getDeal = (id: string) => getRecord<Deal>("deals", id);
 export const createDeal = (input: DealInput) => createRecord<Deal, DealInput>("deals", input);
 export const updateDeal = (id: string, version: number, input: DealInput) => updateRecord<Deal, DealInput>("deals", id, version, input);
-export const getBoard = (pipelineId: string | undefined, params: ListParams = {}) =>
-  api.get<Board>("/api/v1/deals/board/", { ...params, pipeline: pipelineId });
+export const getBoard = (pipelineId: string | undefined, params: ListParams = {}, perStage?: number) =>
+  api.get<Board>("/api/v1/deals/board/", { ...params, pipeline: pipelineId, per_stage: perStage });
+/** More cards of one Kanban column (same filters as the board). */
+export const getBoardStage = (stageId: string, offset: number, limit: number, params: ListParams = {}) =>
+  api.get<BoardStagePage>("/api/v1/deals/board/stage/", { ...params, stage: stageId, offset, limit });
 export const moveDealStage = (id: string, version: number, stage_id: string, lost_reason?: string) =>
   api.post<Deal>(`/api/v1/deals/${enc(id)}/stage/`, { stage_id, version, ...(lost_reason ? { lost_reason } : {}) });
 export const dealHistory = (id: string) => api.get<{ results: StageHistoryEntry[] }>(`/api/v1/deals/${enc(id)}/history/`);
@@ -173,6 +208,24 @@ export const addDealLine = (id: string, input: DealLineInput) => api.post<DealLi
 export const updateDealLine = (id: string, lineId: string, input: DealLineInput) =>
   api.patch<DealLine>(`/api/v1/deals/${enc(id)}/products/${enc(lineId)}/`, input);
 export const removeDealLine = (id: string, lineId: string) => api.post(`/api/v1/deals/${enc(id)}/products/${enc(lineId)}/remove/`);
+export const dealConnections = (id: string) => api.get<{ results: DealConnection[] }>(`/api/v1/deals/${enc(id)}/connections/`);
+export const connectDeal = (id: string, target_id: string) =>
+  api.post<DealConnection>(`/api/v1/deals/${enc(id)}/connections/add/`, { target_id });
+export const disconnectDeal = (id: string, connectionId: string) =>
+  api.post(`/api/v1/deals/${enc(id)}/connections/${enc(connectionId)}/remove/`);
+
+/* ------------------------------------------------------------------ price books */
+
+export const listPriceBooks = () => api.get<Paginated<PriceBook>>("/api/v1/price-books/", { limit: 200 });
+export const createPriceBook = (input: { name: string; currency?: string; description?: string }) =>
+  api.post<PriceBook>("/api/v1/price-books/", input);
+export const updatePriceBook = (id: string, input: { name?: string; description?: string; is_active?: boolean; version?: number }) =>
+  api.patch<PriceBook>(`/api/v1/price-books/${enc(id)}/`, input);
+export const archivePriceBook = (id: string) => api.delete(`/api/v1/price-books/${enc(id)}/`);
+export const priceBookEntries = (id: string) => api.get<{ results: PriceBookEntry[] }>(`/api/v1/price-books/${enc(id)}/entries/`);
+/** Upsert prices; `unit_price: null` removes a product from the book. */
+export const setPriceBookEntries = (id: string, entries: { product_id: string; unit_price: string | null }[]) =>
+  api.put<{ results: PriceBookEntry[] }>(`/api/v1/price-books/${enc(id)}/entries/set/`, { entries });
 export const dealContacts = (id: string) => api.get<{ results: DealContactLink[] }>(`/api/v1/deals/${enc(id)}/contacts/`);
 export const addDealContact = (id: string, contact_id: string, role_label = "") =>
   api.post<DealContactLink>(`/api/v1/deals/${enc(id)}/contacts/add/`, { contact_id, role_label });
@@ -226,6 +279,20 @@ export const fileDownloadUrl = (id: string) => `/api/v1/files/${enc(id)}/downloa
 /** `kinds` narrows the feed to event families (see TIMELINE_FILTERS), e.g. ["note", "activity"]. */
 export const getTimeline = (entity_type: EntityType, entity_id: string, kinds?: string[]) =>
   api.get<{ results: TimelineEvent[] }>("/api/v1/timeline/", { entity_type, entity_id, kinds: kinds?.length ? kinds.join(",") : undefined });
+/** One page of the record timeline, newest first; pass `next_before` back to read older events. */
+export const getTimelinePage = (
+  entity_type: EntityType,
+  entity_id: string,
+  opts: { before?: string | null; limit?: number; kinds?: string[]; sources?: string[] } = {},
+) =>
+  api.get<TimelinePage>("/api/v1/timeline/", {
+    entity_type,
+    entity_id,
+    before: opts.before ?? undefined,
+    limit: opts.limit ?? 30,
+    kinds: opts.kinds?.length ? opts.kinds.join(",") : undefined,
+    sources: opts.sources?.length ? opts.sources.join(",") : undefined,
+  });
 export const globalSearch = (q: string, types?: SearchEntityType[], signal?: AbortSignal) =>
   api.get<SearchResponse>("/api/v1/search/", { q, types: types?.join(",") }, signal);
 
@@ -245,6 +312,11 @@ export const reopenActivity = (id: string, version: number) => api.post<Activity
 export const calendarActivities = (from: string, to: string, params: { owner?: "me"; kind?: string } = {}) =>
   api.get<{ results: Activity[] }>("/api/v1/activities/calendar/", { from, to, ...params });
 export const activitySummary = (owner?: "me") => api.get<ActivitySummary>("/api/v1/activities/summary/", { owner });
+/** Reassign or complete up to 500 activities; all must be in the caller's scope or nothing changes. */
+export const bulkActivities = (input: { ids: string[]; action: "reassign" | "complete"; payload?: { owner_id?: string } }) =>
+  api.post<BulkResult>("/api/v1/activities/bulk/", input);
+/** The signed-in member's day in `tz` (IANA name). */
+export const getMyDay = (tz?: string) => api.get<MyDay>("/api/v1/activities/my-day/", { tz });
 /** Activities linked to one record (newest first). */
 export const listRecordActivities = (entity: RelatedEntityType, id: string, params: ListParams = {}, cursor?: string | null) =>
   listActivities({ ...params, [entity]: id, sort: params.sort ?? "-start_at" }, cursor);
@@ -346,8 +418,9 @@ export const deleteAssistantConversation = (id: string) => api.delete(`/api/v1/a
 
 /* ------------------------------------------------------------------ import / export */
 
-export type ImportEntity = "contacts" | "companies" | "products";
-export type ExportEntity = "contacts" | "companies" | "products" | "deals";
+export type ImportEntity = "contacts" | "companies" | "products" | "deals";
+/** "all" is the full export: every module the member may export, as a ZIP of CSVs. */
+export type ExportEntity = "contacts" | "companies" | "products" | "deals" | "all";
 
 export const uploadImport = (entity: ImportEntity, file: File) => {
   const form = new FormData();
@@ -357,8 +430,20 @@ export const uploadImport = (entity: ImportEntity, file: File) => {
 export const listImports = (entity: ImportEntity, cursor?: string | null) =>
   api.get<Paginated<ImportJob>>(`/api/v1/imports/${entity}/`, { cursor: cursor ?? undefined });
 export const getImport = (entity: ImportEntity, id: string) => api.get<ImportJob>(`/api/v1/imports/${entity}/${enc(id)}/`);
-export const startImport = (entity: ImportEntity, id: string, mapping: Record<string, string>, options?: Record<string, boolean>) =>
-  api.post<ImportJob>(`/api/v1/imports/${entity}/${enc(id)}/start/`, { mapping, options: options ?? {} });
+export interface ImportOptions {
+  create_companies?: boolean;
+  dedupe?: DedupeMode;
+}
+/** Commit. From a checked job the checked mapping is used when `mapping` is omitted. */
+export const startImport = (entity: ImportEntity, id: string, mapping?: Record<string, string>, options?: ImportOptions) =>
+  api.post<ImportJob>(`/api/v1/imports/${entity}/${enc(id)}/start/`, mapping ? { mapping, options: options ?? {} } : {});
+/** Dry run: validate every row, write nothing; the result lands in `job.preview`. */
+export const checkImport = (entity: ImportEntity, id: string, mapping: Record<string, string>, options?: ImportOptions) =>
+  api.post<ImportJob>(`/api/v1/imports/${entity}/${enc(id)}/check/`, { mapping, options: options ?? {} });
+export const rollbackImport = (entity: ImportEntity, id: string) => api.post<ImportJob>(`/api/v1/imports/${entity}/${enc(id)}/rollback/`);
+export const importPresets = (entity: ImportEntity) => api.get<{ results: ImportPreset[] }>(`/api/v1/imports/${entity}/presets/`);
+export const suggestImportMapping = (entity: ImportEntity, id: string, preset?: string) =>
+  api.post<{ mapping: Record<string, string> }>(`/api/v1/imports/${entity}/${enc(id)}/suggest/`, { preset: preset ?? "" });
 
 export const createExport = (entity: ExportEntity, filters: Record<string, string> = {}) =>
   api.post<ExportJob>(`/api/v1/exports/${entity}/`, { filters });
@@ -367,3 +452,34 @@ export const listExports = (entity: ExportEntity, cursor?: string | null) =>
 export const getExport = (entity: ExportEntity, id: string) => api.get<ExportJob>(`/api/v1/exports/${entity}/${enc(id)}/`);
 /** Same-origin download URL; the browser sends the session cookie and receives a CSV attachment. */
 export const exportDownloadUrl = (entity: ExportEntity, id: string) => `/api/v1/exports/${entity}/${enc(id)}/download/`;
+
+/* ------------------------------------------------------------------ module schema and generic views */
+
+/** Filters plus the view's own parameters (offsets, column lists, grouping). */
+type ViewParams = Record<string, string | number | undefined>;
+
+export const getModuleSchema = (entity: EntityType) => api.get<ModuleSchema>(`/api/v1/records/${entity}/schema/`);
+/** One window of rows (Sheet/List): `offset`/`limit` over the sorted, filtered set; `columns` = field keys. */
+export const getRecordRows = (entity: EntityType, params: ViewParams) =>
+  api.get<RowsResponse>(`/api/v1/records/${entity}/rows/`, params);
+/** Sheet edits; every row carries the version the grid saw. Results are per row and per cell. */
+export const saveRecordEdits = (entity: EntityType, rows: { id: string; version: number; values: Record<string, unknown> }[]) =>
+  api.post<EditsResponse>(`/api/v1/records/${entity}/edits/`, { rows });
+export const getRecordGroups = (entity: EntityType, params: ViewParams & { group_by: string }) =>
+  api.get<GroupsResponse>(`/api/v1/records/${entity}/groups/`, params);
+export const getRecordGroupPage = (
+  entity: EntityType,
+  params: ViewParams & { group_by: string; value: string; offset: number },
+) => api.get<{ value: string; offset: number; rows: RowsResponse["rows"]; has_more: boolean }>(`/api/v1/records/${entity}/groups/page/`, params);
+export const getRecordCalendar = (entity: EntityType, params: ViewParams & { date_field: string; from: string; to: string }) =>
+  api.get<CalendarResponse>(`/api/v1/records/${entity}/calendar/`, params);
+export const getRecordChart = (entity: EntityType, params: ViewParams & { group_by: string; measure: "count" | "sum" }) =>
+  api.get<ChartResponse>(`/api/v1/records/${entity}/chart/`, params);
+
+export const listSavedViews = (entity: EntityType) => api.get<{ results: SavedView[] }>("/api/v1/views/", { entity_type: entity });
+export const createSavedView = (input: SavedViewInput) => api.post<SavedView>("/api/v1/views/", input);
+export const updateSavedView = (id: string, input: SavedViewInput & { version?: number }) =>
+  api.patch<SavedView>(`/api/v1/views/${enc(id)}/`, input);
+export const deleteSavedView = (id: string) => api.delete(`/api/v1/views/${enc(id)}/`);
+export const setDefaultSavedView = (id: string) => api.post<SavedView>(`/api/v1/views/${enc(id)}/default/`);
+export const clearDefaultSavedView = (entity: EntityType) => api.post("/api/v1/views/default/clear/", { entity_type: entity });

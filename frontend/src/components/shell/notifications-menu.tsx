@@ -178,7 +178,7 @@ export function NotificationsMenu() {
           {unread > 0 ? (
             <span
               aria-hidden
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-fg"
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[11px] font-semibold leading-none text-brand-fg"
             >
               {badge}
             </span>

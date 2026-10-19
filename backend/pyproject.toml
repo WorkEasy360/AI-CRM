@@ -23,6 +23,9 @@ dependencies = [
     "pgvector>=0.4",
     "httpx>=0.28",
     "cryptography>=45",
+    # PyJWT: signs the private_key_jwt client assertion and verifies Workeasy360 ID tokens (docs/workeasy360-sso.md).
+    "pyjwt>=2.15",
+    "openpyxl>=3.1",
 ]
 
 [dependency-groups]
@@ -40,6 +43,11 @@ dev = [
     "semgrep>=1.130",
     "pip-audit>=2.9",
 ]
+
+[tool.uv]
+# semgrep pins mcp==1.29.0 (still in 1.181.0), which has CVE-2026-59951; the fix is a minor release.
+# Drop this once semgrep allows mcp>=1.30.
+override-dependencies = ["mcp>=1.30.0,<2"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
@@ -78,7 +86,7 @@ module = ["apps.core.tenancy.*", "apps.authz.service", "apps.authz.catalogue", "
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["allauth.*", "django_celery_beat.*", "django_redis.*", "environ.*", "csp.*", "celery.*", "boto3.*", "botocore.*", "redis.*", "anthropic.*"]
+module = ["allauth.*", "django_celery_beat.*", "django_redis.*", "environ.*", "csp.*", "celery.*", "boto3.*", "botocore.*", "redis.*", "anthropic.*", "openpyxl.*", "dateutil.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]

@@ -21,15 +21,13 @@ def _seed(crm, org, owner=None):
     open_b = crm.make_deal(
         org,
         owner=owner,
-        stage=stage_named(pipeline, "Negotiation"),
+        stage=stage_named(pipeline, "Terms agreed"),
         amount="2000.00",
         amount_base="2000.00",
         expected_close_date=today,
     )
     crm.make_deal(org, owner=owner, amount="999.00", amount_base="999.00")  # no close date: coverage only
-    won = crm.make_deal(
-        org, owner=owner, stage=stage_named(pipeline, "Closed won"), amount="500.00", amount_base="500.00"
-    )
+    won = crm.make_deal(org, owner=owner, stage=stage_named(pipeline, "Won"), amount="500.00", amount_base="500.00")
     return pipeline, open_a, open_b, won
 
 
@@ -40,13 +38,13 @@ def test_forecast_totals_and_breakdown(org_a, owner_client, crm):
     data = resp.json()
     totals = data["totals"]
     assert totals["pipeline"] == {"count": 2, "amount": "3000.00"}
-    # Qualification 10% of 1000 + Negotiation 75% of 2000
+    # Discovery 10% of 1000 + Terms agreed 75% of 2000
     assert totals["weighted"]["amount"] == "1600.00"
     assert totals["committed"] == {"count": 1, "amount": "2000.00"}
     assert totals["won"] == {"count": 1, "amount": "500.00"}
     assert totals["expected_revenue"] == "2100.00"
     assert data["coverage"]["without_close_date"] == 1 and data["coverage"]["open_deals"] == 3
-    assert {row["label"] for row in data["breakdown"]} >= {"Qualification", "Negotiation"}
+    assert {row["label"] for row in data["breakdown"]} >= {"Discovery", "Terms agreed"}
     assert len(data["series"]) >= 1 and data["series"][0]["weighted"] == "1600.00"
     owners = owner_client.get("/api/v1/forecast/?group_by=owner").json()["breakdown"]
     assert owners[0]["weighted"] == "1600.00"

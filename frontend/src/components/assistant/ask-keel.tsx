@@ -78,13 +78,13 @@ export function AskKeelCard() {
   return (
     <>
       <section
-        aria-label="Ask Keel"
+        aria-label="Ask WorkEasy"
         className="rounded-md border border-border bg-surface px-4 py-3.5"
       >
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-fg">
             <Sparkles className="size-4 text-primary" aria-hidden />
-            Ask Keel
+            Ask WorkEasy
           </h2>
           {knowledgeOnly ? <ModeBadge /> : null}
         </div>
@@ -120,7 +120,7 @@ export function AskKeelCard() {
           <header className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
             <SheetTitle className="flex items-center gap-1.5 text-sm font-semibold">
               <Sparkles className="size-4 text-primary" aria-hidden />
-              Ask Keel
+              Ask WorkEasy
             </SheetTitle>
             {knowledgeOnly ? <ModeBadge /> : null}
             <div className="ml-auto">
@@ -162,7 +162,7 @@ function AskForm({
   onSubmit,
   busy,
   className,
-  placeholder = "Ask Keel…",
+  placeholder = "Ask WorkEasy…",
 }: {
   onSubmit: (question: string) => void;
   busy: boolean;
@@ -184,7 +184,7 @@ function AskForm({
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder={placeholder}
-        aria-label="Ask Keel a question"
+        aria-label="Ask WorkEasy a question"
         maxLength={1000}
         className="h-9 min-w-0 flex-1 rounded-sm border border-border bg-surface px-3 text-sm text-fg placeholder:text-fg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
@@ -220,7 +220,7 @@ function Conversation({
         <article key={index} className="grid gap-2.5">
           <p className="text-xs font-medium uppercase tracking-wide text-fg-subtle">You</p>
           <p className="text-sm text-fg">{turn.question}</p>
-          <p className="mt-1 text-xs font-medium uppercase tracking-wide text-fg-subtle">Keel</p>
+          <p className="mt-1 text-xs font-medium uppercase tracking-wide text-fg-subtle">WorkEasy</p>
           {turn.answer ? (
             <AnswerView answer={turn.answer} currency={currency} />
           ) : turn.error ? (

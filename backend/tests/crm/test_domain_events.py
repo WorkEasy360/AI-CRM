@@ -90,7 +90,9 @@ def test_bulk_archive_emits_update_event_and_reindexes(org_a, owner_client, crm,
 
     for contact in contacts:
         assert _events(org_a, contact.pk) == ["contact.updated"]
-        assert len(_index_events(org_a, contact.pk)) == 1
+        # Contacts are not a knowledge source: queueing them only produced index jobs that failed
+        # (DECISIONS M2.25). Deals, which are a source, are still re-indexed (see the stage-move test).
+        assert _index_events(org_a, contact.pk) == []
 
 
 def test_bulk_restore_emits_update_event(org_a, owner_client, crm, subscribed):

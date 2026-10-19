@@ -21,7 +21,7 @@ SECRET_KEY_FALLBACKS = env.list("SECRET_KEY_FALLBACKS", default=[])
 DEBUG = False
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 FRONTEND_ORIGIN = env("FRONTEND_ORIGIN", default="http://localhost:4000")
-SITE_NAME = "Keel CRM"
+SITE_NAME = "WorkEasy CRM"
 
 # ----------------------------------------------------------------------------- apps / middleware
 INSTALLED_APPS = [
@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "apps.notes",
     "apps.files",
     "apps.search",
+    "apps.savedviews",
     "apps.importexport",
     "apps.dashboards",
     "apps.observability",
@@ -68,6 +69,7 @@ INSTALLED_APPS = [
     "apps.rag",
     "apps.assistant",
     "apps.integrations",
+    "apps.billing",
 ]
 
 MIDDLEWARE = [
@@ -276,7 +278,7 @@ ACCOUNT_PASSWORD_MIN_LENGTH = 12
 PASSWORD_RESET_TIMEOUT = 3600
 ACCOUNT_LOGIN_BY_CODE_ENABLED = False
 ACCOUNT_SESSION_REMEMBER = None
-ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Keel] "
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[WorkEasy CRM] "
 ACCOUNT_RATE_LIMITS = {
     "change_password": "5/m/user",  # nosec B105 - rate limit, not a secret
     "manage_email": "10/m/user",
@@ -307,6 +309,41 @@ HEADLESS_FRONTEND_URLS = {
     "account_reset_password_from_key": FRONTEND_ORIGIN + "/reset-password/{key}",
     "account_signup": FRONTEND_ORIGIN + "/signup",
 }
+
+# ----------------------------------------------------------------------------- Workeasy360 sign-in
+# Workeasy360 is the identity provider for WorkEasy CRM (docs/workeasy360-sso.md, ADR-0013): an OpenID
+# Connect authorization code flow with PKCE and private_key_jwt client authentication. Only the issuer
+# is configured; every endpoint comes from its discovery document. Sign-in is offered when the issuer,
+# client id, redirect URI, key id and private key are all set (apps.accounts.workeasy360.config).
+WORKEASY360_ISSUER = env("WORKEASY360_ISSUER", default="")
+WORKEASY360_CLIENT_ID = env("WORKEASY360_CLIENT_ID", default="")
+# Compared by exact string equality with the URI registered in Workeasy360.
+WORKEASY360_REDIRECT_URI = env("WORKEASY360_REDIRECT_URI", default="")
+# The credential id Workeasy360 issued for our public key; sent as the client assertion's ``kid``.
+WORKEASY360_KEY_ID = env("WORKEASY360_KEY_ID", default="")
+# The private key (PEM, RSA or EC P-256), inline (\n escapes allowed) or as a mounted file. Never
+# committed: it comes from the secret store.
+WORKEASY360_PRIVATE_KEY = env.str("WORKEASY360_PRIVATE_KEY", default="", multiline=True)
+WORKEASY360_PRIVATE_KEY_FILE = env("WORKEASY360_PRIVATE_KEY_FILE", default="")
+WORKEASY360_SCOPES = env("WORKEASY360_SCOPES", default="openid email profile organization")
+# Defence in depth on top of the audience check: an ID token must name this product (``product_code``) or it is
+# refused. It must not be empty while sign-in is configured: that would switch the comparison off, so production
+# refuses to start (config.settings.prod), ``manage.py check`` fails (workeasy360.E001) and, if it happens anyway,
+# every sign-in is refused.
+WORKEASY360_PRODUCT_CODE = env("WORKEASY360_PRODUCT_CODE", default="easy_crm").strip()
+# Role of a person who joins an organization through Workeasy360 without being its first member (the
+# first one, who causes the organization to be created, becomes its owner). sales_rep is the least
+# privileged role that can still do everyday CRM work (create records, edit their own and their
+# team's); viewer is read-only. Admins promote people afterwards. Never "owner".
+WORKEASY360_DEFAULT_ROLE = env("WORKEASY360_DEFAULT_ROLE", default="sales_rep")
+# Workeasy360 is the only way in: password sign-in, sign-up, password reset, invitation sign-up and
+# self-service organization creation are refused. On by default (and in production, which refuses to
+# start unless Workeasy360 sign-in is configured); config.settings.dev and test turn it off.
+WORKEASY360_SSO_ONLY = env.bool("WORKEASY360_SSO_ONLY", default=True)
+# Where Workeasy360 returns the browser after "sign out of WorkEasy CRM and Workeasy360" (RP-initiated
+# logout). Must be registered for this client in Workeasy360 exactly (its post-logout URIs), e.g.
+# https://crm.workeasy360.com/login. Empty: only Keel's own sign-out is offered.
+WORKEASY360_POST_LOGOUT_REDIRECT_URI = env("WORKEASY360_POST_LOGOUT_REDIRECT_URI", default="")
 
 # ----------------------------------------------------------------------------- API
 REST_FRAMEWORK = {
@@ -353,7 +390,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Keel CRM API",
+    "TITLE": "WorkEasy CRM API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
@@ -441,6 +478,8 @@ CELERY_TASK_QUEUES = {
 }
 CELERY_TASK_ROUTES = {
     "importexport.run_import": {"queue": "imports"},
+    "importexport.run_import_preview": {"queue": "imports"},
+    "importexport.run_import_rollback": {"queue": "imports"},
     "importexport.run_export": {"queue": "exports"},
     "importexport.purge_expired": {"queue": "default"},
     "importexport.fail_stale_jobs": {"queue": "default"},
@@ -456,6 +495,7 @@ CELERY_TASK_ROUTES = {
     # Mailbox polling is bulk external I/O (up to 2000 accounts x 150 s every 5 min): on "default" it
     # shared worker-critical's slots with password-reset/invitation emails and reminders.
     "messaging.sync_email_accounts": {"queue": "integrations"},
+    "messaging.resume_queued_sends": {"queue": "notifications"},
     "messaging.sync_email_account": {"queue": "integrations"},
     "rag.index_source": {"queue": "rag_indexing"},
     "rag.rebuild_organization": {"queue": "rag_indexing"},
@@ -501,11 +541,20 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 300.0,
         "options": {"expires": 280},
     },
+    # Sends still QUEUED after five minutes (skipped while the organization's Workeasy360 access had ended,
+    # requeued by reconciliation, or lost with the broker) are handed to a worker again; the claim is atomic.
+    "messaging.resume_queued_sends": {
+        "task": "messaging.resume_queued_sends",
+        "schedule": 300.0,
+        "options": {"expires": 280},
+    },
     # Safety net behind transaction.on_commit: re-enqueues sources whose job was lost and retries
     # failures that have waited out their backoff.
     "rag.drain_pending": {"task": "rag.drain_pending", "schedule": 120.0, "options": {"expires": 110}},
     # Integration outbox sweeper: lost dispatches, due retries, stale sync jobs, scheduled syncs.
     "integrations.drain": {"task": "integrations.drain", "schedule": 30.0, "options": {"expires": 25}},
+    # Re-derives usage counters (records) from the owning modules; see apps.billing.entitlements.
+    "billing.reconcile_usage": {"task": "billing.reconcile_usage", "schedule": 6 * 3600.0},
 }
 # Emails are queued (notifications queue) unless a deployment opts out; tests run tasks eagerly.
 EMAIL_ASYNC = env.bool("EMAIL_ASYNC", default=True)
@@ -526,6 +575,8 @@ METRICS_NAMESPACE = env("METRICS_NAMESPACE", default="Keel")
 DASHBOARD_CACHE_SECONDS = env.int("DASHBOARD_CACHE_SECONDS", default=60)
 # List "count" endpoints stop counting here and report the value as a lower bound.
 LIST_COUNT_CAP = env.int("LIST_COUNT_CAP", default=10_000)
+# Sheet view counts the whole filtered set for its scrollbar, up to the largest edition's record limit.
+SHEET_COUNT_CAP = env.int("SHEET_COUNT_CAP", default=1_000_000)
 # Import/export fairness: an organization may have at most this many jobs pending or running at once.
 MAX_ACTIVE_JOBS_PER_ORG = env.int("MAX_ACTIVE_JOBS_PER_ORG", default=3)
 # The import task's hard time limit. In settings because apps.core.checks needs it to verify the
@@ -658,4 +709,12 @@ INVITATION_RESEND_COOLDOWN = 60  # seconds between two sends of the same invitat
 MAX_TEAMS_PER_MEMBER = 20
 # Seats included per plan (None or missing = unlimited). Read only by apps.accounts.limits; an organization's
 # settings["max_users"] overrides it (enterprise contracts). Billing, when it exists, only updates plan/override.
-PLAN_USER_LIMITS = env.json("PLAN_USER_LIMITS", default={"free": 5, "business": 250})
+# ----------------------------------------------------------------------------- editions / billing
+# Editions and their limits live in apps/billing/editions.py. BILLING_ENABLED=False starts every new
+# organization on the full product (grandfathered, as before editions existed). BILLING_SELF_SERVICE
+# lets an owner change plan and buy add-ons without a payment provider; keep it off wherever real money
+# is charged until the PaymentProvider adapter handles checkout.
+BILLING_ENABLED = env.bool("BILLING_ENABLED", default=True)
+BILLING_SELF_SERVICE = env.bool("BILLING_SELF_SERVICE", default=True)
+# The edition an organization without a subscription row resolves to (legacy rows only).
+BILLING_DEFAULT_EDITION = env.str("BILLING_DEFAULT_EDITION", default="edition_360")

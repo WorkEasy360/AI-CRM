@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { launcherRedirect } from "@/lib/launcher";
 
 /**
  * Server-side only. The Django origin backend paths are proxied to. Never
@@ -39,6 +40,8 @@ export function middleware(request: NextRequest) {
   if (isBackendPath(pathname)) {
     return NextResponse.rewrite(new URL(`${pathname}${search}`, API_INTERNAL_ORIGIN));
   }
+  const launch = launcherRedirect(new URL(request.url));
+  if (launch) return NextResponse.redirect(launch);
 
   const nonce = btoa(crypto.randomUUID());
   const isProduction = process.env.NODE_ENV === "production";

@@ -49,6 +49,8 @@ function deal(overrides: Partial<Deal> & Pick<Deal, "id" | "name" | "stage">): D
     risk_level: "low",
     contact_count: 0,
     products_total: null,
+  amount_from_lines: false,
+  price_book: null,
     ...overrides,
   };
 }
@@ -57,7 +59,7 @@ const stageBase = { pipeline_id: "p1", description: "", archived_at: null, has_m
 const qualified = { id: "s1", name: "Qualified", kind: "open", color_token: "blue" } as const;
 
 const board: Board = {
-  pipeline: { id: "p1", name: "Sales" },
+  pipeline: { id: "p1", name: "Sales", parent_id: null, layout: {} },
   stages: [
     {
       ...stageBase,
@@ -69,6 +71,7 @@ const board: Board = {
       color_token: "blue",
       deal_count: 2,
       total_amount_base: "4000.00",
+      weighted_amount_base: "1800.00",
       deals: [
         deal({ id: "d1", name: "Acme renewal", stage: qualified }),
         deal({
@@ -85,9 +88,9 @@ const board: Board = {
         }),
       ],
     },
-    { ...stageBase, id: "s2", name: "Proposal", position: 2, kind: "open", default_probability: 50, color_token: "teal", deal_count: 0, total_amount_base: "0.00", deals: [] },
-    { ...stageBase, id: "s3", name: "Won", position: 3, kind: "won", default_probability: 100, color_token: "green", deal_count: 0, total_amount_base: "0.00", deals: [] },
-    { ...stageBase, id: "s4", name: "Lost", position: 4, kind: "lost", default_probability: 0, color_token: "red", deal_count: 0, total_amount_base: "0.00", deals: [] },
+    { ...stageBase, id: "s2", name: "Proposal", position: 2, kind: "open", default_probability: 50, color_token: "teal", deal_count: 0, total_amount_base: "0.00", weighted_amount_base: "0.00", deals: [] },
+    { ...stageBase, id: "s3", name: "Won", position: 3, kind: "won", default_probability: 100, color_token: "green", deal_count: 0, total_amount_base: "0.00", weighted_amount_base: "0.00", deals: [] },
+    { ...stageBase, id: "s4", name: "Lost", position: 4, kind: "lost", default_probability: 0, color_token: "red", deal_count: 0, total_amount_base: "0.00", weighted_amount_base: "0.00", deals: [] },
   ],
 };
 
@@ -123,7 +126,7 @@ describe("KanbanBoard", () => {
     expect(screen.getByRole("heading", { name: "Lost" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 deals")).toBeInTheDocument();
     expect(screen.getByText("$4,000.00")).toBeInTheDocument();
-    // Weighted total sums the loaded cards (300 + 1500) since every card is loaded.
+    // The weighted total is the server's figure for the whole column (300 + 1500 here).
     expect(within(screen.getByTestId("column-s1")).getByText("Weighted $1,800.00")).toBeInTheDocument();
     expect(within(screen.getByTestId("column-s2")).queryByText(/Weighted/)).not.toBeInTheDocument();
 
@@ -143,11 +146,11 @@ describe("KanbanBoard", () => {
     expect(within(other).getByRole("img", { name: "High risk" })).toBeInTheDocument();
   });
 
-  it("omits the weighted total when a column is truncated and the risk dot without ai.scores.view", () => {
+  it("keeps the server's weighted total on a truncated column, offers the rest, and hides the risk dot without ai.scores.view", () => {
     const truncated: Board = { ...board, stages: board.stages.map((s) => (s.id === "s1" ? { ...s, has_more: true, deal_count: 5 } : s)) };
     renderBoard({ board: truncated, showRisk: false });
-    expect(screen.queryByText(/Weighted/)).not.toBeInTheDocument();
-    expect(screen.getByText("+3 more in the list view")).toBeInTheDocument();
+    expect(within(screen.getByTestId("column-s1")).getByText("Weighted $1,800.00")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show 3 more" })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /risk/ })).not.toBeInTheDocument();
   });
 

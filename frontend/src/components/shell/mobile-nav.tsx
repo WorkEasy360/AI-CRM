@@ -68,7 +68,7 @@ export function MobileNav({ active, onSearch }: { active: ActiveContext; onSearc
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" className={cn(TAB_CLASS, "text-primary")} aria-label="New record">
-                  <span className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-fg">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-brand text-brand-fg">
                     <Plus className="size-4" aria-hidden />
                   </span>
                   <span>New</span>

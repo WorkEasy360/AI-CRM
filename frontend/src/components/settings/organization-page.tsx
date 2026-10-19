@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { Badge } from "@/components/ui/badge";

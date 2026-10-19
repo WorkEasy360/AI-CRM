@@ -16,7 +16,8 @@ ALLOWED_WITHOUT_ORG = {
 }
 ALLOWED_SCHEMA_ROUTES = {"schema", "docs"}
 # Machine-to-machine endpoints authenticated by a signature instead of a session (reviewed list).
-ALLOWED_PUBLIC = {"whatsapp-webhook": AllowAny, "integration-inbound-webhook": AllowAny}
+# auth-methods: which sign-in options the login page shows (no account data, no side effects).
+ALLOWED_PUBLIC = {"whatsapp-webhook": AllowAny, "integration-inbound-webhook": AllowAny, "auth-methods": AllowAny}
 HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 
 

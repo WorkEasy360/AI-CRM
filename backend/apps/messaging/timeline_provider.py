@@ -2,25 +2,28 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.db.models.functions import Coalesce
+
 from apps.authz.actor import Actor
 from apps.messaging.models import EmailMessage, WhatsAppMessage
-from apps.notes.timeline import TimelineEvent, member_ref, register
+from apps.notes.timeline import TimelineEvent, Window, member_ref, register
 
 
-@register(("contact", "company", "deal"))
-def _emails(actor: Actor, entity_type: str, record: Any) -> list[TimelineEvent]:
+@register(("contact", "company", "deal"), source="emails", label="Emails")
+def _emails(actor: Actor, entity_type: str, record: Any, window: Window) -> list[TimelineEvent]:
     if not actor.has("email.view"):
         return []
-    qs = (
+    qs = window.apply(
         EmailMessage.objects.filter(**{entity_type: record})
         .select_related("sent_by__user")
-        .order_by("-created_at")[:60]
+        .annotate(occurred=Coalesce("sent_at", "received_at", "created_at")),
+        "occurred",
     )
     return [
         {
             "id": f"email:{m.pk}",
             "kind": "email",
-            "occurred_at": m.sent_at or m.received_at or m.created_at,
+            "occurred_at": m.occurred,
             "actor": member_ref(m.sent_by),
             "data": {
                 "message_id": str(m.pk),
@@ -37,20 +40,21 @@ def _emails(actor: Actor, entity_type: str, record: Any) -> list[TimelineEvent]:
     ]
 
 
-@register(("contact", "company", "deal"))
-def _whatsapp(actor: Actor, entity_type: str, record: Any) -> list[TimelineEvent]:
+@register(("contact", "company", "deal"), source="whatsapp", label="WhatsApp")
+def _whatsapp(actor: Actor, entity_type: str, record: Any, window: Window) -> list[TimelineEvent]:
     if not actor.has("whatsapp.view"):
         return []
-    qs = (
+    qs = window.apply(
         WhatsAppMessage.objects.filter(**{entity_type: record})
         .select_related("sent_by__user")
-        .order_by("-created_at")[:60]
+        .annotate(occurred=Coalesce("sent_at", "received_at", "created_at")),
+        "occurred",
     )
     return [
         {
             "id": f"whatsapp:{m.pk}",
             "kind": "whatsapp",
-            "occurred_at": m.sent_at or m.received_at or m.created_at,
+            "occurred_at": m.occurred,
             "actor": member_ref(m.sent_by),
             "data": {
                 "message_id": str(m.pk),

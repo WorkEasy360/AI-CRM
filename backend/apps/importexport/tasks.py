@@ -8,9 +8,11 @@ import uuid
 import structlog
 from celery import shared_task
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
-from apps.core.tenancy.context import system_context, tenant_atomic
+from apps.accounts.workeasy360 import background
+from apps.core.tenancy.context import system_context, tenant_atomic, tenant_context
 from apps.core.tenancy.tasks import tenant_task
 from apps.importexport import service
 from apps.importexport.models import ExportJob, ImportJob, JobStatus
@@ -23,6 +25,13 @@ log = structlog.get_logger(__name__)
 # is ever started twice.
 IMPORT_TIME_LIMIT = settings.IMPORT_TASK_TIME_LIMIT
 EXPORT_TIME_LIMIT = 1800
+
+# What a PENDING import shows while it waits for the organization's Workeasy360 access to be renewed. It is
+# also the sweeper's marker: ``resume_stalled_imports`` picks those jobs up again once the organization is
+# allowed, clearing the marker in the same UPDATE that claims the job.
+WAITING_FOR_ACCESS_MESSAGE = (
+    "Paused: your organization's WorkEasy CRM access has ended. It continues once access is renewed."
+)
 
 # Jobs resumed per sweep. Bounded so one bad deploy cannot make the sweeper itself the outage.
 RESUME_LIMIT = 50
@@ -41,7 +50,17 @@ def run_import(*, job_id: str, organization_id, actor_membership_id: str, **kwar
 
     Accepts a job that is PENDING or already RUNNING: the second case is a resume after a worker died,
     and ``service.process_import`` restarts from the job's checkpoint rather than from row one.
+
+    An import changes the customer's data, so it waits while the organization's Workeasy360 access is
+    ended or read-only (class A): a PENDING job is marked as waiting (and left alone by ``fail_stale_jobs``),
+    and ``resume_stalled_imports`` runs it once access is renewed.
     """
+    if not background.allowed(organization_id, task="importexport.run_import"):
+        with tenant_atomic():
+            ImportJob.objects.filter(pk=job_id, status=JobStatus.PENDING).update(
+                error_message=WAITING_FOR_ACCESS_MESSAGE
+            )
+        return "access_ended"
     with tenant_atomic():
         job = ImportJob.objects.filter(pk=job_id, status__in=[JobStatus.PENDING, JobStatus.RUNNING]).first()
     if job is None:
@@ -68,6 +87,55 @@ def run_import(*, job_id: str, organization_id, actor_membership_id: str, **kwar
         return "interrupted"
 
 
+@tenant_task(
+    name="importexport.run_import_preview",
+    soft_time_limit=IMPORT_TIME_LIMIT - 60,
+    time_limit=IMPORT_TIME_LIMIT,
+    atomic=False,
+)
+def run_import_preview(*, job_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
+    """Dry-run an import: validate every row and record what a commit would do. Writes nothing else."""
+    with tenant_atomic():
+        job = ImportJob.objects.filter(pk=job_id, status=JobStatus.PREVIEWING).first()
+    if job is None:
+        return "skipped"
+    try:
+        actor = service._actor_for_task(uuid.UUID(str(actor_membership_id)))
+        service.run_preview(job, actor)
+        return "previewed"
+    except Exception as exc:
+        log.exception("importexport.preview_failed", job_id=job_id)
+        with tenant_atomic():
+            # Back to UPLOADED so the member can fix the mapping and check again.
+            ImportJob.objects.filter(pk=job.pk).update(
+                status=JobStatus.UPLOADED, error_message=str(getattr(exc, "message", "Check failed."))[:255]
+            )
+        return "failed"
+
+
+@tenant_task(
+    name="importexport.run_import_rollback",
+    soft_time_limit=IMPORT_TIME_LIMIT - 60,
+    time_limit=IMPORT_TIME_LIMIT,
+    atomic=False,
+)
+def run_import_rollback(*, job_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
+    """Undo an import. Re-runnable: rows already undone are marked and skipped on a retry."""
+    with tenant_atomic():
+        job = ImportJob.objects.filter(pk=job_id, status=JobStatus.ROLLING_BACK).first()
+    if job is None:
+        return "skipped"
+    try:
+        actor = service._actor_for_task(uuid.UUID(str(actor_membership_id)))
+        service.process_rollback(job, actor)
+        return "rolled_back"
+    except Exception as exc:
+        log.exception("importexport.rollback_failed", job_id=job_id)
+        with tenant_atomic():
+            ImportJob.objects.filter(pk=job.pk).update(error_message=str(getattr(exc, "message", exc))[:255])
+        return "failed"
+
+
 @shared_task(name="importexport.resume_stalled_imports", ignore_result=True, soft_time_limit=120, time_limit=150)
 def resume_stalled_imports() -> int:
     """Beat: pick up imports whose worker died mid-run.
@@ -75,22 +143,45 @@ def resume_stalled_imports() -> int:
     A RUNNING job whose ``updated_at`` has not moved for ``IMPORT_RESUME_AFTER`` is not making
     progress -- every batch touches that column. Re-enqueuing it restarts from the checkpoint, so the
     rows already committed are not imported a second time.
+
+    It also picks up PENDING jobs ``run_import`` parked while the organization's Workeasy360 access had
+    ended (``WAITING_FOR_ACCESS_MESSAGE``), once the organization is allowed again. Those are claimed by
+    clearing the marker in one conditional UPDATE, so a job is handed over once per park.
     """
     cutoff = timezone.now() - settings.IMPORT_RESUME_AFTER
-    with system_context("importexport.resume_stalled_imports"):
-        # Cross-tenant on purpose, and only just: this reads three ids per row (organization, job,
-        # requester) and no imported data, inside a system context, then hands each job to a
-        # tenant-bound task that re-binds its own organization. Same shape as integrations.drain.
-        rows = list(
-            # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
-            ImportJob.all_objects.filter(status=JobStatus.RUNNING, updated_at__lt=cutoff)
-            .filter(attempts__lt=settings.IMPORT_MAX_ATTEMPTS)
-            .order_by("updated_at")
-            .values_list("organization_id", "id", "requested_by_id")[:RESUME_LIMIT]
-        )
-    for org_id, job_id, membership_id in rows:
+
+    def fetch(excluded: set[uuid.UUID]) -> list:
+        with system_context("importexport.resume_stalled_imports"):
+            # Cross-tenant on purpose, and only just: this reads three ids per row (organization, job,
+            # requester) and no imported data, inside a system context, then hands each job to a
+            # tenant-bound task that re-binds its own organization. Same shape as integrations.drain.
+            return list(
+                # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
+                ImportJob.all_objects.filter(
+                    Q(status=JobStatus.RUNNING, updated_at__lt=cutoff)
+                    | Q(status=JobStatus.PENDING, error_message=WAITING_FOR_ACCESS_MESSAGE)
+                )
+                .filter(attempts__lt=settings.IMPORT_MAX_ATTEMPTS)
+                .exclude(organization_id__in=excluded)
+                .order_by("updated_at")
+                .values_list("organization_id", "id", "requested_by_id", "status")[:RESUME_LIMIT]
+            )
+
+    # Class A: no point resuming an import for an organization whose Workeasy360 access has ended.
+    rows = background.fetch_allowed(fetch, task="importexport.resume_stalled_imports")
+    resumed = 0
+    for org_id, job_id, membership_id, status in rows:
         if membership_id is None:
             continue
+        if status == JobStatus.PENDING:
+            # The claim needs no cross-tenant reach: run it as the job's own organization.
+            with tenant_context(org_id, reason="importexport.resume_stalled_imports"), tenant_atomic():
+                claimed = ImportJob.objects.filter(
+                    pk=job_id, status=JobStatus.PENDING, error_message=WAITING_FOR_ACCESS_MESSAGE
+                ).update(error_message="")
+            if not claimed:
+                continue
+        resumed += 1
         run_import.apply_async(
             kwargs={
                 "job_id": str(job_id),
@@ -98,9 +189,9 @@ def resume_stalled_imports() -> int:
                 "actor_membership_id": str(membership_id),
             }
         )
-    if rows:
-        log.warning("importexport.resumed_stalled_imports", count=len(rows))
-    return len(rows)
+    if resumed:
+        log.warning("importexport.resumed_stalled_imports", count=resumed)
+    return resumed
 
 
 @tenant_task(name="importexport.run_export", soft_time_limit=EXPORT_TIME_LIMIT - 60, time_limit=EXPORT_TIME_LIMIT)

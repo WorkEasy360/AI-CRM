@@ -108,7 +108,7 @@ const noAccess: DashboardSummary = {
 };
 
 function pipeline(id: string, name: string): Pipeline {
-  return { id, name, position: 0, is_default: id === "p1", stages: [], version: 1, archived_at: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
+  return { id, name, position: 0, is_default: id === "p1", parent_id: null, restricted: false, layout: {}, effective_layout: {}, template_key: "", access: { team_ids: [], hierarchy_role_ids: [] }, stages: [], version: 1, archived_at: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
 }
 
 function renderDashboard() {

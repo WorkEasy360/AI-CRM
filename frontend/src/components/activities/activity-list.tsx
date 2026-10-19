@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, ListTodo, Phone, Plus, Search, X } from "lucide-react";
-import { ActivityItem } from "@/components/activities/activity-item";
+import { CalendarDays, ListChecks, ListTodo, Phone, Plus, Search, X } from "lucide-react";
+import { ActivityBulkBar } from "@/components/activities/activity-bulk-bar";
+import { ActivityItem, type ActivitySelection } from "@/components/activities/activity-item";
 import { KIND_LABELS, isDone, startOfDay } from "@/components/activities/activity-utils";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -66,6 +67,7 @@ export function ActivityList({
   setParam,
   setParams,
   canCreate,
+  canBulk = false,
   onCreate,
 }: {
   kind: ActivityKind;
@@ -73,6 +75,8 @@ export function ActivityList({
   setParam: (key: string, value: string | undefined) => void;
   setParams: (patch: ListParams) => void;
   canCreate: boolean;
+  /** The actor holds `activities.bulk_update`: rows can be selected for bulk complete / reassign. */
+  canBulk?: boolean;
   onCreate: (kind: ActivityKind) => void;
 }) {
   const view = viewOf(params);
@@ -100,6 +104,28 @@ export function ActivityList({
     [kind, view, params.q, params.due, sort],
   );
   const list = useCursorList<Activity>(crmKeys.activities(apiParams), (cursor) => listActivities(apiParams, cursor), true, { recordKey: (a) => crmKeys.activity(a.id) });
+
+  const [selecting, setSelecting] = React.useState(false);
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
+  const stopSelecting = React.useCallback(() => {
+    setSelecting(false);
+    setSelected(new Set());
+  }, []);
+  // A different list (view, filter, sort) starts a fresh selection.
+  React.useEffect(stopSelecting, [apiParams, stopSelecting]);
+  const selectionOf = (a: Activity): ActivitySelection | undefined =>
+    selecting
+      ? {
+          selected: selected.has(a.id),
+          onToggle: () =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(a.id)) next.delete(a.id);
+              else next.add(a.id);
+              return next;
+            }),
+        }
+      : undefined;
 
   const today = React.useMemo(() => startOfDay(new Date()), []);
   const grouped = React.useMemo(() => {
@@ -149,7 +175,12 @@ export function ActivityList({
             <X /> Clear
           </Button>
         ) : null}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {canBulk && !selecting && list.items.length > 0 ? (
+            <Button variant="secondary" size="sm" onClick={() => setSelecting(true)}>
+              <ListChecks /> Select
+            </Button>
+          ) : null}
           <Select value={sort} onValueChange={(v) => setParam("sort", v)}>
             <SelectTrigger className="h-8 w-40" aria-label="Sort">
               <SelectValue />
@@ -164,6 +195,10 @@ export function ActivityList({
           </Select>
         </div>
       </div>
+
+      {canBulk && selecting ? (
+        <ActivityBulkBar selected={selected} loaded={list.items.length} onSelectAll={() => setSelected(new Set(list.items.map((a) => a.id)))} onClear={stopSelecting} />
+      ) : null}
 
       {list.isPending ? (
         <SkeletonRows rows={4} />
@@ -204,7 +239,7 @@ export function ActivityList({
               <ul className="flex flex-col gap-1.5">
                 {items.map((a) => (
                   <li key={a.id}>
-                    <ActivityItem activity={a} />
+                    <ActivityItem activity={a} selection={selectionOf(a)} />
                   </li>
                 ))}
               </ul>
@@ -215,7 +250,7 @@ export function ActivityList({
         <ul className={list.isPlaceholderData ? "flex flex-col gap-1.5 opacity-60" : "flex flex-col gap-1.5"}>
           {list.items.map((a) => (
             <li key={a.id}>
-              <ActivityItem activity={a} />
+              <ActivityItem activity={a} selection={selectionOf(a)} />
             </li>
           ))}
         </ul>

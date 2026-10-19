@@ -19,6 +19,7 @@ from rest_framework.exceptions import PermissionDenied
 from apps.accounts import emails, limits
 from apps.accounts.models import Invitation, Membership, Organization, User
 from apps.accounts.session import set_active_membership
+from apps.accounts.workeasy360 import config as workeasy360
 from apps.audit import actions
 from apps.audit import service as audit
 from apps.authz.actor import Actor
@@ -71,7 +72,10 @@ def _validate_timezone(name: str) -> str:
 
 def _assert_can_assign_role(actor: Actor, role_key: str) -> Role:
     if role_key not in SYSTEM_ROLES:
-        raise DomainError("Unknown role.", code="invalid_role")
+        # A custom permission set: assignable by anyone who already holds everything it grants.
+        from apps.authz.profiles import assignable_custom_role
+
+        return assignable_custom_role(actor, role_key)
     if actor.role_key == OWNER:
         return _system_role(role_key)
     if actor.role_key == ADMIN and role_key in ASSIGNABLE_BY_ADMIN:
@@ -94,7 +98,19 @@ def create_organization(
     timezone_name: str = "Asia/Kolkata",
     request=None,
     source: str = "user",
+    workeasy360_organization_id: uuid.UUID | None = None,
 ) -> Membership:
+    """Create an organization owned by ``user``.
+
+    ``source="workeasy360"`` is the Workeasy360 sign-in creating the counterpart of a Workeasy360
+    organization: the per-user owned-organization cap does not apply (the organization exists in
+    Workeasy360 already; Keel only mirrors it). A unique ``workeasy360_organization_id`` makes two
+    concurrent first sign-ins collide on the constraint; the caller handles the IntegrityError.
+    """
+    if source == "user" and workeasy360.sso_only():
+        raise DomainError(
+            "Organizations are created in Workeasy360.", code="organizations_managed_externally", status_code=403
+        )
     name = (name or "").strip()
     if not name:
         raise DomainError("Organization name is required.", code="invalid_name")
@@ -103,12 +119,16 @@ def create_organization(
 
     with system_context(reason="organization.create"), transaction.atomic():
         owned = Membership.identity.for_user(user).active().filter(role__key=OWNER).count()
-        if owned >= settings.MAX_ORGANIZATIONS_PER_USER:
+        if source != "workeasy360" and owned >= settings.MAX_ORGANIZATIONS_PER_USER:
             raise DomainError(
                 "Organization limit reached for this account.", code="organization_limit", status_code=403
             )
         org = Organization.objects.create(
-            name=name, slug=_unique_slug(name), base_currency=base_currency, timezone=timezone_name
+            name=name,
+            slug=_unique_slug(name),
+            base_currency=base_currency,
+            timezone=timezone_name,
+            workeasy360_organization_id=workeasy360_organization_id,
         )
     with tenant_context(org.pk, user_id=user.pk, reason="organization.create"):
         membership = Membership.objects.create(user=user, role=_system_role(OWNER), joined_at=timezone.now())
@@ -149,7 +169,12 @@ def ensure_personal_organization(user: User) -> Membership | None:
     whole workspace back: no organization without its owner membership and default pipeline.
 
     Returns the new owner membership, or None when the user already belongs to an organization.
+
+    When Workeasy360 is the only sign-in, organizations come from Workeasy360 (a sign-in into a
+    Workeasy360 organization creates or joins its Keel counterpart), so no personal workspace is made.
     """
+    if workeasy360.sso_only():
+        return None
     with system_context(reason="organization.auto_create"), transaction.atomic():
         locked = User.objects.select_for_update().get(pk=user.pk)
         if not locked.is_active:
@@ -698,6 +723,12 @@ def register_with_invitation(request, *, token: str, name: str, password: str) -
     from rest_framework.exceptions import ValidationError
 
     from apps.accounts.forms import split_name
+
+    if workeasy360.sso_only():
+        # Accounts come from Workeasy360; a password account created here could never sign in.
+        raise DomainError(
+            "Sign in with Workeasy360 to accept this invitation.", code="password_sign_in_disabled", status_code=403
+        )
 
     with system_context(reason="invitation.register.lookup"):
         found = _pending_invitation_by_token(token)

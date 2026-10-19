@@ -46,7 +46,10 @@ def _incr(key: str, amount: int, ttl: int) -> int:
 
 
 def check_quota(actor: Actor) -> None:
-    """Raise a friendly 429 when the member or organization is over budget."""
+    """Raise a friendly 429 when the member or organization is over budget (403 when the plan lacks AI)."""
+    from apps.billing import entitlements
+
+    entitlements.check_feature(actor.organization, "ai_suite")
     requests_this_hour = _incr(_user_key(actor), 1, HOUR)
     if requests_this_hour > settings.AI_USER_REQUESTS_PER_HOUR:
         raise DomainError(
@@ -190,6 +193,7 @@ REASON_DISABLED = "ai_disabled"
 REASON_USER_QUOTA = "user_quota"
 REASON_ORG_QUOTA = "org_quota"
 REASON_BUDGET = "monthly_budget"
+REASON_PLAN = "plan"
 
 
 def month_to_date_cost(actor: Actor) -> Decimal:
@@ -208,7 +212,10 @@ def generative_reason(actor: Actor, *, consume: bool = True) -> str:
     does, so an assistant question and a draft draw on the same budget.
     """
     from apps.ai import orgsettings
+    from apps.billing import entitlements
 
+    if not entitlements.has_feature(actor.organization, "ai_suite"):
+        return REASON_PLAN
     policy = orgsettings.policy(actor)
     if not policy.enabled:
         return REASON_DISABLED

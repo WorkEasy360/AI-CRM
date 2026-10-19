@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import {
   Archive,
   ArrowRightLeft,
@@ -16,6 +16,7 @@ import {
   Mail,
   MessageCircle,
   MessageSquare,
+  Paperclip,
   Pencil,
   Phone,
   RotateCcw,
@@ -25,8 +26,8 @@ import { daysUntil, localDay } from "@/components/crm/deals/deal-helpers";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
-import { getTimeline } from "@/lib/api/crm";
-import { CALL_OUTCOME_LABELS, ENTITY_LABELS, LIFECYCLE_LABELS, TIMELINE_FILTERS, type EntityType, type TimelineEvent } from "@/lib/api/crm-types";
+import { fileDownloadUrl, getTimelinePage } from "@/lib/api/crm";
+import { CALL_OUTCOME_LABELS, ENTITY_LABELS, LIFECYCLE_LABELS, type EntityType, type TimelineEvent } from "@/lib/api/crm-types";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { cn, formatDate, formatDateTime, humanize } from "@/lib/utils";
@@ -74,6 +75,12 @@ function recipients(list: string[]): string {
   return list.length === 1 ? list[0]! : `${list[0]} +${list.length - 1}`;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function activityHref(id: string): string {
   return `/activities?open=${encodeURIComponent(id)}`;
 }
@@ -109,6 +116,8 @@ function Icon({ kind }: { kind: string }) {
       return <Mail className={cls} aria-hidden />;
     case "whatsapp":
       return <MessageCircle className={cls} aria-hidden />;
+    case "file":
+      return <Paperclip className={cls} aria-hidden />;
     default:
       return <History className={cls} aria-hidden />;
   }
@@ -303,8 +312,36 @@ function describe(event: TimelineEvent, entity: EntityType): React.ReactNode {
           ({str(d.status)}, {str(d.stage)}) · {formatMoney(str(d.amount), str(d.currency))}
         </>
       );
-    default:
-      return <>{humanize(event.kind)}</>;
+    case "file": {
+      const fileId = str(d.file_id);
+      const name = str(d.filename) || "a file";
+      const size = num(d.size_bytes);
+      return (
+        <>
+          Attached{" "}
+          {fileId ? (
+            <a href={fileDownloadUrl(fileId)} className="font-medium text-fg hover:text-primary hover:underline">
+              {name}
+            </a>
+          ) : (
+            <Strong>{name}</Strong>
+          )}
+          {size !== null ? <span className="text-fg-subtle"> · {formatBytes(size)}</span> : null}
+          {event.actor ? <span className="text-fg-subtle"> · by {who}</span> : null}
+        </>
+      );
+    }
+    default: {
+      // Kinds this build does not know yet (new channels register new sources): a generic line.
+      const summary = str(d.title) || str(d.subject) || str(d.summary) || str(d.name);
+      return (
+        <>
+          <Strong>{humanize(event.kind.replace(/[._]/g, " "))}</Strong>
+          {summary ? ` — ${summary}` : ""}
+          {event.actor ? <span className="text-fg-subtle"> · by {who}</span> : null}
+        </>
+      );
+    }
   }
 }
 
@@ -337,26 +374,44 @@ function timeOf(iso: string): string {
 
 /* ------------------------------------------------------------------ component */
 
+const PAGE_SIZE = 30;
+
 /**
- * Newest-first feed of everything that happened to a record, grouped by day, with a multi-select
- * chip row to narrow it to event families (notes, activities, emails, WhatsApp, deals, status, changes).
+ * Newest-first feed of everything that happened to a record, grouped by day, read a page at a time
+ * ("Load older"). The filter chips are the sources the server registers for this record type, so
+ * a new channel shows up without a frontend change.
  */
 export function Timeline({ entity, recordId, initialKinds = [], showFilters = true }: { entity: EntityType; recordId: string; initialKinds?: string[]; showFilters?: boolean }) {
-  const [kinds, setKinds] = React.useState<string[]>(() => [...initialKinds].sort());
-  const query = useQuery({ queryKey: crmKeys.timeline(entity, recordId, kinds), queryFn: () => getTimeline(entity, recordId, kinds), placeholderData: (prev) => prev });
-  const groups = React.useMemo(() => (query.data ? groupByDay(query.data.results) : []), [query.data]);
+  const [sources, setSources] = React.useState<string[]>([]);
+  const kinds = React.useMemo(() => [...initialKinds].sort(), [initialKinds]);
+  const baseKey = crmKeys.timelinePages(entity, recordId, sources);
+  const query = useInfiniteQuery({
+    queryKey: kinds.length > 0 ? [...baseKey, { kinds }] : baseKey,
+    queryFn: ({ pageParam }) => getTimelinePage(entity, recordId, { before: pageParam, limit: PAGE_SIZE, sources, kinds }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_before ?? undefined,
+    placeholderData: keepPreviousData,
+  });
+  const available = query.data?.pages[0]?.sources ?? [];
+  const groups = React.useMemo(() => {
+    if (!query.data) return [];
+    // Pages meet at a timestamp; drop an event that appears on both sides of the boundary.
+    const seen = new Set<string>();
+    const events = query.data.pages.flatMap((p) => p.results).filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+    return groupByDay(events);
+  }, [query.data]);
 
-  const toggle = (value: string) => setKinds((prev) => (prev.includes(value) ? prev.filter((k) => k !== value) : [...prev, value].sort()));
+  const toggle = (value: string) => setSources((prev) => (prev.includes(value) ? prev.filter((k) => k !== value) : [...prev, value].sort()));
 
   return (
     <div>
-      {showFilters ? (
+      {showFilters && available.length > 1 ? (
         <div className="mb-3 flex flex-wrap gap-1" role="group" aria-label="Filter timeline">
-          <Chip active={kinds.length === 0} onClick={() => setKinds([])}>
+          <Chip active={sources.length === 0} onClick={() => setSources([])}>
             All
           </Chip>
-          {TIMELINE_FILTERS.map((f) => (
-            <Chip key={f.value} active={kinds.includes(f.value)} onClick={() => toggle(f.value)}>
+          {available.map((f) => (
+            <Chip key={f.key} active={sources.includes(f.key)} onClick={() => toggle(f.key)}>
               {f.label}
             </Chip>
           ))}
@@ -367,7 +422,7 @@ export function Timeline({ entity, recordId, initialKinds = [], showFilters = tr
       ) : query.isError ? (
         <EmptyState title="Could not load the timeline" className="py-8" />
       ) : groups.length === 0 ? (
-        <EmptyState icon={<History />} title={kinds.length > 0 ? "Nothing matches these filters" : "No activity yet"} className="py-8" />
+        <EmptyState icon={<History />} title={sources.length > 0 ? "Nothing matches these filters" : "No activity yet"} className="py-8" />
       ) : (
         <div className={cn("flex flex-col gap-4 transition-opacity", query.isPlaceholderData && "opacity-70")} aria-busy={query.isPlaceholderData || undefined}>
           {groups.map((group) => (
@@ -388,6 +443,11 @@ export function Timeline({ entity, recordId, initialKinds = [], showFilters = tr
               </ol>
             </section>
           ))}
+          {query.hasNextPage ? (
+            <Button variant="secondary" size="sm" className="self-center" onClick={() => query.fetchNextPage()} loading={query.isFetchingNextPage} disabled={query.isPlaceholderData}>
+              Load older
+            </Button>
+          ) : null}
         </div>
       )}
     </div>

@@ -19,6 +19,7 @@ import { crmKeys } from "@/lib/crm/keys";
 import { can } from "@/lib/crm/permissions";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
+import { filterParams } from "@/lib/views";
 import { cn, formatDate } from "@/lib/utils";
 
 const ALL = "__all__";
@@ -74,7 +75,8 @@ export function DealsList({
   const showRisk = can(active, "ai.scores.view");
 
   const apiParams = React.useMemo<ListParams>(() => {
-    const { view: _view, new: _new, company: _company, contact: _contact, ...rest } = params;
+    // View keys (view, saved view, columns ...) are not filters; company/contact here prefill the new-deal form.
+    const { company: _company, contact: _contact, ...rest } = filterParams(params, ["pipeline"]);
     const sort = SORT_OPTIONS.some((o) => o.value === rest.sort) ? rest.sort : "-updated_at";
     return { ...rest, sort };
   }, [params]);

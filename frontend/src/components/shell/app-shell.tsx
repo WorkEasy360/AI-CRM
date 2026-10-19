@@ -13,6 +13,7 @@ import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ActiveContext, Session } from "@/lib/api/types";
+import { workeasy360StartUrl } from "@/lib/auth-methods";
 
 export function AppShell({ session, active, children }: { session: Session; active: ActiveContext; children: React.ReactNode }) {
   const [navOpen, setNavOpen] = React.useState(false);
@@ -30,14 +31,16 @@ export function AppShell({ session, active, children }: { session: Session; acti
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const mfaBanner = active.mfa_required && !session.mfa_enabled;
+  // Workeasy360 sessions satisfy the requirement only through Workeasy360's own two-step verification.
+  const federated = session.identity_provider === "workeasy360";
+  const mfaBanner = active.mfa_required && (federated || !session.mfa_enabled);
 
   return (
     <QuickCreateProvider>
       <div className="flex h-dvh overflow-hidden bg-bg">
         {/* Desktop navigation */}
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-surface lg:flex">
-          <div className="flex h-12 items-center border-b border-border px-4">
+        <aside className="kl-chrome hidden w-56 shrink-0 flex-col bg-chrome-sidebar lg:flex">
+          <div className="flex h-12 items-center border-b border-border bg-chrome px-4">
             <Wordmark />
           </div>
           <SideNav session={session} />
@@ -45,10 +48,10 @@ export function AppShell({ session, active, children }: { session: Session; acti
 
         {/* Full navigation on small screens */}
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
-          <SheetContent side="left" className="p-0">
+          <SheetContent side="left" className="kl-chrome border-r-0 bg-chrome-sidebar p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SheetDescription className="sr-only">Primary navigation</SheetDescription>
-            <div className="flex h-12 items-center border-b border-border px-4">
+            <div className="flex h-12 items-center border-b border-border bg-chrome px-4">
               <Wordmark />
             </div>
             <SideNav session={session} onNavigate={() => setNavOpen(false)} />
@@ -56,7 +59,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
         </Sheet>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border bg-surface px-3">
+          <header className="kl-chrome flex h-12 shrink-0 items-center gap-1.5 bg-chrome px-3">
             <Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open navigation">
               <Menu />
             </Button>
@@ -77,9 +80,18 @@ export function AppShell({ session, active, children }: { session: Session; acti
           {mfaBanner ? (
             <div className="border-b border-warning/40 bg-warning-soft px-4 py-1.5 text-xs text-fg">
               <span className="font-medium">{active.organization.name}</span> requires two-factor authentication.{" "}
-              <Link href="/settings/security" className="font-medium text-primary underline-offset-2 hover:underline">
-                Set it up now
-              </Link>
+              {federated ? (
+                <>
+                  Turn on two-step verification in your Workeasy360 account, then{" "}
+                  <a href={workeasy360StartUrl("/pipeline")} className="font-medium text-primary underline-offset-2 hover:underline">
+                    sign in again
+                  </a>
+                </>
+              ) : (
+                <Link href="/settings/security" className="font-medium text-primary underline-offset-2 hover:underline">
+                  Set it up now
+                </Link>
+              )}
               .
             </div>
           ) : null}

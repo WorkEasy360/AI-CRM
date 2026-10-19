@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MoreHorizontal, Pencil, Plus, Trash2, Users, UsersRound } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { UsersTeamsTabs } from "@/components/settings/users-teams-tabs";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";

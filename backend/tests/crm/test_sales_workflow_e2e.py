@@ -130,7 +130,7 @@ def test_full_sales_workflow(
             "/api/v1/email/messages/",
             {
                 "to": ["hank@globex.example"],
-                "subject": "Proposal",
+                "subject": "Proposal sent",
                 "body": "Attached is our proposal.",
                 "deal_id": deal["id"],
             },
@@ -183,7 +183,7 @@ def test_full_sales_workflow(
     pipeline = repc.get("/api/v1/pipelines/").json()["results"][0]
     stages = {s["name"]: s["id"] for s in pipeline["stages"]}
     version = repc.get(f"/api/v1/deals/{deal['id']}/").json()["version"]
-    for name in ["Needs analysis", "Proposal", "Negotiation", "Closed won"]:
+    for name in ["Fit confirmed", "Proposal sent", "Terms agreed", "Won"]:
         resp = repc.post(
             f"/api/v1/deals/{deal['id']}/stage/", {"stage_id": stages[name], "version": version}, format="json"
         )
