@@ -44,6 +44,11 @@ dev = [
     "pip-audit>=2.9",
 ]
 
+[tool.uv]
+# semgrep pins mcp==1.29.0 (still in 1.181.0), which has CVE-2026-59951; the fix is a minor release.
+# Drop this once semgrep allows mcp>=1.30.
+override-dependencies = ["mcp>=1.30.0,<2"]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]

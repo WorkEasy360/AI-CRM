@@ -12,7 +12,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.workeasy360 import background
-from apps.core.tenancy.context import system_context, tenant_atomic
+from apps.core.tenancy.context import system_context, tenant_atomic, tenant_context
 from apps.core.tenancy.tasks import tenant_task
 from apps.importexport import service
 from apps.importexport.models import ExportJob, ImportJob, JobStatus
@@ -174,8 +174,9 @@ def resume_stalled_imports() -> int:
         if membership_id is None:
             continue
         if status == JobStatus.PENDING:
-            with system_context("importexport.resume_stalled_imports"):
-                claimed = ImportJob.all_objects.filter(
+            # The claim needs no cross-tenant reach: run it as the job's own organization.
+            with tenant_context(org_id, reason="importexport.resume_stalled_imports"), tenant_atomic():
+                claimed = ImportJob.objects.filter(
                     pk=job_id, status=JobStatus.PENDING, error_message=WAITING_FOR_ACCESS_MESSAGE
                 ).update(error_message="")
             if not claimed:
