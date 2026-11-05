@@ -91,9 +91,12 @@ def run_due() -> int:
 
     now = timezone.now()
 
+    # Beat sweeper: the one cross-tenant read reads only (organization_id, id) of due runs; every run
+    # is then loaded and acted on inside its own organization's tenant context.
     def fetch(excluded: set[uuid.UUID]) -> list:
         with system_context(RUN_DUE_TASK):
             return list(
+                # nosemgrep: security.semgrep.keel-unscoped-manager-outside-system-code
                 AutomationRun.all_objects.filter(outcome=AutomationRun.Outcome.PENDING, due_at__lte=now)
                 .exclude(organization_id__in=excluded)
                 .order_by("due_at")
