@@ -123,7 +123,7 @@ describe("navigation", () => {
   });
 
   it("shows a sales representative only their personal settings pages", () => {
-    expect(visibleSettingsNav(REP).map((i) => i.label)).toEqual(["Email", "WhatsApp", "Notifications", "Security"]);
+    expect(visibleSettingsNav(REP).map((i) => i.label)).toEqual(["WhatsApp (API)", "Email", "Message Templates", "Notifications", "Security"]);
   });
 
   it("shows an administrator every settings page they can act on", () => {
@@ -132,17 +132,18 @@ describe("navigation", () => {
       "/settings/general",
       "/settings/users",
       "/settings/roles",
-      "/settings/billing",
-      "/settings/automation",
       "/settings/pipelines",
-      "/settings/price-books",
       "/settings/custom-fields",
-      "/settings/tags",
-      "/settings/email",
+      "/settings/automation",
+      "/settings/integrations",
       "/settings/whatsapp",
+      "/settings/email",
+      "/settings/templates",
+      "/settings/billing",
+      "/settings/price-books",
+      "/settings/tags",
       "/settings/notifications",
       "/settings/ai",
-      "/settings/integrations",
       "/settings/security",
       "/settings/data",
       "/settings/audit-log",

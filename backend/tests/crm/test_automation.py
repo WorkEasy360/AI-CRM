@@ -270,3 +270,88 @@ def test_runs_wait_while_access_has_ended_then_go_out(
     assert run_due() == 1
     with tenant_context(org_a.org.pk):
         assert Notification.objects.filter(kind="automation", entity_id=contact["id"]).count() == 1
+
+
+# ----------------------------------------------------------------------------- stage trigger and team notification
+
+
+def test_stage_rule_fires_when_the_deal_enters_its_stage(
+    org_a, org_b, owner_client, crm, django_capture_on_commit_callbacks
+):
+    from tests.factories import stage_named
+
+    deal = crm.make_deal(org_a)
+    with tenant_context(org_a.org.pk):
+        proposal = stage_named(deal.pipeline, "Proposal sent")
+        terms = stage_named(deal.pipeline, "Terms agreed")
+    assert _rule(owner_client, trigger="deal_stage_entered").status_code == 400  # needs a stage
+    other = crm.make_deal(org_b)
+    with tenant_context(org_b.org.pk):
+        foreign = stage_named(other.pipeline, "Proposal sent")
+    assert _rule(owner_client, trigger="deal_stage_entered", stage_id=str(foreign.pk)).status_code == 400
+    resp = _rule(
+        owner_client,
+        name="Proposal Follow-up",
+        trigger="deal_stage_entered",
+        stage_id=str(proposal.pk),
+        action="notify_owner",
+        message="Proposal sent",
+    )
+    assert resp.status_code == 201 and resp.json()["stage_name"] == "Proposal sent"
+
+    def move(stage, version):
+        with django_capture_on_commit_callbacks(execute=True):
+            r = owner_client.post(
+                f"/api/v1/deals/{deal.pk}/stage/", {"stage_id": str(stage.pk), "version": version}, format="json"
+            )
+        assert r.status_code == 200, r.content
+        return r.json()["version"]
+
+    version = move(terms, deal.version)  # another stage: nothing
+    with tenant_context(org_a.org.pk):
+        assert not Notification.objects.filter(kind="automation", entity_id=deal.pk).exists()
+    move(proposal, version)
+    with tenant_context(org_a.org.pk):
+        assert Notification.objects.filter(kind="automation", entity_id=deal.pk, title="Proposal sent").count() == 1
+
+    # another trigger drops the stage
+    rule_id = resp.json()["id"]
+    resp = owner_client.patch(f"/api/v1/automation-rules/{rule_id}/", {"trigger": "deal_won"}, format="json")
+    assert resp.status_code == 200 and resp.json()["stage_id"] is None
+
+
+def test_team_notification_reaches_only_teammates_who_may_open_the_deal(
+    org_a, owner_client, crm, make_member, django_capture_on_commit_callbacks
+):
+    from apps.accounts.models import Membership
+    from apps.authz.models import Role
+    from apps.teams.models import TeamMembership
+    from tests.factories import make_team
+
+    team = make_team(org_a)
+    rep = make_member(org_a, "sales_rep")  # deals.view: team
+    blind = make_member(org_a, "viewer")
+    key = owner_client.post(
+        "/api/v1/roles/", {"name": "Own deals only", "grants": {"deals.view": "own"}}, format="json"
+    ).json()["key"]
+    outsider = make_member(org_a, "sales_rep")  # not in the team
+    with tenant_context(org_a.org.pk):
+        Membership.objects.filter(pk=blind.pk).update(role=Role.objects.get(key=key))
+        for member in (org_a.owner_membership, rep, blind):
+            TeamMembership.objects.create(team=team, membership=member)
+
+    _rule(owner_client, name="Deal Won Notification", trigger="deal_won", action="notify_team", message="Deal won!")
+    deal = crm.make_deal(org_a)
+    with tenant_context(org_a.org.pk):
+        won = next(s for s in deal.pipeline.stages.all() if s.kind == "won")
+    with django_capture_on_commit_callbacks(execute=True):
+        resp = owner_client.post(
+            f"/api/v1/deals/{deal.pk}/stage/", {"stage_id": str(won.pk), "version": deal.version}, format="json"
+        )
+    assert resp.status_code == 200, resp.content
+    with tenant_context(org_a.org.pk):
+        told = set(
+            Notification.objects.filter(kind="automation", entity_id=deal.pk).values_list("recipient_id", flat=True)
+        )
+    assert told == {org_a.owner_membership.pk, rep.pk}
+    assert blind.pk not in told and outsider.pk not in told

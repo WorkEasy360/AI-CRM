@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 
+from apps.accounts.api.serializers import OrganizationSerializer
 from apps.authz.service import check
+from apps.core.api.request import ActorRequest
 from apps.core.api.serializers import MembershipRefSerializer
-from apps.core.api.viewsets import TenantViewSet
-from apps.files import services
+from apps.core.api.viewsets import TenantAPIView, TenantViewSet
+from apps.files import branding, services
 from apps.files.models import FILE_ENTITY_TYPES, MAX_FILE_BYTES, FileAttachment
 from apps.notes.registry import resolve_viewable
 
@@ -120,3 +123,35 @@ class FileAttachmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Te
         response["X-Content-Type-Options"] = "nosniff"
         response["Cache-Control"] = "no-store"
         return response
+
+
+class OrganizationLogoView(TenantAPIView):
+    """The workspace logo: any member may see it, members with ``org.update`` replace or remove it."""
+
+    permission_map = {"GET": "org.view", "POST": "org.update", "DELETE": "org.update"}
+    parser_classes = [MultiPartParser]
+
+    def get(self, request: ActorRequest) -> HttpResponse:
+        found = branding.read_logo(request.actor)
+        if found is None:
+            raise Http404
+        blob, content_type = found
+        response = HttpResponse(blob, content_type=content_type)
+        response["Cache-Control"] = "private, max-age=86400"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "default-src 'none'"
+        response["Content-Disposition"] = "inline"
+        return response
+
+    def post(self, request: ActorRequest) -> Response:
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "Choose an image to upload."})
+        if upload.size > branding.MAX_LOGO_BYTES:
+            raise ValidationError({"file": "Upload a logo of at most 512 KB."})
+        org = branding.set_logo(request.actor, upload.read(), request=request._request)
+        return Response(OrganizationSerializer(org).data)
+
+    def delete(self, request: ActorRequest) -> Response:
+        org = branding.remove_logo(request.actor, request=request._request)
+        return Response(OrganizationSerializer(org).data)

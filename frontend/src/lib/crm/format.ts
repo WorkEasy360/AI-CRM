@@ -72,6 +72,23 @@ export function colorClasses(token: string | undefined): string {
   }
 }
 
+/** The stage hue for a tinted column header (Kanban). Mixed into the surface so it works in both themes;
+ * text on it stays the regular foreground colour. */
+const STAGE_HUE: Record<string, string> = {
+  blue: "#2b7bd6",
+  teal: "#1f8a82",
+  green: "#16a34a",
+  amber: "#d97706",
+  red: "#dc2626",
+  purple: "#7c4dff",
+  pink: "#e0479e",
+};
+
+export function stageTintStyle(token: string | undefined): { backgroundColor: string } {
+  const hue = STAGE_HUE[token ?? ""] ?? "#64748b";
+  return { backgroundColor: `color-mix(in srgb, ${hue} 14%, var(--kl-surface))` };
+}
+
 export function stageDotClass(token: string | undefined): string {
   switch (token) {
     case "blue":

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Bell, Clock, ListTodo, MessageCircle, MoreHorizontal, Pencil, Plus, Trash2, Trophy, UserPlus, Workflow, XCircle } from "lucide-react";
+import { Bell, Clock, KanbanSquare, ListTodo, MessageCircle, MoreHorizontal, Pencil, Plus, Trash2, Trophy, UserPlus, Users, Workflow, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -32,7 +32,7 @@ import {
   type AutomationRuleInput,
   type AutomationTrigger,
 } from "@/lib/api/automation";
-import { listWhatsAppTemplates } from "@/lib/api/crm";
+import { listPipelines, listWhatsAppTemplates } from "@/lib/api/crm";
 import type { WhatsAppTemplate } from "@/lib/api/crm-types";
 import { crmKeys } from "@/lib/crm/keys";
 import { errorMessage } from "@/lib/api/problem";
@@ -43,29 +43,36 @@ import { cn, formatDateTime } from "@/lib/utils";
 const TRIGGER_ICON: Record<AutomationTrigger, { icon: React.ComponentType<{ className?: string }>; tone: string }> = {
   contact_created: { icon: UserPlus, tone: "bg-[#dcfce7] text-[#15803d]" },
   deal_created: { icon: ListTodo, tone: "bg-[#fef3c7] text-[#b45309]" },
+  deal_stage_entered: { icon: KanbanSquare, tone: "bg-[#dbeafe] text-[#1d4ed8]" },
   deal_won: { icon: Trophy, tone: "bg-[#ffedd5] text-[#c2410c]" },
   deal_lost: { icon: XCircle, tone: "bg-[#fee2e2] text-[#b91c1c]" },
 };
 
-type RuleDraft = Required<Pick<AutomationRuleInput, "name" | "trigger" | "action" | "message" | "delay_days" | "only_if_no_reply">>;
+type RuleDraft = Required<Pick<AutomationRuleInput, "name" | "trigger" | "action" | "message" | "delay_days" | "only_if_no_reply">> & { blurb: string };
 
-/** Ready-made rules from the WorkEasy360 automation screen. WhatsApp ones open the editor to pick a template. */
+/** Ready-made rules from the WorkEasy360 automation screen. Ones that need a WhatsApp template or a stage open the editor. */
 const TEMPLATES: RuleDraft[] = [
-  { name: "New Lead Welcome", trigger: "contact_created", action: "send_whatsapp", message: "", delay_days: 0, only_if_no_reply: false },
-  { name: "Follow-up Reminder", trigger: "contact_created", action: "send_whatsapp", message: "", delay_days: 3, only_if_no_reply: true },
-  { name: "Proposal Follow-up", trigger: "deal_created", action: "create_task", message: "Check in on the proposal", delay_days: 3, only_if_no_reply: true },
-  { name: "Deal Won Notification", trigger: "deal_won", action: "notify_owner", message: "Deal won: thank the customer", delay_days: 0, only_if_no_reply: false },
+  { name: "New Lead Welcome (WhatsApp)", blurb: "Send auto WhatsApp message when a new lead is added.", trigger: "contact_created", action: "send_whatsapp", message: "", delay_days: 0, only_if_no_reply: false },
+  { name: "Follow-up Reminder", blurb: "Create a task 2 days after lead creation.", trigger: "contact_created", action: "create_task", message: "Follow up with the new lead", delay_days: 2, only_if_no_reply: false },
+  { name: "Proposal Follow-up", blurb: "Send WhatsApp reminder if no response in 3 days.", trigger: "deal_stage_entered", action: "send_whatsapp", message: "", delay_days: 3, only_if_no_reply: true },
+  { name: "Deal Won Notification", blurb: "Notify team on deal won.", trigger: "deal_won", action: "notify_team", message: "Deal won!", delay_days: 0, only_if_no_reply: false },
 ];
+
+function needsEditor(draft: RuleDraft): boolean {
+  return draft.action === "send_whatsapp" || draft.trigger === "deal_stage_entered";
+}
 
 const ACTION_ICON: Record<AutomationAction, React.ComponentType<{ className?: string }>> = {
   create_task: ListTodo,
   notify_owner: Bell,
+  notify_team: Users,
   send_whatsapp: MessageCircle,
 };
 
 const WHEN: Record<AutomationTrigger, string> = {
   contact_created: "When a new lead is added",
   deal_created: "When a deal is created",
+  deal_stage_entered: "When a deal enters a stage",
   deal_won: "When a deal is won",
   deal_lost: "When a deal is lost",
 };
@@ -74,12 +81,13 @@ function inDays(days: number): string {
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
-export function summary(rule: Pick<AutomationRule, "trigger" | "action" | "delay_days" | "only_if_no_reply">): string {
+export function summary(rule: Pick<AutomationRule, "trigger" | "action" | "delay_days" | "only_if_no_reply"> & { stage_name?: string | null }): string {
   const days = rule.delay_days;
+  const when = rule.trigger === "deal_stage_entered" && rule.stage_name ? `When a deal enters ${rule.stage_name}` : WHEN[rule.trigger];
   const waits = days > 0 && (rule.only_if_no_reply || rule.action !== "create_task");
-  const what = rule.action === "create_task" ? (waits ? "create a task" : `create a task due ${days === 0 ? "the same day" : `in ${inDays(days)}`}`) : rule.action === "send_whatsapp" ? "send a WhatsApp message" : "notify the owner";
-  if (!waits) return `${WHEN[rule.trigger]}, ${what}.`;
-  return rule.only_if_no_reply ? `${WHEN[rule.trigger]}: if there is no reply in ${inDays(days)}, ${what}.` : `${WHEN[rule.trigger]}, ${what} after ${inDays(days)}.`;
+  const what = rule.action === "create_task" ? (waits ? "create a task" : `create a task due ${days === 0 ? "the same day" : `in ${inDays(days)}`}`) : rule.action === "send_whatsapp" ? "send a WhatsApp message" : rule.action === "notify_team" ? "notify the team" : "notify the owner";
+  if (!waits) return `${when}, ${what}.`;
+  return rule.only_if_no_reply ? `${when}: if there is no reply in ${inDays(days)}, ${what}.` : `${when}, ${what} after ${inDays(days)}.`;
 }
 
 export function AutomationPage() {
@@ -222,7 +230,10 @@ function TemplateButton({ template, onCustomize }: { template: RuleDraft; onCust
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const create = useMutation({
-    mutationFn: () => createAutomationRule(template),
+    mutationFn: () => {
+      const { blurb, ...input } = template;
+      return createAutomationRule({ ...input, description: blurb });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: automationKeys.rules });
       toast({ tone: "success", title: "Automation added", description: template.name });
@@ -233,8 +244,8 @@ function TemplateButton({ template, onCustomize }: { template: RuleDraft; onCust
   return (
     <button
       type="button"
-      // A WhatsApp rule needs one of the workspace's approved templates: open the editor to choose it.
-      onClick={() => (template.action === "send_whatsapp" ? onCustomize() : create.mutate())}
+      // A WhatsApp template or a pipeline stage has to be chosen first: open the editor for those.
+      onClick={() => (needsEditor(template) ? onCustomize() : create.mutate())}
       disabled={create.isPending}
       className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
     >
@@ -243,7 +254,7 @@ function TemplateButton({ template, onCustomize }: { template: RuleDraft; onCust
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium text-fg">{template.name}</span>
-        <span className="block truncate text-xs text-fg-muted">{summary(template)}</span>
+        <span className="block truncate text-xs text-fg-muted">{template.blurb}</span>
       </span>
     </button>
   );
@@ -261,6 +272,10 @@ function RuleDialog({ rule, draft, onClose }: { rule: AutomationRule | null; dra
   const [delay, setDelay] = React.useState(String(start?.delay_days ?? 0));
   const [noReply, setNoReply] = React.useState(start?.only_if_no_reply ?? false);
   const [templateId, setTemplateId] = React.useState<string>(rule?.whatsapp_template_id ?? "");
+  const [stageId, setStageId] = React.useState<string>(rule?.stage_id ?? "");
+  const [description] = React.useState(rule?.description ?? draft?.blurb ?? "");
+  const stageRule = trigger === "deal_stage_entered";
+  const pipelines = useQuery({ queryKey: crmKeys.pipelines, queryFn: () => listPipelines(), enabled: stageRule, staleTime: 60_000 });
   const [params, setParams] = React.useState<string[]>(rule?.template_params ?? []);
   const [error, setError] = React.useState<string | null>(null);
   const id = React.useId();
@@ -292,6 +307,8 @@ function RuleDialog({ rule, draft, onClose }: { rule: AutomationRule | null; dra
         message: message.trim(),
         delay_days: Number(delay) || 0,
         only_if_no_reply: noReply,
+        description,
+        stage_id: stageRule ? stageId || null : null,
         ...(whatsapp ? { whatsapp_template_id: templateId || null, template_params: params.map((p) => p.trim()) } : {}),
       };
       return rule ? updateAutomationRule(rule.id, input) : createAutomationRule(input);
@@ -321,6 +338,10 @@ function RuleDialog({ rule, draft, onClose }: { rule: AutomationRule | null; dra
             setError(null);
             if (!name.trim()) {
               setError("Name is required.");
+              return;
+            }
+            if (stageRule && !stageId) {
+              setError("Choose the stage the deal has to enter.");
               return;
             }
             if (whatsapp && !templateId) {
@@ -353,6 +374,27 @@ function RuleDialog({ rule, draft, onClose }: { rule: AutomationRule | null; dra
               </SelectContent>
             </Select>
           </div>
+          {stageRule ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor={`${id}-stage`}>Stage</Label>
+              <Select value={stageId} onValueChange={setStageId}>
+                <SelectTrigger id={`${id}-stage`}>
+                  <SelectValue placeholder={pipelines.isPending ? "Loading stages…" : "Choose a stage"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(pipelines.data?.results ?? []).flatMap((p) =>
+                    p.stages
+                      .filter((s) => !s.archived_at)
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {(pipelines.data?.results.length ?? 0) > 1 ? `${p.name} · ${s.name}` : s.name}
+                        </SelectItem>
+                      )),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           <div className="grid gap-1.5">
             <Label htmlFor={`${id}-action`}>Then</Label>
             <Select value={action} onValueChange={(v) => setAction(v as AutomationAction)}>

@@ -56,6 +56,7 @@ export const crmKeys = {
   whatsappTemplates: ["messaging", "whatsapp", "templates"] as const,
   whatsappMessages: (entity: "contact" | "deal", id: string) => ["messaging", "whatsapp", "messages", entity, id] as const,
   whatsappWindow: (contactId: string) => ["messaging", "whatsapp", "window", contactId] as const,
+  messageInbox: (channel: "whatsapp" | "email") => ["messaging", channel, "inbox"] as const,
   // forecast / ai
   forecast: (params: Record<string, string | undefined>) => ["forecast", params] as const,
   aiUsage: ["ai", "usage"] as const,

@@ -12,6 +12,8 @@ from apps.core.api.viewsets import TenantViewSet
 
 class AutomationRuleSerializer(serializers.ModelSerializer):
     whatsapp_template_id = serializers.UUIDField(read_only=True, allow_null=True)
+    stage_id = serializers.UUIDField(read_only=True, allow_null=True)
+    stage_name = serializers.CharField(source="stage.name", read_only=True, default=None)
     whatsapp_template_name = serializers.CharField(source="whatsapp_template.name", read_only=True, default=None)
     pending_runs = serializers.IntegerField(read_only=True, default=0)
     last_outcome = serializers.CharField(read_only=True, default=None)
@@ -24,6 +26,8 @@ class AutomationRuleSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "trigger",
+            "stage_id",
+            "stage_name",
             "action",
             "message",
             "delay_days",
@@ -52,6 +56,7 @@ class AutomationRuleWriteSerializer(serializers.Serializer):
     delay_days = serializers.IntegerField(min_value=0, max_value=MAX_DELAY_DAYS, required=False)
     is_enabled = serializers.BooleanField(required=False)
     only_if_no_reply = serializers.BooleanField(required=False)
+    stage_id = serializers.UUIDField(required=False, allow_null=True)
     whatsapp_template_id = serializers.UUIDField(required=False, allow_null=True)
     template_params = serializers.ListField(
         child=serializers.CharField(max_length=200, allow_blank=True), max_length=10, required=False
@@ -81,7 +86,7 @@ class AutomationRuleViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Te
             .values("n")
         )
         return (
-            AutomationRule.objects.select_related("whatsapp_template")
+            AutomationRule.objects.select_related("whatsapp_template", "stage")
             .annotate(
                 last_outcome=Subquery(latest.values("outcome")[:1]),
                 last_detail=Subquery(latest.values("detail")[:1]),

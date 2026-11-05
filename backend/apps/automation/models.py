@@ -21,15 +21,21 @@ class AutomationRule(TenantModel):
         DEAL_CREATED = "deal_created", "A deal is created"
         DEAL_WON = "deal_won", "A deal is won"
         DEAL_LOST = "deal_lost", "A deal is lost"
+        DEAL_STAGE_ENTERED = "deal_stage_entered", "A deal enters a stage"
 
     class Action(models.TextChoices):
         CREATE_TASK = "create_task", "Create a follow-up task for the owner"
         NOTIFY_OWNER = "notify_owner", "Notify the owner"
+        NOTIFY_TEAM = "notify_team", "Notify the owner's team"
         SEND_WHATSAPP = "send_whatsapp", "Send a WhatsApp template to the contact"
 
     name = models.CharField(max_length=120)
     description = models.CharField(max_length=255, blank=True)
     trigger = models.CharField(max_length=32, choices=Trigger.choices)
+    # For DEAL_STAGE_ENTERED: the stage the deal has to enter (and still be in when the rule acts).
+    stage = models.ForeignKey(
+        "pipelines.PipelineStage", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
     action = models.CharField(max_length=32, choices=Action.choices)
     # Task title, or the notification's text. Plain text, no templating.
     message = models.CharField(max_length=200, blank=True)

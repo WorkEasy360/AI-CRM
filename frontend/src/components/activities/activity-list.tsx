@@ -41,6 +41,7 @@ const EMPTY: Record<ActivityKind, { icon: React.ReactNode; title: string; descri
   call: { icon: <Phone />, title: "No calls here", description: "Log calls you made or schedule the next one. Outcomes and notes land on the contact's timeline." },
   meeting: { icon: <CalendarDays />, title: "No meetings here", description: "Scheduled meetings show on the calendar with attendees, location and a reminder." },
 };
+const EMPTY_ALL = { icon: <ListTodo />, title: "No activities here", description: "Tasks, calls and meetings for your contacts, companies and deals all land in this list." };
 
 type Group = "Overdue" | "Today" | "Tomorrow" | "Later" | "No date" | "Completed";
 const GROUP_ORDER: Group[] = ["Overdue", "Today", "Tomorrow", "Later", "No date", "Completed"];
@@ -60,7 +61,7 @@ function viewOf(params: ListParams): View {
   return params.view === "all" || params.view === "done" ? params.view : "mine";
 }
 
-/** One kind's list (Tasks / Meetings / Calls tab): view, search, due filter, sort, grouped rows. */
+/** One kind's list (Tasks / Meetings / Calls tab), or every kind (All): view, search, due filter, sort, grouped rows. */
 export function ActivityList({
   kind,
   params,
@@ -70,7 +71,8 @@ export function ActivityList({
   canBulk = false,
   onCreate,
 }: {
-  kind: ActivityKind;
+  /** Omitted for the All tab. */
+  kind?: ActivityKind;
   params: ListParams;
   setParam: (key: string, value: string | undefined) => void;
   setParams: (patch: ListParams) => void;
@@ -138,7 +140,9 @@ export function ActivityList({
   }, [list.items, today]);
   const grouping = sort === "start_at" || sort === "-start_at";
 
-  const label = KIND_LABELS[kind].plural.toLowerCase();
+  const label = kind ? KIND_LABELS[kind].plural.toLowerCase() : "activities";
+  const empty = kind ? EMPTY[kind] : EMPTY_ALL;
+  const createKind: ActivityKind = kind ?? "task";
   const filtered = Boolean(params.q || params.due);
 
   return (
@@ -214,17 +218,17 @@ export function ActivityList({
         />
       ) : list.items.length === 0 ? (
         <EmptyState
-          icon={EMPTY[kind].icon}
-          title={filtered ? `No ${label} match` : view === "done" ? `No completed ${label}` : EMPTY[kind].title}
-          description={filtered ? "Try a different search or clear the filters." : view === "done" ? "Items you complete or cancel move here." : EMPTY[kind].description}
+          icon={empty.icon}
+          title={filtered ? `No ${label} match` : view === "done" ? `No completed ${label}` : empty.title}
+          description={filtered ? "Try a different search or clear the filters." : view === "done" ? "Items you complete or cancel move here." : empty.description}
           action={
             filtered ? (
               <Button variant="secondary" size="sm" onClick={() => setParams({ q: undefined, due: undefined })}>
                 Clear filters
               </Button>
             ) : canCreate && view !== "done" ? (
-              <Button size="sm" onClick={() => onCreate(kind)}>
-                <Plus /> New {KIND_LABELS[kind].singular.toLowerCase()}
+              <Button size="sm" onClick={() => onCreate(createKind)}>
+                <Plus /> New {KIND_LABELS[createKind].singular.toLowerCase()}
               </Button>
             ) : null
           }

@@ -652,6 +652,22 @@ def can_view_message(actor: Actor, message: Any) -> bool:
     return False
 
 
+def visible_messages(actor: Actor, queryset: Any) -> Any:
+    """``can_view_message`` as a queryset filter: sent by the actor, or linked to a record they may view."""
+    from apps.companies.models import Company
+    from apps.contacts.models import Contact
+    from apps.deals.models import Deal
+
+    match = Q(sent_by_id=actor.membership.pk)
+    for key, module, model in (
+        ("contact", "contacts", Contact),
+        ("deal", "deals", Deal),
+        ("company", "companies", Company),
+    ):
+        match |= Q(**{f"{key}__in": scope(actor, f"{module}.view", model.objects.all()).values("pk")})
+    return queryset.filter(match)
+
+
 # ----------------------------------------------------------------------------- email sync (inbound)
 
 

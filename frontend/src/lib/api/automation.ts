@@ -1,20 +1,22 @@
 import { api } from "@/lib/api/client";
 import type { Paginated } from "@/lib/api/types";
 
-export const AUTOMATION_TRIGGERS = ["contact_created", "deal_created", "deal_won", "deal_lost"] as const;
+export const AUTOMATION_TRIGGERS = ["contact_created", "deal_created", "deal_stage_entered", "deal_won", "deal_lost"] as const;
 export type AutomationTrigger = (typeof AUTOMATION_TRIGGERS)[number];
-export const AUTOMATION_ACTIONS = ["create_task", "notify_owner", "send_whatsapp"] as const;
+export const AUTOMATION_ACTIONS = ["create_task", "notify_owner", "notify_team", "send_whatsapp"] as const;
 export type AutomationAction = (typeof AUTOMATION_ACTIONS)[number];
 
 export const TRIGGER_LABELS: Record<AutomationTrigger, string> = {
   contact_created: "A new contact (lead) is added",
   deal_created: "A new deal is created",
+  deal_stage_entered: "A deal enters a stage",
   deal_won: "A deal is won",
   deal_lost: "A deal is lost",
 };
 export const ACTION_LABELS: Record<AutomationAction, string> = {
   create_task: "Create a follow-up task for the owner",
   notify_owner: "Notify the owner",
+  notify_team: "Notify the owner's team",
   send_whatsapp: "Send a WhatsApp template to the contact",
 };
 
@@ -26,6 +28,9 @@ export interface AutomationRule {
   name: string;
   description: string;
   trigger: AutomationTrigger;
+  /** For deal_stage_entered: the stage the deal has to enter. */
+  stage_id: string | null;
+  stage_name: string | null;
   action: AutomationAction;
   message: string;
   delay_days: number;
@@ -46,7 +51,7 @@ export interface AutomationRule {
 }
 
 export type AutomationRuleInput = Partial<
-  Pick<AutomationRule, "name" | "description" | "trigger" | "action" | "message" | "delay_days" | "is_enabled" | "only_if_no_reply" | "whatsapp_template_id" | "template_params">
+  Pick<AutomationRule, "name" | "description" | "trigger" | "action" | "message" | "delay_days" | "is_enabled" | "only_if_no_reply" | "whatsapp_template_id" | "template_params" | "stage_id">
 >;
 
 export const automationKeys = { rules: ["automation", "rules"] as const };

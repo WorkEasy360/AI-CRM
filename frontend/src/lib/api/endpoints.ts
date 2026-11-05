@@ -1,4 +1,4 @@
-import { api } from "@/lib/api/client";
+import { api, requestForm } from "@/lib/api/client";
 import { takePreloadedSession } from "@/lib/session-preload";
 import type {
   AuditEvent,
@@ -54,6 +54,14 @@ export const getCurrentOrganization = () => api.get<Organization>("/api/v1/organ
 
 export const updateCurrentOrganization = (input: UpdateOrganizationInput) =>
   api.patch<Organization>("/api/v1/organizations/current/", input);
+
+/** PNG, JPEG or WebP, at most 512 KB (checked by its bytes on the server). */
+export const uploadOrganizationLogo = (file: File) => {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return requestForm<Organization>("/api/v1/organizations/current/logo/", form);
+};
+export const removeOrganizationLogo = () => api.delete<Organization>("/api/v1/organizations/current/logo/");
 
 export const listRoles = () => api.get<{ results: RoleDefinition[] }>("/api/v1/roles/");
 

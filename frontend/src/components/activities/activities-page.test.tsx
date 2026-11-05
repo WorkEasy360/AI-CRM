@@ -122,11 +122,12 @@ describe("ActivitiesPage", () => {
     renderPage();
 
     const tabs = screen.getByRole("tablist", { name: "Activity views" });
-    expect(within(tabs).getByRole("tab", { name: "calendar" })).toHaveAttribute("aria-selected", "true");
-    expect(within(tabs).getByRole("tab", { name: "tasks" })).toBeInTheDocument();
-    expect(within(tabs).getByRole("tab", { name: "meetings" })).toBeInTheDocument();
-    expect(within(tabs).getByRole("tab", { name: "calls" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New meeting" })).toBeInTheDocument();
+    // The WorkEasy360 list of everything is the default view; calendar and my day stay one click away.
+    expect(within(tabs).getByRole("tab", { name: "all" })).toHaveAttribute("aria-selected", "true");
+    for (const name of ["tasks", "calls", "meetings", "calendar", "my day"]) expect(within(tabs).getByRole("tab", { name })).toBeInTheDocument();
+    // Conversations need their channel's permission.
+    expect(within(tabs).queryByRole("tab", { name: "WhatsApp" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New task" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "More ways to add" })).toBeInTheDocument();
 
     expect(await screen.findByRole("button", { name: "2 Overdue" })).toBeInTheDocument();
@@ -135,6 +136,7 @@ describe("ActivitiesPage", () => {
   });
 
   it("renders calendar events for the visible month from calendarActivities", async () => {
+    search = "tab=calendar";
     vi.mocked(calendarActivities).mockResolvedValue({
       results: [
         activity({ id: "a1", kind: "meeting", title: "Demo with Acme", start_at: toIsoWithOffset(new Date(2026, 8, 15, 14, 0)) }),

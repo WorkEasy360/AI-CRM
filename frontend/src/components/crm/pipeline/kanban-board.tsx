@@ -18,7 +18,7 @@ import { getBoardStage, updateDeal } from "@/lib/api/crm";
 import type { Board, BoardStage, DealCard, ListParams } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { useWindowedList } from "@/lib/use-windowed-list";
-import { formatMoney, stageDotClass } from "@/lib/crm/format";
+import { formatMoney, stageDotClass, stageTintStyle } from "@/lib/crm/format";
 import { cn, formatDate } from "@/lib/utils";
 
 const DRAG_MIME = "application/x-keel-deal";
@@ -209,16 +209,16 @@ export function KanbanBoard({
               data-testid={`column-${stage.id}`}
             >
               <span className={cn("-mx-px -mt-px h-[3px] shrink-0 rounded-t-md", stageDotClass(stage.color_token))} aria-hidden />
-              <header className="px-2.5 pb-1.5 pt-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-fg" title={stage.name}>
+              <header className="px-2.5 pb-1.5 pt-2" style={stageTintStyle(stage.color_token)}>
+                <div className="flex min-w-0 items-baseline gap-1">
+                  <h3 className="min-w-0 truncate text-sm font-semibold text-fg" title={stage.name}>
                     {stage.name}
                   </h3>
-                  <span className="rounded-full bg-surface px-1.5 py-0.5 text-[12px] font-medium text-fg-muted" aria-label={`${stage.deal_count} deals`}>
-                    {stage.deal_count}
+                  <span className="shrink-0 text-sm font-medium text-fg-muted" aria-label={`${stage.deal_count} deals`}>
+                    ({stage.deal_count})
                   </span>
                 </div>
-                {stage.total_amount_base !== null ? <p className="mt-0.5 text-xs font-medium tabular-nums text-fg-muted">{formatMoney(stage.total_amount_base, baseCurrency)}</p> : null}
+                {stage.total_amount_base !== null ? <p className="mt-0.5 text-xs font-semibold tabular-nums text-fg">{formatMoney(stage.total_amount_base, baseCurrency)}</p> : null}
                 {weighted !== null ? <p className="text-[12px] tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
               </header>
               <ColumnCards

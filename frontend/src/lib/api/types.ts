@@ -38,6 +38,11 @@ export interface Organization {
   plan: string;
   status: string;
   require_mfa: boolean;
+  /** Product name for this workspace's sidebar; empty means "WorkEasy360". */
+  crm_name?: string;
+  date_format?: string;
+  /** Same-origin URL of the workspace logo, or null. */
+  logo_url?: string | null;
   created_at: string;
 }
 
@@ -112,6 +117,8 @@ export interface UpdateOrganizationInput {
   base_currency?: string;
   timezone?: string;
   require_mfa?: boolean;
+  crm_name?: string;
+  date_format?: string;
 }
 
 export interface TeamMember {

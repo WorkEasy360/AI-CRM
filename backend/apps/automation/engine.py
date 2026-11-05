@@ -37,15 +37,16 @@ log = structlog.get_logger(__name__)
 
 # Which (entity_type, change) pairs can fire which triggers. Won/lost is decided from the deal's
 # committed status when the task runs, not from the event.
+_DEAL_STATE_TRIGGERS = (
+    AutomationRule.Trigger.DEAL_WON,
+    AutomationRule.Trigger.DEAL_LOST,
+    AutomationRule.Trigger.DEAL_STAGE_ENTERED,
+)
 _CANDIDATES: dict[tuple[str, str], tuple[str, ...]] = {
     ("contact", "created"): (AutomationRule.Trigger.CONTACT_CREATED,),
-    ("deal", "created"): (
-        AutomationRule.Trigger.DEAL_CREATED,
-        AutomationRule.Trigger.DEAL_WON,
-        AutomationRule.Trigger.DEAL_LOST,
-    ),
-    ("deal", "stage_changed"): (AutomationRule.Trigger.DEAL_WON, AutomationRule.Trigger.DEAL_LOST),
-    ("deal", "updated"): (AutomationRule.Trigger.DEAL_WON, AutomationRule.Trigger.DEAL_LOST),
+    ("deal", "created"): (AutomationRule.Trigger.DEAL_CREATED, *_DEAL_STATE_TRIGGERS),
+    ("deal", "stage_changed"): _DEAL_STATE_TRIGGERS,
+    ("deal", "updated"): _DEAL_STATE_TRIGGERS,
 }
 MAX_IDS_PER_EVENT = 200
 DUE_BATCH = 500
@@ -150,7 +151,14 @@ def _triggers_for(entity_type: str, record: Any, change: str) -> list[str]:
         out.append(AutomationRule.Trigger.DEAL_WON)
     elif record.status == "lost":
         out.append(AutomationRule.Trigger.DEAL_LOST)
+    out.append(AutomationRule.Trigger.DEAL_STAGE_ENTERED)  # matched against the rule's stage below
     return out
+
+
+def _matches(rule: AutomationRule, record: Any) -> bool:
+    if rule.trigger == AutomationRule.Trigger.DEAL_STAGE_ENTERED:
+        return rule.stage_id is not None and record.stage_id == rule.stage_id
+    return True
 
 
 def _waits(rule: AutomationRule) -> bool:
@@ -169,6 +177,8 @@ def _schedule_for_record(entity_type: str, entity_id: uuid.UUID, change: str) ->
     now = timezone.now()
     due_now: list[uuid.UUID] = []
     for rule in AutomationRule.objects.filter(is_enabled=True, trigger__in=triggers).order_by("created_at"):
+        if not _matches(rule, record):
+            continue
         due_at = now + dt.timedelta(days=rule.delay_days) if _waits(rule) else now
         try:
             with transaction.atomic():
@@ -219,6 +229,8 @@ def _decide(rule: AutomationRule | None, run: AutomationRun) -> tuple[str, str]:
         return skipped, "The deal is no longer won."
     if rule.trigger == AutomationRule.Trigger.DEAL_LOST and record.status != "lost":
         return skipped, "The deal is no longer lost."
+    if not _matches(rule, record):
+        return skipped, "The deal has left the stage."
     contact = _contact_of(run.entity_type, record)
     if rule.only_if_no_reply and contact is not None and replied_since(contact, run.created_at):
         return skipped, "The contact replied."
@@ -297,9 +309,47 @@ def _act(rule: AutomationRule, run: AutomationRun, record: Any, contact: Any) ->
             owner.pk, kind="automation", title=text, body=label, entity_type=entity_type, entity_id=record.pk
         )
         return AutomationRun.Outcome.DONE, ""
+    if rule.action == AutomationRule.Action.NOTIFY_TEAM:
+        from apps.notifications import service as notifications
+
+        recipients = _team_recipients(owner, entity_type, record)
+        for membership_id in recipients:
+            notifications.notify(
+                membership_id,
+                kind="automation",
+                title=text,
+                body=label,
+                entity_type=entity_type,
+                entity_id=record.pk,
+            )
+        return AutomationRun.Outcome.DONE, ""
     if rule.action == AutomationRule.Action.SEND_WHATSAPP:
         return _send_whatsapp(rule, run, record, contact, owner)
     return AutomationRun.Outcome.SKIPPED, "Unknown action."
+
+
+def _team_recipients(owner: Any, entity_type: str, record: Any) -> list[Any]:
+    """The owner plus every active member (and manager) of the owner's teams who may open the record.
+
+    A notification names the record, so a teammate whose role cannot view it is left out.
+    """
+    from apps.accounts.models import Membership
+    from apps.authz.actor import build_actor
+    from apps.authz.service import scope
+    from apps.teams.models import Team, TeamMembership
+
+    teams = TeamMembership.objects.filter(membership=owner).values("team_id")
+    ids = set(TeamMembership.objects.filter(team_id__in=teams).values_list("membership_id", flat=True))
+    ids |= set(Team.objects.filter(pk__in=teams, manager__isnull=False).values_list("manager_id", flat=True))
+    ids.discard(owner.pk)
+    module = "deals" if entity_type == "deal" else "contacts"
+    model = type(record)
+    out = [owner.pk]
+    for member in Membership.objects.filter(pk__in=ids, status=Membership.Status.ACTIVE).select_related("user", "role"):
+        actor = build_actor(member)
+        if actor.has(f"{module}.view") and scope(actor, f"{module}.view", model.objects.filter(pk=record.pk)).exists():
+            out.append(member.pk)
+    return out
 
 
 def _send_whatsapp(rule: AutomationRule, run: AutomationRun, record: Any, contact: Any, owner: Any) -> tuple[str, str]:

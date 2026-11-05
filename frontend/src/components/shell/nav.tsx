@@ -13,6 +13,7 @@ import {
   Contact,
   CreditCard,
   DatabaseZap,
+  FileText,
   Headset,
   KanbanSquare,
   LayoutDashboard,
@@ -33,7 +34,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import type { ActiveContext, Session } from "@/lib/api/types";
+import type { ActiveContext, Organization, Session } from "@/lib/api/types";
 import { hasPermission } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -84,17 +85,18 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
     visible: (a) => anyOf(a, ["members.invite", "members.update_role", "members.disable", "members.remove", "teams.manage"]),
   },
   { href: "/settings/roles", label: "Roles & permissions", icon: ShieldCheck, visible: (a) => hasPermission(a, "roles.manage") },
-  { href: "/settings/billing", label: "Plan & usage", icon: CreditCard, visible: (a) => anyOf(a, ["org.billing", "org.update"]) },
+  { href: "/settings/pipelines", label: "Pipeline Stages", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
+  { href: "/settings/custom-fields", label: "Fields & Forms", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
   { href: "/settings/automation", label: "Automation", icon: Workflow, visible: (a) => hasPermission(a, "automation.view") },
-  { href: "/settings/pipelines", label: "Pipelines", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
-  { href: "/settings/price-books", label: "Price books", icon: BookOpen, visible: (a) => hasPermission(a, "pricebooks.manage") },
-  { href: "/settings/custom-fields", label: "Custom fields", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
-  { href: "/settings/tags", label: "Tags", icon: Tag, visible: (a) => hasPermission(a, "tags.manage") },
+  { href: "/settings/integrations", label: "Integrations", icon: PlugZap, visible: (a) => anyOf(a, ["integrations.view", "webhooks.manage"]) },
+  { href: "/settings/whatsapp", label: "WhatsApp (API)", icon: MessageCircle, visible: (a) => hasPermission(a, "whatsapp.view") },
   { href: "/settings/email", label: "Email", icon: Mail, visible: (a) => hasPermission(a, "email.view") },
-  { href: "/settings/whatsapp", label: "WhatsApp", icon: MessageCircle, visible: (a) => hasPermission(a, "whatsapp.view") },
+  { href: "/settings/templates", label: "Message Templates", icon: FileText, visible: (a) => anyOf(a, ["email.view", "whatsapp.view"]) },
+  { href: "/settings/billing", label: "Billing & Subscription", icon: CreditCard, visible: (a) => anyOf(a, ["org.billing", "org.update"]) },
+  { href: "/settings/price-books", label: "Price books", icon: BookOpen, visible: (a) => hasPermission(a, "pricebooks.manage") },
+  { href: "/settings/tags", label: "Tags", icon: Tag, visible: (a) => hasPermission(a, "tags.manage") },
   { href: "/settings/notifications", label: "Notifications", icon: Bell, visible: () => true },
   { href: "/settings/ai", label: "AI", icon: Sparkles, visible: (a) => hasPermission(a, "ai.settings.manage") },
-  { href: "/settings/integrations", label: "Integrations", icon: PlugZap, visible: (a) => anyOf(a, ["integrations.view", "webhooks.manage"]) },
   { href: "/settings/security", label: "Security", icon: Lock, visible: () => true },
   {
     href: "/settings/data",
@@ -258,12 +260,20 @@ export function BrandLogo({ size = 24, className }: { size?: number; className?:
   return <Image src="/brand/logo.png" alt="" aria-hidden width={size} height={size} unoptimized priority className={cn("shrink-0", className)} />;
 }
 
-export function Wordmark({ className }: { className?: string }) {
+/** Sidebar brand: the workspace's logo and CRM name from General settings, else the WorkEasy360 mark. */
+export function Wordmark({ className, organization }: { className?: string; organization?: Pick<Organization, "crm_name" | "logo_url" | "name"> | null }) {
+  const name = organization?.crm_name?.trim() || "WorkEasy360";
+  const pill = !/\bcrm$/i.test(name);
   return (
-    <Link href="/dashboard" className={cn("flex items-center gap-2 font-semibold text-fg", className)} aria-label="WorkEasy360 CRM home">
-      <BrandLogo size={28} />
-      <span className="text-[15px] tracking-tight">WorkEasy360</span>
-      <span className="rounded-full bg-white px-1.5 py-px text-[10px] font-bold leading-4 text-chrome">CRM</span>
+    <Link href="/dashboard" className={cn("flex min-w-0 items-center gap-2 font-semibold text-fg", className)} aria-label={`${name}${pill ? " CRM" : ""} home`}>
+      {organization?.logo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a same-origin image behind the session, not optimisable
+        <img src={organization.logo_url} alt="" aria-hidden width={28} height={28} className="size-7 shrink-0 rounded-sm bg-white object-contain" />
+      ) : (
+        <BrandLogo size={28} />
+      )}
+      <span className="truncate text-[15px] tracking-tight">{name}</span>
+      {pill ? <span className="rounded-full bg-white px-1.5 py-px text-[10px] font-bold leading-4 text-chrome">CRM</span> : null}
     </Link>
   );
 }

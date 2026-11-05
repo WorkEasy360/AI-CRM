@@ -379,6 +379,10 @@ export const deleteWhatsAppTemplate = (id: string) => api.delete(`/api/v1/whatsa
 /** Conversation with a contact (oldest first) or messages linked to a deal. */
 export const listWhatsAppMessages = (entity: "contact" | "deal", id: string, cursor?: string | null) =>
   api.get<Paginated<WhatsAppMessage>>("/api/v1/whatsapp/messages/", { [entity]: id, cursor: cursor ?? undefined });
+/** Every WhatsApp message / email the member may see (sent by them, or on a record they may view), newest first. */
+export const listWhatsAppInbox = (cursor?: string | null) =>
+  api.get<Paginated<WhatsAppMessage>>("/api/v1/whatsapp/messages/", { inbox: "1", cursor: cursor ?? undefined });
+export const listEmailInbox = (cursor?: string | null) => api.get<Paginated<EmailMessage>>("/api/v1/email/messages/", { inbox: "1", cursor: cursor ?? undefined });
 export const sendWhatsApp = (input: WhatsAppSendInput) => api.post<WhatsAppMessage>("/api/v1/whatsapp/messages/", input);
 export const whatsAppWindow = (contactId: string) => api.get<WhatsAppWindow>("/api/v1/whatsapp/messages/window/", { contact: contactId });
 

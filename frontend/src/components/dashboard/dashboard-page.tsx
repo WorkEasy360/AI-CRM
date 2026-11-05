@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarCheck, CalendarDays, Handshake, IndianRupee, ListTodo, Phone, Scale, Target, UserPlus } from "lucide-react";
+import { CalendarCheck, CalendarDays, CalendarRange, Handshake, IndianRupee, ListTodo, Phone, Scale, Target, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,7 +16,7 @@ import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { queryKeys, useSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { DashboardTabs } from "./dashboard-tabs";
 import { KpiTile, Panel, PanelLink, StatTile, fmtCount, fmtPercent, percentChange, pointChange } from "./stat-tile";
 
@@ -91,6 +91,13 @@ export function DashboardPage() {
                   ))}
                 </SelectContent>
               </Select>
+            ) : null}
+            {data?.since && data?.until ? (
+              <span className="hidden h-8 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-xs tabular-nums text-fg-muted md:inline-flex">
+                <CalendarRange className="size-3.5" aria-hidden />
+                <span className="sr-only">Showing </span>
+                {formatDate(data.since)} – {formatDate(data.until)}
+              </span>
             ) : null}
             <Select value={period} onValueChange={(v) => setParam("period", v === "30d" ? undefined : v)}>
               <SelectTrigger className="h-8 w-36" aria-label="Period">

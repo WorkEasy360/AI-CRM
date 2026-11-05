@@ -45,6 +45,8 @@ function rule(overrides: Partial<AutomationRule> = {}): AutomationRule {
     name: "Follow-up Reminder",
     description: "",
     trigger: "contact_created",
+    stage_id: null,
+    stage_name: null,
     action: "send_whatsapp",
     message: "",
     delay_days: 3,
@@ -111,7 +113,7 @@ describe("AutomationPage", () => {
 
     await waitFor(() => expect(createAutomationRule).toHaveBeenCalled());
     expect(vi.mocked(createAutomationRule).mock.calls[0]?.[0]).toMatchObject({
-      name: "New Lead Welcome",
+      name: "New Lead Welcome (WhatsApp)",
       action: "send_whatsapp",
       whatsapp_template_id: "t1",
       template_params: ["{{first_name}}"],
@@ -122,10 +124,12 @@ describe("AutomationPage", () => {
   it("creates a non-WhatsApp starter rule in one click", async () => {
     const user = userEvent.setup();
     vi.mocked(listAutomationRules).mockResolvedValue([]);
-    vi.mocked(createAutomationRule).mockResolvedValue(rule({ name: "Deal Won Notification", action: "notify_owner" }));
+    vi.mocked(createAutomationRule).mockResolvedValue(rule({ name: "Deal Won Notification", action: "notify_team" }));
     renderPage();
     await user.click(await screen.findByRole("button", { name: /Deal Won Notification/ }));
-    await waitFor(() => expect(createAutomationRule).toHaveBeenCalledWith(expect.objectContaining({ action: "notify_owner", trigger: "deal_won" })));
+    await waitFor(() =>
+      expect(createAutomationRule).toHaveBeenCalledWith(expect.objectContaining({ action: "notify_team", trigger: "deal_won", description: "Notify team on deal won." })),
+    );
   });
 });
 
@@ -134,5 +138,8 @@ describe("summary", () => {
     expect(summary({ trigger: "contact_created", action: "create_task", delay_days: 2, only_if_no_reply: false })).toBe("When a new lead is added, create a task due in 2 days.");
     expect(summary({ trigger: "deal_won", action: "send_whatsapp", delay_days: 0, only_if_no_reply: false })).toBe("When a deal is won, send a WhatsApp message.");
     expect(summary({ trigger: "deal_created", action: "notify_owner", delay_days: 1, only_if_no_reply: false })).toBe("When a deal is created, notify the owner after 1 day.");
+    expect(summary({ trigger: "deal_stage_entered", stage_name: "Proposal", action: "send_whatsapp", delay_days: 3, only_if_no_reply: true })).toBe(
+      "When a deal enters Proposal: if there is no reply in 3 days, send a WhatsApp message.",
+    );
   });
 });

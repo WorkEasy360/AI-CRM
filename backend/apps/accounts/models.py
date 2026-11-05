@@ -150,6 +150,11 @@ class OrganizationIdentityManager(models.Manager["Organization"]):
         )
 
 
+#: Date formats a workspace may choose (shown in the UI as these patterns).
+DATE_FORMATS = ("DD MMM YYYY", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD")
+DEFAULT_DATE_FORMAT = "DD MMM YYYY"
+
+
 class Organization(TimestampedModel):
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -178,6 +183,19 @@ class Organization(TimestampedModel):
     @property
     def require_mfa(self) -> bool:
         return bool(self.settings.get("require_mfa", False))
+
+    @property
+    def crm_name(self) -> str:
+        """The product name shown in this workspace's sidebar; empty means the default."""
+        return str(self.settings.get("crm_name", ""))
+
+    @property
+    def date_format(self) -> str:
+        return str(self.settings.get("date_format", "")) or DEFAULT_DATE_FORMAT
+
+    @property
+    def logo_key(self) -> str:
+        return str(self.settings.get("logo_key", ""))
 
 
 class MembershipQuerySet(models.QuerySet["Membership"]):

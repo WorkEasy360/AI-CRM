@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Menu, Settings } from "lucide-react";
-import { AskFloatingButton, AssistantProvider } from "@/components/assistant/ask-keel";
+import { CircleHelp, Menu, Search, Settings, Sparkles } from "lucide-react";
+import { AskFloatingButton, AssistantProvider, useAssistant } from "@/components/assistant/ask-keel";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { SideNav, Wordmark } from "@/components/shell/nav";
@@ -12,13 +12,17 @@ import { QuickAdd } from "@/components/shell/quick-add";
 import { QuickCreateProvider } from "@/components/shell/quick-create-provider";
 import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ActiveContext, Session } from "@/lib/api/types";
 import { workeasy360StartUrl } from "@/lib/auth-methods";
+import { setWorkspaceDateFormat } from "@/lib/utils";
 
 export function AppShell({ session, active, children }: { session: Session; active: ActiveContext; children: React.ReactNode }) {
   const [navOpen, setNavOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
+  // Before the children render, so every formatted date on this render already uses the workspace format.
+  setWorkspaceDateFormat(active.organization.date_format);
 
   // Ctrl/⌘+K toggles the global search from anywhere in the app.
   React.useEffect(() => {
@@ -43,7 +47,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
         {/* Desktop navigation */}
         <aside className="kl-chrome kl-sidebar hidden w-60 shrink-0 flex-col lg:flex">
           <div className="flex h-14 items-center border-b border-border px-4">
-            <Wordmark />
+            <Wordmark organization={active.organization} />
           </div>
           <SideNav session={session} />
         </aside>
@@ -54,7 +58,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SheetDescription className="sr-only">Primary navigation</SheetDescription>
             <div className="flex h-14 items-center border-b border-border px-4">
-              <Wordmark />
+              <Wordmark organization={active.organization} />
             </div>
             <SideNav session={session} onNavigate={() => setNavOpen(false)} />
           </SheetContent>
@@ -70,11 +74,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
             <div className="ml-auto flex items-center gap-1">
               <QuickAdd active={active} />
               <NotificationsMenu />
-              <Button asChild variant="ghost" size="icon-sm" aria-label="Settings">
-                <Link href="/settings">
-                  <Settings />
-                </Link>
-              </Button>
+              <HelpMenu onSearch={() => setSearchOpen(true)} />
               <UserMenu session={session} />
             </div>
           </header>
@@ -107,5 +107,36 @@ export function AppShell({ session, active, children }: { session: Session; acti
       </div>
       </AssistantProvider>
     </QuickCreateProvider>
+  );
+}
+
+/** The top bar's "?": quick ways in (search, the assistant) and settings, which live in the sidebar too. */
+function HelpMenu({ onSearch }: { onSearch: () => void }) {
+  const assistant = useAssistant();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Help">
+          <CircleHelp />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onSelect={onSearch}>
+          <Search /> Search everything
+          <kbd className="ml-auto text-[11px] text-fg-subtle">Ctrl K</kbd>
+        </DropdownMenuItem>
+        {assistant ? (
+          <DropdownMenuItem onSelect={() => assistant.openPanel()}>
+            <Sparkles /> Ask WorkEasy AI
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings /> Settings
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

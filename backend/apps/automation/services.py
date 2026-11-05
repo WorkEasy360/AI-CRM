@@ -36,6 +36,8 @@ def _clean(data: dict[str, Any], *, partial: bool) -> dict[str, Any]:
     for key in ("trigger", "action", "is_enabled", "only_if_no_reply"):
         if key in data and data[key] is not None:
             out[key] = data[key]
+    if "stage_id" in data:
+        out["stage"] = _stage(data["stage_id"])
     if "whatsapp_template_id" in data:
         out["whatsapp_template"] = _template(data["whatsapp_template_id"])
     if "template_params" in data:
@@ -48,6 +50,27 @@ def _clean(data: dict[str, Any], *, partial: bool) -> dict[str, Any]:
             if key not in out:
                 raise ValidationError({key: "This field is required."})
     return out
+
+
+def _stage(raw: Any):
+    from apps.pipelines.models import PipelineStage
+
+    if not raw:
+        return None
+    # Tenant-scoped manager: another organization's stage id is simply "not found".
+    stage = PipelineStage.objects.filter(pk=raw, archived_at__isnull=True).first()
+    if stage is None:
+        raise ValidationError({"stage_id": "Choose one of this workspace's pipeline stages."})
+    return stage
+
+
+def _check_trigger(final: dict[str, Any]) -> dict[str, Any]:
+    """A stage rule needs its stage; other triggers drop it."""
+    if final["trigger"] != AutomationRule.Trigger.DEAL_STAGE_ENTERED:
+        return {"stage": None}
+    if final["stage"] is None:
+        raise ValidationError({"stage_id": "Choose the stage the deal has to enter."})
+    return {}
 
 
 def _template(raw: Any):
@@ -84,7 +107,9 @@ def create_rule(actor: Actor, data: dict[str, Any], *, request: Any = None) -> A
     fields = _clean(data, partial=False)
     fields.setdefault("whatsapp_template", None)
     fields.setdefault("template_params", [])
+    fields.setdefault("stage", None)
     fields.update(_check_action(actor, fields))
+    fields.update(_check_trigger(fields))
     # Plan limit: the edition's automation_rules allowance (counted live, see apps.py).
     entitlements.check_capacity(actor.organization, "automation_rules")
     rule = AutomationRule.objects.create(created_by=actor.membership, **fields)
@@ -107,8 +132,12 @@ def create_rule(actor: Actor, data: dict[str, Any], *, request: Any = None) -> A
 def update_rule(actor: Actor, rule: AutomationRule, data: dict[str, Any], *, request: Any = None) -> AutomationRule:
     check(actor, "automation.manage")
     fields = _clean(data, partial=True)
-    final = {k: fields.get(k, getattr(rule, k)) for k in ("action", "whatsapp_template", "template_params")}
+    final = {
+        k: fields.get(k, getattr(rule, k))
+        for k in ("action", "whatsapp_template", "template_params", "trigger", "stage")
+    }
     fields.update(_check_action(actor, final))
+    fields.update(_check_trigger(final))
     before = {k: getattr(rule, k) for k, v in fields.items() if getattr(rule, k) != v}
     if not before:
         return rule

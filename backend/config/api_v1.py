@@ -27,6 +27,7 @@ from apps.crm import api as records_api
 from apps.customfields.api import CustomFieldDefinitionViewSet
 from apps.dashboards.api import DashboardSummaryView
 from apps.deals.api import DealViewSet
+from apps.files import api as file_views
 from apps.files.api import FileAttachmentViewSet
 from apps.forecasting.api import ForecastView
 from apps.helpdesk.api import TicketViewSet
@@ -123,6 +124,7 @@ urlpatterns = [
     path("session/bootstrap/", account_views.SessionBootstrapView.as_view(), name="session-bootstrap"),
     path("organizations/", account_views.OrganizationCreateView.as_view(), name="organization-create"),
     path("organizations/current/", account_views.OrganizationCurrentView.as_view(), name="organization-current"),
+    path("organizations/current/logo/", file_views.OrganizationLogoView.as_view(), name="organization-logo"),
     path("roles/", RolesView.as_view(), name="roles"),
     path("roles/<slug:key>/", RoleDetailView.as_view(), name="role-detail"),
     path("roles/<slug:key>/field-permissions/", FieldPermissionsView.as_view(), name="role-field-permissions"),

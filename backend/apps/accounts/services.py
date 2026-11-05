@@ -17,7 +17,7 @@ from django.utils.text import slugify
 from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts import emails, limits
-from apps.accounts.models import Invitation, Membership, Organization, User
+from apps.accounts.models import DATE_FORMATS, Invitation, Membership, Organization, User
 from apps.accounts.session import set_active_membership
 from apps.accounts.workeasy360 import config as workeasy360
 from apps.audit import actions
@@ -227,6 +227,15 @@ def update_organization(actor: Actor, *, request=None, **changes) -> Organizatio
     if "require_mfa" in changes and changes["require_mfa"] is not None:
         org.settings = {**org.settings, "require_mfa": bool(changes["require_mfa"])}
         changed["require_mfa"] = bool(changes["require_mfa"])
+    if "crm_name" in changes and changes["crm_name"] is not None:
+        crm_name = validators.clean_text(changes["crm_name"], max_length=60)
+        org.settings = {**org.settings, "crm_name": crm_name}
+        changed["crm_name"] = crm_name
+    if "date_format" in changes and changes["date_format"] is not None:
+        if changes["date_format"] not in DATE_FORMATS:
+            raise DomainError("Choose one of the offered date formats.", code="invalid_date_format")
+        org.settings = {**org.settings, "date_format": changes["date_format"]}
+        changed["date_format"] = changes["date_format"]
     if changed:
         org.save(update_fields=["name", "base_currency", "timezone", "settings", "updated_at"])
         audit.record(actions.ORG_UPDATED, request=request, user=actor.user, resource=org, metadata=changed)

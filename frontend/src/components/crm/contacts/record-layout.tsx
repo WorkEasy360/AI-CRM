@@ -19,6 +19,8 @@ export function RecordLayout({
   tabs,
   defaultTab,
   aside,
+  hideBack = false,
+  asideFirst = false,
 }: {
   backHref: string;
   backLabel: string;
@@ -26,19 +28,26 @@ export function RecordLayout({
   tabs: { value: string; label: string; content: React.ReactNode }[];
   defaultTab?: string;
   aside?: React.ReactNode;
+  /** The header carries its own breadcrumb. */
+  hideBack?: boolean;
+  /** The aside is a profile column: left of the tabs on wide screens, above them on narrow ones. */
+  asideFirst?: boolean;
 }) {
   const visible = tabs.filter((t) => t.content !== null && t.content !== undefined);
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button asChild variant="link" size="sm" className="mb-2 h-auto px-0 text-fg-muted">
-          <Link href={backHref}>
-            <ArrowLeft /> {backLabel}
-          </Link>
-        </Button>
+        {hideBack ? null : (
+          <Button asChild variant="link" size="sm" className="mb-2 h-auto px-0 text-fg-muted">
+            <Link href={backHref}>
+              <ArrowLeft /> {backLabel}
+            </Link>
+          </Button>
+        )}
         {header}
       </div>
-      <div className={cn("grid gap-6", aside && "xl:grid-cols-[minmax(0,1fr)_18rem]")}>
+      <div className={cn("grid gap-6", aside && (asideFirst ? "lg:grid-cols-[19rem_minmax(0,1fr)]" : "xl:grid-cols-[minmax(0,1fr)_18rem]"))}>
+        {aside && asideFirst ? <aside className="flex flex-col gap-3">{aside}</aside> : null}
         <Tabs defaultValue={defaultTab ?? visible[0]?.value} className="min-w-0">
           <TabsList className="h-auto flex-wrap" aria-label="Record sections">
             {visible.map((t) => (
@@ -53,7 +62,7 @@ export function RecordLayout({
             </TabsContent>
           ))}
         </Tabs>
-        {aside ? <aside className="flex flex-col gap-3">{aside}</aside> : null}
+        {aside && !asideFirst ? <aside className="flex flex-col gap-3">{aside}</aside> : null}
       </div>
     </div>
   );

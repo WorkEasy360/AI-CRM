@@ -7,6 +7,7 @@ import { CalendarDays, ChevronDown, ListTodo, Phone, PhoneIncoming, Plus } from 
 import { ActivityList } from "@/components/activities/activity-list";
 import { KIND_LABELS } from "@/components/activities/activity-utils";
 import { Calendar } from "@/components/activities/calendar";
+import { MessageLog } from "@/components/activities/message-log";
 import { MyDay } from "@/components/activities/my-day";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -26,22 +27,24 @@ import { cn } from "@/lib/utils";
 // Rendered only while creating or editing; its form code loads at that moment.
 const ActivityFormDialog = dynamic(() => import("@/components/activities/activity-form-dialog").then((m) => m.ActivityFormDialog), { ssr: false });
 
-const TABS = ["calendar", "day", "tasks", "meetings", "calls"] as const;
+// The WorkEasy360 order: one list of everything first, then each kind, then the conversations.
+const TABS = ["all", "tasks", "calls", "meetings", "whatsapp", "emails", "calendar", "day"] as const;
 type Tab = (typeof TABS)[number];
-type ListTab = Exclude<Tab, "calendar" | "day">;
-const TAB_KIND: Record<ListTab, ActivityKind> = { tasks: "task", meetings: "meeting", calls: "call" };
-const TAB_LABELS: Partial<Record<Tab, string>> = { day: "my day" };
+const DEFAULT_TAB: Tab = "all";
+type KindTab = "tasks" | "meetings" | "calls";
+const TAB_KIND: Record<KindTab, ActivityKind> = { tasks: "task", meetings: "meeting", calls: "call" };
+const TAB_LABELS: Partial<Record<Tab, string>> = { day: "my day", whatsapp: "WhatsApp" };
 
 function tabKind(tab: Tab): ActivityKind {
   if (tab === "calendar") return "meeting";
-  if (tab === "day") return "task";
-  return TAB_KIND[tab];
+  if (tab === "tasks" || tab === "meetings" || tab === "calls") return TAB_KIND[tab];
+  return "task";
 }
 const URL_KEYS = ["tab", "view", "q", "due", "sort", "new", "kind", "open"] as const;
 
 function tabOf(value: string | undefined): Tab {
   if (value === "events") return "meetings"; // older links
-  return (TABS as readonly string[]).includes(value ?? "") ? (value as Tab) : "calendar";
+  return (TABS as readonly string[]).includes(value ?? "") ? (value as Tab) : DEFAULT_TAB;
 }
 
 function kindOf(value: string | undefined): ActivityKind | null {
@@ -93,6 +96,9 @@ export function ActivitiesPage() {
   const { data: session } = useSession();
   const canCreate = can(session?.active, "activities.create");
   const canBulk = can(session?.active, "activities.bulk_update");
+  const canWhatsApp = can(session?.active, "whatsapp.view");
+  const canEmail = can(session?.active, "email.view");
+  const visibleTabs = TABS.filter((t) => (t === "whatsapp" ? canWhatsApp : t === "emails" ? canEmail : true));
   const { params, setParam, setParams } = useListParams(URL_KEYS);
   const tab = tabOf(params.tab);
   const { toast } = useToast();
@@ -161,9 +167,9 @@ export function ActivitiesPage() {
           ) : null
         }
       />
-      <Tabs value={tab} onValueChange={(v) => setParams({ tab: v === "calendar" ? undefined : v, view: undefined, q: undefined, due: undefined, sort: undefined })} className="flex min-h-0 flex-1 flex-col">
-        <TabsList aria-label="Activity views" className="h-8 w-fit">
-          {TABS.map((t) => (
+      <Tabs value={tab} onValueChange={(v) => setParams({ tab: v === DEFAULT_TAB ? undefined : v, view: undefined, q: undefined, due: undefined, sort: undefined })} className="flex min-h-0 flex-1 flex-col">
+        <TabsList aria-label="Activity views" className="h-auto w-fit max-w-full flex-wrap">
+          {visibleTabs.map((t) => (
             <TabsTrigger key={t} value={t} className="h-6 px-2.5 text-xs capitalize">
               {TAB_LABELS[t] ?? t}
             </TabsTrigger>
@@ -181,11 +187,20 @@ export function ActivitiesPage() {
         <TabsContent value="day" className="mt-3">
           {tab === "day" ? <MyDay onCreate={canCreate ? () => startCreate("task") : undefined} /> : null}
         </TabsContent>
+        <TabsContent value="all" className="mt-3">
+          {tab === "all" ? <ActivityList params={params} setParam={setParam} setParams={setParams} canCreate={canCreate} canBulk={canBulk} onCreate={startCreate} /> : null}
+        </TabsContent>
         {(["tasks", "meetings", "calls"] as const).map((key) => (
           <TabsContent key={key} value={key} className="mt-3">
             {tab === key ? <ActivityList kind={TAB_KIND[key]} params={params} setParam={setParam} setParams={setParams} canCreate={canCreate} canBulk={canBulk} onCreate={startCreate} /> : null}
           </TabsContent>
         ))}
+        <TabsContent value="whatsapp" className="mt-3">
+          {tab === "whatsapp" && canWhatsApp ? <MessageLog channel="whatsapp" /> : null}
+        </TabsContent>
+        <TabsContent value="emails" className="mt-3">
+          {tab === "emails" && canEmail ? <MessageLog channel="email" /> : null}
+        </TabsContent>
       </Tabs>
 
       {creating ? (
