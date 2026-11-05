@@ -879,12 +879,24 @@ export interface ActivityInput {
   recurrence?: string;
 }
 
+export interface ActivityKindCounts {
+  all: number;
+  task: number;
+  call: number;
+  meeting: number;
+}
+
 export interface ActivitySummary {
   overdue: number;
   due_today: number;
   open_tasks: number;
   meetings_week: number;
   calls_week: number;
+  due_week?: number;
+  follow_ups?: number;
+  totals?: ActivityKindCounts;
+  /** Logged in the last ``days`` days, and in the ``days`` before. */
+  created?: { days: number; current: ActivityKindCounts; previous: ActivityKindCounts };
 }
 
 /* ------------------------------------------------------------------ notifications */

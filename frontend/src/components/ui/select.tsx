@@ -77,3 +77,10 @@ export const SelectItem = React.forwardRef<
     </SelectPrimitive.Item>
   );
 });
+
+export const SelectSeparator = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(function SelectSeparator({ className, ...props }, ref) {
+  return <SelectPrimitive.Separator ref={ref} className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />;
+});

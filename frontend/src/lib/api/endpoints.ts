@@ -44,8 +44,8 @@ export const switchOrganization = (membership_id: string) =>
  */
 export const bootstrapSession = () => api.post<Session>("/api/v1/session/bootstrap/");
 
-export const getDashboard = (period: DashboardPeriod, pipeline?: string) =>
-  api.get<DashboardSummary>("/api/v1/dashboard/", { period, pipeline });
+export const getDashboard = (period: DashboardPeriod | string, pipeline?: string, months?: number) =>
+  api.get<DashboardSummary>("/api/v1/dashboard/", { period, pipeline, months });
 
 export const createOrganization = (input: CreateOrganizationInput) =>
   api.post<CreateOrganizationResponse>("/api/v1/organizations/", input);

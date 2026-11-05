@@ -18,7 +18,7 @@ export const queryKeys = {
   authenticators: ["auth", "authenticators"] as const,
   totp: ["auth", "totp"] as const,
   recoveryCodes: ["auth", "recovery-codes"] as const,
-  dashboard: (period: string, pipeline?: string) => ["dashboard", period, pipeline ?? "default"] as const,
+  dashboard: (period: string, pipeline?: string, months?: number) => ["dashboard", period, pipeline ?? "default", months ?? 6] as const,
 };
 
 /**

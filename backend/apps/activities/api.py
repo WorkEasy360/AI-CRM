@@ -191,6 +191,18 @@ def _open_filter(qs, key, raw):
     return qs.filter(status__in=OPEN_STATUSES) if _bool(raw) else qs.exclude(status__in=OPEN_STATUSES)
 
 
+def follow_up_q() -> Q:
+    """Open follow-ups: calls that ended with "follow-up required", and open activities named as a follow-up
+    (what the follow-up automations and the quick "Follow up" actions create)."""
+    return Q(status__in=OPEN_STATUSES) & (Q(outcome=Activity.Outcome.FOLLOW_UP_REQUIRED) | Q(title__icontains="follow"))
+
+
+def _follow_up_filter(qs, key, raw):
+    from apps.core.api.filters import _bool
+
+    return qs.filter(follow_up_q()) if _bool(raw) else qs.exclude(follow_up_q())
+
+
 def _top_level_filter(qs, key, raw):
     from apps.core.api.filters import _bool
 
@@ -220,7 +232,7 @@ FILTERS = FilterSet(
     },
     default_sort="start_at",
     search_fields=("title", "description"),
-    extra={"due": _due_filter, "open": _open_filter, "top_level": _top_level_filter},
+    extra={"due": _due_filter, "open": _open_filter, "top_level": _top_level_filter, "follow_up": _follow_up_filter},
 )
 
 
@@ -467,8 +479,36 @@ class ActivityViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantVi
                 "id",
                 filter=Q(kind=Activity.Kind.CALL, status__in=OPEN_STATUSES, start_at__gte=now, start_at__lt=week_end),
             ),
+            due_week=Count("id", filter=Q(status__in=OPEN_STATUSES, start_at__gte=now, start_at__lt=week_end)),
+            follow_ups=Count("id", filter=follow_up_q()),
         )
+        # Totals by kind, and what was logged in the last 30 days against the 30 before (the KPI changes).
+        since = now - dt.timedelta(days=SUMMARY_DAYS)
+        before = since - dt.timedelta(days=SUMMARY_DAYS)
+        kinds = {
+            "all": Q(),
+            "task": Q(kind=Activity.Kind.TASK),
+            "call": Q(kind=Activity.Kind.CALL),
+            "meeting": Q(kind=Activity.Kind.MEETING),
+        }
+        counts = mine.aggregate(
+            **{f"total_{k}": Count("id", filter=q) for k, q in kinds.items()},
+            **{f"cur_{k}": Count("id", filter=q & Q(created_at__gte=since)) for k, q in kinds.items()},
+            **{
+                f"prev_{k}": Count("id", filter=q & Q(created_at__gte=before, created_at__lt=since))
+                for k, q in kinds.items()
+            },
+        )
+        agg["totals"] = {k: counts[f"total_{k}"] for k in kinds}
+        agg["created"] = {
+            "days": SUMMARY_DAYS,
+            "current": {k: counts[f"cur_{k}"] for k in kinds},
+            "previous": {k: counts[f"prev_{k}"] for k in kinds},
+        }
         return Response(agg)
+
+
+SUMMARY_DAYS = 30
 
 
 def _occurrence_fields(activity: Activity, when: dt.datetime) -> dict[str, Any]:

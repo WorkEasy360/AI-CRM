@@ -129,6 +129,18 @@ function ChangeLine({ change, note }: { change: KpiChange; note: string }) {
   );
 }
 
+/** A compact "↑ 18%" for rows and chart headers; the full sentence is read out instead of the arrow. */
+export function ChangeBadge({ change }: { change: KpiChange }) {
+  const Icon = CHANGE_ICON[change.direction];
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums", (change.lowerIsBetter ? INVERSE_TONE : CHANGE_TONE)[change.direction])}>
+      <Icon className="size-3.5" aria-hidden />
+      <span aria-hidden>{change.text}</span>
+      <span className="sr-only">{change.description}</span>
+    </span>
+  );
+}
+
 /** A headline figure with a tinted icon disc, as on the WorkEasy360 dashboard. The tile is one link. */
 export function KpiTile({
   label,

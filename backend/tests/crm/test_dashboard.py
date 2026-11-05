@@ -151,3 +151,37 @@ def test_previous_period_feeds_the_tile_changes(org_a, owner_client, crm):
     assert data["previous"]["deals_won"] == {"count": 1, "amount": "2000.00"}
     assert data["previous"]["win_rate"] == 100 and data["win_rate"] == 50
     assert data["deals_won"]["amount"] == "5000.00"
+
+
+def test_month_period_totals_sources_team_and_insights(org_a, owner_client, crm):
+    _seed(crm, org_a)
+    with tenant_context(org_a.org.pk, reason="test.dashboard"):
+        Deal.objects.filter(status="open").update(lead_source="whatsapp", probability=70)
+        Deal.objects.filter(status="open").update(expected_close_date=timezone.localdate() + timedelta(days=3))
+    month = timezone.localtime().strftime("%Y-%m")
+    data = owner_client.get(f"/api/v1/dashboard/?period={month}&months=3").json()
+    assert data["period"] == month and len(data["revenue_trend"]) == 3
+    assert data["totals"]["contacts"]["count"] == 2 and data["totals"]["contacts"]["previous"] == 0
+    assert data["totals"]["companies"]["count"] == 2 and data["totals"]["deals"]["count"] == 4
+    sources = {row["source"]: row["count"] for row in data["deals_by_source"]}
+    assert sources["whatsapp"] == 2 and sources[""] == 2  # the won and the lost deal
+    assert data["top_team"][0]["count"] == 1 and data["top_team"][0]["amount"] == "5000.00"
+    assert data["deals_closing_week"] == 2
+    keys = [i["key"] for i in data["insights"]]
+    assert "deals_close_to_winning" in keys and "deals_without_next_step" in keys
+    assert data["tickets"] == {"open": 0, "overdue": 0, "created": 0, "created_previous": 0}
+    # a month that has not started, a bad month and an unsupported trend length are refused
+    assert owner_client.get("/api/v1/dashboard/?period=2999-01").status_code == 400
+    assert owner_client.get("/api/v1/dashboard/?period=2026-13").status_code == 400
+    assert owner_client.get("/api/v1/dashboard/?months=5").status_code == 400
+
+
+def test_new_widgets_stay_inside_the_scope(org_a, org_b, make_member, client_for, crm):
+    _seed(crm, org_b)
+    rep = make_member(org_a, "sales_rep")
+    crm.make_deal(org_a, owner=rep, lead_source="referral")
+    crm.make_deal(org_a, lead_source="website")  # the owner's, outside the rep's own scope
+    data = client_for(rep.user, rep).get("/api/v1/dashboard/").json()
+    assert [row["source"] for row in data["deals_by_source"]] == ["referral"]
+    assert data["totals"]["deals"]["count"] == 1
+    assert data["top_team"] == []
