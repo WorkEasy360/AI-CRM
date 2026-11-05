@@ -592,6 +592,22 @@ def make_automation_rule(bundle: OrgBundle, **extra):
         return AutomationRule.objects.create(**extra)
 
 
+def make_favorite(bundle: OrgBundle, **extra):
+    from apps.tagging.models import Favorite
+
+    contact = make_contact(bundle)
+    with _ctx(bundle, "test.make_favorite"):
+        return Favorite.objects.create(
+            membership=bundle.owner_membership, entity_type="contact", entity_id=contact.pk, **extra
+        )
+
+
+def _register_favorite_factories() -> None:
+    from apps.tagging.models import Favorite
+
+    CROSS_TENANT_FACTORIES[Favorite] = lambda bundle: make_favorite(bundle)
+
+
 def _register_automation_factories() -> None:
     from apps.automation.models import AutomationRule
 
@@ -600,4 +616,5 @@ def _register_automation_factories() -> None:
 
 _register_m2_factories()
 _register_helpdesk_factories()
+_register_favorite_factories()
 _register_automation_factories()

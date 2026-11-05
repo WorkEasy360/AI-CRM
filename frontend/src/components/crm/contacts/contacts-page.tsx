@@ -4,9 +4,11 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus } from "lucide-react";
-import { ContactsTabs } from "@/components/crm/contacts-tabs";
-import { PageHeader } from "@/components/page-header";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus, Star } from "lucide-react";
+import { AddContactPanel } from "@/components/crm/contacts/add-contact-panel";
+import { AllContactsTable } from "@/components/crm/contacts/all-contacts-table";
+import { ContactsHub, type AddKind, type ContactsTab } from "@/components/crm/contacts/contacts-hub";
 import { BulkBar } from "@/components/crm/bulk-bar";
 import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
 import { DataTable, useSelection, type Column } from "@/components/crm/data-table";
@@ -19,8 +21,10 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { listContacts } from "@/lib/api/crm";
+import { listContacts, setFavorite } from "@/lib/api/crm";
 import type { Contact, LifecycleStage, ListParams } from "@/lib/api/crm-types";
+import { errorMessage } from "@/lib/api/problem";
+import { useToast } from "@/components/ui/toast";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
@@ -54,6 +58,8 @@ const ALLOWED = [
   "job_title",
   "created_from",
   "created_to",
+  "tab",
+  "tag",
   ...VIEW_KEYS,
 ] as const;
 /** The List view's own columns, keyed by the module schema field they show. */
@@ -83,11 +89,25 @@ export function ContactsPage() {
   const canBulk = can(active, "contacts.bulk_update");
 
   const { params, setParam, setParams } = useListParams(ALLOWED, DEFAULTS);
+  // All Contacts (people + companies) by default; Individuals is the full people list with its views.
+  const tab: ContactsTab = params.tag ? "tag" : params.tab === "people" ? "people" : params.tab === "favorites" ? "favorites" : "all";
+  const [adding, setAdding] = React.useState<AddKind | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const star = useMutation({
+    mutationFn: (c: Contact) => setFavorite("contact", c.id, !c.is_favorite),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["crm", "contacts"] }),
+    onError: (err) => toast({ tone: "error", title: "Could not update favourites", description: errorMessage(err) }),
+  });
   const searchParams = useSearchParams();
   const wantsNew = canCreate && searchParams?.get("new") === "1";
   const archivedView = params.archived === "true";
   const kind = viewKindOf(params.view);
-  const apiParams = React.useMemo(() => filterParams(params), [params]);
+  const apiParams = React.useMemo(() => {
+    const out = filterParams(params);
+    delete out.tab; // the page's own tab, not a list filter
+    return out;
+  }, [params]);
   const schema = useModuleSchema("contact");
   const visibleFields = React.useMemo(() => fieldMap(schema.data), [schema.data]);
   const chosen = columnsOf(params);
@@ -98,7 +118,7 @@ export function ContactsPage() {
     [apiParams, setParams],
   );
 
-  const list = useCursorList<Contact>(crmKeys.list("contacts", apiParams), (cursor) => listContacts(apiParams, cursor), kind === "list", {
+  const list = useCursorList<Contact>(crmKeys.list("contacts", apiParams), (cursor) => listContacts(apiParams, cursor), kind === "list" && tab === "people", {
     recordKey: (row) => crmKeys.record("contacts", row.id),
   });
   const selection = useSelection();
@@ -190,7 +210,6 @@ export function ContactsPage() {
         className: "w-10 text-right",
         render: (c) => {
           const editable = canEditRecord(active, "contacts", c.owner?.id);
-          if (!editable && !canDelete) return null;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -204,6 +223,9 @@ export function ContactsPage() {
                     <Pencil /> Edit
                   </DropdownMenuItem>
                 ) : null}
+                <DropdownMenuItem onSelect={() => star.mutate(c)}>
+                  <Star /> {c.is_favorite ? "Remove from favorites" : "Add to favorites"}
+                </DropdownMenuItem>
                 {canDelete && c.archived_at ? (
                   <DropdownMenuItem onSelect={() => restore.mutate(c.id)}>
                     <ArchiveRestore /> Restore
@@ -220,7 +242,7 @@ export function ContactsPage() {
         },
       },
     ],
-    [active, canDelete, archive, restore],
+    [active, canDelete, archive, restore, star],
   );
   // Hidden fields drop out of the list (the schema omits them); the column picker narrows further.
   const shownColumns = React.useMemo(
@@ -262,9 +284,13 @@ export function ContactsPage() {
 
   return (
     <div>
-      <PageHeader title="Contacts" />
-      <ContactsTabs active="people" />
+      <ContactsHub active={tab} tagId={params.tag} onAdd={setAdding} />
+      {adding ? <AddContactPanel kind={adding} onKindChange={setAdding} onClose={() => setAdding(null)} /> : null}
 
+      {tab !== "people" ? (
+        <AllContactsTable favorites={tab === "favorites"} tagId={params.tag} />
+      ) : (
+      <>
       <ViewBar entity="contact" kind={kind} params={params} setParams={setParams} />
 
       <ListToolbar
@@ -363,6 +389,8 @@ export function ContactsPage() {
         caption="Contacts"
       />
       ) : null}
+      </>
+      )}
 
       {formOpen ? <ContactFormDialog open contact={editing} onOpenChange={(open) => !open && closeDialog()} /> : null}
     </div>

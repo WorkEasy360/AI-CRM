@@ -4,8 +4,8 @@ from django.db.models import Count
 from rest_framework import mixins, serializers, status
 from rest_framework.response import Response
 
-from apps.core.api.viewsets import TenantViewSet
-from apps.tagging import service
+from apps.core.api.viewsets import TenantAPIView, TenantViewSet
+from apps.tagging import favorites, service
 from apps.tagging.models import COLOR_TOKENS, Tag
 
 
@@ -63,3 +63,22 @@ class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet
         tag = self.get_object()
         service.delete_tag(request.actor, tag, request=request._request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FavoriteInputSerializer(serializers.Serializer):
+    entity_type = serializers.ChoiceField(choices=[("contact", "contact"), ("company", "company")])
+    entity_id = serializers.UUIDField()
+    favorite = serializers.BooleanField()
+
+
+class FavoriteView(TenantAPIView):
+    """Star or unstar a contact or company for yourself. The record must be one you may view."""
+
+    permission_map = {"POST": "tags.view"}
+
+    def post(self, request):
+        ser = FavoriteInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = ser.validated_data
+        state = favorites.set_favorite(request.actor, data["entity_type"], data["entity_id"], data["favorite"])
+        return Response({"entity_type": data["entity_type"], "entity_id": str(data["entity_id"]), "favorite": state})

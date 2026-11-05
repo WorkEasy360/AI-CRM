@@ -27,6 +27,7 @@ import { useSession } from "@/lib/session";
 import { formatDateTime } from "@/lib/utils";
 
 const FilesPanel = dynamic(() => import("@/components/crm/files-panel").then((m) => m.FilesPanel), { ssr: false });
+const ContactTickets = dynamic(() => import("@/components/helpdesk/contact-tickets").then((m) => m.ContactTickets), { ssr: false });
 
 export function ContactDetailPage({ id }: { id: string }) {
   const { data: session } = useSession();
@@ -89,6 +90,11 @@ export function ContactDetailPage({ id }: { id: string }) {
                 emptyDescription="Deals where this person is the primary contact will appear here."
               />
             ),
+          },
+          {
+            value: "tickets",
+            label: "Tickets",
+            content: can(active, "tickets.view") ? <ContactTickets contactId={contact.id} canCreate={can(active, "tickets.create")} /> : null,
           },
           { value: "notes", label: "Notes", content: <NotesPanel entity="contact" recordId={contact.id} /> },
           {

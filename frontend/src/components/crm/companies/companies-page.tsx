@@ -4,8 +4,8 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Archive, ArchiveRestore, Building2, MoreHorizontal, Pencil, Plus } from "lucide-react";
-import { ContactsTabs } from "@/components/crm/contacts-tabs";
-import { PageHeader } from "@/components/page-header";
+import { AddContactPanel } from "@/components/crm/contacts/add-contact-panel";
+import { ContactsHub, type AddKind } from "@/components/crm/contacts/contacts-hub";
 import { BulkBar } from "@/components/crm/bulk-bar";
 import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
 import { DataTable, useSelection, type Column } from "@/components/crm/data-table";
@@ -72,6 +72,7 @@ export function CompaniesPage() {
   const canCreate = can(active, "companies.create");
   const canDelete = can(active, "companies.delete");
   const canBulk = can(active, "companies.bulk_update");
+  const [adding, setAdding] = React.useState<AddKind | null>(null);
 
   const { params, setParam, setParams, clear, activeFilterCount } = useListParams(ALLOWED, DEFAULTS);
   const searchParams = useSearchParams();
@@ -213,8 +214,8 @@ export function CompaniesPage() {
 
   return (
     <div>
-      <PageHeader title="Companies" />
-      <ContactsTabs active="companies" />
+      <ContactsHub active="companies" onAdd={setAdding} />
+      {adding ? <AddContactPanel kind={adding} onKindChange={setAdding} onClose={() => setAdding(null)} /> : null}
 
       <ListToolbar
         params={params}

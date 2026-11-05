@@ -117,6 +117,8 @@ export interface CrmRecord {
   id: string;
   owner: MembershipRef | null;
   tags: TagRef[];
+  /** Contacts and companies: the signed-in member's own star. */
+  is_favorite?: boolean;
   custom_data: CustomData;
   version: number;
   archived_at: string | null;
@@ -757,6 +759,14 @@ export interface ContactStats {
   with_open_deals: number;
   without_deals: number;
   untouched: number;
+  favorites?: number;
+  tagged?: number;
+  /** Created in the last ``days`` days, and in the ``days`` before. */
+  created?: number;
+  created_previous?: number;
+  days?: number;
+  /** The same counts for companies; null when the member may not see companies. */
+  companies?: { total: number; favorites: number; tagged: number; created: number; created_previous: number } | null;
 }
 
 export interface CompanyStats {

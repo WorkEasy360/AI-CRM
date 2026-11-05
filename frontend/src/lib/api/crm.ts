@@ -138,6 +138,9 @@ export const createContact = (input: ContactInput) => createRecord<Contact, Cont
 export const updateContact = (id: string, version: number, input: ContactInput) =>
   updateRecord<Contact, ContactInput>("contacts", id, version, input);
 export const contactStats = () => api.get<ContactStats>("/api/v1/contacts/stats/");
+/** Star or unstar a contact or company for the signed-in member. */
+export const setFavorite = (entity_type: "contact" | "company", entity_id: string, favorite: boolean) =>
+  api.post<{ entity_type: string; entity_id: string; favorite: boolean }>("/api/v1/favorites/", { entity_type, entity_id, favorite });
 /** Possible duplicates of a contact being created (same email, phone digits or full name), within the caller's scope. */
 export const findContactDuplicates = (
   input: { email?: string; phone?: string; first_name?: string; last_name?: string; exclude?: string },

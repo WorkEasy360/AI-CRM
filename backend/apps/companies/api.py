@@ -20,6 +20,7 @@ from apps.crm.records import RecordSpec
 from apps.deals.models import Deal
 from apps.lifecycle import service as lifecycle
 from apps.lifecycle.stages import LIFECYCLE_STAGES, LifecycleStage
+from apps.tagging import favorites
 
 SPEC = RecordSpec(module="companies", entity_type="company", model=Company, display=lambda c: c.name)
 
@@ -32,6 +33,7 @@ class CompanySerializer(CrmReadSerializer):
         max_digits=18, decimal_places=2, read_only=True, default=Decimal("0.00")
     )
     won_deal_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=Decimal("0.00"))
+    is_favorite = serializers.BooleanField(read_only=True, default=False)
     next_activity_title = serializers.CharField(read_only=True, default="")
 
     class Meta:
@@ -52,6 +54,7 @@ class CompanySerializer(CrmReadSerializer):
             "tags",
             "custom_data",
             "contact_count",
+            "is_favorite",
             "open_deal_count",
             "open_deal_amount",
             "won_deal_amount",
@@ -137,6 +140,7 @@ FILTERS = FilterSet(
     default_sort="-created_at",
     search_fields=("name", "website", "phone", "industry"),
     custom_field_entity="company",
+    extra={"favorite": favorites.favorite_filter("company"), "tag": favorites.tag_filter("company")},
 )
 
 
@@ -235,6 +239,7 @@ class CompanyViewSet(CrmViewSet):
                 open_deal_amount=Coalesce(Subquery(open_amount, output_field=money), zero),
                 won_deal_amount=Coalesce(Subquery(won_amount, output_field=money), zero),
                 next_activity_title=next_activity_title_subquery("company"),
+                is_favorite=favorites.is_favorite_annotation("company"),
             )
         )
 

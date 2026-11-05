@@ -66,7 +66,7 @@ from apps.pipelines.api import PipelineStageViewSet, PipelineViewSet
 from apps.products.api import PriceBookViewSet, ProductViewSet
 from apps.savedviews.api import SavedViewViewSet
 from apps.search.api import GlobalSearchView
-from apps.tagging.api import TagViewSet
+from apps.tagging.api import FavoriteView, TagViewSet
 from apps.teams.api import TeamViewSet
 
 router = DefaultRouter(trailing_slash=True)
@@ -125,6 +125,7 @@ urlpatterns = [
     path("organizations/", account_views.OrganizationCreateView.as_view(), name="organization-create"),
     path("organizations/current/", account_views.OrganizationCurrentView.as_view(), name="organization-current"),
     path("organizations/current/logo/", file_views.OrganizationLogoView.as_view(), name="organization-logo"),
+    path("favorites/", FavoriteView.as_view(), name="favorites"),
     path("roles/", RolesView.as_view(), name="roles"),
     path("roles/<slug:key>/", RoleDetailView.as_view(), name="role-detail"),
     path("roles/<slug:key>/field-permissions/", FieldPermissionsView.as_view(), name="role-field-permissions"),
