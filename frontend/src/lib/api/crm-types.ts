@@ -34,6 +34,8 @@ export type CustomData = Record<string, CustomValue>;
 
 export const ENTITY_TYPES = ["contact", "company", "deal", "product"] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
+/** Records that can carry file attachments. */
+export type FileEntityType = EntityType | "ticket";
 
 /** Entity types that carry notes, activities, emails and a timeline (products do not). */
 export type RelatedEntityType = "contact" | "company" | "deal";

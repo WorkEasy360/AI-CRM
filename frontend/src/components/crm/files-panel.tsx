@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { deleteFile, fileDownloadUrl, listFiles, uploadFile } from "@/lib/api/crm";
-import type { EntityType, FileAttachment } from "@/lib/api/crm-types";
+import type { FileAttachment, FileEntityType } from "@/lib/api/crm-types";
 import { errorMessage } from "@/lib/api/problem";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, scopeOf } from "@/lib/crm/permissions";
@@ -34,7 +34,7 @@ function fileIcon(contentType: string) {
 }
 
 /** Files attached to one record: list, upload (drag or pick), download and remove. */
-export function FilesPanel({ entity, recordId, disabled = false }: { entity: EntityType; recordId: string; disabled?: boolean }) {
+export function FilesPanel({ entity, recordId, disabled = false }: { entity: FileEntityType; recordId: string; disabled?: boolean }) {
   const { data: session } = useSession();
   const active = session?.active ?? null;
   const queryClient = useQueryClient();

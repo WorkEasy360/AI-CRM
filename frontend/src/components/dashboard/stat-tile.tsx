@@ -85,6 +85,8 @@ export interface KpiChange {
   direction: "up" | "down" | "flat";
   text: string;
   description: string;
+  /** For durations and backlogs: a fall is the good news (shown green). */
+  lowerIsBetter?: boolean;
 }
 
 /** Percent change of a count or amount; null when there is nothing to compare against. */
@@ -108,13 +110,14 @@ export function pointChange(current: number | null | undefined, previous: number
 }
 
 const CHANGE_TONE = { up: "text-success", down: "text-danger", flat: "text-fg-muted" } as const;
+const INVERSE_TONE = { up: "text-danger", down: "text-success", flat: "text-fg-muted" } as const;
 const CHANGE_ICON = { up: ArrowUpRight, down: ArrowDownRight, flat: Minus } as const;
 
 function ChangeLine({ change, note }: { change: KpiChange; note: string }) {
   const Icon = CHANGE_ICON[change.direction];
   return (
     <span className="flex min-w-0 items-center gap-1 text-xs">
-      <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-semibold tabular-nums", CHANGE_TONE[change.direction])} aria-hidden>
+      <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-semibold tabular-nums", (change.lowerIsBetter ? INVERSE_TONE : CHANGE_TONE)[change.direction])} aria-hidden>
         <Icon className="size-3.5" />
         {change.text}
       </span>

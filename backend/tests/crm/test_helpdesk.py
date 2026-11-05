@@ -56,7 +56,19 @@ def test_ticket_crud_numbering_and_audit(org_a, owner_client, crm):
     )
 
     summary = owner_client.get("/api/v1/tickets/summary/").json()
-    assert summary == {"open": 1, "in_progress": 0, "resolved": 1, "satisfaction": 100, "rated": 1}
+    assert {
+        k: summary[k] for k in ("total", "open", "in_progress", "resolved", "overdue", "satisfaction", "rated")
+    } == {
+        "total": 2,
+        "open": 1,
+        "in_progress": 0,
+        "resolved": 1,
+        "overdue": 0,
+        "satisfaction": 100,
+        "rated": 1,
+    }
+    assert summary["created"] == 2 and summary["previous"]["created"] == 0
+    assert summary["avg_resolution_seconds"] is not None
 
     listed = owner_client.get("/api/v1/tickets/?status=open").json()["results"]
     assert [t["number"] for t in listed] == [1002]

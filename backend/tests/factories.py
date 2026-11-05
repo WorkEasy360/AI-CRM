@@ -565,10 +565,21 @@ def make_ticket(bundle: OrgBundle, *, owner: Membership | None = None, **extra):
         return Ticket.objects.create(owner=owner or bundle.owner_membership, **extra)
 
 
+def make_ticket_message(bundle: OrgBundle, ticket=None, **extra):
+    from apps.helpdesk.models import TicketMessage
+
+    ticket = ticket or make_ticket(bundle)
+    with _ctx(bundle, "test.make_ticket_message"):
+        extra.setdefault("kind", TicketMessage.Kind.NOTE)
+        extra.setdefault("body", "Checked the logs.")
+        return TicketMessage.objects.create(ticket=ticket, author=bundle.owner_membership, **extra)
+
+
 def _register_helpdesk_factories() -> None:
-    from apps.helpdesk.models import Ticket
+    from apps.helpdesk.models import Ticket, TicketMessage
 
     CROSS_TENANT_FACTORIES[Ticket] = lambda bundle: make_ticket(bundle)
+    CROSS_TENANT_FACTORIES[TicketMessage] = lambda bundle: make_ticket_message(bundle)
 
 
 def make_automation_rule(bundle: OrgBundle, **extra):

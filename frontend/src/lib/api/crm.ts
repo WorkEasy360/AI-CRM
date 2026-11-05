@@ -52,6 +52,7 @@ import type {
   EmailTemplate,
   EmailTemplateInput,
   EntityType,
+  FileEntityType,
   ExportJob,
   FileAttachment,
   FollowUpDraft,
@@ -264,9 +265,9 @@ export const deleteNote = (id: string) => api.delete(`/api/v1/notes/${enc(id)}/`
 
 /* ------------------------------------------------------------------ files */
 
-export const listFiles = (entity_type: EntityType, entity_id: string) =>
+export const listFiles = (entity_type: FileEntityType, entity_id: string) =>
   api.get<Paginated<FileAttachment>>("/api/v1/files/", { entity_type, entity_id });
-export const uploadFile = (input: { entity_type: EntityType; entity_id: string; file: File }) => {
+export const uploadFile = (input: { entity_type: FileEntityType; entity_id: string; file: File }) => {
   const form = new FormData();
   form.append("entity_type", input.entity_type);
   form.append("entity_id", input.entity_id);

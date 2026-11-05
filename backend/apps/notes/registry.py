@@ -30,6 +30,7 @@ def _registry() -> dict[str, EntityInfo]:
     from apps.companies.models import Company
     from apps.contacts.models import Contact
     from apps.deals.models import Deal
+    from apps.helpdesk.models import Ticket
     from apps.products.models import Product
 
     return {
@@ -38,6 +39,7 @@ def _registry() -> dict[str, EntityInfo]:
         "deal": EntityInfo("deal", "deals", Deal),
         "product": EntityInfo("product", "products", Product),
         "activity": EntityInfo("activity", "activities", Activity),
+        "ticket": EntityInfo("ticket", "tickets", Ticket),
     }
 
 

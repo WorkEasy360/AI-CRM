@@ -1,4 +1,4 @@
-import type { EntityType, ListParams, RelatedEntityType } from "@/lib/api/crm-types";
+import type { EntityType, FileEntityType, ListParams, RelatedEntityType } from "@/lib/api/crm-types";
 
 /** React Query keys for the CRM modules. Lists are keyed by their full parameter set. */
 export const crmKeys = {
@@ -28,7 +28,7 @@ export const crmKeys = {
   customFields: (entity?: EntityType, archived = false) => ["crm", "custom-fields", entity ?? "all", archived] as const,
   tags: ["crm", "tags"] as const,
   notes: (entity: EntityType, id: string) => ["crm", "notes", entity, id] as const,
-  files: (entity: EntityType, id: string) => ["crm", "files", entity, id] as const,
+  files: (entity: FileEntityType, id: string) => ["crm", "files", entity, id] as const,
   timeline: (entity: EntityType, id: string, kinds?: string[]) => ["crm", "timeline", entity, id, kinds ?? []] as const,
   timelinePages: (entity: EntityType, id: string, sources?: string[]) => ["crm", "timeline", entity, id, "pages", sources ?? []] as const,
   search: (q: string) => ["crm", "search", q] as const,

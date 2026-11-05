@@ -6,6 +6,10 @@ from apps.core.models import OwnedModel, TenantModel, VersionedModel
 
 MAX_SUBJECT_LENGTH = 200
 MAX_DESCRIPTION_LENGTH = 10_000
+MAX_MESSAGE_LENGTH = 10_000
+
+# Hours from creation until a ticket of each priority is overdue (the default SLA; see services.sla_hours).
+DEFAULT_SLA_HOURS = {"urgent": 4, "high": 8, "medium": 24, "low": 72}
 
 
 class Ticket(TenantModel, OwnedModel, VersionedModel):
@@ -28,11 +32,21 @@ class Ticket(TenantModel, OwnedModel, VersionedModel):
         HIGH = "high", "High"
         URGENT = "urgent", "Urgent"
 
+    class Category(models.TextChoices):
+        TECHNICAL = "technical", "Technical"
+        BILLING = "billing", "Billing"
+        ACCOUNT = "account", "Account"
+        SUPPORT = "support", "Support"
+        SALES = "sales", "Sales"
+        OTHER = "other", "Other"
+
     number = models.PositiveIntegerField()
     subject = models.CharField(max_length=MAX_SUBJECT_LENGTH)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
     priority = models.CharField(max_length=16, choices=Priority.choices, default=Priority.MEDIUM)
+    category = models.CharField(max_length=16, choices=Category.choices, default=Category.SUPPORT)
+    product = models.ForeignKey("products.Product", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     # The requester is a CRM contact when known; ``requester_name`` covers walk-ins without a record.
     contact = models.ForeignKey(
         "contacts.Contact", null=True, blank=True, on_delete=models.SET_NULL, related_name="tickets"
@@ -55,3 +69,35 @@ class Ticket(TenantModel, OwnedModel, VersionedModel):
             models.Index(fields=["organization", "-number"], name="ticket_org_number_idx"),
         ]
         ordering = ["-number"]
+
+
+class TicketMessage(TenantModel):
+    """One entry in a ticket's thread: a reply to the customer, a message from them, or an internal note.
+
+    Internal notes are for the team only; nothing here is ever shown to the customer except what was sent
+    out through a channel (``channel``), which also leaves its own email/WhatsApp message record.
+    """
+
+    class Kind(models.TextChoices):
+        REPLY = "reply", "Reply"
+        CUSTOMER = "customer", "Customer message"
+        NOTE = "note", "Internal note"
+
+    class Channel(models.TextChoices):
+        NONE = "", "Not sent"
+        EMAIL = "email", "Email"
+        WHATSAPP = "whatsapp", "WhatsApp"
+
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name="messages")
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    channel = models.CharField(max_length=16, choices=Channel.choices, blank=True, default="")
+    author = models.ForeignKey(
+        "accounts.Membership", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    # For customer messages: who wrote it (the requester), since they are not a member.
+    author_name = models.CharField(max_length=160, blank=True)
+    body = models.TextField()
+
+    class Meta:
+        indexes = [models.Index(fields=["organization", "ticket", "created_at"], name="ticketmsg_org_ticket_idx")]
+        ordering = ["created_at", "id"]
