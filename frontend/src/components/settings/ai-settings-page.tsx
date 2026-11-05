@@ -58,7 +58,9 @@ export function AISettingsPage() {
       ) : (
         <div className="grid gap-6">
           {config.data ? <PolicyCard settings={config.data} /> : null}
-          <UsageTiles usage={usage.data} />
+          <div id="usage" className="scroll-mt-4">
+            <UsageTiles usage={usage.data} />
+          </div>
           <div className="grid gap-6 lg:grid-cols-2">
             <ByFeature rows={usage.data.by_feature} />
             <ByMember rows={usage.data.by_member} />

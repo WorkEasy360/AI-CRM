@@ -73,6 +73,9 @@ const KPI_TONES = {
   orange: "bg-[#ffedd5] text-[#c2410c]",
   amber: "bg-[#fef3c7] text-[#b45309]",
   blue: "bg-[#dbeafe] text-[#1d4ed8]",
+  purple: "bg-[#f3e8ff] text-[#7e22ce]",
+  pink: "bg-[#fce7f3] text-[#be185d]",
+  red: "bg-[#fee2e2] text-[#b91c1c]",
 } as const;
 
 export type KpiTone = keyof typeof KPI_TONES;

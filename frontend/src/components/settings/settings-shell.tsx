@@ -26,6 +26,9 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
   const matches = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const current = items.find((item) => matches(item.href) || (item.also ?? []).some(matches));
 
+  // The Settings home is its own full-width card grid; the section navigation starts one level down.
+  if (pathname === "/settings") return <div className="mx-auto max-w-7xl">{children}</div>;
+
   return (
     <div className="mx-auto flex max-w-6xl gap-6">
       <nav aria-label="Settings" className="hidden w-44 shrink-0 lg:block">
