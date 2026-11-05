@@ -116,23 +116,69 @@ describe("ActivitiesPage", () => {
     vi.mocked(activitySummary).mockReset().mockResolvedValue(SUMMARY);
     vi.mocked(calendarActivities).mockReset().mockResolvedValue({ results: [] });
     vi.mocked(listActivities).mockReset().mockResolvedValue({ next: null, previous: null, results: [] });
+    vi.mocked(getMyDay).mockReset().mockResolvedValue({ date: "2026-09-13", timezone: "UTC", overdue: [], tasks: [], events: [], calls: [], no_date: [], completed_today: 0 });
   });
 
-  it("renders the tabs, the New split button and the summary chips", async () => {
+  it("renders the tabs, the New split button, the KPIs and the schedule column", async () => {
+    vi.mocked(activitySummary).mockResolvedValue({
+      ...SUMMARY,
+      due_week: 12,
+      follow_ups: 2,
+      totals: { all: 248, task: 132, call: 68, meeting: 48 },
+      created: { days: 30, current: { all: 59, task: 28, call: 18, meeting: 13 }, previous: { all: 50, task: 25, call: 15, meeting: 11 } },
+    });
     renderPage();
 
     const tabs = screen.getByRole("tablist", { name: "Activity views" });
     // The WorkEasy360 list of everything is the default view; calendar and my day stay one click away.
-    expect(within(tabs).getByRole("tab", { name: "all" })).toHaveAttribute("aria-selected", "true");
-    for (const name of ["tasks", "calls", "meetings", "calendar", "my day"]) expect(within(tabs).getByRole("tab", { name })).toBeInTheDocument();
+    expect(within(tabs).getByRole("tab", { name: "All Activities" })).toHaveAttribute("aria-selected", "true");
+    for (const name of ["Tasks", "Calls", "Meetings", "Follow-ups", "Calendar", "My Day"]) expect(within(tabs).getByRole("tab", { name })).toBeInTheDocument();
     // Conversations need their channel's permission.
     expect(within(tabs).queryByRole("tab", { name: "WhatsApp" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New task" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "More ways to add" })).toBeInTheDocument();
+    expect(screen.getByText("Manage your tasks, calls, meetings and follow-ups in one place.")).toBeInTheDocument();
 
-    expect(await screen.findByRole("button", { name: "2 Overdue" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "3 Meetings this week" })).toBeInTheDocument();
-    expect(activitySummary).toHaveBeenCalledWith("me");
+    const kpis = screen.getByRole("region", { name: "Activity summary" });
+    expect(await within(kpis).findByText("248")).toBeInTheDocument();
+    expect(within(kpis).getAllByText("Up 18% new in the last 30 days vs the 30 before").length).toBeGreaterThan(0);
+    expect(activitySummary).toHaveBeenCalledWith();
+    expect(await screen.findByRole("region", { name: "Upcoming (12)" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Overdue (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Calendar" })).toBeInTheDocument();
+  });
+
+  it("lists everything in the table with due dates, statuses and related records", async () => {
+    vi.mocked(listActivities).mockImplementation(async (params) =>
+      params.limit
+        ? { next: null, previous: null, results: [] }
+        : {
+            next: null,
+            previous: null,
+            results: [
+              activity({ id: "a1", kind: "call", title: "Follow up call with Apex", start_at: toIsoWithOffset(new Date(2026, 8, 13, 11, 30)), company: { id: "c1", name: "Apex Technologies" } }),
+              activity({ id: "a2", kind: "meeting", title: "Product demo meeting", start_at: toIsoWithOffset(new Date(2026, 8, 14, 11, 0)) }),
+            ],
+          },
+    );
+    renderPage();
+    const table = await screen.findByRole("region", { name: "Activities" });
+    expect(await within(table).findByText("Follow up call with Apex")).toBeInTheDocument();
+    expect(within(table).getByRole("link", { name: "Apex Technologies" })).toHaveAttribute("href", "/companies/c1");
+    expect(within(table).getByText(/^Today, /)).toHaveClass("text-danger");
+    expect(within(table).getByText(/^Tomorrow, /)).not.toHaveClass("text-danger");
+    expect(within(table).getByText("Scheduled")).toBeInTheDocument();
+    expect(within(table).getByText("Showing 1–2 activities")).toBeInTheDocument();
+    await waitFor(() => expect(listActivities).toHaveBeenCalledWith({ top_level: "1", sort: "start_at" }, null));
+  });
+
+  it("asks the API for open follow-ups on the Follow-ups tab", async () => {
+    search = "tab=followups";
+    renderPage();
+    await waitFor(() => expect(listActivities).toHaveBeenCalledWith({ follow_up: "1", top_level: "1", sort: "start_at" }, null));
+    search = "tab=all&range=today";
+    renderPage();
+    await waitFor(() => expect(listActivities).toHaveBeenCalledWith({ from: "2026-09-13", to: "2026-09-13", top_level: "1", sort: "start_at" }, null));
   });
 
   it("renders calendar events for the visible month from calendarActivities", async () => {
@@ -156,7 +202,7 @@ describe("ActivitiesPage", () => {
   });
 
   it("lists tasks grouped by day on the Tasks tab", async () => {
-    search = "tab=tasks";
+    search = "tab=tasks&layout=grouped";
     vi.mocked(listActivities).mockResolvedValue({
       next: null,
       previous: null,
@@ -168,7 +214,7 @@ describe("ActivitiesPage", () => {
     });
     renderPage();
 
-    expect(screen.getByRole("tab", { name: "tasks" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Tasks" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText("Chase invoice")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Overdue" })).getByText("Chase invoice")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Today" })).getByText("Prepare deck")).toBeInTheDocument();
@@ -183,7 +229,7 @@ describe("ActivitiesPage", () => {
     ];
 
     beforeEach(() => {
-      search = "tab=tasks";
+      search = "tab=tasks&layout=grouped";
       vi.mocked(listActivities).mockResolvedValue({ next: null, previous: null, results: TASKS });
     });
 
@@ -241,7 +287,7 @@ describe("ActivitiesPage", () => {
     vi.mocked(getMyDay).mockResolvedValue(day);
     renderPage();
 
-    expect(screen.getByRole("tab", { name: "my day" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "My Day" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText("completed today")).toBeInTheDocument();
     expect(getMyDay).toHaveBeenCalledWith(expect.any(String));
     expect(within(screen.getByRole("region", { name: "Overdue" })).getByText("Chase invoice")).toBeInTheDocument();

@@ -3,8 +3,11 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronDown, ListTodo, Phone, PhoneIncoming, Plus } from "lucide-react";
+import { CalendarCheck, CalendarDays, CheckSquare, ChevronDown, ListTodo, Phone, PhoneIncoming, Plus, Table2 } from "lucide-react";
+import { MiniCalendar, OverdueCard, TodaySchedule, UpcomingCard } from "@/components/activities/activities-side";
 import { ActivityList } from "@/components/activities/activity-list";
+import { ActivityTable } from "@/components/activities/activity-table";
+import { KpiTile, percentChange } from "@/components/dashboard/stat-tile";
 import { KIND_LABELS } from "@/components/activities/activity-utils";
 import { Calendar } from "@/components/activities/calendar";
 import { MessageLog } from "@/components/activities/message-log";
@@ -12,35 +15,44 @@ import { MyDay } from "@/components/activities/my-day";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { activitySummary, getActivity } from "@/lib/api/crm";
-import { ACTIVITY_KINDS, type Activity, type ActivityKind } from "@/lib/api/crm-types";
+import { ACTIVITY_KINDS, type Activity, type ActivityKind, type ActivitySummary } from "@/lib/api/crm-types";
 import { errorMessage } from "@/lib/api/problem";
 import { crmKeys } from "@/lib/crm/keys";
 import { can } from "@/lib/crm/permissions";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
 
 // Rendered only while creating or editing; its form code loads at that moment.
 const ActivityFormDialog = dynamic(() => import("@/components/activities/activity-form-dialog").then((m) => m.ActivityFormDialog), { ssr: false });
 
-// The WorkEasy360 order: one list of everything first, then each kind, then the conversations.
-const TABS = ["all", "tasks", "calls", "meetings", "whatsapp", "emails", "calendar", "day"] as const;
+// The WorkEasy360 order: everything, each kind, follow-ups, then the conversations and the calendars.
+const TABS = ["all", "tasks", "calls", "meetings", "followups", "whatsapp", "emails", "calendar", "day"] as const;
 type Tab = (typeof TABS)[number];
 const DEFAULT_TAB: Tab = "all";
 type KindTab = "tasks" | "meetings" | "calls";
 const TAB_KIND: Record<KindTab, ActivityKind> = { tasks: "task", meetings: "meeting", calls: "call" };
-const TAB_LABELS: Partial<Record<Tab, string>> = { day: "my day", whatsapp: "WhatsApp" };
+const TAB_LABELS: Record<Tab, string> = {
+  all: "All Activities",
+  tasks: "Tasks",
+  calls: "Calls",
+  meetings: "Meetings",
+  followups: "Follow-ups",
+  whatsapp: "WhatsApp",
+  emails: "Emails",
+  calendar: "Calendar",
+  day: "My Day",
+};
+const LIST_TABS = ["all", "tasks", "calls", "meetings", "followups"] as const;
 
 function tabKind(tab: Tab): ActivityKind {
   if (tab === "calendar") return "meeting";
   if (tab === "tasks" || tab === "meetings" || tab === "calls") return TAB_KIND[tab];
   return "task";
 }
-const URL_KEYS = ["tab", "view", "q", "due", "sort", "new", "kind", "open"] as const;
+const URL_KEYS = ["tab", "view", "q", "due", "sort", "new", "kind", "open", "type", "status", "owner", "range", "from", "to", "layout"] as const;
 
 function tabOf(value: string | undefined): Tab {
   if (value === "events") return "meetings"; // older links
@@ -57,34 +69,19 @@ interface Creating {
   start_at?: string;
 }
 
-/** Small counters from the summary endpoint; each jumps to the matching list. */
-function SummaryChips({ onPick }: { onPick: (tab: Tab, due?: string) => void }) {
-  const summary = useQuery({ queryKey: crmKeys.activitySummary("me"), queryFn: () => activitySummary("me"), staleTime: 30_000 });
-  if (summary.isPending) return <Skeleton className="h-6 w-64" />;
-  if (summary.isError || !summary.data) return null;
-  const s = summary.data;
-  const chips: { label: string; value: number; tab: Tab; due?: string; tone?: "danger" | "warning" }[] = [
-    { label: "Overdue", value: s.overdue, tab: "tasks", due: "overdue", tone: s.overdue > 0 ? "danger" : undefined },
-    { label: "Due today", value: s.due_today, tab: "tasks", due: "today", tone: s.due_today > 0 ? "warning" : undefined },
-    { label: "Meetings this week", value: s.meetings_week, tab: "meetings", due: "week" },
-    { label: "Calls this week", value: s.calls_week, tab: "calls", due: "week" },
-  ];
+/** Totals by kind across what the member may see, with what was logged in the last 30 days vs the 30 before. */
+function ActivityKpis({ summary }: { summary: ActivitySummary | undefined }) {
+  const created = summary?.created;
+  const versus = created ? `new in the last ${created.days} days vs the ${created.days} before` : "";
+  const change = (key: "all" | "task" | "call" | "meeting") => (created ? percentChange(created.current[key], created.previous[key], versus) : null);
+  const value = (key: "all" | "task" | "call" | "meeting") => (summary ? (summary.totals?.[key] ?? 0).toLocaleString() : undefined);
   return (
-    <div className="flex flex-wrap items-center gap-1.5" aria-label="My activity summary">
-      {chips.map((c) => (
-        <button
-          key={c.label}
-          type="button"
-          onClick={() => onPick(c.tab, c.due)}
-          className={cn(
-            "inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-xs transition-colors hover:bg-bg-subtle",
-            c.tone === "danger" ? "border-danger/30 bg-danger-soft text-danger" : c.tone === "warning" ? "border-warning/30 bg-warning-soft text-warning" : "border-border bg-surface text-fg-muted",
-          )}
-        >
-          <span className="font-semibold tabular-nums">{c.value}</span> {c.label}
-        </button>
-      ))}
-    </div>
+    <section aria-label="Activity summary" className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
+      <KpiTile tone="green" icon={<CheckSquare />} label="Total Activities" value={value("all")} change={change("all")} changeNote="" sub="All activities" />
+      <KpiTile tone="blue" icon={<ListTodo />} label="Tasks" value={value("task")} change={change("task")} changeNote="" sub={summary ? `${summary.open_tasks} open` : undefined} />
+      <KpiTile tone="orange" icon={<Phone />} label="Calls" value={value("call")} change={change("call")} changeNote="" sub={summary ? `${summary.calls_week} this week` : undefined} />
+      <KpiTile tone="purple" icon={<CalendarDays />} label="Meetings" value={value("meeting")} change={change("meeting")} changeNote="" sub={summary ? `${summary.meetings_week} this week` : undefined} />
+    </section>
   );
 }
 
@@ -127,14 +124,19 @@ export function ActivitiesPage() {
     }
   }, [openId, opened.data, opened.isError, opened.error, setParam, toast]);
 
+  const summary = useQuery({ queryKey: crmKeys.activitySummary(), queryFn: () => activitySummary(), staleTime: 30_000 });
+  const grouped = params.layout === "grouped";
   const defaultKind: ActivityKind = tabKind(tab);
+  const showTab = (next: Tab, patch: Record<string, string | undefined> = {}) =>
+    setParams({ tab: next === DEFAULT_TAB ? undefined : next, view: undefined, q: undefined, due: undefined, sort: undefined, ...patch });
   const startCreate = (kind: ActivityKind, mode: "schedule" | "log" = "schedule") => setCreating({ kind, mode });
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[96rem] flex-col">
       <PageHeader
+        icon={CalendarCheck}
         title="Activities"
-        description={<SummaryChips onPick={(next, due) => setParams({ tab: next, due, view: undefined, q: undefined })} />}
+        description="Manage your tasks, calls, meetings and follow-ups in one place."
         actions={
           canCreate ? (
             <div className="inline-flex items-center">
@@ -167,11 +169,14 @@ export function ActivitiesPage() {
           ) : null
         }
       />
-      <Tabs value={tab} onValueChange={(v) => setParams({ tab: v === DEFAULT_TAB ? undefined : v, view: undefined, q: undefined, due: undefined, sort: undefined })} className="flex min-h-0 flex-1 flex-col">
-        <TabsList aria-label="Activity views" className="h-auto w-fit max-w-full flex-wrap">
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
+      <div className="flex min-h-0 min-w-0 flex-col gap-4">
+      <ActivityKpis summary={summary.data} />
+      <Tabs value={tab} onValueChange={(v) => showTab(v as Tab)} className="flex min-h-0 flex-1 flex-col">
+        <TabsList aria-label="Activity views" className="h-auto w-fit max-w-full flex-wrap gap-1 rounded-xl border border-border bg-surface p-1 shadow-sm">
           {visibleTabs.map((t) => (
-            <TabsTrigger key={t} value={t} className="h-6 px-2.5 text-xs capitalize">
-              {TAB_LABELS[t] ?? t}
+            <TabsTrigger key={t} value={t} className="h-9 rounded-lg px-3.5 text-sm data-[state=active]:bg-brand data-[state=active]:text-brand-fg">
+              {TAB_LABELS[t]}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -187,12 +192,29 @@ export function ActivitiesPage() {
         <TabsContent value="day" className="mt-3">
           {tab === "day" ? <MyDay onCreate={canCreate ? () => startCreate("task") : undefined} /> : null}
         </TabsContent>
-        <TabsContent value="all" className="mt-3">
-          {tab === "all" ? <ActivityList params={params} setParam={setParam} setParams={setParams} canCreate={canCreate} canBulk={canBulk} onCreate={startCreate} /> : null}
-        </TabsContent>
-        {(["tasks", "meetings", "calls"] as const).map((key) => (
+        {LIST_TABS.map((key) => (
           <TabsContent key={key} value={key} className="mt-3">
-            {tab === key ? <ActivityList kind={TAB_KIND[key]} params={params} setParam={setParam} setParams={setParams} canCreate={canCreate} canBulk={canBulk} onCreate={startCreate} /> : null}
+            {tab !== key ? null : grouped && key !== "followups" ? (
+              <div className="flex flex-col gap-2">
+                <Button variant="secondary" size="sm" className="w-fit" onClick={() => setParam("layout", undefined)}>
+                  <Table2 /> Table view
+                </Button>
+                <ActivityList kind={key === "all" ? undefined : TAB_KIND[key]} params={params} setParam={setParam} setParams={setParams} canCreate={canCreate} canBulk={canBulk} onCreate={startCreate} />
+              </div>
+            ) : (
+              <ActivityTable
+                kind={key === "all" || key === "followups" ? undefined : TAB_KIND[key]}
+                followUps={key === "followups"}
+                params={params}
+                setParam={setParam}
+                setParams={setParams}
+                onEdit={setEditing}
+                onCreate={startCreate}
+                canCreate={canCreate}
+                onShowCalendar={() => showTab("calendar")}
+                onShowGrouped={() => setParam("layout", "grouped")}
+              />
+            )}
           </TabsContent>
         ))}
         <TabsContent value="whatsapp" className="mt-3">
@@ -202,6 +224,25 @@ export function ActivitiesPage() {
           {tab === "emails" && canEmail ? <MessageLog channel="email" /> : null}
         </TabsContent>
       </Tabs>
+      </div>
+
+      <aside aria-label="Schedule" className="grid min-w-0 content-start gap-4">
+        <TodaySchedule onOpen={setEditing} />
+        <MiniCalendar
+          selected={params.range === "custom" && params.from && params.from === params.to ? params.from : undefined}
+          onPick={(day) =>
+            setParams({
+              tab: (LIST_TABS as readonly string[]).includes(tab) ? (tab === DEFAULT_TAB ? undefined : tab) : undefined,
+              range: day ? "custom" : undefined,
+              from: day,
+              to: day,
+            })
+          }
+        />
+        <UpcomingCard summary={summary.data} onOpen={setEditing} onViewAll={() => showTab("all", { due: "week" })} />
+        <OverdueCard summary={summary.data} onOpen={setEditing} onViewAll={() => showTab("all", { due: "overdue" })} />
+      </aside>
+      </div>
 
       {creating ? (
         <ActivityFormDialog
