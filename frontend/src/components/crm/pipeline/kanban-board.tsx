@@ -3,11 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, CalendarClock, CalendarDays, GripVertical, MoreHorizontal, Pencil, User } from "lucide-react";
+import { Building2, CalendarClock, CalendarDays, CheckCircle2, GripVertical, Move, MoreHorizontal, Pencil, Plus, User } from "lucide-react";
 import { isPastClose, weightedTotal } from "@/components/crm/deals/deal-helpers";
 import { useMoveStage, type StageTarget } from "@/components/crm/deals/move-stage-dialog";
 import { RiskBadge } from "@/components/crm/risk-badge";
 import { Avatar } from "@/components/ui/avatar";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { getBoardStage, updateDeal } from "@/lib/api/crm";
-import type { Board, BoardStage, DealCard, ListParams } from "@/lib/api/crm-types";
+import type { Board, BoardStage, DealCard, DealPriority, ListParams } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { useWindowedList } from "@/lib/use-windowed-list";
 import { formatMoney, stageDotClass, stageTintStyle } from "@/lib/crm/format";
@@ -25,6 +26,12 @@ const DRAG_MIME = "application/x-keel-deal";
 /** Typical card height (with its gap) for windowing a column; cards vary a little around it. */
 const CARD_HEIGHT = 112;
 const PAGE = 200;
+
+const PRIORITY_BADGE: Record<DealPriority, { label: string; variant: BadgeProps["variant"] }> = {
+  high: { label: "High", variant: "danger" },
+  medium: { label: "Medium", variant: "warning" },
+  low: { label: "Low", variant: "success" },
+};
 
 /** Client-side ordering inside each column; "recent" keeps the server order (most recently moved first). */
 export type BoardSort = "recent" | "amount" | "close" | "name";
@@ -71,8 +78,14 @@ export function KanbanBoard({
   isFetching,
   sort = "recent",
   filters = {},
+  onOpenDeal,
+  onAddDeal,
 }: {
   board: Board;
+  /** Open a card in the Deal Details panel; without it the card name links to the deal page. */
+  onOpenDeal?: (deal: DealCard) => void;
+  /** A column's "+ Add Deal": create a deal straight into that stage. */
+  onAddDeal?: (stage: BoardStage) => void;
   /** The board's filters, re-sent when a column pages in more cards. */
   filters?: ListParams;
   baseCurrency: string;
@@ -210,15 +223,15 @@ export function KanbanBoard({
             >
               <span className={cn("-mx-px -mt-px h-[3px] shrink-0 rounded-t-md", stageDotClass(stage.color_token))} aria-hidden />
               <header className="px-2.5 pb-1.5 pt-2" style={stageTintStyle(stage.color_token)}>
-                <div className="flex min-w-0 items-baseline gap-1">
-                  <h3 className="min-w-0 truncate text-sm font-semibold text-fg" title={stage.name}>
+                <div className="flex min-w-0 items-center justify-between gap-1">
+                  <h3 className="min-w-0 truncate text-base font-bold text-fg" title={stage.name}>
                     {stage.name}
                   </h3>
-                  <span className="shrink-0 text-sm font-medium text-fg-muted" aria-label={`${stage.deal_count} deals`}>
-                    ({stage.deal_count})
+                  <span className={cn("shrink-0 rounded-md px-1.5 py-px text-xs font-bold text-white", stageDotClass(stage.color_token))} aria-label={`${stage.deal_count} deals`}>
+                    {stage.deal_count}
                   </span>
                 </div>
-                {stage.total_amount_base !== null ? <p className="mt-0.5 text-xs font-semibold tabular-nums text-fg">{formatMoney(stage.total_amount_base, baseCurrency)}</p> : null}
+                {stage.total_amount_base !== null ? <p className="mt-0.5 text-base font-bold tabular-nums text-fg">{formatMoney(stage.total_amount_base, baseCurrency)}</p> : null}
                 {weighted !== null ? <p className="text-[12px] tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
               </header>
               <ColumnCards
@@ -244,6 +257,7 @@ export function KanbanBoard({
                     }}
                     onMove={(target) => move.requestMove(deal, target)}
                     onEdit={() => setEditing(deal)}
+                    onOpen={onOpenDeal ? () => onOpenDeal(deal) : undefined}
                   />
                 )}
               />
@@ -257,10 +271,25 @@ export function KanbanBoard({
                   {loadingMore === stage.id ? "Loading…" : `Show ${Math.min(PAGE, Math.max(stage.deal_count - stage.deals.length, 1))} more`}
                 </button>
               ) : null}
+              {onAddDeal ? (
+                <button
+                  type="button"
+                  onClick={() => onAddDeal(stage)}
+                  className="flex items-center justify-center gap-1.5 border-t border-border px-2.5 py-2 text-sm font-medium text-fg hover:bg-bg-subtle"
+                  aria-label={`Add deal to ${stage.name}`}
+                >
+                  <Plus className="size-4" aria-hidden /> Add Deal
+                </button>
+              ) : null}
             </li>
           );
         })}
       </ol>
+      {canMove ? (
+        <p className="mx-1 mt-3 flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand/50 bg-[#f0fdf4] py-3 text-sm font-medium text-fg dark:bg-transparent">
+          <Move className="size-4 text-brand" aria-hidden /> Drag &amp; Drop deals between stages
+        </p>
+      ) : null}
       {move.dialog}
       {editing ? <QuickEditDialog deal={editing} onClose={() => setEditing(null)} /> : null}
     </div>
@@ -375,8 +404,10 @@ function DealCard({
   onDragEnd,
   onMove,
   onEdit,
+  onOpen,
 }: {
   deal: DealCard;
+  onOpen?: () => void;
   stages: StageTarget[];
   canMove: boolean;
   showRisk: boolean;
@@ -407,10 +438,17 @@ function DealCard({
     >
       <div className="flex items-start gap-1">
         {canMove ? <GripVertical className="mt-0.5 size-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" aria-hidden /> : null}
+        {deal.status === "won" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-label="Won" /> : null}
         <div className="min-w-0 flex-1">
-          <Link prefetch={false} href={`/deals/${encodeURIComponent(deal.id)}`} className="block truncate text-sm font-medium text-fg hover:text-primary hover:underline" draggable={false}>
-            {deal.name}
-          </Link>
+          {onOpen ? (
+            <button type="button" onClick={onOpen} className="block w-full truncate text-left text-sm font-semibold text-fg hover:text-primary hover:underline" draggable={false}>
+              {deal.name}
+            </button>
+          ) : (
+            <Link prefetch={false} href={`/deals/${encodeURIComponent(deal.id)}`} className="block truncate text-sm font-medium text-fg hover:text-primary hover:underline" draggable={false}>
+              {deal.name}
+            </Link>
+          )}
           {who ? (
             <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-fg-muted">
               {deal.company ? <Building2 className="size-3 shrink-0" aria-hidden /> : <User className="size-3 shrink-0" aria-hidden />}
@@ -445,11 +483,22 @@ function DealCard({
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <span className="flex items-baseline gap-1 truncate">
-          <span className="text-sm font-semibold tabular-nums">{formatMoney(deal.amount, deal.currency)}</span>
+          <span className="text-sm font-bold tabular-nums">{formatMoney(deal.amount, deal.currency)}</span>
           <span className="text-[12px] tabular-nums text-fg-muted" title={deal.probability_overridden ? "Probability set by hand" : "Probability"}>
             {deal.probability}%
           </span>
         </span>
+        {deal.priority && deal.status === "open" ? <Badge variant={PRIORITY_BADGE[deal.priority].variant}>{PRIORITY_BADGE[deal.priority].label}</Badge> : null}
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        {deal.owner ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-[12px] text-fg-muted" title={deal.owner.display_name}>
+            <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[10px]" aria-label={`Owner: ${deal.owner.display_name}`} />
+            <span className="truncate">{deal.owner.display_name.split(" ")[0]}</span>
+          </span>
+        ) : (
+          <span />
+        )}
         {deal.expected_close_date ? (
           <span className={cn("inline-flex shrink-0 items-center gap-1 text-[12px]", overdue ? "text-danger" : "text-fg-subtle")} title={overdue ? "Past the expected close date" : "Expected close"}>
             <CalendarDays className="size-3" aria-hidden />
@@ -484,14 +533,7 @@ function DealCard({
         ) : (
           <span />
         )}
-        <span className="flex shrink-0 items-center gap-1.5">
-          {showRisk && open ? <RiskBadge compact level={deal.risk_level} /> : null}
-          {deal.owner ? (
-            <span title={deal.owner.display_name}>
-              <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[10px]" aria-label={`Owner: ${deal.owner.display_name}`} />
-            </span>
-          ) : null}
-        </span>
+        <span className="flex shrink-0 items-center gap-1.5">{showRisk && open ? <RiskBadge compact level={deal.risk_level} /> : null}</span>
       </div>
     </li>
   );

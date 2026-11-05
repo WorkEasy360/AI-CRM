@@ -62,6 +62,14 @@ def module() -> s.ModuleDef:
                 "primary_contact", "Primary contact", s.LOOKUP, lookup="contact", write_key="primary_contact_id"
             ),
             s.FieldDef("lost_reason", "Lost reason", s.TEXT),
+            s.FieldDef("priority", "Priority", s.CHOICE, choices=tuple(Deal.Priority.values), groupable=True),
+            s.FieldDef(
+                "lead_source",
+                "Source",
+                s.CHOICE,
+                choices=tuple(v for v in Deal.LeadSource.values if v),
+                groupable=True,
+            ),
             s.FieldDef("description", "Description", s.TEXTAREA),
             s.FieldDef("owner", "Owner", s.USER, write_key="owner_id", groupable=True, importable=False),
             s.FieldDef("tags", "Tags", s.TAGS, editable=False, importable=False),

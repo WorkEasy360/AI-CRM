@@ -368,6 +368,7 @@ def test_board_card_carries_only_what_the_card_draws(org_a, crm, owner_client):
         "probability_overridden",
         "expected_close_date",
         "status",
+        "priority",
         "next_activity_title",
         "risk_level",
         "version",

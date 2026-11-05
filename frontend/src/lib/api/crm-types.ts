@@ -322,8 +322,24 @@ export interface ContactRef {
 export type DealStatus = "open" | "won" | "lost";
 export type RiskLevel = "low" | "medium" | "high";
 
+export const DEAL_PRIORITIES = ["low", "medium", "high"] as const;
+export type DealPriority = (typeof DEAL_PRIORITIES)[number];
+export const DEAL_SOURCES = ["whatsapp", "facebook_ads", "website", "referral", "other"] as const;
+export type DealSource = (typeof DEAL_SOURCES)[number];
+export const DEAL_SOURCE_LABELS: Record<DealSource, string> = {
+  whatsapp: "WhatsApp",
+  facebook_ads: "Facebook Ads",
+  website: "Website",
+  referral: "Referral",
+  other: "Other",
+};
+
 export interface Deal extends CrmRecord {
   name: string;
+  /** Always sent by the API; optional for older fixtures and cached payloads. */
+  priority?: DealPriority;
+  /** Where the deal came from; "" when not recorded. */
+  lead_source?: DealSource | "";
   pipeline: NamedRef;
   stage: StageRef;
   company: NamedRef | null;
@@ -367,6 +383,8 @@ export interface DealInput {
   expected_close_date?: string | null;
   lost_reason?: string;
   description?: string;
+  priority?: DealPriority;
+  lead_source?: DealSource | "";
   price_book_id?: string | null;
   owner_id?: string | null;
   custom_data?: CustomData;
@@ -480,6 +498,7 @@ export interface DealCard {
   probability_overridden: boolean;
   expected_close_date: string | null;
   status: DealStatus;
+  priority?: DealPriority;
   next_activity_title: string;
   risk_level: RiskLevel;
   version: number;

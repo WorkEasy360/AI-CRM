@@ -13,6 +13,21 @@ class Deal(CrmRecord):
         WON = "won", "Won"
         LOST = "lost", "Lost"
 
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class LeadSource(models.TextChoices):
+        """Where the deal came from (the dashboard's Deals by Source). Blank means not recorded."""
+
+        NONE = "", "Not set"
+        WHATSAPP = "whatsapp", "WhatsApp"
+        FACEBOOK_ADS = "facebook_ads", "Facebook Ads"
+        WEBSITE = "website", "Website"
+        REFERRAL = "referral", "Referral"
+        OTHER = "other", "Other"
+
     name = models.CharField(max_length=160)
     pipeline = models.ForeignKey("pipelines.Pipeline", on_delete=models.PROTECT, related_name="deals")
     stage = models.ForeignKey("pipelines.PipelineStage", on_delete=models.PROTECT, related_name="deals")
@@ -44,6 +59,8 @@ class Deal(CrmRecord):
     last_activity_at = models.DateTimeField(null=True, blank=True)
     next_activity_at = models.DateTimeField(null=True, blank=True)
     description = models.TextField(blank=True)
+    priority = models.CharField(max_length=8, choices=Priority.choices, default=Priority.MEDIUM)
+    lead_source = models.CharField(max_length=16, choices=LeadSource.choices, blank=True, default="")
     search_vector = SearchVectorField(null=True, editable=False)
 
     class Meta:

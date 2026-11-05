@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -127,6 +128,8 @@ class DealSerializer(CrmReadSerializer):
             "next_activity_title",
             "risk_level",
             "description",
+            "priority",
+            "lead_source",
             "owner",
             "tags",
             "custom_data",
@@ -173,6 +176,7 @@ class DealCardSerializer(serializers.Serializer):
     probability_overridden = serializers.BooleanField(read_only=True)
     expected_close_date = serializers.DateField(read_only=True)
     status = serializers.CharField(read_only=True)
+    priority = serializers.CharField(read_only=True)
     next_activity_title = serializers.CharField(read_only=True, default="")
     risk_level = serializers.SerializerMethodField()
     version = serializers.IntegerField(read_only=True)
@@ -249,6 +253,8 @@ class DealWriteSerializer(serializers.Serializer):
     expected_close_date = serializers.DateField(required=False, allow_null=True)
     lost_reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
     description = serializers.CharField(max_length=5000, required=False, allow_blank=True)
+    priority = serializers.ChoiceField(choices=Deal.Priority.choices, required=False)
+    lead_source = serializers.ChoiceField(choices=Deal.LeadSource.choices, required=False, allow_blank=True)
     price_book_id = TenantPrimaryKeyRelatedField(
         source="price_book", model=PriceBook, queryset_fn=_active_price_books, required=False, allow_null=True
     )
@@ -402,6 +408,15 @@ class StageHistorySerializer(serializers.ModelSerializer):
         return int(obj.duration_in_previous_stage.total_seconds()) if obj.duration_in_previous_stage else None
 
 
+def _deals_with_product(qs, key: str, raw: Any):
+    """``?product=<id>``: deals with a line for that product (a subquery, so a deal is listed once)."""
+    try:
+        product_id = uuid.UUID(str(raw).strip())
+    except ValueError as exc:
+        raise serializers.ValidationError({key: "Expected a UUID."}) from exc
+    return qs.filter(pk__in=DealProduct.objects.filter(product_id=product_id).values("deal_id"))
+
+
 FILTERS = FilterSet(
     filters={
         "owner": Filter("owner", "owner_id"),
@@ -410,6 +425,8 @@ FILTERS = FilterSet(
         "company": Filter("uuid", "company_id"),
         "contact": Filter("uuid", "primary_contact_id"),
         "status": Filter("choice", "status", choices=tuple(Deal.Status.values)),
+        "priority": Filter("choice", "priority", choices=tuple(Deal.Priority.values)),
+        "lead_source": Filter("choice", "lead_source", choices=tuple(v for v in Deal.LeadSource.values if v)),
         "close_from": Filter("date_from", "expected_close_date"),
         "close_to": Filter("date_to", "expected_close_date"),
         "amount_min": Filter("decimal_min", "amount_base"),
@@ -431,6 +448,7 @@ FILTERS = FilterSet(
     default_sort="-created_at",
     search_fields=("name", "company__name", "primary_contact__first_name", "primary_contact__last_name"),
     custom_field_entity="deal",
+    extra={"product": _deals_with_product},
 )
 
 # Cards per column on the first load; a column pages through ``board/stage`` for the rest and the client
@@ -462,6 +480,8 @@ class DealViewSet(CrmViewSet):
     permission_map = crud_permission_map(
         "deals",
         board="deals.view",
+        pipeline_stats="deals.view",
+        analytics="deals.view",
         history="deals.view",
         move_stage="deals.change_stage",
         products="deals.view",
@@ -581,6 +601,7 @@ class DealViewSet(CrmViewSet):
                 "probability_overridden",
                 "expected_close_date",
                 "status",
+                "priority",
                 "stage_id",
                 "company_id",
                 "primary_contact_id",
@@ -654,6 +675,54 @@ class DealViewSet(CrmViewSet):
             actor=request.actor,
         )
         return annotated.prefetch_related(None)
+
+    def _pipeline_deals(self, request):
+        """The board's deal set (scope, pipeline access, list filters) for the headline figures."""
+        pipeline, _ = self._board_pipeline(request)
+        if pipeline is None:
+            return None, None
+        params = {k: v for k, v in request.query_params.items() if k != "pipeline"}
+        base = scope(request.actor, "deals.view", Deal.objects.filter(pipeline=pipeline, archived_at__isnull=True))
+        base, _ = self.filterset.apply(base, params, actor=request.actor)
+        return pipeline, base.order_by()
+
+    @action(detail=False, methods=["get"], url_path="pipeline-stats")
+    def pipeline_stats(self, request):
+        """Pipeline page KPIs: deals, open value, expected revenue, win rate and deal cycle vs the previous 30 days."""
+        from apps.authz import fields as field_rules
+        from apps.deals import analytics
+
+        pipeline, deals = self._pipeline_deals(request)
+        if pipeline is None:
+            return Response({"pipeline": None})
+        hidden = field_rules.hidden_fields(request.actor, "deal")
+        return Response(
+            {
+                "pipeline": {"id": str(pipeline.pk), "name": pipeline.name},
+                **analytics.stats(deals, hide_money="amount" in hidden),
+            }
+        )
+
+    @action(detail=False, methods=["get"])
+    def analytics(self, request):
+        """The Analytics tab: stage conversion, win/loss, lead sources and owner performance."""
+        from apps.authz import fields as field_rules
+        from apps.deals import analytics
+
+        pipeline, deals = self._pipeline_deals(request)
+        if pipeline is None:
+            return Response({"pipeline": None})
+        hidden = field_rules.hidden_fields(request.actor, "deal")
+        stages = list(pipeline.stages.filter(archived_at__isnull=True).order_by("position"))
+        data = analytics.analytics(deals, stages, hide_money="amount" in hidden)
+        # A breakdown by a field the actor may not see would reveal it.
+        if "lead_source" in hidden:
+            data["sources"] = []
+        if "owner" in hidden:
+            data["owners"] = []
+        if "lost_reason" in hidden:
+            data["win_loss"]["lost_reasons"] = []
+        return Response({"pipeline": {"id": str(pipeline.pk), "name": pipeline.name}, **data})
 
     @action(detail=False, methods=["get"])
     def board(self, request):

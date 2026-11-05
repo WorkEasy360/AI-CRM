@@ -17,11 +17,12 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { Input, Textarea } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { createCompany, createDeal, updateDeal } from "@/lib/api/crm";
-import type { CustomData, Deal, DealInput, NamedRef, Pipeline } from "@/lib/api/crm-types";
+import { DEAL_PRIORITIES, DEAL_SOURCES, DEAL_SOURCE_LABELS, type CustomData, type Deal, type DealInput, type DealPriority, type DealSource, type NamedRef, type Pipeline } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { can, canReassign } from "@/lib/crm/permissions";
 import { useSession } from "@/lib/session";
@@ -45,8 +46,13 @@ const dealSchema = z.object({
   exchange_rate: z.string().trim().refine((v) => v === "" || (RATE.test(v) && Number(v) > 0), "Enter a positive rate (up to 8 decimals)."),
   expected_close_date: z.string().trim().refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), "Use the YYYY-MM-DD format."),
   description: z.string().max(5000, "Description is too long."),
+  priority: z.enum(DEAL_PRIORITIES),
+  lead_source: z.string(),
   owner_id: z.string(),
 });
+
+const NO_SOURCE = "__none__";
+const PRIORITY_LABELS: Record<DealPriority, string> = { low: "Low", medium: "Medium", high: "High" };
 type DealFormValues = z.infer<typeof dealSchema>;
 
 /** Records to preselect on create (e.g. `/pipeline?new=1&company=<id>&contact=<id>` from a record page). */
@@ -75,6 +81,8 @@ function defaultsFor(
     exchange_rate: deal ? (deal.currency === baseCurrency ? "" : deal.exchange_rate) : "",
     expected_close_date: deal?.expected_close_date ?? "",
     description: deal?.description ?? "",
+    priority: deal?.priority ?? "medium",
+    lead_source: deal?.lead_source ?? "",
     owner_id: deal?.owner?.id ?? selfMembershipId,
   };
 }
@@ -100,6 +108,7 @@ export function DealFormDialog({
   deal,
   pipelines,
   defaultPipelineId,
+  defaultStageId,
   defaults,
   onSaved,
   onDeleted,
@@ -110,6 +119,8 @@ export function DealFormDialog({
   deal?: Deal | null;
   pipelines: Pipeline[];
   defaultPipelineId?: string;
+  /** Create straight into this stage (a column's "+ Add Deal"); the server checks it belongs to the pipeline. */
+  defaultStageId?: string;
   defaults?: DealFormDefaults;
   onSaved?: (deal: Deal) => void;
   onDeleted?: (id: string) => void;
@@ -175,12 +186,15 @@ export function DealFormDialog({
         currency: values.currency,
         expected_close_date: values.expected_close_date || null,
         description: values.description,
+        priority: values.priority,
+        lead_source: values.lead_source as DealSource | "",
         custom_data: customData,
       };
       if (values.currency !== baseCurrency) input.exchange_rate = values.exchange_rate || "1";
       if (allowReassign && values.owner_id) input.owner_id = values.owner_id;
       if (isNew) {
         if (values.pipeline_id) input.pipeline_id = values.pipeline_id;
+        if (defaultStageId && values.pipeline_id === defaultPipelineId) input.stage_id = defaultStageId;
         return createDeal(input);
       }
       return updateDeal(existing.id, existing.version, input);
@@ -368,6 +382,41 @@ export function DealFormDialog({
 
                 <FormField control={form.control} name="expected_close_date" label="Expected close" orientation="horizontal" serverError={fieldErrors.expected_close_date}>
                   {(field) => <Input {...field} type="date" className="w-48" value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                </FormField>
+
+                <FormField control={form.control} name="priority" label="Priority" orientation="horizontal" serverError={fieldErrors.priority}>
+                  {(field) => (
+                    <Select value={field.value} onValueChange={(v) => field.onChange(v as DealPriority)}>
+                      <SelectTrigger id={field.id} className="w-48" aria-label="Priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DEAL_PRIORITIES.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {PRIORITY_LABELS[p]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </FormField>
+
+                <FormField control={form.control} name="lead_source" label="Source" orientation="horizontal" serverError={fieldErrors.lead_source}>
+                  {(field) => (
+                    <Select value={field.value || NO_SOURCE} onValueChange={(v) => field.onChange(v === NO_SOURCE ? "" : v)}>
+                      <SelectTrigger id={field.id} className="w-48" aria-label="Source">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_SOURCE}>Not set</SelectItem>
+                        {DEAL_SOURCES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {DEAL_SOURCE_LABELS[s]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </FormField>
 
                 <FormField control={form.control} name="description" label="Description" orientation="horizontal" serverError={fieldErrors.description}>
