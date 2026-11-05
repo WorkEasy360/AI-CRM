@@ -245,12 +245,12 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
         <button
           type="button"
           onClick={() => handleOpenChange(true)}
-          className="hidden h-9 w-72 items-center gap-2 rounded-sm border border-border-strong bg-bg px-3 text-sm text-fg-subtle hover:bg-bg-subtle md:flex"
+          className="hidden h-9 w-80 items-center gap-2 rounded-md border border-border bg-bg px-3 text-sm text-fg-subtle hover:bg-bg-subtle md:flex"
           aria-label="Search"
           aria-keyshortcuts="Control+K Meta+K"
         >
           <Search className="size-4" aria-hidden />
-          <span className="flex-1 text-left">Search…</span>
+          <span className="flex-1 text-left">Search anything…</span>
           <kbd className="rounded-sm border border-border bg-surface px-1.5 font-mono text-[11px] text-fg-subtle">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
         </button>
       ) : null}

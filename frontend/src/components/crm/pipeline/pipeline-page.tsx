@@ -308,8 +308,8 @@ function PipelinePanel({
   canManage: boolean;
 }) {
   return (
-    // A second navy column beside the sidebar; the negative margins cancel <main>'s padding (xl only).
-    <aside className="kl-chrome -my-4 -ml-5 hidden w-48 shrink-0 overflow-y-auto bg-chrome px-2 py-4 xl:block" aria-label="Pipelines">
+    // A light column beside the sidebar; the negative margins cancel <main>'s padding (xl only).
+    <aside className="-my-4 -ml-5 hidden w-48 shrink-0 overflow-y-auto border-r border-border bg-surface px-2 py-4 xl:block" aria-label="Pipelines">
       <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Pipelines</p>
       <ul className="flex flex-col gap-0.5">
         {orderFamilies(pipelines).map((p) => {
@@ -322,7 +322,7 @@ function PipelinePanel({
                 aria-current={current ? "true" : undefined}
                 className={cn(
                   "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm font-medium transition-colors",
-                  current ? "bg-chrome-active text-fg shadow-[inset_3px_0_0_var(--kl-chrome-indicator)]" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+                  current ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
                 )}
               >
                 {p.parent_id ? <CornerDownRight className="size-3.5 shrink-0" aria-hidden /> : <KanbanSquare className="size-4 shrink-0" aria-hidden />}

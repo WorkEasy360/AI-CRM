@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Menu, Settings } from "lucide-react";
+import { AskFloatingButton, AssistantProvider } from "@/components/assistant/ask-keel";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { SideNav, Wordmark } from "@/components/shell/nav";
@@ -37,10 +38,11 @@ export function AppShell({ session, active, children }: { session: Session; acti
 
   return (
     <QuickCreateProvider>
+      <AssistantProvider>
       <div className="flex h-dvh overflow-hidden bg-bg">
         {/* Desktop navigation */}
-        <aside className="kl-chrome hidden w-56 shrink-0 flex-col bg-chrome-sidebar lg:flex">
-          <div className="flex h-12 items-center border-b border-border bg-chrome px-4">
+        <aside className="kl-chrome kl-sidebar hidden w-60 shrink-0 flex-col lg:flex">
+          <div className="flex h-14 items-center border-b border-border px-4">
             <Wordmark />
           </div>
           <SideNav session={session} />
@@ -48,10 +50,10 @@ export function AppShell({ session, active, children }: { session: Session; acti
 
         {/* Full navigation on small screens */}
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
-          <SheetContent side="left" className="kl-chrome border-r-0 bg-chrome-sidebar p-0">
+          <SheetContent side="left" className="kl-chrome kl-sidebar border-r-0 p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SheetDescription className="sr-only">Primary navigation</SheetDescription>
-            <div className="flex h-12 items-center border-b border-border bg-chrome px-4">
+            <div className="flex h-14 items-center border-b border-border px-4">
               <Wordmark />
             </div>
             <SideNav session={session} onNavigate={() => setNavOpen(false)} />
@@ -59,7 +61,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
         </Sheet>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="kl-chrome flex h-12 shrink-0 items-center gap-1.5 bg-chrome px-3">
+          <header className="flex h-14 shrink-0 items-center gap-1.5 border-b border-border bg-surface px-3 sm:px-4">
             <Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open navigation">
               <Menu />
             </Button>
@@ -101,7 +103,9 @@ export function AppShell({ session, active, children }: { session: Session; acti
         </div>
 
         <MobileNav active={active} onSearch={() => setSearchOpen(true)} />
+        <AskFloatingButton />
       </div>
+      </AssistantProvider>
     </QuickCreateProvider>
   );
 }

@@ -70,6 +70,8 @@ INSTALLED_APPS = [
     "apps.assistant",
     "apps.integrations",
     "apps.billing",
+    "apps.helpdesk",
+    "apps.automation",
 ]
 
 MIDDLEWARE = [
@@ -555,6 +557,8 @@ CELERY_BEAT_SCHEDULE = {
     "integrations.drain": {"task": "integrations.drain", "schedule": 30.0, "options": {"expires": 25}},
     # Re-derives usage counters (records) from the owning modules; see apps.billing.entitlements.
     "billing.reconcile_usage": {"task": "billing.reconcile_usage", "schedule": 6 * 3600.0},
+    # Delayed automation steps ("send after 3 days", "if no reply") and runs held while access was paused.
+    "automation.run_due": {"task": "automation.run_due", "schedule": 300.0, "options": {"expires": 280}},
 }
 # Emails are queued (notifications queue) unless a deployment opts out; tests run tasks eagerly.
 EMAIL_ASYNC = env.bool("EMAIL_ASYNC", default=True)

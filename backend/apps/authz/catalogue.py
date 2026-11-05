@@ -102,6 +102,11 @@ PERMISSIONS: frozenset[str] = frozenset(
         "integrations.view",
         "integrations.manage",
         "webhooks.manage",
+        # helpdesk: customer support tickets (scoped on the assignee)
+        *_crud("tickets"),
+        # automation: organization-wide rules (view the list; manage = create/edit/delete)
+        "automation.view",
+        "automation.manage",
         # privacy
         "privacy.export_all",
         "privacy.delete_data",

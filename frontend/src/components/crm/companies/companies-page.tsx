@@ -4,6 +4,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Archive, ArchiveRestore, Building2, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { ContactsTabs } from "@/components/crm/contacts-tabs";
 import { PageHeader } from "@/components/page-header";
 import { BulkBar } from "@/components/crm/bulk-bar";
 import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
@@ -213,6 +214,7 @@ export function CompaniesPage() {
   return (
     <div>
       <PageHeader title="Companies" />
+      <ContactsTabs active="companies" />
 
       <ListToolbar
         params={params}

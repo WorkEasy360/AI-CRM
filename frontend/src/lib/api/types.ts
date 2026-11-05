@@ -198,6 +198,10 @@ export interface DashboardSummary {
   /** Next three months by expected close date. */
   forecast: DashboardForecastMonth[] | null;
   top_companies: { id: string; name: string; count: number; amount: string }[] | null;
+  /** Deals created in the period. */
+  deals_created?: number | null;
+  /** The same-length period just before ``since``, for "vs previous" changes. */
+  previous?: { since: string; deals_created: number; deals_won: DashboardMoney; win_rate: number | null } | null;
 }
 
 export interface AuditEventFilters {

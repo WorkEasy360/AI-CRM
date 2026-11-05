@@ -1,9 +1,37 @@
 "use client";
 
+import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, BookOpen, Building2, CalendarCheck, Contact, CreditCard, DatabaseZap, KanbanSquare, LayoutDashboard, ListChecks, Lock, Mail, MessageCircle, Package, PlugZap, Settings, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Tag, Users } from "lucide-react";
+import {
+  Bell,
+  BookOpen,
+  Building2,
+  CalendarCheck,
+  ChevronDown,
+  Contact,
+  CreditCard,
+  DatabaseZap,
+  Headset,
+  KanbanSquare,
+  LayoutDashboard,
+  ListChecks,
+  Lock,
+  Mail,
+  MessageCircle,
+  Package,
+  PlugZap,
+  Settings,
+  Settings2,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Tag,
+  UserRound,
+  Users,
+  Workflow,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { ActiveContext, Session } from "@/lib/api/types";
 import { hasPermission } from "@/lib/session";
@@ -13,15 +41,26 @@ export interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** A collapsible group (Contacts: People and Companies). The first child shares the parent's route. */
+  children?: readonly NavItem[];
 }
 
-/** The everyday CRM. Six entries, nothing administrative. */
+/** The everyday CRM, in the WorkEasy360 order. Nothing administrative: that lives behind Settings. */
 export const PRIMARY_NAV: readonly NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-  { href: "/contacts", label: "Contacts", icon: Contact },
-  { href: "/companies", label: "Companies", icon: Building2 },
+  {
+    href: "/contacts",
+    label: "Contacts",
+    icon: Contact,
+    children: [
+      { href: "/contacts", label: "People (Contacts)", icon: UserRound },
+      { href: "/companies", label: "Companies", icon: Building2 },
+    ],
+  },
   { href: "/activities", label: "Activities", icon: CalendarCheck },
+  { href: "/assistant", label: "AI Assistant", icon: Sparkles },
+  { href: "/helpdesk", label: "Helpdesk", icon: Headset },
   { href: "/products", label: "Products", icon: Package },
 ];
 
@@ -46,6 +85,7 @@ export const SETTINGS_NAV: readonly SettingsNavItem[] = [
   },
   { href: "/settings/roles", label: "Roles & permissions", icon: ShieldCheck, visible: (a) => hasPermission(a, "roles.manage") },
   { href: "/settings/billing", label: "Plan & usage", icon: CreditCard, visible: (a) => anyOf(a, ["org.billing", "org.update"]) },
+  { href: "/settings/automation", label: "Automation", icon: Workflow, visible: (a) => hasPermission(a, "automation.view") },
   { href: "/settings/pipelines", label: "Pipelines", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
   { href: "/settings/price-books", label: "Price books", icon: BookOpen, visible: (a) => hasPermission(a, "pricebooks.manage") },
   { href: "/settings/custom-fields", label: "Custom fields", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
@@ -94,8 +134,10 @@ function isCurrent(pathname: string, href: string): boolean {
  */
 const PREFETCH_PRIMARY = true;
 
-/** The sidebar sits on the navy chrome: the current page is a lighter navy band with a green edge. */
-const ACTIVE_LINK = "bg-chrome-active text-fg shadow-[inset_3px_0_0_var(--kl-chrome-indicator)]";
+/** The sidebar sits on the green chrome: the current page is a solid green pill with white text. */
+const LINK = "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors";
+const ACTIVE_LINK = "bg-chrome-active text-fg shadow-sm";
+const IDLE_LINK = "text-fg-muted hover:bg-bg-subtle hover:text-fg";
 
 export function SideNav({ session, onNavigate }: { session: Session; onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -103,47 +145,44 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
   const name = session.user.display_name || session.user.email;
   return (
     <nav aria-label="Primary" className="flex flex-1 flex-col overflow-y-auto">
-      <ul className="flex flex-col gap-0.5 px-2 py-2">
-        {PRIMARY_NAV.map((item) => {
-          const current = isCurrent(pathname, item.href);
-          return (
+      <ul className="flex flex-col gap-1 px-2.5 py-3">
+        {PRIMARY_NAV.map((item) =>
+          item.children ? (
+            <NavGroup key={item.href} item={item} pathname={pathname} onNavigate={onNavigate} />
+          ) : (
             <li key={item.href}>
               <Link
                 href={item.href}
                 prefetch={PREFETCH_PRIMARY}
                 onClick={onNavigate}
-                aria-current={current ? "page" : undefined}
-                className={cn(
-                  "flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium transition-colors",
-                  current ? ACTIVE_LINK : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
-                )}
+                aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
+                className={cn(LINK, isCurrent(pathname, item.href) ? ACTIVE_LINK : IDLE_LINK)}
               >
                 <item.icon className="size-4 shrink-0" />
                 {item.label}
               </Link>
             </li>
-          );
-        })}
+          ),
+        )}
+        <li>
+          <Link
+            href="/settings"
+            prefetch={PREFETCH_PRIMARY}
+            onClick={onNavigate}
+            aria-current={isCurrent(pathname, "/settings") ? "page" : undefined}
+            className={cn(LINK, isCurrent(pathname, "/settings") ? ACTIVE_LINK : IDLE_LINK)}
+          >
+            <Settings className="size-4 shrink-0" />
+            Settings
+          </Link>
+        </li>
       </ul>
 
-      <div className="mt-auto border-t border-border px-2 py-2">
-        <Link
-          href="/settings"
-          prefetch={PREFETCH_PRIMARY}
-          onClick={onNavigate}
-          aria-current={isCurrent(pathname, "/settings") ? "page" : undefined}
-          className={cn(
-            "flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium transition-colors",
-            isCurrent(pathname, "/settings") ? ACTIVE_LINK : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
-          )}
-        >
-          <Settings className="size-4 shrink-0" />
-          Settings
-        </Link>
+      <div className="mt-auto border-t border-border px-2.5 py-2">
         <Link
           href="/settings/security"
           onClick={onNavigate}
-          className="mt-1 flex items-center gap-2.5 rounded-sm px-2 py-1.5 hover:bg-bg-subtle"
+          className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg-subtle"
           aria-label={`${name}: profile and security`}
         >
           <Avatar name={name} size="sm" />
@@ -157,6 +196,63 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
   );
 }
 
+/** Contacts and its sub-pages. The parent is the green pill whenever any page in the group is open. */
+function NavGroup({ item, pathname, onNavigate }: { item: NavItem; pathname: string; onNavigate?: () => void }) {
+  const children = item.children ?? [];
+  const inGroup = children.some((child) => isCurrent(pathname, child.href));
+  const [expanded, setExpanded] = React.useState(true);
+  const listId = React.useId();
+  return (
+    <li>
+      <div className={cn("flex items-center rounded-md transition-colors", inGroup ? ACTIVE_LINK : IDLE_LINK)}>
+        <Link
+          href={item.href}
+          prefetch={PREFETCH_PRIMARY}
+          onClick={onNavigate}
+          className={cn(LINK, "min-w-0 flex-1 pr-1 text-inherit hover:bg-transparent")}
+        >
+          <item.icon className="size-4 shrink-0" />
+          {item.label}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+          aria-controls={listId}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${item.label}`}
+          className="mr-1 flex size-7 items-center justify-center rounded-sm text-inherit hover:bg-white/10"
+        >
+          <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} aria-hidden />
+        </button>
+      </div>
+      {expanded ? (
+        <ul id={listId} className="mt-1 flex flex-col gap-0.5 pl-4">
+          {children.map((child) => {
+            const current = isCurrent(pathname, child.href);
+            return (
+              <li key={child.href}>
+                <Link
+                  href={child.href}
+                  prefetch={PREFETCH_PRIMARY}
+                  onClick={onNavigate}
+                  aria-current={current ? "page" : undefined}
+                  className={cn(
+                    "flex h-8 items-center gap-2 rounded-md px-3 text-[13px] transition-colors",
+                    current ? "bg-white/10 font-medium text-fg" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+                  )}
+                >
+                  <child.icon className="size-3.5 shrink-0" />
+                  {child.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
 /** The WorkEasy mark (public/brand/logo.png, transparent). Decorative: callers carry the accessible name. */
 export function BrandLogo({ size = 24, className }: { size?: number; className?: string }) {
   return <Image src="/brand/logo.png" alt="" aria-hidden width={size} height={size} unoptimized priority className={cn("shrink-0", className)} />;
@@ -164,9 +260,10 @@ export function BrandLogo({ size = 24, className }: { size?: number; className?:
 
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <Link href="/pipeline" className={cn("flex items-center gap-2 font-semibold text-fg", className)} aria-label="WorkEasy CRM home">
-      <BrandLogo size={26} />
-      <span className="text-sm tracking-tight">WorkEasy CRM</span>
+    <Link href="/dashboard" className={cn("flex items-center gap-2 font-semibold text-fg", className)} aria-label="WorkEasy360 CRM home">
+      <BrandLogo size={28} />
+      <span className="text-[15px] tracking-tight">WorkEasy360</span>
+      <span className="rounded-full bg-white px-1.5 py-px text-[10px] font-bold leading-4 text-chrome">CRM</span>
     </Link>
   );
 }

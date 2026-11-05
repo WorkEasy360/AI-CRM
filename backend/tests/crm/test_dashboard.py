@@ -134,3 +134,20 @@ def test_widgets_are_null_without_the_module_permission(org_a, crm):
 def test_dashboard_requires_session_and_organization(anon_client, make_user, client_for):
     assert anon_client.get("/api/v1/dashboard/").status_code in (401, 403)
     assert client_for(make_user()).get("/api/v1/dashboard/").status_code == 403
+
+
+def test_previous_period_feeds_the_tile_changes(org_a, owner_client, crm):
+    pipeline, company, won = _seed(crm, org_a)
+    earlier = crm.make_deal(
+        org_a, company=company, stage=stage_named(pipeline, "Won"), amount="2000.00", amount_base="2000.00"
+    )
+    forty_days_ago = timezone.now() - timedelta(days=40)
+    with tenant_context(org_a.org.pk):
+        Deal.objects.filter(pk=earlier.pk).update(created_at=forty_days_ago, closed_at=forty_days_ago)
+        Deal.objects.filter(pk=crm.make_deal(org_a).pk).update(created_at=timezone.now() - timedelta(days=100))
+    data = owner_client.get("/api/v1/dashboard/").json()
+    assert data["deals_created"] == 4  # the seeded deals; the 40- and 100-day-old ones are outside
+    assert data["previous"]["deals_created"] == 1
+    assert data["previous"]["deals_won"] == {"count": 1, "amount": "2000.00"}
+    assert data["previous"]["win_rate"] == 100 and data["win_rate"] == 50
+    assert data["deals_won"]["amount"] == "5000.00"

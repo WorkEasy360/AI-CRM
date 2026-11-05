@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { ContactsTabs } from "@/components/crm/contacts-tabs";
 import { PageHeader } from "@/components/page-header";
 import { BulkBar } from "@/components/crm/bulk-bar";
 import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
@@ -262,6 +263,7 @@ export function ContactsPage() {
   return (
     <div>
       <PageHeader title="Contacts" />
+      <ContactsTabs active="people" />
 
       <ViewBar entity="contact" kind={kind} params={params} setParams={setParams} />
 

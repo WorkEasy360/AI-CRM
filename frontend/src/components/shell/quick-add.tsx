@@ -45,7 +45,7 @@ export function QuickAdd({ active }: { active: ActiveContext }) {
       <DropdownMenuTrigger asChild>
         <Button size="sm" className="px-2 sm:px-2.5" aria-label="New record">
           <Plus />
-          <span className="hidden sm:inline">New</span>
+          <span className="hidden sm:inline">Create</span>
           <ChevronDown className="hidden opacity-70 sm:block" aria-hidden />
         </Button>
       </DropdownMenuTrigger>

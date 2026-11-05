@@ -60,6 +60,8 @@ from apps.messaging.webhooks import WhatsAppWebhookView
 from apps.notes.api import NoteViewSet, TimelineView
 from apps.notifications.api import NotificationPreferenceView, NotificationViewSet
 from apps.pipelines.api import PipelineStageViewSet, PipelineViewSet
+from apps.automation.api import AutomationRuleViewSet
+from apps.helpdesk.api import TicketViewSet
 from apps.products.api import PriceBookViewSet, ProductViewSet
 from apps.savedviews.api import SavedViewViewSet
 from apps.search.api import GlobalSearchView
@@ -98,6 +100,8 @@ router.register("exports/deals", DealExportViewSet, basename="export-deal")
 router.register("exports/all", FullExportViewSet, basename="export-all")
 # Sales operations
 router.register("activities", ActivityViewSet, basename="activity")
+router.register("tickets", TicketViewSet, basename="ticket")
+router.register("automation-rules", AutomationRuleViewSet, basename="automation-rule")
 router.register("notifications", NotificationViewSet, basename="notification")
 # Communication
 router.register("email/accounts", EmailAccountViewSet, basename="email-account")

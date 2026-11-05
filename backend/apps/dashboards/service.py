@@ -145,13 +145,19 @@ def compute_summary(
             "revenue_trend",
             "forecast",
             "top_companies",
+            "deals_created",
+            "previous",
         ):
             out[key] = None
         return out
 
-    # One pass over the actor's deals with conditional aggregates instead of three scans.
+    # One pass over the actor's deals with conditional aggregates instead of three scans. The previous
+    # period (same length, just before) feeds the "vs previous" changes on the dashboard tiles.
+    before = since - timedelta(days=days)
     won_q = Q(status=Deal.Status.WON, closed_at__gte=since)
     lost_q = Q(status=Deal.Status.LOST, closed_at__gte=since)
+    prev_won_q = Q(status=Deal.Status.WON, closed_at__gte=before, closed_at__lt=since)
+    prev_lost_q = Q(status=Deal.Status.LOST, closed_at__gte=before, closed_at__lt=since)
     open_q = Q(status=Deal.Status.OPEN)
     weighted = ExpressionWrapper(F("amount_base") * F("probability") / Value(100), output_field=MONEY)
     agg = deals.aggregate(
@@ -162,6 +168,11 @@ def compute_summary(
         open_count=Count("id", filter=open_q),
         open_amount=Sum("amount_base", filter=open_q),
         weighted_amount=Sum(weighted, filter=open_q),
+        created_count=Count("id", filter=Q(created_at__gte=since)),
+        prev_created_count=Count("id", filter=Q(created_at__gte=before, created_at__lt=since)),
+        prev_won_count=Count("id", filter=prev_won_q),
+        prev_won_amount=Sum("amount_base", filter=prev_won_q),
+        prev_lost_count=Count("id", filter=prev_lost_q),
     )
     out["deals_won"] = {"count": agg["won_count"], "amount": _money(agg["won_amount"])}
     out["deals_lost"] = {"count": agg["lost_count"], "amount": _money(agg["lost_amount"])}
@@ -170,6 +181,14 @@ def compute_summary(
     closed = agg["won_count"] + agg["lost_count"]
     out["win_rate"] = round(100 * agg["won_count"] / closed) if closed else None
     out["average_deal_size"] = _money(Decimal(agg["won_amount"] or 0) / agg["won_count"]) if agg["won_count"] else None
+    out["deals_created"] = agg["created_count"]
+    prev_closed = agg["prev_won_count"] + agg["prev_lost_count"]
+    out["previous"] = {
+        "since": before,
+        "deals_created": agg["prev_created_count"],
+        "deals_won": {"count": agg["prev_won_count"], "amount": _money(agg["prev_won_amount"])},
+        "win_rate": round(100 * agg["prev_won_count"] / prev_closed) if prev_closed else None,
+    }
 
     pipelines = Pipeline.objects.filter(archived_at__isnull=True)
     pipeline = pipelines.filter(pk=pipeline_id).first() if pipeline_id else None

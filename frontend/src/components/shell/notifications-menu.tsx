@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CalendarDays, CheckCheck, Clock, Handshake, ListTodo, Phone, PlugZap, Reply, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { Bell, CalendarDays, CheckCheck, Clock, Handshake, ListTodo, Phone, PlugZap, Reply, SlidersHorizontal, TriangleAlert, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
@@ -22,6 +22,7 @@ const KIND_ICONS: Record<NotificationKind, React.ComponentType<{ className?: str
   customer_replied: Reply,
   ai_high_risk: TriangleAlert,
   integration_alert: PlugZap,
+  automation: Workflow,
 };
 
 /** Where a notification leads. Null when it is not attached to a record. */

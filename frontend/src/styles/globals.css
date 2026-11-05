@@ -51,6 +51,7 @@
   --color-chrome-sidebar: var(--kl-chrome-sidebar);
   --color-chrome-active: var(--kl-chrome-active);
   --color-chrome-indicator: var(--kl-chrome-indicator);
+  --color-brand-bright: var(--kl-brand-bright);
 
   --radius-sm: var(--kl-radius-sm);
   --radius-md: var(--kl-radius-md);
@@ -103,8 +104,13 @@
   }
 }
 
+/* The sidebar rail: forest green, a shade deeper toward the bottom. */
+.kl-sidebar {
+  background: linear-gradient(180deg, var(--kl-chrome-sidebar) 0%, var(--kl-chrome-sidebar-end) 100%);
+}
+
 /*
- * The navy app chrome (top bar, rail, sub-panels). Re-pointing the neutral tokens here lets the same
+ * The green app chrome (sidebar and sub-panels). Re-pointing the neutral tokens here lets the same
  * ghost buttons, search field and nav links used everywhere else read light-on-navy without
  * per-component colour overrides. Menus and dialogs opened from the chrome portal to <body>, so
  * they keep the normal surface colours. Brand/danger are left alone: the green "New" button and
@@ -119,7 +125,7 @@
   --kl-surface: var(--kl-chrome);
   --kl-border: rgb(255 255 255 / 0.1);
   --kl-border-strong: rgb(255 255 255 / 0.18);
-  --kl-ring: var(--kl-brand);
+  --kl-ring: var(--kl-brand-bright);
   color: var(--kl-fg);
 }
 

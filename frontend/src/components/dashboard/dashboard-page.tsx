@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ListTodo, Phone, Scale, UserPlus } from "lucide-react";
+import { CalendarCheck, CalendarDays, Handshake, IndianRupee, ListTodo, Phone, Scale, Target, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,19 +15,19 @@ import { DASHBOARD_PERIODS, type DashboardPeriod } from "@/lib/api/types";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { useListParams } from "@/lib/crm/use-list-params";
-import { hasPermission, queryKeys, useSession } from "@/lib/session";
+import { queryKeys, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { DashboardTabs } from "./dashboard-tabs";
-import { Panel, PanelLink, StatTile, fmtCount, fmtPercent } from "./stat-tile";
+import { KpiTile, Panel, PanelLink, StatTile, fmtCount, fmtPercent, percentChange, pointChange } from "./stat-tile";
 
 import dynamic from "next/dynamic";
 
-// The numbers are the dashboard; the assistant and the charts are what you read next. Both load as
-// their own chunks so the stat tiles paint without waiting for the assistant's answer view or the
-// chart code, and a member who never opens the dashboard's lower half never downloads either.
-const AskKeelCard = dynamic(() => import("@/components/assistant/ask-keel").then((m) => m.AskKeelCard), { ssr: false });
+// The numbers are the dashboard; the charts are what you read next. They load as their own chunk so
+// the tiles paint without waiting for the chart code. The assistant is one click away on every page
+// (the floating "Ask WorkEasy AI" button and the AI Assistant page), so it is not repeated here.
 const DealsByOwner = dynamic(() => import("./charts").then((m) => m.DealsByOwner), { ssr: false });
-const DealsByStage = dynamic(() => import("./charts").then((m) => m.DealsByStage), { ssr: false });
+const SalesFunnel = dynamic(() => import("./charts").then((m) => m.SalesFunnel), { ssr: false });
+const StageDonut = dynamic(() => import("./charts").then((m) => m.StageDonut), { ssr: false });
 const ForecastBars = dynamic(() => import("./charts").then((m) => m.ForecastBars), { ssr: false });
 const RevenueTrend = dynamic(() => import("./charts").then((m) => m.RevenueTrend), { ssr: false });
 const TopCompanies = dynamic(() => import("./charts").then((m) => m.TopCompanies), { ssr: false });
@@ -61,11 +61,19 @@ export function DashboardPage() {
   const noActivities = data && !data.activities ? "Your role does not include Activities" : undefined;
   const lead = data?.lead_conversion;
   const won = data?.deals_won;
+  const previous = data?.previous ?? null;
+  const versus = `compared with the previous ${periodLabel.replace(/^Last /, "").toLowerCase()}`;
+  const newDealsChange = previous ? percentChange(data?.deals_created, previous.deals_created, versus) : null;
+  const revenueChange = previous && won ? percentChange(Number(won.amount), Number(previous.deals_won.amount), versus) : null;
+  const winRateChange = previous ? pointChange(data?.win_rate, previous.win_rate, versus) : null;
+  const totalDeals = data?.deals_by_stage ? data.deals_by_stage.stages.reduce((sum, s) => sum + s.count, 0) : null;
+  const openActivities = data?.activities ? data.activities.tasks_due + data.activities.meetings_upcoming + data.activities.calls_upcoming : null;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
-        title="Dashboard"
+        title={greeting(session?.user.display_name || session?.user.email)}
+        description="Here's your CRM summary for today."
         actions={
           <>
             <DashboardTabs active="overview" />
@@ -104,6 +112,56 @@ export function DashboardPage() {
         <EmptyState title="Could not load the dashboard" description={errorMessage(summary.error)} action={<Button variant="secondary" onClick={() => summary.refetch()}>Retry</Button>} />
       ) : (
         <div className={cn("grid gap-3", summary.isFetching && "opacity-80")} aria-busy={summary.isFetching || undefined}>
+          <section aria-label="Key figures" className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
+            <KpiTile
+              tone="green"
+              icon={<Handshake />}
+              label="Total Deals"
+              value={data ? (totalDeals === null ? "—" : totalDeals.toLocaleString()) : undefined}
+              sub={data?.deals_by_stage?.pipeline?.name ?? "Across the pipeline"}
+              change={newDealsChange ? { ...newDealsChange, description: `New deals: ${newDealsChange.description}` } : null}
+              changeNote="new deals vs prev."
+              href={`/pipeline${pipeline ? `?pipeline=${encodeURIComponent(pipeline)}` : ""}`}
+            />
+            <KpiTile
+              tone="orange"
+              icon={currency === "INR" ? <IndianRupee /> : <Target />}
+              label="Revenue"
+              value={data ? (won ? formatMoney(won.amount, currency) : "—") : undefined}
+              sub={`Won · ${periodLabel.toLowerCase()}`}
+              change={revenueChange}
+              href={`/pipeline?view=list&status=won${pipelineQs}`}
+            />
+            <KpiTile
+              tone="amber"
+              icon={<Target />}
+              label="Win Rate"
+              value={data ? fmtPercent(data.win_rate) : undefined}
+              sub={data?.deals_lost && won ? `${won.count.toLocaleString()} won · ${data.deals_lost.count.toLocaleString()} lost` : periodLabel}
+              change={winRateChange}
+            />
+            <KpiTile
+              tone="blue"
+              icon={<CalendarCheck />}
+              label="Open Activities"
+              value={data ? (openActivities === null ? "—" : openActivities.toLocaleString()) : undefined}
+              sub={noActivities ?? (data?.activities ? (data.activities.tasks_overdue > 0 ? `${data.activities.tasks_overdue.toLocaleString()} overdue` : "Nothing overdue") : undefined)}
+              href="/activities"
+            />
+          </section>
+
+          <section aria-label="Pipeline charts" className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <Panel title="Sales Pipeline" subtitle={data?.deals_by_stage?.pipeline?.name ?? "Deals that reached each stage"}>
+              {!data ? <Skeleton className="h-40 w-full" /> : <SalesFunnel data={data} currency={currency} />}
+            </Panel>
+            <Panel title="Deal Stage" subtitle="Every deal by its current stage">
+              {!data ? <Skeleton className="h-40 w-full" /> : <StageDonut data={data} currency={currency} />}
+            </Panel>
+            <Panel title="Revenue Trend" subtitle="Won deals by month">
+              {!data ? <Skeleton className="h-40 w-full" /> : <RevenueTrend data={data} currency={currency} />}
+            </Panel>
+          </section>
+
           <section aria-label="Sales summary" className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             <StatTile
               label="Pipeline value"
@@ -184,18 +242,7 @@ export function DashboardPage() {
             />
           </section>
 
-          {/* Between the numbers and the charts: close enough to the figures to be the obvious next
-              question, small enough that the dashboard is still a dashboard. A role without the
-              assistant gets no card (and no request that can only answer 403). */}
-          {hasPermission(session?.active, "ai.assistant.use") ? <AskKeelCard /> : null}
-
-          <section aria-label="Charts" className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <Panel title="Deals by stage" subtitle={data?.deals_by_stage?.pipeline?.name ?? "Open deals right now"}>
-              {!data ? <Skeleton className="h-40 w-full" /> : <DealsByStage data={data} currency={currency} />}
-            </Panel>
-            <Panel title="Revenue trend" subtitle="Won deals by month">
-              {!data ? <Skeleton className="h-40 w-full" /> : <RevenueTrend data={data} currency={currency} />}
-            </Panel>
+          <section aria-label="Charts" className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Panel title="Forecast" subtitle="Next 3 months by expected close" action={<PanelLink href="/dashboard/forecast">Details</PanelLink>}>
               {!data ? <Skeleton className="h-40 w-full" /> : <ForecastBars data={data} currency={currency} />}
             </Panel>
@@ -211,4 +258,12 @@ export function DashboardPage() {
       )}
     </div>
   );
+}
+
+/** "Good afternoon, Manoj" by the viewer's local clock; the first word of the name, or the email's local part. */
+export function greeting(name: string | undefined, now: Date = new Date()): string {
+  const hour = now.getHours();
+  const part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const first = (name ?? "").split("@")[0]!.trim().split(/\s+/)[0];
+  return first ? `${part}, ${first}` : part;
 }

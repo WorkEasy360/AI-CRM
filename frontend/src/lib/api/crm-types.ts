@@ -877,6 +877,7 @@ export const NOTIFICATION_KINDS = [
   "customer_replied",
   "ai_high_risk",
   "integration_alert",
+  "automation",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export const NOTIFICATION_LABELS: Record<NotificationKind, string> = {
@@ -888,6 +889,7 @@ export const NOTIFICATION_LABELS: Record<NotificationKind, string> = {
   customer_replied: "Customer replied",
   ai_high_risk: "Deal at high risk",
   integration_alert: "Integration needs attention",
+  automation: "Automation",
 };
 
 export interface Notification {

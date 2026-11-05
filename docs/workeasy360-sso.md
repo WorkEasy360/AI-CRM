@@ -270,6 +270,8 @@ Nothing about that choice lives in Keel; what it means here:
   | A | `rag.drain_pending` (beat, 120 s) | sweeper, as above |
   | A | `importexport.run_import` | changes customer data; a PENDING job is marked "Paused: ... continues once access is renewed" |
   | A | `importexport.resume_stalled_imports` (beat, 300 s) | sweeper, as above; also runs those paused jobs after renewal, claiming each by clearing its marker in one UPDATE |
+  | A | `automation.run_rules` | automation actions (tasks, notifications, WhatsApp templates); the run is recorded PENDING and not acted on |
+  | A | `automation.run_due` (beat, 300 s) | sweeper: acts on PENDING runs that are due (delayed steps, runs held while access had ended); denied organizations left out |
   | B | `importexport.run_export` | finishing an export the customer already asked for; allowed while read-only too |
   | B | `importexport.purge_expired`, `importexport.fail_stale_jobs` (beat) | expiry and quota cleanup; `fail_stale_jobs` leaves a denied organization's imports alone (they are waiting, not lost) |
   | B | `messaging.reconcile_stuck_sends` (beat) | settles sends already in flight; never a second message |

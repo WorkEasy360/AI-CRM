@@ -556,4 +556,37 @@ def _register_m2_factories() -> None:
     CROSS_TENANT_FACTORIES[SavedView] = lambda bundle: make_saved_view(bundle)
 
 
+def make_ticket(bundle: OrgBundle, *, owner: Membership | None = None, **extra):
+    from apps.helpdesk.models import Ticket
+
+    with _ctx(bundle, "test.make_ticket"):
+        extra.setdefault("subject", f"Ticket {uuid.uuid4().hex[:6]}")
+        extra.setdefault("number", (Ticket.objects.count() or 0) + 1001)
+        return Ticket.objects.create(owner=owner or bundle.owner_membership, **extra)
+
+
+def _register_helpdesk_factories() -> None:
+    from apps.helpdesk.models import Ticket
+
+    CROSS_TENANT_FACTORIES[Ticket] = lambda bundle: make_ticket(bundle)
+
+
+def make_automation_rule(bundle: OrgBundle, **extra):
+    from apps.automation.models import AutomationRule
+
+    with _ctx(bundle, "test.make_automation_rule"):
+        extra.setdefault("name", f"Rule {uuid.uuid4().hex[:6]}")
+        extra.setdefault("trigger", AutomationRule.Trigger.CONTACT_CREATED)
+        extra.setdefault("action", AutomationRule.Action.NOTIFY_OWNER)
+        return AutomationRule.objects.create(**extra)
+
+
+def _register_automation_factories() -> None:
+    from apps.automation.models import AutomationRule
+
+    CROSS_TENANT_FACTORIES[AutomationRule] = lambda bundle: make_automation_rule(bundle)
+
+
 _register_m2_factories()
+_register_helpdesk_factories()
+_register_automation_factories()

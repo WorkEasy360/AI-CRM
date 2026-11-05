@@ -153,11 +153,25 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("link", { name: /Deals lost/ })).toHaveAttribute("href", "/pipeline?view=list&status=lost");
   });
 
+  it("compares the headline tiles with the previous period", async () => {
+    vi.mocked(getDashboard).mockResolvedValue({
+      ...summary,
+      deals_created: 6,
+      previous: { since: "2026-08-01T00:00:00Z", deals_created: 4, deals_won: { count: 2, amount: "10000.00" }, win_rate: 80 },
+    });
+    renderDashboard();
+
+    expect(await screen.findByText("New deals: Up 50% compared with the previous 30 days")).toBeInTheDocument();
+    expect(screen.getByText("Up 50% compared with the previous 30 days")).toBeInTheDocument(); // revenue 15,000 vs 10,000
+    expect(screen.getByText("Down 5 points compared with the previous 30 days")).toBeInTheDocument(); // win rate 75 vs 80
+  });
+
   it("renders the activity tiles with overdue and upcoming work", async () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     renderDashboard();
 
-    await screen.findByText("2 overdue"); // the link exists while loading too; wait for the numbers
+    await screen.findAllByText("2 overdue"); // the link exists while loading too; wait for the numbers
+    expect(screen.getByRole("link", { name: /Open Activities/ })).toHaveTextContent("12"); // 4 tasks + 3 meetings + 5 calls
     const tasks = screen.getByRole("link", { name: /Tasks due/ });
     expect(tasks).toHaveAttribute("href", "/activities?tab=tasks&due=today");
     expect(tasks).toHaveTextContent("4");
@@ -175,7 +189,9 @@ describe("DashboardPage", () => {
     expect(await screen.findByRole("img", { name: /Revenue by month/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Forecast by month/ })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Forecast by expected close month" })).toBeInTheDocument();
-    expect(screen.getByText("Sales pipeline")).toBeInTheDocument();
+    expect(screen.getAllByText("Sales pipeline").length).toBeGreaterThan(0);
+    expect(screen.getByRole("table", { name: "Sales pipeline funnel" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Deals by stage/ })).toBeInTheDocument();
 
     const ada = screen.getByRole("link", { name: /Ada Lovelace/ });
     expect(ada).toHaveAttribute("href", "/pipeline?view=list&owner=m1");
@@ -191,8 +207,8 @@ describe("DashboardPage", () => {
     vi.mocked(getDashboard).mockResolvedValue(noAccess);
     renderDashboard();
 
-    expect((await screen.findAllByText("Your role does not include access to this data.")).length).toBe(5);
-    expect(screen.getAllByText("Your role does not include Activities")).toHaveLength(3);
+    expect((await screen.findAllByText("Your role does not include access to this data.")).length).toBe(6);
+    expect(screen.getAllByText("Your role does not include Activities")).toHaveLength(4);
     expect(screen.queryByText("$42,000.00")).not.toBeInTheDocument();
     expect(screen.queryByText("overdue")).not.toBeInTheDocument();
   });

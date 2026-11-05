@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUp, Bot, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { askKeel, deleteAssistantConversation, getAssistantHome } from "@/lib/api/crm";
 import type { AssistantAnswer } from "@/lib/api/crm-types";
 import { errorMessage } from "@/lib/api/problem";
 import { crmKeys } from "@/lib/crm/keys";
-import { useSession } from "@/lib/session";
+import { hasPermission, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { AnswerView } from "./answer-view";
 
@@ -25,15 +25,38 @@ import { AnswerView } from "./answer-view";
 
 type Turn = { question: string; answer: AssistantAnswer | null; error?: string };
 
-export function AskKeelCard() {
+interface AssistantContextValue {
+  /** Ask a question; opens the answer panel. */
+  submit: (question: string) => void;
+  /** Open the answer panel without asking anything. */
+  openPanel: () => void;
+  busy: boolean;
+  suggestions: string[];
+  knowledgeOnly: boolean;
+}
+
+const AssistantContext = React.createContext<AssistantContextValue | null>(null);
+
+/** The shared assistant state, so every "Ask" entry point (card, page, floating button) feeds one thread. */
+export function useAssistant(): AssistantContextValue | null {
+  return React.useContext(AssistantContext);
+}
+
+/**
+ * Holds the conversation and renders the answer panel once for the whole app. The API checks
+ * `ai.assistant.use` on every request; the frontend only uses it to decide what to show.
+ */
+export function AssistantProvider({ children, force = false }: { children: React.ReactNode; force?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const [turns, setTurns] = React.useState<Turn[]>([]);
   const [conversationId, setConversationId] = React.useState<string | null>(null);
   const { data: session } = useSession();
   const currency = session?.active?.organization.base_currency ?? "USD";
+  // `force` is for a caller that has already decided to show the assistant (the standalone card).
+  const allowed = force || hasPermission(session?.active, "ai.assistant.use");
   const queryClient = useQueryClient();
 
-  const home = useQuery({ queryKey: crmKeys.assistantHome, queryFn: getAssistantHome, staleTime: 5 * 60_000 });
+  const home = useQuery({ queryKey: crmKeys.assistantHome, queryFn: getAssistantHome, staleTime: 5 * 60_000, enabled: allowed });
 
   const mutation = useMutation({
     mutationFn: (question: string) => askKeel({ question, conversation_id: conversationId }),
@@ -47,15 +70,16 @@ export function AskKeelCard() {
     },
   });
 
+  const { mutate, isPending } = mutation;
   const submit = React.useCallback(
     (question: string) => {
       const trimmed = question.trim();
-      if (!trimmed || mutation.isPending) return;
+      if (!trimmed || isPending) return;
       setTurns((previous) => [...previous, { question: trimmed, answer: null }]);
       setOpen(true);
-      mutation.mutate(trimmed);
+      mutate(trimmed);
     },
-    [mutation],
+    [mutate, isPending],
   );
 
   const reset = async () => {
@@ -72,77 +96,122 @@ export function AskKeelCard() {
     queryClient.invalidateQueries({ queryKey: crmKeys.assistantHome });
   };
 
-  const suggestions = home.data?.suggestions ?? [];
+  const suggestions = React.useMemo(() => home.data?.suggestions ?? [], [home.data]);
   const knowledgeOnly = home.data ? !home.data.generative_available : false;
+  const openPanel = React.useCallback(() => setOpen(true), []);
+  const value = React.useMemo(
+    () => ({ submit, openPanel, busy: isPending, suggestions, knowledgeOnly }),
+    [submit, openPanel, isPending, suggestions, knowledgeOnly],
+  );
 
   return (
-    <>
-      <section
-        aria-label="Ask WorkEasy"
-        className="rounded-md border border-border bg-surface px-4 py-3.5"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-fg">
-            <Sparkles className="size-4 text-primary" aria-hidden />
-            Ask WorkEasy
-          </h2>
-          {knowledgeOnly ? <ModeBadge /> : null}
-        </div>
-        <p className="mt-0.5 text-xs text-fg-muted">
-          Ask anything about your customers, deals or sales activity.
-        </p>
+    <AssistantContext.Provider value={value}>
+      {children}
+      {allowed ? (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent
+            side="right"
+            className="w-[min(34rem,calc(100%-2rem))] gap-0 p-0"
+            aria-describedby={undefined}
+            onOpenAutoFocus={(event) => event.preventDefault()}
+          >
+            <header className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
+              <SheetTitle className="flex items-center gap-1.5 text-sm font-semibold">
+                <Sparkles className="size-4 text-primary" aria-hidden />
+                Ask WorkEasy
+              </SheetTitle>
+              {knowledgeOnly ? <ModeBadge /> : null}
+              <div className="ml-auto">
+                {turns.length > 0 ? (
+                  <Button variant="ghost" size="sm" onClick={reset} className="h-7 gap-1.5 text-xs">
+                    <Trash2 className="size-3.5" aria-hidden />
+                    New question
+                  </Button>
+                ) : null}
+              </div>
+            </header>
 
-        <AskForm onSubmit={submit} busy={mutation.isPending} className="mt-3" />
-
-        {suggestions.length > 0 ? (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {suggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => submit(suggestion)}
-                className="rounded-full border border-border px-2.5 py-1 text-xs text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="right"
-          className="w-[min(34rem,calc(100%-2rem))] gap-0 p-0"
-          aria-describedby={undefined}
-          onOpenAutoFocus={(event) => event.preventDefault()}
-        >
-          <header className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
-            <SheetTitle className="flex items-center gap-1.5 text-sm font-semibold">
-              <Sparkles className="size-4 text-primary" aria-hidden />
-              Ask WorkEasy
-            </SheetTitle>
-            {knowledgeOnly ? <ModeBadge /> : null}
-            <div className="ml-auto">
-              {turns.length > 0 ? (
-                <Button variant="ghost" size="sm" onClick={reset} className="h-7 gap-1.5 text-xs">
-                  <Trash2 className="size-3.5" aria-hidden />
-                  New question
-                </Button>
-              ) : null}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {turns.length === 0 ? (
+                <p className="text-sm text-fg-muted">Ask anything about your customers, deals or sales activity.</p>
+              ) : (
+                <Conversation turns={turns} currency={currency} busy={isPending} onAsk={submit} />
+              )}
             </div>
-          </header>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4">
-            <Conversation turns={turns} currency={currency} busy={mutation.isPending} onAsk={submit} />
-          </div>
+            <footer className="border-t border-border px-4 py-3">
+              <AskForm onSubmit={submit} busy={isPending} placeholder={turns.length ? "Ask another question…" : "Ask WorkEasy…"} />
+            </footer>
+          </SheetContent>
+        </Sheet>
+      ) : null}
+    </AssistantContext.Provider>
+  );
+}
 
-          <footer className="border-t border-border px-4 py-3">
-            <AskForm onSubmit={submit} busy={mutation.isPending} placeholder="Ask another question…" />
-          </footer>
-        </SheetContent>
-      </Sheet>
-    </>
+/** The dashboard card. Works inside the app-wide provider, or standalone (it then brings its own). */
+export function AskKeelCard() {
+  const assistant = useAssistant();
+  if (!assistant) {
+    return (
+      <AssistantProvider force>
+        <AskKeelCard />
+      </AssistantProvider>
+    );
+  }
+  return <AskCardBody assistant={assistant} />;
+}
+
+function AskCardBody({ assistant }: { assistant: AssistantContextValue }) {
+  const { submit, busy, suggestions, knowledgeOnly } = assistant;
+  return (
+    <section aria-label="Ask WorkEasy" className="rounded-md border border-border bg-surface px-4 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-fg">
+          <Sparkles className="size-4 text-primary" aria-hidden />
+          Ask WorkEasy
+        </h2>
+        {knowledgeOnly ? <ModeBadge /> : null}
+      </div>
+      <p className="mt-0.5 text-xs text-fg-muted">Ask anything about your customers, deals or sales activity.</p>
+
+      <AskForm onSubmit={submit} busy={busy} className="mt-3" />
+
+      {suggestions.length > 0 ? (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => submit(suggestion)}
+              className="rounded-full border border-border px-2.5 py-1 text-xs text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/** The floating "Ask WorkEasy AI" pill in the bottom-right corner of every page. */
+export function AskFloatingButton() {
+  const assistant = useAssistant();
+  const { data: session } = useSession();
+  if (!assistant || !hasPermission(session?.active, "ai.assistant.use")) return null;
+  return (
+    <button
+      type="button"
+      onClick={assistant.openPanel}
+      className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 inline-flex items-center gap-2 rounded-full bg-chrome py-1.5 pr-3.5 pl-1.5 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:bottom-5"
+    >
+      <span className="flex size-7 items-center justify-center rounded-full bg-white/15" aria-hidden>
+        <Bot className="size-4" />
+      </span>
+      Ask WorkEasy AI
+      <Sparkles className="size-3.5 text-[#facc15]" aria-hidden />
+    </button>
   );
 }
 
@@ -158,7 +227,7 @@ function ModeBadge() {
   );
 }
 
-function AskForm({
+export function AskForm({
   onSubmit,
   busy,
   className,
