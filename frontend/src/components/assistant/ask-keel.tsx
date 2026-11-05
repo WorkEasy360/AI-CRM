@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Bot, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUp, Bot, Loader2, Mic, MicOff, Search, Sparkles, Trash2 } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { askKeel, deleteAssistantConversation, getAssistantHome } from "@/lib/api/crm";
@@ -23,7 +24,7 @@ import { AnswerView } from "./answer-view";
  * mode" badge, never as a provider name or an error code.
  */
 
-type Turn = { question: string; answer: AssistantAnswer | null; error?: string };
+export type Turn = { question: string; answer: AssistantAnswer | null; error?: string };
 
 interface AssistantContextValue {
   /** Ask a question; opens the answer panel. */
@@ -33,6 +34,12 @@ interface AssistantContextValue {
   busy: boolean;
   suggestions: string[];
   knowledgeOnly: boolean;
+  /** The current thread, for the AI Assistant page that shows it inline. */
+  turns: Turn[];
+  reset: () => Promise<void>;
+  /** The AI Assistant page shows the thread itself; while it is mounted, asking does not open the panel. */
+  setInline: (inline: boolean) => void;
+  recent: { id: string; title: string; last_message_at: string | null }[];
 }
 
 const AssistantContext = React.createContext<AssistantContextValue | null>(null);
@@ -50,6 +57,10 @@ export function AssistantProvider({ children, force = false }: { children: React
   const [open, setOpen] = React.useState(false);
   const [turns, setTurns] = React.useState<Turn[]>([]);
   const [conversationId, setConversationId] = React.useState<string | null>(null);
+  const inlineRef = React.useRef(false);
+  const setInline = React.useCallback((inline: boolean) => {
+    inlineRef.current = inline;
+  }, []);
   const { data: session } = useSession();
   const currency = session?.active?.organization.base_currency ?? "USD";
   // `force` is for a caller that has already decided to show the assistant (the standalone card).
@@ -76,13 +87,13 @@ export function AssistantProvider({ children, force = false }: { children: React
       const trimmed = question.trim();
       if (!trimmed || isPending) return;
       setTurns((previous) => [...previous, { question: trimmed, answer: null }]);
-      setOpen(true);
+      if (!inlineRef.current) setOpen(true);
       mutate(trimmed);
     },
     [mutate, isPending],
   );
 
-  const reset = async () => {
+  const reset = React.useCallback(async () => {
     if (conversationId) {
       try {
         await deleteAssistantConversation(conversationId);
@@ -94,14 +105,15 @@ export function AssistantProvider({ children, force = false }: { children: React
     setTurns([]);
     setConversationId(null);
     queryClient.invalidateQueries({ queryKey: crmKeys.assistantHome });
-  };
+  }, [conversationId, queryClient]);
 
   const suggestions = React.useMemo(() => home.data?.suggestions ?? [], [home.data]);
   const knowledgeOnly = home.data ? !home.data.generative_available : false;
   const openPanel = React.useCallback(() => setOpen(true), []);
+  const recent = React.useMemo(() => home.data?.recent ?? [], [home.data]);
   const value = React.useMemo(
-    () => ({ submit, openPanel, busy: isPending, suggestions, knowledgeOnly }),
-    [submit, openPanel, isPending, suggestions, knowledgeOnly],
+    () => ({ submit, openPanel, busy: isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent }),
+    [submit, openPanel, isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent],
   );
 
   return (
@@ -135,7 +147,7 @@ export function AssistantProvider({ children, force = false }: { children: React
               {turns.length === 0 ? (
                 <p className="text-sm text-fg-muted">Ask anything about your customers, deals or sales activity.</p>
               ) : (
-                <Conversation turns={turns} currency={currency} busy={isPending} onAsk={submit} />
+                <Conversation turns={turns} currency={currency} busy={isPending} onAsk={submit} userName={session?.user.display_name || session?.user.email} />
               )}
             </div>
 
@@ -227,18 +239,68 @@ function ModeBadge() {
   );
 }
 
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+/** The browser's speech recognition, where it has one (Chrome, Edge, Safari); null elsewhere. */
+function speechRecognition(): (new () => SpeechRecognitionLike) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
 export function AskForm({
   onSubmit,
   busy,
   className,
   placeholder = "Ask WorkEasy…",
+  voice = false,
+  large = false,
 }: {
   onSubmit: (question: string) => void;
   busy: boolean;
   className?: string;
   placeholder?: string;
+  /** Offer a microphone that types what is said (only where the browser supports it; audio stays in the browser). */
+  voice?: boolean;
+  large?: boolean;
 }) {
   const [value, setValue] = React.useState("");
+  const [listening, setListening] = React.useState(false);
+  const recognition = React.useRef<SpeechRecognitionLike | null>(null);
+  const [canListen, setCanListen] = React.useState(false);
+  React.useEffect(() => setCanListen(voice && speechRecognition() !== null), [voice]);
+  React.useEffect(() => () => recognition.current?.stop(), []);
+  const toggleVoice = () => {
+    if (listening) {
+      recognition.current?.stop();
+      return;
+    }
+    const Recognition = speechRecognition();
+    if (!Recognition) return;
+    const r = new Recognition();
+    r.lang = typeof navigator !== "undefined" ? navigator.language : "en-IN";
+    r.interimResults = false;
+    r.onresult = (event) => {
+      const text = Array.from(event.results)
+        .map((res) => res[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      if (text) setValue((v) => (v ? `${v} ${text}` : text).slice(0, 1000));
+    };
+    r.onend = () => setListening(false);
+    r.onerror = () => setListening(false);
+    recognition.current = r;
+    setListening(true);
+    r.start();
+  };
   return (
     <form
       className={cn("flex items-center gap-2", className)}
@@ -255,25 +317,35 @@ export function AskForm({
         placeholder={placeholder}
         aria-label="Ask WorkEasy a question"
         maxLength={1000}
-        className="h-9 min-w-0 flex-1 rounded-sm border border-border bg-surface px-3 text-sm text-fg placeholder:text-fg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "min-w-0 flex-1 rounded-sm border border-border bg-surface px-3 text-sm text-fg placeholder:text-fg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          large ? "h-11 rounded-lg" : "h-9",
+        )}
       />
-      <Button type="submit" size="sm" className="h-9 w-9 shrink-0 p-0" disabled={busy || !value.trim()} aria-label="Ask">
+      {canListen ? (
+        <Button type="button" variant="ghost" size="icon" onClick={toggleVoice} aria-pressed={listening} aria-label={listening ? "Stop voice input" : "Speak your question"} className={cn(large ? "size-11" : "size-9", listening && "text-danger")}>
+          {listening ? <MicOff /> : <Mic />}
+        </Button>
+      ) : null}
+      <Button type="submit" size="sm" className={cn("shrink-0 p-0", large ? "h-11 w-11 rounded-lg" : "h-9 w-9")} disabled={busy || !value.trim()} aria-label="Ask">
         {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <ArrowUp className="size-4" aria-hidden />}
       </Button>
     </form>
   );
 }
 
-function Conversation({
+export function Conversation({
   turns,
   currency,
   busy,
   onAsk,
+  userName,
 }: {
   turns: Turn[];
   currency: string;
   busy: boolean;
   onAsk: (question: string) => void;
+  userName?: string;
 }) {
   const endRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -286,20 +358,30 @@ function Conversation({
   return (
     <div className="grid gap-5">
       {turns.map((turn, index) => (
-        <article key={index} className="grid gap-2.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-fg-subtle">You</p>
-          <p className="text-sm text-fg">{turn.question}</p>
-          <p className="mt-1 text-xs font-medium uppercase tracking-wide text-fg-subtle">WorkEasy</p>
-          {turn.answer ? (
-            <AnswerView answer={turn.answer} currency={currency} />
-          ) : turn.error ? (
-            <p className="text-sm text-danger">{turn.error}</p>
-          ) : (
-            <p className="flex items-center gap-2 text-sm text-fg-muted">
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-              Looking through your CRM…
-            </p>
-          )}
+        <article key={index} className="grid gap-3">
+          <div className="flex items-start justify-end gap-2">
+            <p className="sr-only">You</p>
+            <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-[#dcfce7] px-4 py-2.5 text-sm text-fg">{turn.question}</p>
+            <Avatar name={userName || "You"} size="sm" className="[&>span]:bg-chrome [&>span]:text-white" />
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-chrome text-white" aria-hidden>
+              <Bot className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="sr-only">WorkEasy</p>
+              {turn.answer ? (
+                <AnswerView answer={turn.answer} currency={currency} />
+              ) : turn.error ? (
+                <p className="text-sm text-danger">{turn.error}</p>
+              ) : (
+                <p className="flex items-center gap-2 text-sm text-fg-muted">
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Looking through your CRM…
+                </p>
+              )}
+            </div>
+          </div>
         </article>
       ))}
 
