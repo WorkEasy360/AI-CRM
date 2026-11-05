@@ -19,7 +19,13 @@ from apps.core.concurrency import save_with_version
 from apps.crm.records import RecordSpec, resolve_owner
 from apps.helpdesk.models import MAX_DESCRIPTION_LENGTH, MAX_SUBJECT_LENGTH, Ticket
 
-SPEC = RecordSpec(module="tickets", entity_type="ticket", model=Ticket, display=lambda t: f"#{t.number} {t.subject}")
+# Tickets are not archivable CrmRecords; the spec is only used for resolve_owner (permissions + field rules).
+SPEC = RecordSpec(
+    module="tickets",
+    entity_type="ticket",
+    model=Ticket,  # type: ignore[arg-type]
+    display=lambda t: f"#{t.number} {t.subject}",
+)
 
 _NUMBER_ATTEMPTS = 5
 
@@ -52,7 +58,9 @@ def create_ticket(actor: Actor, data: dict[str, Any], *, request: Any = None) ->
     owner = resolve_owner(actor, SPEC, data.get("owner"), current=None) or actor.membership
     ticket = Ticket(
         subject=_clean_subject(data.get("subject")),
-        description=validators.clean_text(data.get("description"), max_length=MAX_DESCRIPTION_LENGTH, allow_newlines=True),
+        description=validators.clean_text(
+            data.get("description"), max_length=MAX_DESCRIPTION_LENGTH, allow_newlines=True
+        ),
         status=data.get("status") or Ticket.Status.OPEN,
         priority=data.get("priority") or Ticket.Priority.MEDIUM,
         contact=_visible_contact(actor, data.get("contact")),
@@ -106,7 +114,7 @@ def update_ticket(
             "description",
             validators.clean_text(data["description"], max_length=MAX_DESCRIPTION_LENGTH, allow_newlines=True),
         )
-    if "priority" in data and data["priority"]:
+    if data.get("priority"):
         _set("priority", data["priority"])
     if "requester_name" in data:
         _set("requester_name", validators.clean_text(data["requester_name"], max_length=160))
@@ -160,7 +168,9 @@ def summary(actor: Actor) -> dict[str, Any]:
     """Counts for the helpdesk header, within what the actor may view."""
     tickets = scope(actor, "tickets.view", Ticket.objects.all())
     counts = {row["status"]: row["n"] for row in tickets.values("status").annotate(n=Count("id")).order_by()}
-    ratings = tickets.aggregate(rated=Count("id", filter=Q(rating__isnull=False)), satisfied=Count("id", filter=Q(rating__gte=4)))
+    ratings = tickets.aggregate(
+        rated=Count("id", filter=Q(rating__isnull=False)), satisfied=Count("id", filter=Q(rating__gte=4))
+    )
     return {
         "open": counts.get(Ticket.Status.OPEN, 0),
         "in_progress": counts.get(Ticket.Status.IN_PROGRESS, 0),

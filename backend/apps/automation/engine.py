@@ -39,7 +39,11 @@ log = structlog.get_logger(__name__)
 # committed status when the task runs, not from the event.
 _CANDIDATES: dict[tuple[str, str], tuple[str, ...]] = {
     ("contact", "created"): (AutomationRule.Trigger.CONTACT_CREATED,),
-    ("deal", "created"): (AutomationRule.Trigger.DEAL_CREATED, AutomationRule.Trigger.DEAL_WON, AutomationRule.Trigger.DEAL_LOST),
+    ("deal", "created"): (
+        AutomationRule.Trigger.DEAL_CREATED,
+        AutomationRule.Trigger.DEAL_WON,
+        AutomationRule.Trigger.DEAL_LOST,
+    ),
     ("deal", "stage_changed"): (AutomationRule.Trigger.DEAL_WON, AutomationRule.Trigger.DEAL_LOST),
     ("deal", "updated"): (AutomationRule.Trigger.DEAL_WON, AutomationRule.Trigger.DEAL_LOST),
 }
@@ -117,7 +121,11 @@ def _load(entity_type: str, entity_id: uuid.UUID) -> Any:
     if entity_type == "contact":
         from apps.contacts.models import Contact
 
-        return Contact.objects.select_related("owner__user", "company").filter(pk=entity_id, archived_at__isnull=True).first()
+        return (
+            Contact.objects.select_related("owner__user", "company")
+            .filter(pk=entity_id, archived_at__isnull=True)
+            .first()
+        )
     if entity_type == "deal":
         from apps.deals.models import Deal
 
@@ -271,7 +279,12 @@ def _act(rule: AutomationRule, run: AutomationRun, record: Any, contact: Any) ->
         start = timezone.make_aware(dt.datetime.combine(due, dt.time(10, 0)))
         activities.create_activity(
             actor,
-            {"kind": "task", "title": f"{text}: {label}"[:200] if label else text, "start_at": start, entity_type: record},
+            {
+                "kind": "task",
+                "title": f"{text}: {label}"[:200] if label else text,
+                "start_at": start,
+                entity_type: record,
+            },
         )
         return AutomationRun.Outcome.DONE, ""
     if rule.action == AutomationRule.Action.NOTIFY_OWNER:

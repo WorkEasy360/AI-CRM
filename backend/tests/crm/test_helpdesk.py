@@ -22,7 +22,9 @@ def _create(client, **body):
 
 def test_ticket_crud_numbering_and_audit(org_a, owner_client, crm):
     contact = crm.make_contact(org_a, first_name="Rahul", last_name="Sharma")
-    resp = _create(owner_client, priority="high", contact_id=str(contact.pk), description="Messages fail.\nSince today.")
+    resp = _create(
+        owner_client, priority="high", contact_id=str(contact.pk), description="Messages fail.\nSince today."
+    )
     assert resp.status_code == 201, resp.content
     first = resp.json()
     assert first["number"] == 1001
@@ -36,7 +38,9 @@ def test_ticket_crud_numbering_and_audit(org_a, owner_client, crm):
     assert second["number"] == 1002
     assert second["requester"] == "Priya Verma"
 
-    resp = owner_client.patch(f"/api/v1/tickets/{first['id']}/", {"status": "resolved", "rating": 5, "version": 1}, format="json")
+    resp = owner_client.patch(
+        f"/api/v1/tickets/{first['id']}/", {"status": "resolved", "rating": 5, "version": 1}, format="json"
+    )
     assert resp.status_code == 200, resp.content
     assert resp.json()["status"] == "resolved"
     assert resp.json()["resolved_at"] is not None
@@ -44,7 +48,12 @@ def test_ticket_crud_numbering_and_audit(org_a, owner_client, crm):
     assert _events(org_a, "tickets.updated")
 
     # stale version answers 409, not a silent overwrite
-    assert owner_client.patch(f"/api/v1/tickets/{first['id']}/", {"priority": "low", "version": 1}, format="json").status_code == 409
+    assert (
+        owner_client.patch(
+            f"/api/v1/tickets/{first['id']}/", {"priority": "low", "version": 1}, format="json"
+        ).status_code
+        == 409
+    )
 
     summary = owner_client.get("/api/v1/tickets/summary/").json()
     assert summary == {"open": 1, "in_progress": 0, "resolved": 1, "satisfaction": 100, "rated": 1}
@@ -76,7 +85,10 @@ def test_ticket_tenant_isolation(org_a, org_b, owner_client, client_for, crm):
     ticket = _create(owner_client).json()
     other = client_for(org_b.owner, org_b.owner_membership)
     assert other.get(f"/api/v1/tickets/{ticket['id']}/").status_code == 404
-    assert other.patch(f"/api/v1/tickets/{ticket['id']}/", {"priority": "low", "version": 1}, format="json").status_code == 404
+    assert (
+        other.patch(f"/api/v1/tickets/{ticket['id']}/", {"priority": "low", "version": 1}, format="json").status_code
+        == 404
+    )
     assert other.delete(f"/api/v1/tickets/{ticket['id']}/").status_code == 404
     assert other.get("/api/v1/tickets/").json()["results"] == []
     assert other.get("/api/v1/tickets/summary/").json()["open"] == 0
@@ -103,10 +115,19 @@ def test_ticket_scopes_follow_the_assignee(org_a, owner_client, client_for, make
 
     mine = _create(owner_client).json()
     # the rep cannot edit a ticket assigned to someone else, nor delete tickets at all
-    assert rep_client.patch(f"/api/v1/tickets/{mine['id']}/", {"priority": "low", "version": 1}, format="json").status_code in (403, 404)
+    assert rep_client.patch(
+        f"/api/v1/tickets/{mine['id']}/", {"priority": "low", "version": 1}, format="json"
+    ).status_code in (403, 404)
     assert rep_client.delete(f"/api/v1/tickets/{own['id']}/").status_code == 403
-    assert rep_client.patch(f"/api/v1/tickets/{own['id']}/", {"status": "in_progress", "version": 1}, format="json").status_code == 200
-    assert peer_client.patch(f"/api/v1/tickets/{own['id']}/", {"priority": "low", "version": 2}, format="json").status_code in (403, 404)
+    assert (
+        rep_client.patch(
+            f"/api/v1/tickets/{own['id']}/", {"status": "in_progress", "version": 1}, format="json"
+        ).status_code
+        == 200
+    )
+    assert peer_client.patch(
+        f"/api/v1/tickets/{own['id']}/", {"priority": "low", "version": 2}, format="json"
+    ).status_code in (403, 404)
 
     # a viewer reads every ticket and changes none
     assert len(viewer_client.get("/api/v1/tickets/").json()["results"]) == 2

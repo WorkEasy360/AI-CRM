@@ -137,7 +137,7 @@ def test_dashboard_requires_session_and_organization(anon_client, make_user, cli
 
 
 def test_previous_period_feeds_the_tile_changes(org_a, owner_client, crm):
-    pipeline, company, won = _seed(crm, org_a)
+    pipeline, company, _ = _seed(crm, org_a)
     earlier = crm.make_deal(
         org_a, company=company, stage=stage_named(pipeline, "Won"), amount="2000.00", amount_base="2000.00"
     )

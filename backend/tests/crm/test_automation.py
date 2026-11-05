@@ -55,7 +55,9 @@ def test_rules_fire_once_as_the_owner(org_a, owner_client, django_capture_on_com
     _rule(owner_client, name="Disabled", is_enabled=False)
 
     with django_capture_on_commit_callbacks(execute=True):
-        contact = owner_client.post("/api/v1/contacts/", {"first_name": "Rahul", "last_name": "Sharma"}, format="json").json()
+        contact = owner_client.post(
+            "/api/v1/contacts/", {"first_name": "Rahul", "last_name": "Sharma"}, format="json"
+        ).json()
 
     with tenant_context(org_a.org.pk):
         tasks = list(Activity.objects.filter(contact_id=contact["id"], kind="task"))
@@ -80,17 +82,23 @@ def test_deal_won_rule(org_a, owner_client, crm, django_capture_on_commit_callba
     with tenant_context(org_a.org.pk):
         won = next(s for s in deal.pipeline.stages.all() if s.kind == "won")
     with django_capture_on_commit_callbacks(execute=True):
-        resp = owner_client.post(f"/api/v1/deals/{deal.pk}/stage/", {"stage_id": str(won.pk), "version": deal.version}, format="json")
+        resp = owner_client.post(
+            f"/api/v1/deals/{deal.pk}/stage/", {"stage_id": str(won.pk), "version": deal.version}, format="json"
+        )
     assert resp.status_code == 200, resp.content
     with tenant_context(org_a.org.pk):
         assert Notification.objects.filter(kind="automation", entity_id=deal.pk, title="Deal won!").count() == 1
 
 
-def test_rules_stay_inside_their_organization(org_a, org_b, owner_client, client_for, django_capture_on_commit_callbacks):
+def test_rules_stay_inside_their_organization(
+    org_a, org_b, owner_client, client_for, django_capture_on_commit_callbacks
+):
     rule = _rule(owner_client).json()
     other = client_for(org_b.owner, org_b.owner_membership)
     assert other.get("/api/v1/automation-rules/").json()["results"] == []
-    assert other.patch(f"/api/v1/automation-rules/{rule['id']}/", {"is_enabled": False}, format="json").status_code == 404
+    assert (
+        other.patch(f"/api/v1/automation-rules/{rule['id']}/", {"is_enabled": False}, format="json").status_code == 404
+    )
     assert other.delete(f"/api/v1/automation-rules/{rule['id']}/").status_code == 404
     # org A's rule does not fire for org B's contacts
     with django_capture_on_commit_callbacks(execute=True):
@@ -169,7 +177,11 @@ def test_welcome_whatsapp_goes_out_as_the_owner_only_with_consent(
 
     rule = _wa_rule(owner_client, whatsapp).json()
     consented = _new_contact(
-        owner_client, django_capture_on_commit_callbacks, first_name="Rahul", phone="+91 98765 43210", whatsapp_opt_in=True
+        owner_client,
+        django_capture_on_commit_callbacks,
+        first_name="Rahul",
+        phone="+91 98765 43210",
+        whatsapp_opt_in=True,
     )
     with tenant_context(org_a.org.pk):
         message = WhatsAppMessage.objects.get(contact_id=consented["id"])
@@ -201,10 +213,18 @@ def test_no_reply_reminder_waits_and_skips_when_the_contact_replied(
 
     _wa_rule(owner_client, whatsapp, name="Follow-up Reminder", delay_days=3, only_if_no_reply=True)
     quiet = _new_contact(
-        owner_client, django_capture_on_commit_callbacks, first_name="Amit", phone="+91 90000 00001", whatsapp_opt_in=True
+        owner_client,
+        django_capture_on_commit_callbacks,
+        first_name="Amit",
+        phone="+91 90000 00001",
+        whatsapp_opt_in=True,
     )
     replied = _new_contact(
-        owner_client, django_capture_on_commit_callbacks, first_name="Sara", phone="+91 90000 00002", whatsapp_opt_in=True
+        owner_client,
+        django_capture_on_commit_callbacks,
+        first_name="Sara",
+        phone="+91 90000 00002",
+        whatsapp_opt_in=True,
     )
     assert FakeWhatsAppProvider.sent == []  # nothing before the three days are up
     assert owner_client.get("/api/v1/automation-rules/").json()["results"][0]["pending_runs"] == 2
@@ -212,8 +232,12 @@ def test_no_reply_reminder_waits_and_skips_when_the_contact_replied(
 
     with tenant_context(org_a.org.pk):
         WhatsAppMessage.objects.create(
-            direction="inbound", status="received", wa_id="919000000002", contact_id=replied["id"],
-            body="Thanks, got it", received_at=timezone.now(),
+            direction="inbound",
+            status="received",
+            wa_id="919000000002",
+            contact_id=replied["id"],
+            body="Thanks, got it",
+            received_at=timezone.now(),
         )
         AutomationRun.objects.update(due_at=timezone.now() - dt.timedelta(minutes=1))  # three days later
 

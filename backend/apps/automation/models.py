@@ -81,7 +81,5 @@ class AutomationRun(TenantModel):
             models.UniqueConstraint(fields=["organization", "rule", "entity_id"], name="uniq_automation_run"),
         ]
         indexes = [
-            models.Index(
-                fields=["due_at"], condition=models.Q(outcome="pending"), name="automation_run_due_idx"
-            ),
+            models.Index(fields=["due_at"], condition=models.Q(outcome="pending"), name="automation_run_due_idx"),
         ]

@@ -19,6 +19,7 @@ from apps.ai.api import (
 from apps.assistant.api import AskKeelView, AssistantHomeView, ConversationView
 from apps.audit.api import AuditEventViewSet
 from apps.authz.api import FieldPermissionsView, HierarchyRoleViewSet, RoleDetailView, RolesView
+from apps.automation.api import AutomationRuleViewSet
 from apps.billing.api import AddonCancelView, AddonListView, EditionCatalogView, SubscriptionView, UsageView
 from apps.companies.api import CompanyViewSet
 from apps.contacts.api import ContactViewSet
@@ -28,6 +29,7 @@ from apps.dashboards.api import DashboardSummaryView
 from apps.deals.api import DealViewSet
 from apps.files.api import FileAttachmentViewSet
 from apps.forecasting.api import ForecastView
+from apps.helpdesk.api import TicketViewSet
 from apps.importexport.api import (
     CompanyExportViewSet,
     CompanyImportViewSet,
@@ -60,8 +62,6 @@ from apps.messaging.webhooks import WhatsAppWebhookView
 from apps.notes.api import NoteViewSet, TimelineView
 from apps.notifications.api import NotificationPreferenceView, NotificationViewSet
 from apps.pipelines.api import PipelineStageViewSet, PipelineViewSet
-from apps.automation.api import AutomationRuleViewSet
-from apps.helpdesk.api import TicketViewSet
 from apps.products.api import PriceBookViewSet, ProductViewSet
 from apps.savedviews.api import SavedViewViewSet
 from apps.search.api import GlobalSearchView

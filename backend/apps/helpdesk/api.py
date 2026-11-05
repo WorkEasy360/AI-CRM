@@ -83,9 +83,7 @@ FILTERS = FilterSet(
 )
 
 
-class TicketViewSet(
-    mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet
-):
+class TicketViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet):
     """Support tickets. Viewing and editing follow the ``tickets.*`` scopes on the assignee."""
 
     permission_map = {
