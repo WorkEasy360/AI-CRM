@@ -10,7 +10,7 @@ import type { ActivityKind, NamedRef } from "@/lib/api/crm-types";
 import { errorMessage } from "@/lib/api/problem";
 import { crmKeys } from "@/lib/crm/keys";
 
-export type QuickCreateKind = "contact" | "company" | "deal" | ActivityKind;
+export type QuickCreateKind = "contact" | "company" | "deal" | "ticket" | ActivityKind;
 
 /** Records to link a new activity to. Ignored by the contact, company and deal dialogs. */
 export interface QuickCreateDefaults {
@@ -65,13 +65,20 @@ export function QuickCreateProvider({ children }: { children: React.ReactNode })
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
 
   const open = React.useCallback((kind: QuickCreateKind, defaults?: QuickCreateDefaults) => {
+    if (kind === "ticket") {
+      // Tickets are created in the Helpdesk's own panel, which reads `?new=1` (and an optional contact).
+      const params = new URLSearchParams({ new: "1" });
+      if (defaults?.contact) params.set("contact", defaults.contact.id);
+      router.push(`/helpdesk?${params.toString()}`);
+      return;
+    }
     if (typeof document !== "undefined") {
       const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const triggerId = active?.closest('[role="menu"]')?.getAttribute("aria-labelledby");
       returnFocusRef.current = (triggerId ? document.getElementById(triggerId) : null) ?? active;
     }
     setRequest({ kind, defaults, open: true });
-  }, []);
+  }, [router]);
   const value = React.useMemo<QuickCreateContextValue>(() => ({ open }), [open]);
 
   const close = React.useCallback(() => {

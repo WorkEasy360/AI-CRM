@@ -9,6 +9,8 @@ import {
   BookOpen,
   Building2,
   CalendarCheck,
+  ArrowRight,
+  Bot,
   ChevronDown,
   Contact,
   CreditCard,
@@ -33,7 +35,6 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
 import type { ActiveContext, Organization, Session } from "@/lib/api/types";
 import { hasPermission } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -141,10 +142,8 @@ const LINK = "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium 
 const ACTIVE_LINK = "bg-chrome-active text-fg shadow-sm";
 const IDLE_LINK = "text-fg-muted hover:bg-bg-subtle hover:text-fg";
 
-export function SideNav({ session, onNavigate }: { session: Session; onNavigate?: () => void }) {
+export function SideNav({ onNavigate }: { session: Session; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const active = session.active;
-  const name = session.user.display_name || session.user.email;
   return (
     <nav aria-label="Primary" className="flex flex-1 flex-col overflow-y-auto">
       <ul className="flex flex-col gap-1 px-2.5 py-3">
@@ -180,21 +179,31 @@ export function SideNav({ session, onNavigate }: { session: Session; onNavigate?
         </li>
       </ul>
 
-      <div className="mt-auto border-t border-border px-2.5 py-2">
-        <Link
-          href="/settings/security"
-          onClick={onNavigate}
-          className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg-subtle"
-          aria-label={`${name}: profile and security`}
-        >
-          <Avatar name={name} size="sm" />
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-fg">{name}</span>
-            <span className="block truncate text-xs text-fg-subtle">{active?.role.name ?? session.user.email}</span>
-          </span>
-        </Link>
+      <div className="mt-auto px-3 pb-3">
+        <AiPromoCard onNavigate={onNavigate} />
       </div>
     </nav>
+  );
+}
+
+/** The sidebar's "WorkEasy AI" card: a way into the assistant from every page. */
+export function AiPromoCard({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <section aria-label="WorkEasy AI" className="rounded-xl border border-brand/60 bg-white/5 px-3 pb-3 pt-3 text-center shadow-[0_0_18px_-6px_var(--kl-brand)]">
+      <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-white text-chrome shadow-sm">
+        <Bot className="size-6" aria-hidden />
+      </span>
+      <p className="mt-2 text-base font-bold text-fg">WorkEasy AI</p>
+      <p className="mt-0.5 text-xs leading-snug text-fg-muted">Your AI CRM Assistant for Sales, Follow-ups &amp; Automation.</p>
+      <Link
+        href="/assistant"
+        prefetch={PREFETCH_PRIMARY}
+        onClick={onNavigate}
+        className="mt-2.5 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-white text-sm font-semibold text-chrome hover:bg-white/90"
+      >
+        Ask AI Now <ArrowRight className="size-4" aria-hidden />
+      </Link>
+    </section>
   );
 }
 

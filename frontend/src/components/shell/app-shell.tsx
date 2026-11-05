@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CircleHelp, Menu, Search, Settings, Sparkles } from "lucide-react";
+import { CircleHelp, Menu, MessageCircle, Search, Settings, Sparkles } from "lucide-react";
 import { AskFloatingButton, AssistantProvider, useAssistant } from "@/components/assistant/ask-keel";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ActiveContext, Session } from "@/lib/api/types";
 import { workeasy360StartUrl } from "@/lib/auth-methods";
+import { hasPermission } from "@/lib/session";
 import { setWorkspaceDateFormat } from "@/lib/utils";
 
 export function AppShell({ session, active, children }: { session: Session; active: ActiveContext; children: React.ReactNode }) {
@@ -73,6 +74,13 @@ export function AppShell({ session, active, children }: { session: Session; acti
 
             <div className="ml-auto flex items-center gap-1">
               <QuickAdd active={active} />
+              {hasPermission(active, "whatsapp.view") ? (
+                <Button asChild size="icon-sm" className="bg-[#25D366] text-white hover:bg-[#1ebe5b]" aria-label="WhatsApp inbox">
+                  <Link href="/activities?tab=whatsapp">
+                    <MessageCircle />
+                  </Link>
+                </Button>
+              ) : null}
               <NotificationsMenu />
               <HelpMenu onSearch={() => setSearchOpen(true)} />
               <UserMenu session={session} />

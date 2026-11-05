@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, CalendarCheck, Contact, CornerDownLeft, Handshake, Loader2, Package, Search } from "lucide-react";
+import { Building2, CalendarCheck, Contact, CornerDownLeft, Handshake, Headset, Loader2, Package, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { globalSearch } from "@/lib/api/crm";
 import { ENTITY_LABELS, type SearchEntityType, type SearchHit, type SearchResponse } from "@/lib/api/crm-types";
@@ -18,7 +18,7 @@ export const SEARCH_MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
 
 /** Result groups in display order: the records a rep looks up most, then the calendar, then the catalogue. */
-export const GROUP_ORDER: readonly SearchEntityType[] = ["contact", "company", "deal", "activity", "product"];
+export const GROUP_ORDER: readonly SearchEntityType[] = ["contact", "company", "deal", "activity", "ticket", "product"];
 
 const ICONS: Record<SearchEntityType, React.ComponentType<{ className?: string }>> = {
   contact: Contact,
@@ -26,6 +26,7 @@ const ICONS: Record<SearchEntityType, React.ComponentType<{ className?: string }
   deal: Handshake,
   product: Package,
   activity: CalendarCheck,
+  ticket: Headset,
 };
 
 /** Fixed route builders; the id is the API-provided id, URL-encoded. Activities open in place on the Activities page. */
@@ -35,6 +36,7 @@ const ROUTES: Record<SearchEntityType, (id: string) => string> = {
   deal: (id) => `/deals/${id}`,
   product: (id) => `/products/${id}`,
   activity: (id) => `/activities?open=${id}`,
+  ticket: (id) => `/helpdesk?open=${id}`,
 };
 
 export function hitHref(type: SearchEntityType, id: string): string {
@@ -250,7 +252,7 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
           aria-keyshortcuts="Control+K Meta+K"
         >
           <Search className="size-4" aria-hidden />
-          <span className="flex-1 text-left">Search anything…</span>
+          <span className="flex-1 truncate text-left">Search anything… (contacts, companies, deals, activities, tickets)</span>
           <kbd className="rounded-sm border border-border bg-surface px-1.5 font-mono text-[11px] text-fg-subtle">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
         </button>
       ) : null}
@@ -273,7 +275,7 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
               autoFocus
               spellCheck={false}
               maxLength={SEARCH_MAX_LENGTH}
-              placeholder="Search contacts, companies, deals, activities…"
+              placeholder="Search anything… (contacts, companies, deals, activities, tickets)"
               value={query}
               onChange={(e) => setQuery(e.target.value.slice(0, SEARCH_MAX_LENGTH))}
               onKeyDown={onKeyDown}

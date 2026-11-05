@@ -6,9 +6,32 @@ export function formatMoney(amount: string | number | null | undefined, currency
   const value = typeof amount === "number" ? amount : Number(amount);
   if (Number.isNaN(value)) return String(amount);
   try {
+    if (currency === "INR") {
+      // Rupees always use Indian grouping (₹1,24,50,000) whatever the browser locale, and drop ".00".
+      return new Intl.NumberFormat("en-IN", { style: "currency", currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
+    }
     return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD", maximumFractionDigits: 2 }).format(value);
   } catch {
     return `${value.toLocaleString()} ${currency ?? ""}`.trim();
+  }
+}
+
+/** A short amount for chart axes and tight tiles: lakhs and crores for INR (₹62.8L, ₹1.2Cr), K/M otherwise. */
+export function formatCompactMoney(amount: string | number | null | undefined, currency: string | undefined): string {
+  const value = typeof amount === "number" ? amount : Number(amount ?? 0);
+  if (Number.isNaN(value)) return "—";
+  const trim = (n: number) => String(Number(n.toFixed(1)));
+  const abs = Math.abs(value);
+  if (currency === "INR") {
+    if (abs >= 1e7) return `₹${trim(value / 1e7)}Cr`;
+    if (abs >= 1e5) return `₹${trim(value / 1e5)}L`;
+    if (abs >= 1e3) return `₹${trim(value / 1e3)}K`;
+    return `₹${trim(value)}`;
+  }
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD", notation: "compact", maximumFractionDigits: 1 }).format(value);
+  } catch {
+    return trim(value);
   }
 }
 

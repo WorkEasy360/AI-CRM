@@ -610,7 +610,7 @@ export const TIMELINE_FILTERS = [
 
 /* ------------------------------------------------------------------ search */
 
-export type SearchEntityType = EntityType | "activity";
+export type SearchEntityType = EntityType | "activity" | "ticket";
 
 export interface SearchHit {
   id: string;
@@ -1288,6 +1288,7 @@ export const ENTITY_LABELS: Record<SearchEntityType, { singular: string; plural:
   deal: { singular: "Deal", plural: "Deals" },
   product: { singular: "Product", plural: "Products" },
   activity: { singular: "Activity", plural: "Activities" },
+  ticket: { singular: "Ticket", plural: "Tickets" },
 };
 
 /* ------------------------------------------------------------------ module schema and generic views */

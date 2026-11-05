@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, CalendarDays, ChevronDown, Contact, Handshake, ListTodo, Phone, Plus } from "lucide-react";
+import { Building2, CalendarDays, ChevronDown, Contact, Handshake, Headset, ListTodo, Phone, Plus } from "lucide-react";
 import { useQuickCreate, type QuickCreateKind } from "@/components/shell/quick-create-provider";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -22,9 +22,11 @@ export const QUICK_ADD_ITEMS: readonly QuickAddItem[] = [
   { kind: "task", label: "Task", permission: "activities.create", icon: ListTodo },
   { kind: "call", label: "Call", permission: "activities.create", icon: Phone },
   { kind: "meeting", label: "Meeting", permission: "activities.create", icon: CalendarDays },
+  { kind: "ticket", label: "Ticket", permission: "tickets.create", icon: Headset },
 ];
 
 const RECORD_KINDS: readonly QuickCreateKind[] = ["contact", "company", "deal"];
+const SUPPORT_KINDS: readonly QuickCreateKind[] = ["ticket"];
 
 /** The items the member may create, optionally restricted to (and ordered by) `kinds`. */
 export function permittedQuickAddItems(active: ActiveContext | null | undefined, kinds?: readonly QuickCreateKind[]): QuickAddItem[] {
@@ -38,7 +40,8 @@ export function QuickAdd({ active }: { active: ActiveContext }) {
   const { open } = useQuickCreate();
   const items = permittedQuickAddItems(active);
   const records = items.filter((item) => RECORD_KINDS.includes(item.kind));
-  const activities = items.filter((item) => !RECORD_KINDS.includes(item.kind));
+  const activities = items.filter((item) => !RECORD_KINDS.includes(item.kind) && !SUPPORT_KINDS.includes(item.kind));
+  const support = items.filter((item) => SUPPORT_KINDS.includes(item.kind));
   if (items.length === 0) return null;
   return (
     <DropdownMenu>
@@ -59,6 +62,13 @@ export function QuickAdd({ active }: { active: ActiveContext }) {
         ))}
         {records.length > 0 && activities.length > 0 ? <DropdownMenuSeparator /> : null}
         {activities.map((item) => (
+          <DropdownMenuItem key={item.kind} onSelect={() => open(item.kind)}>
+            <item.icon />
+            {item.label}
+          </DropdownMenuItem>
+        ))}
+        {support.length > 0 && records.length + activities.length > 0 ? <DropdownMenuSeparator /> : null}
+        {support.map((item) => (
           <DropdownMenuItem key={item.kind} onSelect={() => open(item.kind)}>
             <item.icon />
             {item.label}

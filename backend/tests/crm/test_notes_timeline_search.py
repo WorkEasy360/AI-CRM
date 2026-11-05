@@ -126,3 +126,19 @@ def test_global_search_is_tenant_and_scope_bound(org_a, org_b, crm, make_member,
     assert owner_client.get("/api/v1/search/?q=" + "x" * 500).status_code == 400
     assert owner_client.get("/api/v1/search/?q=radium&limit=999").status_code == 400
     assert owner_client.get("/api/v1/search/?q=").json()["results"]["contact"] == []
+
+
+def test_global_search_finds_tickets_by_subject_and_number(org_a, org_b, make_member, client_for, owner_client):
+    from tests.factories import make_ticket
+
+    mine = make_ticket(org_a, subject="WhatsApp API not working", number=1045)
+    make_ticket(org_b, subject="WhatsApp API down elsewhere", number=1046)
+    hits = owner_client.get("/api/v1/search/?q=whatsapp&types=ticket").json()["results"]["ticket"]
+    assert [h["id"] for h in hits] == [str(mine.pk)]  # never another organization's ticket
+    assert hits[0]["title"] == "#TK-1045 WhatsApp API not working"
+    by_number = owner_client.get("/api/v1/search/", {"q": "TK-1045", "types": "ticket"}).json()["results"]["ticket"]
+    assert [h["id"] for h in by_number] == [str(mine.pk)]
+    # an agent who may only see their own tickets does not find someone else's
+    agent = make_member(org_a, "sales_rep")
+    hits = client_for(agent.user, agent).get("/api/v1/search/?q=whatsapp&types=ticket").json()["results"]
+    assert hits.get("ticket", []) == []

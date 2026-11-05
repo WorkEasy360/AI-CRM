@@ -80,7 +80,7 @@ function session(ctx: ActiveContext): Session {
 }
 
 describe("navigation", () => {
-  it("keeps the sidebar to the CRM sections plus Settings and the profile", () => {
+  it("keeps the sidebar to the CRM sections plus Settings and the WorkEasy AI card", () => {
     render(<SideNav session={session(REP)} />);
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
@@ -95,8 +95,9 @@ describe("navigation", () => {
       "Helpdesk",
       "Products",
       "Settings",
-      expect.stringContaining("Rae Rep"),
+      "Ask AI Now",
     ]);
+    expect(within(nav).getByRole("link", { name: "Ask AI Now" })).toHaveAttribute("href", "/assistant");
     expect(within(nav).getByRole("link", { name: "People (Contacts)" })).toHaveAttribute("aria-current", "page");
     expect(within(nav).getByRole("button", { name: "Collapse Contacts" })).toHaveAttribute("aria-expanded", "true");
     for (const label of ["Organization", "Members", "Teams", "Custom fields", "Tags", "Audit log", "Reports"]) {

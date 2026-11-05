@@ -34,8 +34,8 @@ function active(permissions: Record<string, "own" | "team" | "all">): ActiveCont
 describe("QuickAdd", () => {
   beforeEach(() => open.mockReset());
 
-  it("offers the six create targets in order", () => {
-    expect(QUICK_ADD_ITEMS.map((i) => i.label)).toEqual(["Contact", "Company", "Deal", "Task", "Call", "Meeting"]);
+  it("offers the seven create targets in order", () => {
+    expect(QUICK_ADD_ITEMS.map((i) => i.label)).toEqual(["Contact", "Company", "Deal", "Task", "Call", "Meeting", "Ticket"]);
   });
 
   it("shows only the permitted items and opens the quick-create dialog", async () => {

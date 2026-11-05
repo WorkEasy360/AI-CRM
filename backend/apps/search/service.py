@@ -48,6 +48,7 @@ def targets() -> dict[str, SearchTarget]:
     from apps.companies.models import Company
     from apps.contacts.models import Contact
     from apps.deals.models import Deal
+    from apps.helpdesk.models import Ticket
     from apps.products.models import Product
 
     return {
@@ -79,6 +80,10 @@ def targets() -> dict[str, SearchTarget]:
         ),
         "product": SearchTarget(
             "product", "products.view", Product, ("name", "sku"), vector_fields=("name", "sku", "description")
+        ),
+        # Tickets have no stored search vector: matched by subject/requester text or by number ("TK-1045").
+        "ticket": SearchTarget(
+            "ticket", "tickets.view", Ticket, ("subject", "requester_name"), ("contact",), archivable=False
         ),
     }
 
@@ -149,6 +154,14 @@ def _summary(entity_type: str, obj: Any) -> dict[str, Any]:
         }
     if entity_type == "company":
         return {"id": str(obj.pk), "type": "company", "title": obj.name, "subtitle": obj.website, "meta": obj.industry}
+    if entity_type == "ticket":
+        return {
+            "id": str(obj.pk),
+            "type": "ticket",
+            "title": f"#TK-{obj.number} {obj.subject}",
+            "subtitle": f"{obj.get_status_display()} · {obj.get_priority_display()}",
+            "meta": obj.contact.display_name if obj.contact_id else obj.requester_name,
+        }
     if entity_type == "deal":
         return {
             "id": str(obj.pk),
@@ -185,15 +198,20 @@ def search(actor: Actor, q: str, *, types: list[str] | None = None, per_type: in
         target = all_targets[target_name]
         qs = scope(actor, target.permission, target.base())
         hidden = field_rules.hidden_fields(actor, target_name) if target_name != "activity" else frozenset()
-        if hidden & set(target.vector_fields):
+        if not target.vector_fields or hidden & set(target.vector_fields):
             # The stored vector includes a field this actor may not see: matching on it would reveal the
             # hidden value ("which contact has this phone number?"). Match visible columns only instead.
+            # Targets without a vector (tickets) always match this way.
             terms = [t for t in _TOKEN.split(q.lower()) if t][:MAX_TERMS]
+            if target_name == "ticket":
+                terms = [t for t in terms if t != "tk"] or terms  # "#TK-1045" is typed as the number
             visible = [f for f in target.like_fields if f not in hidden]
             for term in terms:
                 cond = Q()
                 for f in visible:
                     cond |= Q(**{f"{f}__icontains": term})
+                if target_name == "ticket" and term.isdigit() and len(term) <= 9:
+                    cond |= Q(number=int(term))
                 qs = qs.filter(cond) if visible else qs.none()
             qs = qs.order_by("-updated_at")[:per_type]
         else:
