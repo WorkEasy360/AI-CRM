@@ -159,7 +159,6 @@ describe("DashboardPage", () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     renderDashboard();
     expect(await screen.findByRole("heading", { level: 1, name: /^Good (Morning|Afternoon|Evening), Owner! 👋$/ })).toBeInTheDocument();
-    expect(screen.getByText("Here's what's happening in your CRM today.")).toBeInTheDocument();
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     expect(getDashboard).toHaveBeenCalledWith(month, undefined, 6);

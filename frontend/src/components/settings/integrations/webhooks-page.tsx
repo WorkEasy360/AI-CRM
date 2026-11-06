@@ -170,7 +170,7 @@ export function WebhooksPage() {
       {backLink}
       <PageHeader
         title="Webhooks"
-        description="WorkEasy CRM sends a signed HTTPS request to your endpoint when the selected events happen."
+        description="Each delivery is a signed HTTPS request to your endpoint."
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>
@@ -193,7 +193,7 @@ export function WebhooksPage() {
           }
         />
       ) : webhooks.items.length === 0 ? (
-        <EmptyState icon={<Webhook />} title="No webhooks yet" description="Add a webhook to notify another system when records change in WorkEasy CRM." />
+        <EmptyState icon={<Webhook />} title="No webhooks yet" description="Webhooks you add will appear here." />
       ) : (
         <Table>
           <TableHeader>

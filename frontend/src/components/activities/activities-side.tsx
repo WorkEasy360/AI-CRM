@@ -12,7 +12,7 @@ import { crmKeys } from "@/lib/crm/keys";
 import { cn } from "@/lib/utils";
 
 const KIND_ICON: Record<ActivityKind, React.ComponentType<{ className?: string }>> = { task: CheckCircle2, call: Phone, meeting: CalendarDays };
-const KIND_TINT: Record<ActivityKind, string> = { task: "text-[#15803d]", call: "text-[#15803d]", meeting: "text-[#7e22ce]" };
+const KIND_TINT: Record<ActivityKind, string> = { task: "text-brand", call: "text-brand", meeting: "text-accent" };
 
 const time = (value: string | null) => (value ? new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "");
 const shortDate = (value: string | null) => (value ? new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short" }).format(new Date(value)) : "");

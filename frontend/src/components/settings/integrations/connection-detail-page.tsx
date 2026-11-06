@@ -145,7 +145,7 @@ export function ConnectionDetailPage({ id }: { id: string }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-lg font-semibold tracking-tight">{connection.name}</h1>
+              <h1 className="truncate text-2xl font-bold tracking-tight text-fg">{connection.name}</h1>
               <ConnectionStatusBadge status={connection.status} />
             </div>
             <p className="mt-0.5 text-xs text-fg-muted">
@@ -554,7 +554,6 @@ function SyncSettingsCard({ connection, options, canManage }: { connection: Conn
     <Card>
       <CardHeader>
         <CardTitle>Sync settings</CardTitle>
-        <CardDescription>How often WorkEasy CRM syncs shared data, and what happens when a record changed in both systems.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         {webhookOnly ? null : (
@@ -682,11 +681,11 @@ function DeliveriesPanel({ connectionId }: { connectionId: string }) {
     );
   }
   if (deliveries.data.results.length === 0) {
-    return <EmptyState title="No deliveries yet" description="Changes WorkEasy CRM pushes to this connection appear here, with the result of each attempt." />;
+    return <EmptyState title="No deliveries yet" description="No outbound changes yet." />;
   }
   return (
     <div className="grid gap-3">
-      <p className="text-sm text-fg-muted">The latest 50 changes WorkEasy CRM pushed to this connection. Failed deliveries are retried automatically when the problem is temporary.</p>
+      <p className="text-sm text-fg-muted">Latest 50 changes. Temporary failures are retried automatically.</p>
       <DeliveriesTable deliveries={deliveries.data.results} />
     </div>
   );

@@ -55,18 +55,18 @@ export function PipelineAnalyticsView({ pipelineId, filters, baseCurrency }: { p
 
       <Panel title="Win / loss" subtitle="Every closed deal in this pipeline">
         <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="rounded-lg bg-[#dcfce7] px-2 py-3">
-            <p className="text-xs font-medium text-[#15803d]">Won</p>
+          <div className="rounded-lg bg-brand-soft px-2 py-3">
+            <p className="text-xs font-medium text-brand">Won</p>
             <p className="text-2xl font-bold tabular-nums text-fg">{wl.won.toLocaleString()}</p>
             {wl.won_amount !== null ? <p className="text-xs tabular-nums text-fg-muted">{formatMoney(wl.won_amount, baseCurrency)}</p> : null}
           </div>
-          <div className="rounded-lg bg-[#fee2e2] px-2 py-3">
-            <p className="text-xs font-medium text-[#b91c1c]">Lost</p>
+          <div className="rounded-lg bg-danger-soft px-2 py-3">
+            <p className="text-xs font-medium text-danger">Lost</p>
             <p className="text-2xl font-bold tabular-nums text-fg">{wl.lost.toLocaleString()}</p>
             {wl.lost_amount !== null ? <p className="text-xs tabular-nums text-fg-muted">{formatMoney(wl.lost_amount, baseCurrency)}</p> : null}
           </div>
-          <div className="rounded-lg bg-[#f3e8ff] px-2 py-3">
-            <p className="text-xs font-medium text-[#7e22ce]">Win rate</p>
+          <div className="rounded-lg bg-accent-soft px-2 py-3">
+            <p className="text-xs font-medium text-accent">Win rate</p>
             <p className="text-2xl font-bold tabular-nums text-fg">{wl.win_rate === null ? "—" : `${wl.win_rate}%`}</p>
             <p className="text-xs tabular-nums text-fg-muted">{wl.open.toLocaleString()} still open</p>
           </div>

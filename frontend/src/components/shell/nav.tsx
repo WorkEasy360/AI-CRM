@@ -72,42 +72,46 @@ export interface SettingsNavItem extends NavItem {
   visible: (active: ActiveContext | null | undefined) => boolean;
   /** Other routes that belong to this entry (highlighted as current). */
   also?: readonly string[];
+  /** The heading this entry sits under in the settings navigation. */
+  group: SettingsGroup;
 }
+
+export type SettingsGroup = "Workspace" | "CRM setup" | "Channels & apps" | "Billing" | "Preferences" | "Security & data";
 
 const anyOf = (active: ActiveContext | null | undefined, keys: string[]) => keys.some((key) => hasPermission(active, key));
 
 /** Administrative pages, reachable from the gear icon only, shown when the member can act on them. */
 export const SETTINGS_NAV: readonly SettingsNavItem[] = [
-  { href: "/settings/general", label: "General", icon: Settings2, visible: (a) => hasPermission(a, "org.update") },
+  { href: "/settings/general", group: "Workspace", label: "General", icon: Settings2, visible: (a) => hasPermission(a, "org.update") },
   {
-    href: "/settings/users",
+    href: "/settings/users", group: "Workspace",
     label: "Users & Teams",
     icon: Users,
     also: ["/settings/teams"],
     visible: (a) => anyOf(a, ["members.invite", "members.update_role", "members.disable", "members.remove", "teams.manage"]),
   },
-  { href: "/settings/roles", label: "Roles & permissions", icon: ShieldCheck, visible: (a) => hasPermission(a, "roles.manage") },
-  { href: "/settings/pipelines", label: "Pipeline Stages", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
-  { href: "/settings/custom-fields", label: "Fields & Forms", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
-  { href: "/settings/automation", label: "Automation", icon: Workflow, visible: (a) => hasPermission(a, "automation.view") },
-  { href: "/settings/integrations", label: "Integrations", icon: PlugZap, visible: (a) => anyOf(a, ["integrations.view", "webhooks.manage"]) },
-  { href: "/settings/whatsapp", label: "WhatsApp (API)", icon: MessageCircle, visible: (a) => hasPermission(a, "whatsapp.view") },
-  { href: "/settings/email", label: "Email", icon: Mail, visible: (a) => hasPermission(a, "email.view") },
-  { href: "/settings/templates", label: "Message Templates", icon: FileText, visible: (a) => anyOf(a, ["email.view", "whatsapp.view"]) },
-  { href: "/settings/billing", label: "Billing & Subscription", icon: CreditCard, visible: (a) => anyOf(a, ["org.billing", "org.update"]) },
-  { href: "/settings/price-books", label: "Price books", icon: BookOpen, visible: (a) => hasPermission(a, "pricebooks.manage") },
-  { href: "/settings/tags", label: "Tags", icon: Tag, visible: (a) => hasPermission(a, "tags.manage") },
-  { href: "/settings/notifications", label: "Notifications", icon: Bell, visible: () => true },
-  { href: "/settings/ai", label: "AI", icon: Sparkles, visible: (a) => hasPermission(a, "ai.settings.manage") },
-  { href: "/settings/security", label: "Security", icon: Lock, visible: () => true },
+  { href: "/settings/roles", group: "Workspace", label: "Roles & permissions", icon: ShieldCheck, visible: (a) => hasPermission(a, "roles.manage") },
+  { href: "/settings/pipelines", group: "CRM setup", label: "Pipeline Stages", icon: KanbanSquare, visible: (a) => hasPermission(a, "pipelines.manage") },
+  { href: "/settings/custom-fields", group: "CRM setup", label: "Fields & Forms", icon: SlidersHorizontal, visible: (a) => hasPermission(a, "customfields.manage") },
+  { href: "/settings/automation", group: "CRM setup", label: "Automation", icon: Workflow, visible: (a) => hasPermission(a, "automation.view") },
+  { href: "/settings/integrations", group: "Channels & apps", label: "Integrations", icon: PlugZap, visible: (a) => anyOf(a, ["integrations.view", "webhooks.manage"]) },
+  { href: "/settings/whatsapp", group: "Channels & apps", label: "WhatsApp (API)", icon: MessageCircle, visible: (a) => hasPermission(a, "whatsapp.view") },
+  { href: "/settings/email", group: "Channels & apps", label: "Email", icon: Mail, visible: (a) => hasPermission(a, "email.view") },
+  { href: "/settings/templates", group: "Channels & apps", label: "Message Templates", icon: FileText, visible: (a) => anyOf(a, ["email.view", "whatsapp.view"]) },
+  { href: "/settings/billing", group: "Billing", label: "Billing & Subscription", icon: CreditCard, visible: (a) => anyOf(a, ["org.billing", "org.update"]) },
+  { href: "/settings/price-books", group: "Billing", label: "Price books", icon: BookOpen, visible: (a) => hasPermission(a, "pricebooks.manage") },
+  { href: "/settings/tags", group: "Preferences", label: "Tags", icon: Tag, visible: (a) => hasPermission(a, "tags.manage") },
+  { href: "/settings/notifications", group: "Preferences", label: "Notifications", icon: Bell, visible: () => true },
+  { href: "/settings/ai", group: "Preferences", label: "AI", icon: Sparkles, visible: (a) => hasPermission(a, "ai.settings.manage") },
+  { href: "/settings/security", group: "Security & data", label: "Security", icon: Lock, visible: () => true },
   {
-    href: "/settings/data",
+    href: "/settings/data", group: "Security & data",
     label: "Import / Export",
     icon: DatabaseZap,
     visible: (a) =>
       anyOf(a, ["contacts.import", "companies.import", "products.import", "deals.import", "contacts.export", "companies.export", "products.export", "deals.export"]),
   },
-  { href: "/settings/audit-log", label: "Audit log", icon: ListChecks, visible: (a) => hasPermission(a, "audit.view") },
+  { href: "/settings/audit-log", group: "Security & data", label: "Audit log", icon: ListChecks, visible: (a) => hasPermission(a, "audit.view") },
 ];
 
 export function visibleSettingsNav(active: ActiveContext | null | undefined): SettingsNavItem[] {
@@ -138,16 +142,19 @@ function isCurrent(pathname: string, href: string): boolean {
  */
 const PREFETCH_PRIMARY = true;
 
-/** The sidebar sits on the green chrome: the current page is a solid green pill with white text. */
-const LINK = "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors";
-const ACTIVE_LINK = "bg-chrome-active text-fg shadow-sm";
+/**
+ * The sidebar sits on the navy chrome: the current page is a lighter navy band with a green bar on its
+ * leading edge and a green icon; other entries are muted white that brightens on hover.
+ */
+const LINK = "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors";
+const ACTIVE_LINK = "bg-chrome-active text-fg shadow-[inset_3px_0_0_var(--kl-chrome-indicator)] [&_svg]:text-chrome-indicator";
 const IDLE_LINK = "text-fg-muted hover:bg-bg-subtle hover:text-fg";
 
 export function SideNav({ onNavigate }: { session: Session; onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Primary" className="flex flex-1 flex-col overflow-y-auto">
-      <ul className="flex flex-col gap-1 px-2.5 py-3">
+      <ul className="flex flex-col gap-1 px-3 py-4">
         {PRIMARY_NAV.map((item) =>
           item.children ? (
             <NavGroup key={item.href} item={item} pathname={pathname} onNavigate={onNavigate} />
@@ -160,7 +167,7 @@ export function SideNav({ onNavigate }: { session: Session; onNavigate?: () => v
                 aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
                 className={cn(LINK, isCurrent(pathname, item.href) ? ACTIVE_LINK : IDLE_LINK)}
               >
-                <item.icon className="size-4 shrink-0" />
+                <item.icon className="size-[18px] shrink-0" />
                 {item.label}
               </Link>
             </li>
@@ -174,7 +181,7 @@ export function SideNav({ onNavigate }: { session: Session; onNavigate?: () => v
             aria-current={isCurrent(pathname, "/settings") ? "page" : undefined}
             className={cn(LINK, isCurrent(pathname, "/settings") ? ACTIVE_LINK : IDLE_LINK)}
           >
-            <Settings className="size-4 shrink-0" />
+            <Settings className="size-[18px] shrink-0" />
             Settings
           </Link>
         </li>
@@ -189,17 +196,21 @@ export function SideNav({ onNavigate }: { session: Session; onNavigate?: () => v
 
 /** The sidebar's "WorkEasy AI" card: a way into the assistant from every page. */
 const ASK_NOW =
-  "mt-2.5 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-white text-sm font-semibold text-chrome hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-brand text-sm font-semibold text-brand-fg transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function AiPromoCard({ onNavigate }: { onNavigate?: () => void }) {
   const assistant = useAssistant();
   return (
-    <section aria-label="WorkEasy AI" className="rounded-xl border border-brand/60 bg-white/5 px-3 pb-3 pt-3 text-center shadow-[0_0_18px_-6px_var(--kl-brand)]">
-      <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-white text-chrome shadow-sm">
-        <Bot className="size-6" aria-hidden />
-      </span>
-      <p className="mt-2 text-base font-bold text-fg">WorkEasy AI</p>
-      <p className="mt-0.5 text-xs leading-snug text-fg-muted">Your AI CRM Assistant for Sales, Follow-ups &amp; Automation.</p>
+    <section aria-label="WorkEasy AI" className="rounded-lg border border-border bg-chrome-raised p-3.5">
+      <div className="flex items-center gap-2.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-chrome-indicator/15 text-chrome-indicator">
+          <Bot className="size-5" aria-hidden />
+        </span>
+        <div className="min-w-0 text-left">
+          <p className="text-sm font-semibold text-fg">WorkEasy AI</p>
+          <p className="text-xs text-fg-muted">Your CRM assistant</p>
+        </div>
+      </div>
       {assistant?.available ? (
         // The same assistant as the floating button: opens the side panel on whatever page this is.
         <button
@@ -236,7 +247,7 @@ function NavGroup({ item, pathname, onNavigate }: { item: NavItem; pathname: str
           onClick={onNavigate}
           className={cn(LINK, "min-w-0 flex-1 pr-1 text-inherit hover:bg-transparent")}
         >
-          <item.icon className="size-4 shrink-0" />
+          <item.icon className="size-[18px] shrink-0" />
           {item.label}
         </Link>
         <button
@@ -262,11 +273,11 @@ function NavGroup({ item, pathname, onNavigate }: { item: NavItem; pathname: str
                   onClick={onNavigate}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "flex h-8 items-center gap-2 rounded-md px-3 text-[13px] transition-colors",
-                    current ? "bg-white/10 font-medium text-fg" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+                    "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm transition-colors",
+                    current ? "bg-white/10 font-medium text-fg [&_svg]:text-chrome-indicator" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
                   )}
                 >
-                  <child.icon className="size-3.5 shrink-0" />
+                  <child.icon className="size-4 shrink-0" />
                   {child.label}
                 </Link>
               </li>
@@ -283,9 +294,9 @@ export function BrandLogo({ size = 24, className }: { size?: number; className?:
   return <Image src="/brand/logo.png" alt="" aria-hidden width={size} height={size} unoptimized priority className={cn("shrink-0", className)} />;
 }
 
-/** Sidebar brand: the workspace's logo and CRM name from General settings, else the WorkEasy360 mark. */
+/** Sidebar brand: the workspace's logo and CRM name from General settings, else the WorkEasy CRM mark. */
 export function Wordmark({ className, organization }: { className?: string; organization?: Pick<Organization, "crm_name" | "logo_url" | "name"> | null }) {
-  const name = organization?.crm_name?.trim() || "WorkEasy360";
+  const name = organization?.crm_name?.trim() || "WorkEasy";
   const pill = !/\bcrm$/i.test(name);
   return (
     <Link href="/dashboard" className={cn("flex min-w-0 items-center gap-2 font-semibold text-fg", className)} aria-label={`${name}${pill ? " CRM" : ""} home`}>
@@ -295,8 +306,8 @@ export function Wordmark({ className, organization }: { className?: string; orga
       ) : (
         <BrandLogo size={28} />
       )}
-      <span className="truncate text-[15px] tracking-tight">{name}</span>
-      {pill ? <span className="rounded-full bg-white px-1.5 py-px text-[10px] font-bold leading-4 text-chrome">CRM</span> : null}
+      <span className="truncate text-base tracking-tight">{name}</span>
+      {pill ? <span className="rounded-sm bg-chrome-indicator px-1.5 py-px text-[12px] font-bold leading-4 text-chrome">CRM</span> : null}
     </Link>
   );
 }

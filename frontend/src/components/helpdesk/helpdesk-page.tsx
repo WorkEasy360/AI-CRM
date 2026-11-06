@@ -139,8 +139,8 @@ export function HelpdeskPage() {
   const panel = panelTicket ? <TicketPanel key={panelTicket.id} ticket={panelTicket} active={active} onClose={closePanel} onChanged={onChanged} /> : null;
 
   return (
-    <div className="mx-auto max-w-[96rem]">
-      <PageHeader icon={Headset} title="Helpdesk" description="Manage customer support tickets, track issues and resolve them faster." />
+    <div className="w-full">
+      <PageHeader icon={Headset} title="Helpdesk" />
 
       <div className={cn("grid gap-4", panel && wide && "grid-cols-[minmax(0,1fr)_25rem]")}>
         <div className="min-w-0">

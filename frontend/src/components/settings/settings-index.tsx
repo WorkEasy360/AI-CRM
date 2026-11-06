@@ -36,7 +36,6 @@ import { visibleSettingsNav } from "@/components/shell/nav";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import type { ActiveContext } from "@/lib/api/types";
 import { useSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
 
 type Icon = React.ComponentType<{ className?: string }>;
 
@@ -50,23 +49,15 @@ interface CardItem {
 
 interface SettingsCard {
   title: string;
-  description: string;
   icon: Icon;
-  /** Header tint. */
-  tint: string;
-  /** Icon colour on the tint (>= 3:1). */
-  ink: string;
   items: CardItem[];
 }
 
-/** The WorkEasy360 settings home: six groups, each linking to the existing settings pages. */
+/** The settings home: six groups, each linking to the existing settings pages. */
 export const SETTINGS_CARDS: readonly SettingsCard[] = [
   {
     title: "Workspace",
-    description: "Set up your organization and team.",
     icon: Building2,
-    tint: "from-[#dcfce7]",
-    ink: "text-[#15803d]",
     items: [
       { label: "Organization Details", href: "/settings/general", icon: Building2 },
       { label: "Users & Teams", href: "/settings/users", icon: Users },
@@ -75,10 +66,7 @@ export const SETTINGS_CARDS: readonly SettingsCard[] = [
   },
   {
     title: "CRM Configuration",
-    description: "Customize your CRM for your sales process.",
     icon: Filter,
-    tint: "from-[#dbeafe]",
-    ink: "text-[#15803d]",
     items: [
       { label: "Pipelines & Stages", href: "/settings/pipelines", icon: Layers },
       { label: "Custom Fields", href: "/settings/custom-fields", icon: ListOrdered },
@@ -87,10 +75,7 @@ export const SETTINGS_CARDS: readonly SettingsCard[] = [
   },
   {
     title: "Communication",
-    description: "Connect and manage customer communication channels.",
     icon: MessageSquareMore,
-    tint: "from-[#f3e8ff]",
-    ink: "text-[#7e22ce]",
     items: [
       { label: "Email Settings", href: "/settings/email", icon: Mail },
       { label: "WhatsApp Integration", href: "/settings/whatsapp", icon: MessageCircle },
@@ -100,10 +85,7 @@ export const SETTINGS_CARDS: readonly SettingsCard[] = [
   },
   {
     title: "AI Assistant",
-    description: "Enable AI to boost your sales and productivity.",
     icon: Cpu,
-    tint: "from-[#ffedd5]",
-    ink: "text-[#c2410c]",
     items: [
       { label: "AI Settings", href: "/settings/ai", icon: Sparkles },
       { label: "Usage & Limits", href: "/settings/ai#usage", icon: BarChart3, gate: "/settings/ai" },
@@ -112,10 +94,7 @@ export const SETTINGS_CARDS: readonly SettingsCard[] = [
   },
   {
     title: "Security & Data",
-    description: "Keep your CRM secure and manage your data.",
     icon: ShieldCheck,
-    tint: "from-[#dcfce7]",
-    ink: "text-[#15803d]",
     items: [
       { label: "Password & 2FA", href: "/settings/security", icon: Lock },
       { label: "Import & Export Data", href: "/settings/data", icon: Database },
@@ -124,10 +103,7 @@ export const SETTINGS_CARDS: readonly SettingsCard[] = [
   },
   {
     title: "Integrations & API",
-    description: "Connect external apps and manage API access.",
     icon: PlugZap,
-    tint: "from-[#dbeafe]",
-    ink: "text-[#1d4ed8]",
     items: [
       { label: "Integrations (Connected Apps)", href: "/settings/integrations", icon: Puzzle },
       { label: "API Keys", href: "/settings/integrations/api-keys", icon: Code2, gate: "/settings/integrations" },
@@ -159,28 +135,24 @@ export function SettingsIndex() {
   const { cards, more } = visibleSettingsCards(session.active);
   return (
     <div>
-      <PageHeader icon={Settings} title="Settings" description="Manage your CRM, team, communication, integrations and data in one place." />
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <PageHeader icon={Settings} title="Settings" />
+      <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
         {cards.map((card) => (
-          <section key={card.title} aria-label={card.title} className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-            <Link href={card.items[0]?.href ?? "/settings"} className={cn("group flex items-start gap-3 bg-gradient-to-r to-transparent px-4 py-4", card.tint)}>
-              <span className={cn("flex size-14 shrink-0 items-center justify-center rounded-full bg-white/70", card.ink)} aria-hidden>
-                <card.icon className="size-8" />
+          <section key={card.title} aria-label={card.title} className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+            <Link href={card.items[0]?.href ?? "/settings"} className="group flex items-center gap-3 border-b border-border px-5 py-4 hover:bg-surface-sunken">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand" aria-hidden>
+                <card.icon className="size-5" />
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-lg font-bold text-fg">{card.title}</span>
-                <span className="block text-sm text-fg-muted">{card.description}</span>
-              </span>
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-fg shadow-sm group-hover:bg-bg-subtle" aria-hidden>
-                <ChevronRight className="size-4" />
-              </span>
+              <span className="min-w-0 flex-1 text-lg font-semibold text-fg">{card.title}</span>
+              <ChevronRight className="size-4 shrink-0 text-fg-subtle group-hover:text-fg" aria-hidden />
             </Link>
-            <ul className="divide-y divide-border px-4 pb-2">
+            <ul className="px-2 py-2">
               {card.items.map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="flex items-center gap-3 rounded-sm py-2.5 text-sm font-medium text-fg hover:text-primary">
-                    <item.icon className="size-5 shrink-0 text-fg-muted" aria-hidden />
-                    {item.label}
+                  <Link href={item.href} className="group flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium text-fg hover:bg-bg-subtle">
+                    <item.icon className="size-[18px] shrink-0 text-fg-subtle group-hover:text-brand" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    <ChevronRight className="size-4 shrink-0 text-transparent group-hover:text-fg-subtle" aria-hidden />
                   </Link>
                 </li>
               ))}

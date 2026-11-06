@@ -46,7 +46,7 @@ export function RecordPage({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-semibold tracking-tight">{title}</h1>
+              <h1 className="truncate text-2xl font-bold tracking-tight text-fg">{title}</h1>
               {archived ? <Badge variant="warning">Archived</Badge> : null}
               {badges}
             </div>

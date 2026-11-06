@@ -86,7 +86,6 @@ export function TagsPage() {
     <div>
       <PageHeader
         title="Tags"
-        description="Label contacts, companies, deals and products so you can filter and group them."
         actions={
           canManage ? (
             <Button onClick={() => setEditing("new")}>
@@ -112,7 +111,7 @@ export function TagsPage() {
         <EmptyState
           icon={<TagIcon />}
           title="No tags yet"
-          description="Tags are shared across the organization and can be applied to any record."
+          description="Tags are shared across the organization."
           action={canManage ? <Button onClick={() => setEditing("new")}>Create a tag</Button> : null}
         />
       ) : (

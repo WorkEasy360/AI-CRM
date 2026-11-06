@@ -232,7 +232,7 @@ export function KanbanBoard({
                   </span>
                 </div>
                 {stage.total_amount_base !== null ? <p className="mt-0.5 text-base font-bold tabular-nums text-fg">{formatMoney(stage.total_amount_base, baseCurrency)}</p> : null}
-                {weighted !== null ? <p className="text-[12px] tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
+                {weighted !== null ? <p className="text-xs tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
               </header>
               <ColumnCards
                 stage={stage}
@@ -264,7 +264,7 @@ export function KanbanBoard({
               {stage.has_more ? (
                 <button
                   type="button"
-                  className="border-t border-border px-2.5 py-1.5 text-left text-[12px] text-primary hover:underline disabled:text-fg-subtle"
+                  className="border-t border-border px-2.5 py-1.5 text-left text-xs text-primary hover:underline disabled:text-fg-subtle"
                   onClick={() => loadMore(stage)}
                   disabled={loadingMore === stage.id}
                 >
@@ -286,7 +286,7 @@ export function KanbanBoard({
         })}
       </ol>
       {canMove ? (
-        <p className="mx-1 mt-3 flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand/50 bg-[#f0fdf4] py-3 text-sm font-medium text-fg dark:bg-transparent">
+        <p className="mx-1 mt-3 flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand/50 bg-brand-soft py-3 text-sm font-medium text-fg dark:bg-transparent">
           <Move className="size-4 text-brand" aria-hidden /> Drag &amp; Drop deals between stages
         </p>
       ) : null}
@@ -484,7 +484,7 @@ function DealCard({
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <span className="flex items-baseline gap-1 truncate">
           <span className="text-sm font-bold tabular-nums">{formatMoney(deal.amount, deal.currency)}</span>
-          <span className="text-[12px] tabular-nums text-fg-muted" title={deal.probability_overridden ? "Probability set by hand" : "Probability"}>
+          <span className="text-xs tabular-nums text-fg-muted" title={deal.probability_overridden ? "Probability set by hand" : "Probability"}>
             {deal.probability}%
           </span>
         </span>
@@ -492,22 +492,22 @@ function DealCard({
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
         {deal.owner ? (
-          <span className="inline-flex min-w-0 items-center gap-1.5 text-[12px] text-fg-muted" title={deal.owner.display_name}>
-            <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[10px]" aria-label={`Owner: ${deal.owner.display_name}`} />
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-fg-muted" title={deal.owner.display_name}>
+            <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[11px]" aria-label={`Owner: ${deal.owner.display_name}`} />
             <span className="truncate">{deal.owner.display_name.split(" ")[0]}</span>
           </span>
         ) : (
           <span />
         )}
         {deal.expected_close_date ? (
-          <span className={cn("inline-flex shrink-0 items-center gap-1 text-[12px]", overdue ? "text-danger" : "text-fg-subtle")} title={overdue ? "Past the expected close date" : "Expected close"}>
+          <span className={cn("inline-flex shrink-0 items-center gap-1 text-xs", overdue ? "text-danger" : "text-fg-subtle")} title={overdue ? "Past the expected close date" : "Expected close"}>
             <CalendarDays className="size-3" aria-hidden />
             <time dateTime={deal.expected_close_date}>{formatDate(deal.expected_close_date)}</time>
           </span>
         ) : null}
       </div>
       {deal.extra?.length ? (
-        <dl className="mt-1 flex flex-col gap-0.5 text-[12px]">
+        <dl className="mt-1 flex flex-col gap-0.5 text-xs">
           {deal.extra.map((e) => {
             const text = layoutText(e.value);
             return text ? (
@@ -521,12 +521,12 @@ function DealCard({
       ) : null}
       <div className="mt-1 flex items-center justify-between gap-2">
         {deal.next_activity_title ? (
-          <span className="inline-flex min-w-0 items-center gap-1 text-[12px] text-fg-muted" title={`Next: ${deal.next_activity_title}`}>
+          <span className="inline-flex min-w-0 items-center gap-1 text-xs text-fg-muted" title={`Next: ${deal.next_activity_title}`}>
             <CalendarClock className="size-3 shrink-0" aria-hidden />
             <span className="truncate">{deal.next_activity_title}</span>
           </span>
         ) : open ? (
-          <span className="inline-flex items-center gap-1 text-[12px] text-danger/80">
+          <span className="inline-flex items-center gap-1 text-xs text-danger/80">
             <CalendarClock className="size-3 shrink-0" aria-hidden />
             No next step
           </span>

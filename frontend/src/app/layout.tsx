@@ -1,11 +1,15 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "@/styles/globals.css";
 import { Providers } from "@/app/providers";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 
+/** Inter, downloaded at build time and served from this origin (font-src 'self'); see tokens.css. */
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+
 export const metadata: Metadata = {
   title: { default: "WorkEasy CRM", template: "%s · WorkEasy CRM" },
-  description: "WorkEasy CRM",
+  description: "WorkEasy CRM: sales pipeline, contacts, activities, helpdesk and WorkEasy AI in one workspace.",
   applicationName: "WorkEasy CRM",
   robots: { index: false, follow: false },
   // The manifest link itself comes from app/manifest.ts.
@@ -32,14 +36,14 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#13222e" },
-    { media: "(prefers-color-scheme: dark)", color: "#13222e" },
+    { media: "(prefers-color-scheme: light)", color: "#102d3d" },
+    { media: "(prefers-color-scheme: dark)", color: "#102d3d" },
   ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <Providers>{children}</Providers>
         <ServiceWorkerRegistration />

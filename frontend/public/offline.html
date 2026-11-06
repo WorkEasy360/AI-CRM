@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <meta name="theme-color" content="#f5f9fd" />
+    <meta name="theme-color" content="#102d3d" />
     <title>Offline · WorkEasy CRM</title>
     <!--
       Shown by public/sw.js only when a page cannot be reached. Deliberately script-free (the CSP
@@ -14,15 +14,15 @@
     <style>
       :root {
         color-scheme: light;
-        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       }
       body {
         margin: 0;
         min-height: 100dvh;
         display: grid;
         place-items: center;
-        background: #f5f9fd;
-        color: #0e1c2e;
+        background: #f2f6f8;
+        color: #172b3a;
       }
       main {
         max-width: 22rem;
@@ -41,7 +41,7 @@
         margin: 0 0 1.25rem;
         font-size: 0.875rem;
         line-height: 1.5;
-        color: #46566d;
+        color: #475a67;
       }
       a {
         display: inline-block;
@@ -49,7 +49,7 @@
         padding: 0 1.25rem;
         line-height: 2.75rem;
         border-radius: 6px;
-        background: #0a72bd;
+        background: #067f4b;
         color: #ffffff;
         font-size: 0.875rem;
         font-weight: 600;
@@ -60,11 +60,11 @@
   <body>
     <main>
       <svg viewBox="0 0 512 512" aria-hidden="true">
-        <rect width="512" height="512" rx="96" fill="#0a72bd" />
-        <path d="M5 3v14M5 10l8-7M5 10l8 7" transform="translate(120.64 105.6) scale(15.04)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <rect width="512" height="512" rx="96" fill="#102d3d" />
+        <path d="M112 152l64 216 80-168 80 168 64-216" fill="none" stroke="#08b96b" stroke-width="44" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
       <h1>You're offline</h1>
-      <p>WorkEasy CRM needs a connection to load your pipeline and records. Nothing is stored on this device.</p>
+      <p>WorkEasy CRM needs a connection. Nothing is stored on this device.</p>
       <a href="">Try again</a>
     </main>
   </body>

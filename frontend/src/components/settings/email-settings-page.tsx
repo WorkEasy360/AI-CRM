@@ -73,7 +73,7 @@ export function EmailSettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Email" description="Send email from your own mailbox and keep every message on the record it belongs to." />
+      <PageHeader title="Email" />
       <div className="grid gap-6">
         <MailboxCard canConnect={canConnect} />
         {canView ? <EmailTemplatesSection canManage={canManageTemplates} /> : null}

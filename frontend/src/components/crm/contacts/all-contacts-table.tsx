@@ -27,7 +27,7 @@ import { cn, initials } from "@/lib/utils";
 
 const ALL = "__all__";
 /** Initials discs in a fixed order by the name, so a person keeps their colour across lists. */
-const AVATAR_TINTS = ["bg-[#15803d]", "bg-[#7e22ce]", "bg-[#c2410c]", "bg-[#1d4ed8]", "bg-[#0f766e]", "bg-[#be185d]"];
+const AVATAR_TINTS = ["bg-brand", "bg-[#7e22ce]", "bg-[#c2410c]", "bg-[#1d4ed8]", "bg-[#0f766e]", "bg-[#be185d]"];
 
 export interface DirectoryRow {
   kind: "contact" | "company";
@@ -91,7 +91,7 @@ function NameCell({ row }: { row: DirectoryRow }) {
   return (
     <Link href={row.href} className="inline-flex min-w-0 items-center gap-2.5 font-semibold text-fg hover:text-primary">
       {row.kind === "company" ? (
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] text-[#1d4ed8]" aria-hidden>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent" aria-hidden>
           <Building2 className="size-4" />
         </span>
       ) : (
@@ -189,11 +189,11 @@ export function AllContactsTable({ favorites = false, tagId }: { favorites?: boo
                   </TableCell>
                   <TableCell>
                     {row.kind === "company" ? (
-                      <Badge className="gap-1 border-transparent bg-[#dbeafe] text-[#1d4ed8]">
+                      <Badge className="gap-1 border-transparent bg-accent-soft text-accent">
                         <Building2 className="size-3" aria-hidden /> Company
                       </Badge>
                     ) : (
-                      <Badge className="gap-1 border-transparent bg-[#dcfce7] text-[#15803d]">
+                      <Badge className="gap-1 border-transparent bg-brand-soft text-brand">
                         <UserRound className="size-3" aria-hidden /> Individual
                       </Badge>
                     )}
@@ -202,7 +202,7 @@ export function AllContactsTable({ favorites = false, tagId }: { favorites?: boo
                   <TableCell className="hidden whitespace-nowrap md:table-cell">
                     {row.phone ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <Link href={row.href} aria-label={`WhatsApp ${row.name}`} className="text-[#16a34a] hover:text-[#15803d]">
+                        <Link href={row.href} aria-label={`WhatsApp ${row.name}`} className="text-[#16a34a] hover:text-brand">
                           <MessageCircle className="size-4" aria-hidden />
                         </Link>
                         {row.phone}

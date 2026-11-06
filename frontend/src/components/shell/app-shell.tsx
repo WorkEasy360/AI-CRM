@@ -46,8 +46,8 @@ export function AppShell({ session, active, children }: { session: Session; acti
       <AssistantProvider>
       <div className="flex h-dvh overflow-hidden bg-bg">
         {/* Desktop navigation */}
-        <aside className="kl-chrome kl-sidebar hidden w-60 shrink-0 flex-col lg:flex">
-          <div className="flex h-14 items-center border-b border-border px-4">
+        <aside className="kl-chrome kl-sidebar hidden w-64 shrink-0 flex-col border-r border-border lg:flex">
+          <div className="flex h-16 items-center border-b border-border px-5">
             <Wordmark organization={active.organization} />
           </div>
           <SideNav session={session} />
@@ -58,7 +58,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
           <SheetContent side="left" className="kl-chrome kl-sidebar border-r-0 p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SheetDescription className="sr-only">Primary navigation</SheetDescription>
-            <div className="flex h-14 items-center border-b border-border px-4">
+            <div className="flex h-16 items-center border-b border-border px-5">
               <Wordmark organization={active.organization} />
             </div>
             <SideNav session={session} onNavigate={() => setNavOpen(false)} />
@@ -66,13 +66,14 @@ export function AppShell({ session, active, children }: { session: Session; acti
         </Sheet>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-1.5 border-b border-border bg-surface px-3 sm:px-4">
+          {/* The top bar shares the sidebar's navy chrome (.kl-chrome re-points the neutral tokens). */}
+          <header className="kl-chrome flex h-16 shrink-0 items-center gap-2 border-b border-border bg-chrome px-3 sm:px-6">
             <Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open navigation">
               <Menu />
             </Button>
             <GlobalSearch active={active} open={searchOpen} onOpenChange={setSearchOpen} />
 
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-1.5">
               <QuickAdd active={active} />
               {hasPermission(active, "whatsapp.view") ? (
                 <Button asChild size="icon-sm" className="bg-[#25D366] text-white hover:bg-[#1ebe5b]" aria-label="WhatsApp inbox">
@@ -88,7 +89,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
           </header>
 
           {mfaBanner ? (
-            <div className="border-b border-warning/40 bg-warning-soft px-4 py-1.5 text-xs text-fg">
+            <div className="border-b border-warning/40 bg-warning-soft px-4 py-2 text-sm text-fg sm:px-6">
               <span className="font-medium">{active.organization.name}</span> requires two-factor authentication.{" "}
               {federated ? (
                 <>
@@ -107,7 +108,7 @@ export function AppShell({ session, active, children }: { session: Session; acti
           ) : null}
 
           {/* Bottom padding clears the mobile tab bar; desktop keeps the plain 1rem. */}
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 lg:pb-4">{children}</main>
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-5 lg:pb-6">{children}</main>
         </div>
 
         <MobileNav active={active} onSearch={() => setSearchOpen(true)} />
@@ -131,7 +132,7 @@ function HelpMenu({ onSearch }: { onSearch: () => void }) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem onSelect={onSearch}>
           <Search /> Search everything
-          <kbd className="ml-auto text-[11px] text-fg-subtle">Ctrl K</kbd>
+          <kbd className="ml-auto text-xs text-fg-subtle">Ctrl K</kbd>
         </DropdownMenuItem>
         {assistant?.available ? (
           <DropdownMenuItem onSelect={() => assistant.openPanel()}>

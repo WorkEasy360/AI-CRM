@@ -108,11 +108,10 @@ export function DashboardPage() {
   const canActivities = hasPermission(active, "activities.view");
 
   return (
-    <div className="mx-auto max-w-[96rem]">
+    <div className="w-full">
       <PageHeader
         icon={UserRound}
         title={`${greeting(session?.user.display_name || session?.user.email)}! 👋`}
-        description="Here's what's happening in your CRM today."
         actions={
           <>
             <DashboardTabs active="overview" />

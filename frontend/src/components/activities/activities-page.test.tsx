@@ -137,7 +137,6 @@ describe("ActivitiesPage", () => {
     expect(within(tabs).queryByRole("tab", { name: "WhatsApp" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New task" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "More ways to add" })).toBeInTheDocument();
-    expect(screen.getByText("Manage your tasks, calls, meetings and follow-ups in one place.")).toBeInTheDocument();
 
     const kpis = screen.getByRole("region", { name: "Activity summary" });
     expect(await within(kpis).findByText("248")).toBeInTheDocument();

@@ -107,7 +107,7 @@ export function TicketPanel({ ticket, active, onClose, onChanged }: { ticket: Ti
       </div>
 
       <div className="flex items-start gap-3 border-b border-border px-4 pb-3 pt-3">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#dcfce7] text-[#15803d]" aria-hidden>
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand" aria-hidden>
           <TicketIcon className="size-5" />
         </span>
         <div className="min-w-0">
@@ -435,7 +435,7 @@ function MessageBubble({ message }: { message: TicketMessage }) {
         <p
           className={cn(
             "mt-1 whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm text-fg",
-            message.kind === "note" ? "border border-warning/30 bg-warning-soft" : fromCustomer ? "bg-bg-subtle" : "bg-[#dcfce7]",
+            message.kind === "note" ? "border border-warning/30 bg-warning-soft" : fromCustomer ? "bg-bg-subtle" : "bg-brand-soft",
           )}
         >
           {message.body}

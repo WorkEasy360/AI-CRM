@@ -78,7 +78,7 @@ export function ForecastPage({ embedded = false }: { embedded?: boolean } = {}) 
   const rangeLabel = data ? `${fmtDate(data.from)} – ${fmtDate(data.to)}` : undefined;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       {embedded ? (
         <p className="mb-3 text-sm text-fg-muted">{rangeLabel ? `Expected revenue by close month · ${rangeLabel}` : "Open deals by expected close date, weighted by probability"}</p>
       ) : (

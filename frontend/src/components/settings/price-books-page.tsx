@@ -103,7 +103,7 @@ export function PriceBooksPage() {
     <div className="space-y-4">
       <PageHeader
         title="Price books"
-        description="Special prices for your products, one currency per book. Pick a price book on a deal to use its prices."
+        description="One currency per price book."
         actions={
           canManage ? (
             <Button onClick={() => setEditing("new")}>

@@ -139,7 +139,7 @@ export function FilesPanel({ entity, recordId, disabled = false }: { entity: Fil
                   <span>{formatBytes(file.size_bytes)}</span>
                   <span aria-hidden>·</span>
                   <span className="inline-flex items-center gap-1">
-                    {file.uploaded_by ? <Avatar name={file.uploaded_by.display_name} size="sm" className="size-4 text-[9px]" /> : null}
+                    {file.uploaded_by ? <Avatar name={file.uploaded_by.display_name} size="sm" className="size-4 text-[10px]" /> : null}
                     {file.uploaded_by?.display_name ?? "Unknown"}
                   </span>
                   <span aria-hidden>·</span>

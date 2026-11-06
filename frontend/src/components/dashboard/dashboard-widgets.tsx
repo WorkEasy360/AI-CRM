@@ -35,7 +35,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 import { ChangeBadge, EmptyNote, NoAccess, Panel, PanelLink, monthLabel, percentChange, type KpiChange } from "./stat-tile";
 
 const KIND_ICON: Record<ActivityKind, React.ComponentType<{ className?: string }>> = { task: CheckCircle2, call: Phone, meeting: CalendarDays };
-const KIND_TINT: Record<ActivityKind, string> = { task: "bg-[#dcfce7] text-[#15803d]", call: "bg-[#dcfce7] text-[#15803d]", meeting: "bg-[#f3e8ff] text-[#7e22ce]" };
+const KIND_TINT: Record<ActivityKind, string> = { task: "bg-brand-soft text-brand", call: "bg-brand-soft text-brand", meeting: "bg-accent-soft text-accent" };
 
 function relatedName(a: Activity): string {
   return a.company?.name || a.deal?.name || a.contact?.name || "";
@@ -108,7 +108,7 @@ export function RevenueBars({ data, currency }: { data: DashboardSummary; curren
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
             <line x1={left} x2={width} y1={height - bottom - plot * f + 0.5} y2={height - bottom - plot * f + 0.5} className="stroke-border" strokeDasharray={f === 0 ? undefined : "3 3"} strokeWidth={1} />
-            <text x={left - 4} y={height - bottom - plot * f + 3} textAnchor="end" className="fill-fg-subtle text-[10px]">
+            <text x={left - 4} y={height - bottom - plot * f + 3} textAnchor="end" className="fill-fg-subtle text-[11px]">
               {formatCompactMoney(max * f, currency)}
             </text>
           </g>
@@ -116,9 +116,9 @@ export function RevenueBars({ data, currency }: { data: DashboardSummary; curren
         {trend.map((t, i) => (
           <g key={t.month}>
             <title>{`${monthLabel(t.month, true)}: ${formatMoney(t.amount, currency)} from ${t.count} won ${t.count === 1 ? "deal" : "deals"}`}</title>
-            <rect x={x(i) - barW / 2} y={y(values[i] ?? 0)} width={barW} height={Math.max(0, height - bottom - y(values[i] ?? 0))} rx={4} className="fill-[#bbf7d0]" />
+            <rect x={x(i) - barW / 2} y={y(values[i] ?? 0)} width={barW} height={Math.max(0, height - bottom - y(values[i] ?? 0))} rx={4} className="fill-brand-bright/40" />
             <rect x={x(i) - slot / 2} y={top} width={slot} height={plot} fill="transparent" />
-            <text x={x(i)} y={height - 5} textAnchor="middle" className="fill-fg-subtle text-[11px]">
+            <text x={x(i)} y={height - 5} textAnchor="middle" className="fill-fg-subtle text-[12px]">
               {monthLabel(t.month)}
             </text>
           </g>
@@ -193,7 +193,7 @@ export function SourceDonut({ data }: { data: DashboardSummary }) {
           <text x={60} y={60} textAnchor="middle" className="fill-fg text-[22px] font-bold tabular-nums">
             {total.toLocaleString()}
           </text>
-          <text x={60} y={76} textAnchor="middle" className="fill-fg-subtle text-[11px]">
+          <text x={60} y={76} textAnchor="middle" className="fill-fg-subtle text-[12px]">
             Deals
           </text>
         </g>
@@ -259,14 +259,14 @@ export function BusinessSummary({ data }: { data: DashboardSummary }) {
   const t = data.tickets;
   const versus = "compared with the previous period";
   const rows: { label: string; icon: React.ComponentType<{ className?: string }>; tint: string; value: number | null | undefined; change: KpiChange | null; href: string }[] = [
-    { label: "Total Activities", icon: CalendarCheck, tint: "text-[#15803d]", value: a?.logged, change: a ? percentChange(a.logged, a.prev_logged, versus) : null, href: "/activities" },
-    { label: "Tasks", icon: ListTodo, tint: "text-[#15803d]", value: a?.logged_tasks, change: a ? percentChange(a.logged_tasks, a.prev_logged_tasks, versus) : null, href: "/activities?tab=tasks" },
-    { label: "Calls", icon: Phone, tint: "text-[#c2410c]", value: a?.logged_calls, change: a ? percentChange(a.logged_calls, a.prev_logged_calls, versus) : null, href: "/activities?tab=calls" },
-    { label: "Meetings", icon: CalendarDays, tint: "text-[#7e22ce]", value: a?.logged_meetings, change: a ? percentChange(a.logged_meetings, a.prev_logged_meetings, versus) : null, href: "/activities?tab=meetings" },
+    { label: "Total Activities", icon: CalendarCheck, tint: "text-brand", value: a?.logged, change: a ? percentChange(a.logged, a.prev_logged, versus) : null, href: "/activities" },
+    { label: "Tasks", icon: ListTodo, tint: "text-brand", value: a?.logged_tasks, change: a ? percentChange(a.logged_tasks, a.prev_logged_tasks, versus) : null, href: "/activities?tab=tasks" },
+    { label: "Calls", icon: Phone, tint: "text-warning", value: a?.logged_calls, change: a ? percentChange(a.logged_calls, a.prev_logged_calls, versus) : null, href: "/activities?tab=calls" },
+    { label: "Meetings", icon: CalendarDays, tint: "text-accent", value: a?.logged_meetings, change: a ? percentChange(a.logged_meetings, a.prev_logged_meetings, versus) : null, href: "/activities?tab=meetings" },
   ];
   if (t !== null && t !== undefined) {
     const change = percentChange(t.created, t.created_previous, "new tickets compared with the previous period");
-    rows.push({ label: "Open Tickets", icon: Ticket, tint: "text-[#b91c1c]", value: t.open, change: change ? { ...change, lowerIsBetter: true } : null, href: "/helpdesk?tab=open" });
+    rows.push({ label: "Open Tickets", icon: Ticket, tint: "text-danger", value: t.open, change: change ? { ...change, lowerIsBetter: true } : null, href: "/helpdesk?tab=open" });
   }
   if (!a && !t) return <NoAccess />;
   return (
@@ -334,7 +334,7 @@ export function UpcomingOverdue({ data }: { data: DashboardSummary }) {
   const a = data.activities;
   const rows = [
     a ? { label: `${a.overdue ?? a.tasks_overdue} Overdue Activities`, icon: AlarmClock, tint: "text-danger", href: "/activities?due=overdue" } : null,
-    a ? { label: `${a.due_week ?? 0} Activities Due This Week`, icon: CalendarDays, tint: "text-[#1d4ed8]", href: "/activities?due=week" } : null,
+    a ? { label: `${a.due_week ?? 0} Activities Due This Week`, icon: CalendarDays, tint: "text-accent", href: "/activities?due=week" } : null,
     data.deals_closing_week !== null && data.deals_closing_week !== undefined
       ? { label: `${data.deals_closing_week} Deals Closing This Week`, icon: BriefcaseBusiness, tint: "text-fg-muted", href: "/pipeline?view=list&status=open&sort=expected_close_date" }
       : null,
@@ -379,7 +379,7 @@ export function RecentActivities({ enabled }: { enabled: boolean }) {
             return (
               <li key={a.id}>
                 <Link href={`/activities?open=${encodeURIComponent(a.id)}`} className="flex items-center gap-2.5 py-1.5 text-sm hover:text-primary">
-                  <Icon className="size-4 shrink-0 text-[#15803d]" aria-hidden />
+                  <Icon className="size-4 shrink-0 text-brand" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">
                     {a.title}
                     {relatedName(a) ? <span className="text-fg-muted"> – {relatedName(a)}</span> : null}
@@ -400,20 +400,20 @@ export function RecentActivities({ enabled }: { enabled: boolean }) {
 type QuickAction = { label: string; icon: React.ComponentType<{ className?: string }>; tint: string; permission: string } & ({ create: "contact" | "deal" | "task" | "meeting" } | { href: string });
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "Add Contact", icon: UserPlus, tint: "text-[#15803d]", permission: "contacts.create", create: "contact" },
-  { label: "Add Deal", icon: Layers, tint: "text-[#7e22ce]", permission: "deals.create", create: "deal" },
-  { label: "Add Task", icon: CheckCircle2, tint: "text-[#15803d]", permission: "activities.create", create: "task" },
-  { label: "Schedule Meeting", icon: CalendarDays, tint: "text-[#7e22ce]", permission: "activities.create", create: "meeting" },
-  { label: "Send WhatsApp", icon: MessageCircle, tint: "text-[#15803d]", permission: "whatsapp.view", href: "/activities?tab=whatsapp" },
-  { label: "Send Email", icon: Mail, tint: "text-[#15803d]", permission: "email.view", href: "/activities?tab=emails" },
-  { label: "Create Automation", icon: Workflow, tint: "text-[#15803d]", permission: "automation.view", href: "/settings/automation" },
-  { label: "View Reports", icon: BarChart3, tint: "text-[#15803d]", permission: "deals.view", href: "/pipeline?tab=analytics" },
+  { label: "Add Contact", icon: UserPlus, tint: "text-brand", permission: "contacts.create", create: "contact" },
+  { label: "Add Deal", icon: Layers, tint: "text-accent", permission: "deals.create", create: "deal" },
+  { label: "Add Task", icon: CheckCircle2, tint: "text-brand", permission: "activities.create", create: "task" },
+  { label: "Schedule Meeting", icon: CalendarDays, tint: "text-accent", permission: "activities.create", create: "meeting" },
+  { label: "Send WhatsApp", icon: MessageCircle, tint: "text-brand", permission: "whatsapp.view", href: "/activities?tab=whatsapp" },
+  { label: "Send Email", icon: Mail, tint: "text-brand", permission: "email.view", href: "/activities?tab=emails" },
+  { label: "Create Automation", icon: Workflow, tint: "text-brand", permission: "automation.view", href: "/settings/automation" },
+  { label: "View Reports", icon: BarChart3, tint: "text-brand", permission: "deals.view", href: "/pipeline?tab=analytics" },
 ];
 
 export function QuickActionsGrid({ active }: { active: ActiveContext | null | undefined }) {
   const { open } = useQuickCreate();
   const items = QUICK_ACTIONS.filter((a) => hasPermission(active, a.permission));
-  const tile = "flex h-[4.5rem] flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface px-1 text-center text-xs font-medium text-fg shadow-sm transition-colors hover:border-brand hover:bg-[#f0fdf4]";
+  const tile = "flex h-[4.5rem] flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface px-1 text-center text-xs font-medium text-fg shadow-sm transition-colors hover:border-brand hover:bg-brand-soft";
   return (
     <Panel title="Quick Actions">
       {items.length === 0 ? (
@@ -462,9 +462,9 @@ export function insightText(insight: DashboardInsight, currency: string): { text
 export function AiInsightsCard({ data, currency }: { data: DashboardSummary | undefined; currency: string }) {
   const insights = data?.insights ?? [];
   return (
-    <section aria-label="WorkEasy AI Insights" className="rounded-lg border border-[#e9d5ff] bg-gradient-to-br from-[#faf5ff] to-[#f3e8ff] p-4 shadow-sm dark:from-transparent dark:to-transparent">
-      <h2 className="flex items-center gap-2 text-base font-bold text-[#6b21a8] dark:text-[#d8b4fe]">
-        <Bot className="size-5" aria-hidden /> WorkEasy AI Insights <Sparkles className="size-4 text-[#d97706]" aria-hidden />
+    <section aria-label="WorkEasy AI Insights" className="rounded-lg border border-brand/20 bg-brand-soft p-4 shadow-sm">
+      <h2 className="flex items-center gap-2 text-md font-semibold text-fg">
+        <Bot className="size-5" aria-hidden /> WorkEasy AI Insights <Sparkles className="size-4 text-brand-bright" aria-hidden />
       </h2>
       {!data ? (
         <Skeleton className="mt-3 h-24 w-full" />

@@ -15,8 +15,8 @@ export function MessageTemplatesPage() {
   const email = hasPermission(active, "email.view");
   const whatsapp = hasPermission(active, "whatsapp.view");
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <PageHeader title="Message Templates" description="Reusable email templates and approved WhatsApp templates for follow-ups and automations." />
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader title="Message Templates" />
       {!email && !whatsapp ? <EmptyState icon={<FileText />} title="Templates are not part of your role" description="Ask a workspace administrator for access." /> : null}
       {email ? <EmailTemplatesSection canManage={hasPermission(active, "email.templates_manage")} /> : null}
       {whatsapp ? <WhatsAppTemplatesSection canManage={hasPermission(active, "whatsapp.manage")} /> : null}

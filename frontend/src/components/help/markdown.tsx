@@ -10,11 +10,11 @@ import { cn } from "@/lib/utils";
 export function HelpMarkdown({ text, className }: { text: string; className?: string }) {
   const blocks = React.useMemo(() => parseBlocks(text), [text]);
   return (
-    <div className={cn("grid gap-2.5 text-[13px] leading-relaxed text-fg", className)}>
+    <div className={cn("grid gap-2.5 text-sm leading-relaxed text-fg", className)}>
       {blocks.map((block, index) => {
         if (block.type === "heading") {
           return (
-            <p key={index} className="pt-1 text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">
+            <p key={index} className="pt-1 text-[12px] font-semibold tracking-wide text-fg-subtle uppercase">
               {block.text}
             </p>
           );
@@ -26,7 +26,7 @@ export function HelpMarkdown({ text, className }: { text: string; className?: st
                 <li key={i} className="relative flex gap-3 pb-3 last:pb-0">
                   {i < block.items.length - 1 ? <span aria-hidden className="absolute top-6 bottom-0 left-[11px] w-px bg-border" /> : null}
                   <span
-                    className="relative z-[1] flex size-6 shrink-0 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#f0fdf4] text-[11px] font-semibold text-[#15803d]"
+                    className="relative z-[1] flex size-6 shrink-0 items-center justify-center rounded-full border border-brand/25 bg-brand-soft text-[12px] font-semibold text-brand"
                     aria-hidden
                   >
                     {i + 1}

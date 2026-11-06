@@ -77,7 +77,7 @@ function DealDetails({ dealId, stages }: { dealId: string; stages: StageTarget[]
       <div className="border-b border-border px-4 pb-4 pt-4 pr-12">
         <h2 className="text-lg font-bold text-fg">Deal Details</h2>
         <div className="mt-3 flex items-start gap-3">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#dcfce7] text-[#15803d]" aria-hidden>
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand" aria-hidden>
             <Building2 className="size-5" />
           </span>
           <div className="min-w-0">
@@ -85,7 +85,7 @@ function DealDetails({ dealId, stages }: { dealId: string; stages: StageTarget[]
             {d.company ? <p className="truncate text-sm text-fg-muted">{d.company.name}</p> : null}
             {canMove ? (
               <Select value={d.stage.id} onValueChange={(id) => { const target = stages.find((s) => s.id === id); if (target) move.requestMove(card, target); }}>
-                <SelectTrigger className="mt-2 h-8 w-44 border-transparent bg-[#dbeafe] font-medium text-[#1d4ed8]" aria-label="Stage">
+                <SelectTrigger className="mt-2 h-8 w-44 border-transparent bg-accent-soft font-medium text-accent" aria-label="Stage">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -97,7 +97,7 @@ function DealDetails({ dealId, stages }: { dealId: string; stages: StageTarget[]
                 </SelectContent>
               </Select>
             ) : (
-              <p className="mt-2 inline-flex rounded-md bg-[#dbeafe] px-2 py-1 text-sm font-medium text-[#1d4ed8]">{d.stage.name}</p>
+              <p className="mt-2 inline-flex rounded-md bg-accent-soft px-2 py-1 text-sm font-medium text-accent">{d.stage.name}</p>
             )}
           </div>
         </div>

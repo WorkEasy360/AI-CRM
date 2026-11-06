@@ -27,7 +27,7 @@ export function ContactsHub({ active, tagId, onAdd }: { active: ContactsTab; tag
   const stats = useContactStats();
   return (
     <>
-      <PageHeader icon={Users} title="Contacts" description="Manage all your people and companies in one place." />
+      <PageHeader icon={Users} title="Contacts" />
       <ContactKpis stats={stats.data} />
       <ContactsTabBar active={active} tagId={tagId} stats={stats.data} onAdd={onAdd} />
     </>

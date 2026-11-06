@@ -60,7 +60,7 @@ export function CompanyContacts({ company, canCreate }: { company: Company; canC
           <EmptyState
             icon={<ContactIcon />}
             title="No contacts yet"
-            description="People who work here will appear once they are linked to this company."
+            description="No contacts are linked to this company."
             className="py-8"
             action={canCreate ? newContact : null}
           />

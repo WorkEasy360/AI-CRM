@@ -24,9 +24,9 @@ export const CATEGORY_ICONS: Record<TicketCategory, React.ComponentType<{ classN
 
 /** Open yellow, In Progress blue, Resolved green (the WorkEasy360 badges). */
 export const STATUS_BADGE_CLASS: Record<TicketStatus, string> = {
-  open: "border-transparent bg-[#fef3c7] text-[#92400e]",
-  in_progress: "border-transparent bg-[#dbeafe] text-[#1d4ed8]",
-  resolved: "border-transparent bg-[#dcfce7] text-[#15803d]",
+  open: "border-transparent bg-warning-soft text-warning",
+  in_progress: "border-transparent bg-accent-soft text-accent",
+  resolved: "border-transparent bg-brand-soft text-brand",
   closed: "border-transparent bg-bg-subtle text-fg-muted",
 };
 

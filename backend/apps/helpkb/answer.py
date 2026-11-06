@@ -31,11 +31,11 @@ log = structlog.get_logger(__name__)
 
 FEATURE = "help"
 KB_MODEL = "knowledge-base"
-NOT_FOUND = "I couldn't find this in the WorkEasy360 help guide yet. I've shared your question with our team."
+NOT_FOUND = "I couldn't find this in the WorkEasy CRM help guide yet. I've shared your question with our team."
 MAX_ANSWER_CHARS = 3000
 MAX_CONTEXT_ARTICLES = 2
 
-SYSTEM = f"""You are WorkEasy AI, the in-app assistant for WorkEasy360 CRM.
+SYSTEM = f"""You are WorkEasy AI, the in-app assistant for WorkEasy CRM.
 Answer "how to" questions ONLY using the knowledge-base articles provided in <context>.
 Never invent menu names, buttons, fields or features. If the answer is not in <context>,
 say: "{NOT_FOUND}"

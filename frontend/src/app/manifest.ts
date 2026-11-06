@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /**
  * Web app manifest, served at /manifest.webmanifest. It makes WorkEasy CRM installable and is the source the
  * Android Trusted Web Activity in android/ is generated from (twa-manifest.json mirrors these values).
- * Colours match the light theme's page background (--kl-bg) and brand primary (--kl-primary-600).
+ * Colours match the light theme's page background (--kl-bg) and the navy chrome (--kl-chrome).
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -15,8 +15,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "any",
-    background_color: "#f5f9fd",
-    theme_color: "#f5f9fd",
+    background_color: "#f2f6f8",
+    theme_color: "#102d3d",
     categories: ["business", "productivity"],
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

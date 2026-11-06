@@ -52,7 +52,7 @@ export function DealConnectionsSection({ deal, editable }: { deal: Deal; editabl
       ) : links.isError ? (
         <p className="text-sm text-danger">{errorMessage(links.error)}</p>
       ) : items.length === 0 ? (
-        <EmptyState icon={<Link2 />} title="No connected deals" description="Connect deals that belong together, such as a sale and its delivery project." className="py-8" />
+        <EmptyState icon={<Link2 />} title="No connected deals" description="No connected deals." className="py-8" />
       ) : (
         <ul className="flex flex-col divide-y divide-border">
           {items.map((c) => (

@@ -41,11 +41,11 @@ import { cn, formatDateTime } from "@/lib/utils";
 
 /** Icon and tint per trigger; each icon colour is >= 3:1 on its tint. */
 const TRIGGER_ICON: Record<AutomationTrigger, { icon: React.ComponentType<{ className?: string }>; tone: string }> = {
-  contact_created: { icon: UserPlus, tone: "bg-[#dcfce7] text-[#15803d]" },
-  deal_created: { icon: ListTodo, tone: "bg-[#fef3c7] text-[#b45309]" },
-  deal_stage_entered: { icon: KanbanSquare, tone: "bg-[#dbeafe] text-[#1d4ed8]" },
-  deal_won: { icon: Trophy, tone: "bg-[#ffedd5] text-[#c2410c]" },
-  deal_lost: { icon: XCircle, tone: "bg-[#fee2e2] text-[#b91c1c]" },
+  contact_created: { icon: UserPlus, tone: "bg-brand-soft text-brand" },
+  deal_created: { icon: ListTodo, tone: "bg-warning-soft text-warning" },
+  deal_stage_entered: { icon: KanbanSquare, tone: "bg-accent-soft text-accent" },
+  deal_won: { icon: Trophy, tone: "bg-warning-soft text-warning" },
+  deal_lost: { icon: XCircle, tone: "bg-danger-soft text-danger" },
 };
 
 type RuleDraft = Required<Pick<AutomationRuleInput, "name" | "trigger" | "action" | "message" | "delay_days" | "only_if_no_reply">> & { blurb: string };
@@ -121,10 +121,9 @@ export function AutomationPage() {
   const list = rules.data ?? [];
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="w-full">
       <PageHeader
         title="Automation"
-        description="Automate your sales and follow-up processes."
         actions={
           canManage ? (
             <Button size="sm" onClick={() => setEditing({ draft: null })}>

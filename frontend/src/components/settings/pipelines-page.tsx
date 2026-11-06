@@ -123,7 +123,7 @@ export function PipelinesPage() {
     <div>
       <PageHeader
         title="Pipelines"
-        description="Define the stages deals move through. Every pipeline needs at least one won and one lost stage."
+        description="Every pipeline needs at least one won and one lost stage."
         actions={
           canManage ? (
             <Button onClick={() => setEditing({ create: true })}>
@@ -141,7 +141,7 @@ export function PipelinesPage() {
         <EmptyState
           icon={<KanbanSquare />}
           title="No pipelines yet"
-          description="Create your first pipeline; it starts with a sensible set of stages you can adjust."
+          description="A new pipeline starts with a default set of stages."
           action={canManage ? <Button onClick={() => setEditing({ create: true })}>Create a pipeline</Button> : null}
         />
       ) : (

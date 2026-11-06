@@ -20,7 +20,6 @@ import {
   Lightbulb,
   LineChart,
   Mail,
-  MessageCircle,
   Phone,
   Sparkles,
   TrendingUp,
@@ -60,13 +59,13 @@ interface QuickAction {
 
 /** The eight AI Quick Actions of the WorkEasy360 screen, in its order. */
 export const ASSISTANT_ACTIONS: readonly QuickAction[] = [
-  { title: "Write Message", hint: "(WhatsApp / Email)", icon: Mail, ink: "text-[#15803d]", run: { prompt: "Write a short, friendly WhatsApp follow-up message for my newest lead." } },
-  { title: "Create Automation", icon: Filter, ink: "text-[#7e22ce]", run: { href: "/settings/automation", permission: "automation.view" } },
-  { title: "Create Task", icon: CheckSquare, ink: "text-[#15803d]", run: { create: "task" } },
-  { title: "Schedule Meeting", icon: CalendarDays, ink: "text-[#7e22ce]", run: { create: "meeting" } },
-  { title: "Generate Proposal", icon: FileText, ink: "text-[#1d4ed8]", run: { prompt: "Draft a proposal outline for my largest open deal." } },
-  { title: "Summarize Lead", icon: FileText, ink: "text-[#1d4ed8]", run: { prompt: "Summarize my newest lead and what I should do next." } },
-  { title: "Get Reports", icon: BarChart3, ink: "text-[#15803d]", run: { href: "/pipeline?tab=analytics", permission: "deals.view" } },
+  { title: "Write Message", hint: "(WhatsApp / Email)", icon: Mail, ink: "text-brand", run: { prompt: "Write a short, friendly WhatsApp follow-up message for my newest lead." } },
+  { title: "Create Automation", icon: Filter, ink: "text-accent", run: { href: "/settings/automation", permission: "automation.view" } },
+  { title: "Create Task", icon: CheckSquare, ink: "text-brand", run: { create: "task" } },
+  { title: "Schedule Meeting", icon: CalendarDays, ink: "text-accent", run: { create: "meeting" } },
+  { title: "Generate Proposal", icon: FileText, ink: "text-accent", run: { prompt: "Draft a proposal outline for my largest open deal." } },
+  { title: "Summarize Lead", icon: FileText, ink: "text-accent", run: { prompt: "Summarize my newest lead and what I should do next." } },
+  { title: "Get Reports", icon: BarChart3, ink: "text-brand", run: { href: "/pipeline?tab=analytics", permission: "deals.view" } },
 ];
 
 /** "More Tools": the other starting points, kept from the earlier assistant page. */
@@ -87,17 +86,18 @@ const CHIPS: readonly { label: string; icon: Icon; prompt?: string }[] = [
 ];
 
 const INSIGHT_ICONS: Record<DashboardInsight["key"], { icon: Icon; ink: string }> = {
-  follow_ups_today: { icon: Clock, ink: "text-[#dc2626]" },
-  deals_close_to_winning: { icon: Users, ink: "text-[#15803d]" },
-  win_rate_change: { icon: TrendingUp, ink: "text-[#15803d]" },
-  deals_without_next_step: { icon: Lightbulb, ink: "text-[#ca8a04]" },
-  tickets_overdue: { icon: Clock, ink: "text-[#dc2626]" },
+  follow_ups_today: { icon: Clock, ink: "text-danger" },
+  deals_close_to_winning: { icon: Users, ink: "text-brand" },
+  win_rate_change: { icon: TrendingUp, ink: "text-brand" },
+  deals_without_next_step: { icon: Lightbulb, ink: "text-warning" },
+  tickets_overdue: { icon: Clock, ink: "text-danger" },
 };
 
 const KIND_ACTION: Record<Activity["kind"], { label: string; icon: Icon; ink: string }> = {
-  call: { label: "Call", icon: Phone, ink: "text-[#15803d]" },
-  meeting: { label: "Meeting", icon: CalendarCheck, ink: "text-[#1d4ed8]" },
-  task: { label: "WhatsApp", icon: MessageCircle, ink: "text-[#15803d]" },
+  call: { label: "Call", icon: Phone, ink: "text-brand" },
+  meeting: { label: "Meeting", icon: CalendarCheck, ink: "text-brand" },
+  // The row opens the task itself; it does not send anything, so it is not labelled as a message.
+  task: { label: "Task", icon: CheckSquare, ink: "text-brand" },
 };
 
 /** The AI Assistant page: the conversation inline, today's summary and follow-ups, quick actions and insights. */
@@ -134,20 +134,20 @@ export function AssistantPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[96rem]">
+    <div className="w-full">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-chrome text-white shadow-md" aria-hidden>
             <Bot className="size-8" />
           </span>
           <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-fg">
+            <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-fg">
               WorkEasy AI Assistant <span aria-hidden>✨</span>
             </h1>
             <p className="text-sm text-fg-muted">Your intelligent CRM co-pilot for sales, marketing and team productivity.</p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#e9d5ff] bg-[#faf5ff] px-3 py-1.5 text-sm font-semibold text-[#6b21a8]">
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-brand/25 bg-brand-soft px-3 py-1.5 text-sm font-semibold text-brand">
           <Sparkles className="size-4" aria-hidden /> {knowledgeOnly ? "Knowledge search mode" : "Powered by AI"}
         </span>
       </header>
@@ -161,10 +161,10 @@ export function AssistantPage() {
             <div className="min-w-0 flex-1">
               <TodayCard first={first} currency={currency} canActivities={canActivities} />
               {insights[0] ? (
-                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-[#faf5ff] px-4 py-3 text-sm dark:bg-transparent">
-                  <Lightbulb className="size-5 shrink-0 text-[#ca8a04]" aria-hidden />
+                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-brand/20 bg-brand-soft px-4 py-3 text-sm">
+                  <Lightbulb className="size-5 shrink-0 text-warning" aria-hidden />
                   <p className="min-w-0 flex-1">
-                    <span className="font-semibold text-[#6b21a8] dark:text-[#d8b4fe]">AI Suggestion: </span>
+                    <span className="font-semibold text-brand">AI Suggestion: </span>
                     {insightText(insights[0], currency).text}
                   </p>
                   <Link href={insightText(insights[0], currency).href} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-surface px-3 py-1.5 font-medium text-fg hover:bg-bg-subtle">
@@ -187,7 +187,7 @@ export function AssistantPage() {
                     onClick={() => (chip.prompt ? submit(chip.prompt) : open("task"))}
                     className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-fg shadow-sm hover:bg-bg-subtle disabled:opacity-60"
                   >
-                    <chip.icon className="size-4 text-[#15803d]" aria-hidden />
+                    <chip.icon className="size-4 text-brand" aria-hidden />
                     {chip.label}
                   </button>
                 </li>
@@ -200,16 +200,16 @@ export function AssistantPage() {
         <aside aria-label="AI tools" className="grid min-w-0 content-start gap-4">
           <section aria-label="AI Quick Actions" className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
             <h2 className="mb-3 flex items-center gap-2 text-base font-bold">
-              <Zap className="size-5 text-[#15803d]" aria-hidden /> AI Quick Actions
+              <Zap className="size-5 text-brand" aria-hidden /> AI Quick Actions
             </h2>
             <ul className="grid grid-cols-4 gap-2">
               {ASSISTANT_ACTIONS.map((action) => {
-                const tile = "flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface px-1 py-3 text-center text-xs font-medium text-fg shadow-sm transition-colors hover:border-brand hover:bg-[#f0fdf4] disabled:opacity-60";
+                const tile = "flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface px-1 py-3 text-center text-xs font-medium text-fg shadow-sm transition-colors hover:border-brand hover:bg-brand-soft disabled:opacity-60";
                 const body = (
                   <>
                     <action.icon className={cn("size-6", action.ink)} aria-hidden />
                     <span>{action.title}</span>
-                    {action.hint ? <span className="text-[10px] text-fg-muted">{action.hint}</span> : null}
+                    {action.hint ? <span className="text-[11px] text-fg-muted">{action.hint}</span> : null}
                   </>
                 );
                 if ("href" in action.run) {
@@ -233,8 +233,8 @@ export function AssistantPage() {
               <li>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button type="button" className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface px-1 py-3 text-center text-xs font-medium text-fg shadow-sm hover:border-brand hover:bg-[#f0fdf4]">
-                      <Sparkles className="size-6 text-[#7e22ce]" aria-hidden />
+                    <button type="button" className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface px-1 py-3 text-center text-xs font-medium text-fg shadow-sm hover:border-brand hover:bg-brand-soft">
+                      <Sparkles className="size-6 text-accent" aria-hidden />
                       More Tools
                     </button>
                   </DropdownMenuTrigger>
@@ -252,7 +252,7 @@ export function AssistantPage() {
 
           <section aria-label="AI Insights & Recommendations" className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
             <h2 className="mb-2 flex items-center gap-2 text-base font-bold">
-              <BarChart3 className="size-5 text-[#15803d]" aria-hidden /> AI Insights &amp; Recommendations
+              <BarChart3 className="size-5 text-brand" aria-hidden /> AI Insights &amp; Recommendations
             </h2>
             {dashboard.isPending && dashboard.fetchStatus !== "idle" ? (
               <Skeleton className="h-24 w-full" />
@@ -298,10 +298,10 @@ function TodayCard({ first, currency, canActivities }: { first: string; currency
   const versus = "compared with the 7 days before";
   const followUps = React.useMemo(() => (day.data ? [...day.data.calls, ...day.data.tasks, ...day.data.events].filter((a) => a.start_at).sort((x, y) => (x.start_at ?? "").localeCompare(y.start_at ?? "")) : []), [day.data]);
   const tiles: { label: string; value: string | undefined; change: ReturnType<typeof percentChange>; icon: Icon; tint: string }[] = [
-    { label: "New Leads", value: d ? String(d.contacts_created ?? "—") : undefined, change: null, icon: Users, tint: "bg-[#dcfce7] text-[#15803d]" },
-    { label: "Deals", value: d ? String(d.deals_created ?? "—") : undefined, change: d?.previous ? percentChange(d.deals_created, d.previous.deals_created, versus) : null, icon: Layers, tint: "bg-[#dbeafe] text-[#1d4ed8]" },
-    { label: "Revenue", value: d ? (d.deals_won ? formatMoney(d.deals_won.amount, currency) : "—") : undefined, change: d?.previous && d.deals_won ? percentChange(Number(d.deals_won.amount), Number(d.previous.deals_won.amount), versus) : null, icon: IndianRupee, tint: "bg-[#ffedd5] text-[#c2410c]" },
-    { label: "Pending Follow-ups", value: summary.data ? String(summary.data.follow_ups ?? summary.data.due_today) : canActivities ? undefined : "—", change: null, icon: CheckSquare, tint: "bg-[#f3e8ff] text-[#7e22ce]" },
+    { label: "New Leads", value: d ? String(d.contacts_created ?? "—") : undefined, change: null, icon: Users, tint: "bg-brand-soft text-brand" },
+    { label: "Deals", value: d ? String(d.deals_created ?? "—") : undefined, change: d?.previous ? percentChange(d.deals_created, d.previous.deals_created, versus) : null, icon: Layers, tint: "bg-accent-soft text-accent" },
+    { label: "Revenue", value: d ? (d.deals_won ? formatMoney(d.deals_won.amount, currency) : "—") : undefined, change: d?.previous && d.deals_won ? percentChange(Number(d.deals_won.amount), Number(d.previous.deals_won.amount), versus) : null, icon: IndianRupee, tint: "bg-brand-soft text-brand" },
+    { label: "Pending Follow-ups", value: summary.data ? String(summary.data.follow_ups ?? summary.data.due_today) : canActivities ? undefined : "—", change: null, icon: CheckSquare, tint: "bg-accent-soft text-accent" },
   ];
   return (
     <div>
@@ -358,7 +358,7 @@ function RecentActions({ recent }: { recent: { id: string; title: string; last_m
     <section aria-label="Recent AI Actions" className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-base font-bold">
-          <History className="size-5 text-[#15803d]" aria-hidden /> Recent AI Actions
+          <History className="size-5 text-brand" aria-hidden /> Recent AI Actions
         </h2>
         {recent.length > 4 ? (
           <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setAll((v) => !v)}>
@@ -372,7 +372,7 @@ function RecentActions({ recent }: { recent: { id: string; title: string; last_m
         <ul className="flex flex-col divide-y divide-border">
           {shown.map((item) => (
             <li key={item.id} className="flex items-center gap-2.5 py-2 text-sm">
-              <CheckSquare className="size-4 shrink-0 text-[#15803d]" aria-hidden />
+              <CheckSquare className="size-4 shrink-0 text-brand" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{item.title}</span>
               <span className="shrink-0 text-xs text-fg-muted">{relativeTime(item.last_message_at)}</span>
             </li>

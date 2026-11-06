@@ -181,7 +181,7 @@ export function WhatsAppConversation({ contact, deal = null }: { contact: WhatsA
         <EmptyState
           icon={<MessageCircle />}
           title="No WhatsApp messages yet"
-          description="Messages exchanged with this contact through the workspace's WhatsApp Business number appear here. You can reply freely for 24 hours after the customer writes; otherwise send an approved template."
+          description="Free replies are allowed for 24 hours after the customer writes; otherwise send an approved template."
           action={canSend ? <Button onClick={() => setDialogOpen(true)}>Send a message</Button> : null}
           className="py-8"
         />

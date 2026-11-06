@@ -84,8 +84,8 @@ export function HelpAnswerCard({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-      <header className="grid gap-2 border-b border-border bg-[linear-gradient(180deg,#f0fdf4_0%,transparent_100%)] px-4 pt-3.5 pb-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-[#15803d] uppercase">
+      <header className="grid gap-2 border-b border-border bg-[linear-gradient(180deg,var(--kl-brand-soft)_0%,transparent_100%)] px-4 pt-3.5 pb-3">
+        <div className="flex items-center gap-2 text-[12px] font-semibold tracking-wide text-brand uppercase">
           <BookOpen className="size-3.5" aria-hidden />
           <span>{article.module}</span>
           <span aria-hidden className="text-fg-subtle">
@@ -93,13 +93,13 @@ export function HelpAnswerCard({
           </span>
           <span className="text-fg-subtle">Guide</span>
           {article.source === "org" ? (
-            <span className="ml-auto rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] tracking-normal text-fg-muted normal-case">
+            <span className="ml-auto rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] tracking-normal text-fg-muted normal-case">
               Your workspace
             </span>
           ) : null}
         </div>
         <h3 className="text-[15px] leading-snug font-semibold text-fg">{article.title}</h3>
-        {help.text ? null : <p className="text-[13px] leading-relaxed text-fg-muted">{help.summary}</p>}
+        {help.text ? null : <p className="text-sm leading-relaxed text-fg-muted">{help.summary}</p>}
         {article.menu_path ? <MenuPath path={article.menu_path} /> : null}
       </header>
       {notice ? (
@@ -188,11 +188,11 @@ function Stepper({ steps }: { steps: string[] }) {
             {last ? null : <span aria-hidden className="absolute top-6 bottom-0 left-[11px] w-px bg-border" />}
             <span
               aria-hidden
-              className="relative z-[1] flex size-6 shrink-0 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#f0fdf4] text-[11px] font-semibold text-[#15803d]"
+              className="relative z-[1] flex size-6 shrink-0 items-center justify-center rounded-full border border-brand/25 bg-brand-soft text-[12px] font-semibold text-brand"
             >
               {index + 1}
             </span>
-            <p className="min-w-0 pt-0.5 text-[13px] leading-relaxed text-fg">
+            <p className="min-w-0 pt-0.5 text-sm leading-relaxed text-fg">
               <span className="sr-only">{`Step ${index + 1}: `}</span>
               <Inline text={step} />
             </p>
@@ -205,7 +205,7 @@ function Stepper({ steps }: { steps: string[] }) {
 
 function SectionTitle({ children, count, noun }: { children: React.ReactNode; count?: number; noun?: string }) {
   return (
-    <p className="flex items-baseline gap-2 text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">
+    <p className="flex items-baseline gap-2 text-[12px] font-semibold tracking-wide text-fg-subtle uppercase">
       {children}
       {count && noun ? (
         <span className="font-normal tracking-normal normal-case">
@@ -218,9 +218,9 @@ function SectionTitle({ children, count, noun }: { children: React.ReactNode; co
 }
 
 const CALLOUT_TONES = {
-  info: "border-[#dbeafe] bg-[#eff6ff] [&_[data-icon]]:text-[#1d4ed8]",
-  success: "border-[#bbf7d0] bg-[#f0fdf4] [&_[data-icon]]:text-[#15803d]",
-  warning: "border-warning/40 bg-warning-soft [&_[data-icon]]:text-[#b45309]",
+  info: "border-accent/20 bg-accent-soft [&_[data-icon]]:text-accent",
+  success: "border-brand/25 bg-brand-soft [&_[data-icon]]:text-brand",
+  warning: "border-warning/40 bg-warning-soft [&_[data-icon]]:text-warning",
 } as const;
 
 function Callout({
@@ -242,7 +242,7 @@ function Callout({
       <span data-icon aria-hidden className="mt-0.5 shrink-0 [&_svg]:size-4">
         {icon}
       </span>
-      <div className="grid min-w-0 gap-0.5 text-[13px] leading-relaxed text-fg">
+      <div className="grid min-w-0 gap-0.5 text-sm leading-relaxed text-fg">
         <p className="font-semibold">{title}</p>
         <div className="text-fg-muted">{children}</div>
       </div>
@@ -266,12 +266,12 @@ function Extra({
 }) {
   return (
     <details open={open} className="group rounded-lg border border-border">
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-fg select-none hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-fg select-none hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden">
         <span aria-hidden className="text-fg-subtle [&_svg]:size-4">
           {icon}
         </span>
         {title}
-        <span className="rounded-full bg-bg-subtle px-1.5 text-[11px] text-fg-muted">{count}</span>
+        <span className="rounded-full bg-bg-subtle px-1.5 text-[12px] text-fg-muted">{count}</span>
         <ChevronDown className="ml-auto size-4 text-fg-subtle transition-transform group-open:rotate-180" aria-hidden />
       </summary>
       <div className="px-3 pt-0.5 pb-2.5">{children}</div>
@@ -283,7 +283,7 @@ function BulletList({ items }: { items: string[] }) {
   return (
     <ul className="grid gap-1">
       {items.map((item, index) => (
-        <li key={index} className="flex gap-2 text-[13px] leading-relaxed">
+        <li key={index} className="flex gap-2 text-sm leading-relaxed">
           <span aria-hidden className="mt-[0.6rem] size-1 shrink-0 rounded-full bg-fg-subtle" />
           <span className="min-w-0">
             <Inline text={item} />
@@ -296,10 +296,10 @@ function BulletList({ items }: { items: string[] }) {
 
 function RelatedList({ title, related, onAsk }: { title: string; related: HelpRelated[]; onAsk?: (q: string) => void }) {
   const rowClass =
-    "flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:bg-bg-subtle focus-visible:outline-none";
+    "flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:bg-bg-subtle focus-visible:outline-none";
   return (
     <section aria-label={title} className="border-t border-border">
-      <p className="px-4 pt-2.5 pb-1 text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">{title}</p>
+      <p className="px-4 pt-2.5 pb-1 text-[12px] font-semibold tracking-wide text-fg-subtle uppercase">{title}</p>
       <ul className="pb-1.5">
         {related.slice(0, 3).map((item) => (
           <li key={item.id}>
@@ -357,7 +357,7 @@ export function ActionProposalCard({ action, onNavigate }: { action: AssistantAc
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
       <dl className="divide-y divide-border">
         {rows.map(([label, value]) => (
-          <div key={label} className="grid grid-cols-[6rem_1fr] gap-3 px-4 py-2 text-[13px]">
+          <div key={label} className="grid grid-cols-[6rem_1fr] gap-3 px-4 py-2 text-sm">
             <dt className="text-fg-subtle">{label}</dt>
             <dd className="min-w-0 text-fg">{value}</dd>
           </div>
@@ -400,7 +400,7 @@ export function AnswerFeedback({ turnId }: { turnId: string }) {
     <div className="grid justify-items-end gap-1.5">
       <div className="flex items-center gap-0.5 text-xs text-fg-subtle">
         <span className="mr-1">{sent ? "Thanks for the feedback." : rating ? "Thanks!" : "Helpful?"}</span>
-        <button type="button" aria-label="Helpful" aria-pressed={rating === 1} onClick={() => vote(1)} className={cn(thumb, rating === 1 && "bg-[#dcfce7] text-[#15803d]")}>
+        <button type="button" aria-label="Helpful" aria-pressed={rating === 1} onClick={() => vote(1)} className={cn(thumb, rating === 1 && "bg-brand-soft text-brand")}>
           <ThumbsUp className="size-3.5" />
         </button>
         <button type="button" aria-label="Not helpful" aria-pressed={rating === -1} onClick={() => vote(-1)} className={cn(thumb, rating === -1 && "bg-danger-soft text-danger")}>

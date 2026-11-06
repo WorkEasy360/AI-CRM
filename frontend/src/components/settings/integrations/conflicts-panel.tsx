@@ -53,12 +53,12 @@ export function ConflictsPanel({ connection, options, canManage }: { connection:
   }
   const rows = conflicts.data.results;
   if (rows.length === 0) {
-    return <EmptyState icon={<CheckCircle2 />} title="No open conflicts" description="When a record changes in both WorkEasy CRM and the external system, it waits here for your decision." />;
+    return <EmptyState icon={<CheckCircle2 />} title="No open conflicts" description="Records changed in both systems wait here for a decision." />;
   }
 
   return (
     <div className="grid gap-3">
-      <p className="text-sm text-fg-muted">These records changed in both systems. Choose which values to keep; the other system is updated on the next sync.</p>
+      <p className="text-sm text-fg-muted">The values you keep are sent to the other system on the next sync.</p>
       <Table>
         <TableHeader>
           <TableRow>

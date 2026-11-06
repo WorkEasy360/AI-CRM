@@ -271,7 +271,7 @@ export function ContactsPage() {
     <EmptyState
       icon={<ContactIcon />}
       title="No contacts yet"
-      description="Add the people you sell to. Link them to companies and deals as you go."
+      description="Contacts you add will appear here."
       action={
         canCreate ? (
           <Button onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>

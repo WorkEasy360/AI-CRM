@@ -7,7 +7,7 @@ import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { CodeBlock, SecretRevealDialog, type SecretReveal } from "@/components/settings/integrations/secret-reveal-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { enableInboundWebhook, integrationKeys, rotateInboundSecret, type ConnectionDetail } from "@/lib/api/integrations";
@@ -96,7 +96,6 @@ export function InboundWebhookPanel({ connection, canManage }: { connection: Con
             <CardTitle className="flex items-center gap-2">
               <Webhook className="size-4 text-primary" aria-hidden /> Inbound webhook
             </CardTitle>
-            <CardDescription>Let the external system push changes to WorkEasy CRM the moment they happen, instead of waiting for the next sync.</CardDescription>
           </div>
           {connection.inbound_enabled ? <Badge variant="success">Enabled</Badge> : <Badge variant="neutral">Not enabled</Badge>}
         </div>

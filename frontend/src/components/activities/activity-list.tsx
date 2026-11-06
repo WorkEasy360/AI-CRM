@@ -37,11 +37,11 @@ const SORT_OPTIONS = [
 ];
 
 const EMPTY: Record<ActivityKind, { icon: React.ReactNode; title: string; description: string }> = {
-  task: { icon: <ListTodo />, title: "No tasks here", description: "Tasks are to-dos with a due date, linked to a contact, company or deal. Add one so the next step is never forgotten." },
-  call: { icon: <Phone />, title: "No calls here", description: "Log calls you made or schedule the next one. Outcomes and notes land on the contact's timeline." },
-  meeting: { icon: <CalendarDays />, title: "No meetings here", description: "Scheduled meetings show on the calendar with attendees, location and a reminder." },
+  task: { icon: <ListTodo />, title: "No tasks here", description: "Tasks you add will appear here." },
+  call: { icon: <Phone />, title: "No calls here", description: "Logged and scheduled calls will appear here." },
+  meeting: { icon: <CalendarDays />, title: "No meetings here", description: "Scheduled meetings will appear here." },
 };
-const EMPTY_ALL = { icon: <ListTodo />, title: "No activities here", description: "Tasks, calls and meetings for your contacts, companies and deals all land in this list." };
+const EMPTY_ALL = { icon: <ListTodo />, title: "No activities here", description: "Tasks, calls and meetings will appear here." };
 
 type Group = "Overdue" | "Today" | "Tomorrow" | "Later" | "No date" | "Completed";
 const GROUP_ORDER: Group[] = ["Overdue", "Today", "Tomorrow", "Later", "No date", "Completed"];

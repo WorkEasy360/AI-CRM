@@ -46,7 +46,7 @@ export function CompanyHeader({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-xl font-semibold tracking-tight">{company.name}</h1>
+            <h1 className="truncate text-2xl font-bold tracking-tight text-fg">{company.name}</h1>
             {company.archived_at ? <Badge variant="warning">Archived</Badge> : null}
           </div>
           {company.industry ? <div className="mt-0.5 text-sm text-fg-muted">{company.industry}</div> : null}
