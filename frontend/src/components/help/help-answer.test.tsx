@@ -56,7 +56,7 @@ describe("HelpAnswerCard", () => {
   it("shows the article's steps, menu path and result", () => {
     wrap(<HelpAnswerCard help={help} />);
     expect(screen.getByText("How to Create a New Pipeline")).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Where to find it" })).toHaveTextContent(/Settings\s*→\s*CRM Configuration\s*→\s*Pipelines & Stages/);
+    expect(screen.getByRole("navigation", { name: "Where to find it" })).toHaveTextContent(/Settings\s*then\s*CRM Configuration\s*then\s*Pipelines & Stages/);
     const steps = screen.getByRole("region", { name: "Steps" });
     expect(steps.querySelectorAll("li")).toHaveLength(3);
     expect(screen.getByText("New pipeline", { selector: "strong" })).toBeInTheDocument();

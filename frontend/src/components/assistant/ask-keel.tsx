@@ -3,7 +3,8 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Bot, CircleHelp, Loader2, Mic, MicOff, Search, Sparkles, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowUp, BookOpen, Bot, ChevronRight, CircleHelp, Loader2, Mic, MicOff, Search, Sparkles, Trash2 } from "lucide-react";
 import { ActionProposalCard, AnswerFeedback, HelpAnswerCard } from "@/components/help/help-answer";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -161,15 +162,21 @@ export function AssistantProvider({ children, force = false }: { children: React
             aria-describedby={undefined}
             onOpenAutoFocus={(event) => event.preventDefault()}
           >
-            <header className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
-              <SheetTitle className="flex items-center gap-1.5 text-sm font-semibold">
-                <Sparkles className="size-4 text-primary" aria-hidden />
-                Ask WorkEasy AI
-              </SheetTitle>
+            <header className="flex items-center gap-3 border-b border-border px-4 py-3 pr-12">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-chrome text-white shadow-sm" aria-hidden>
+                <Bot className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <SheetTitle className="flex items-center gap-1.5 text-sm font-semibold">
+                  Ask WorkEasy AI
+                  <Sparkles className="size-3.5 text-[#facc15]" aria-hidden />
+                </SheetTitle>
+                <p className="text-xs text-fg-subtle">Help guide and CRM assistant</p>
+              </div>
               {knowledgeOnly ? <ModeBadge /> : null}
               <div className="ml-auto">
                 {turns.length > 0 ? (
-                  <Button variant="ghost" size="sm" onClick={reset} className="h-7 gap-1.5 text-xs">
+                  <Button variant="ghost" size="sm" onClick={reset} className="h-7 gap-1.5 text-xs text-fg-muted">
                     <Trash2 className="size-3.5" aria-hidden />
                     New question
                   </Button>
@@ -177,9 +184,16 @@ export function AssistantProvider({ children, force = false }: { children: React
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="flex-1 overflow-y-auto bg-bg-subtle/40 px-4 py-5">
               {turns.length === 0 ? (
-                <PanelWelcome page={pathname} onAsk={submit} suggestions={suggestions} open={open} />
+                <PanelWelcome
+                  page={pathname}
+                  onAsk={submit}
+                  suggestions={suggestions}
+                  open={open}
+                  userName={session?.user.display_name}
+                  onNavigate={closePanel}
+                />
               ) : (
                 <Conversation
                   turns={turns}
@@ -397,40 +411,50 @@ export function Conversation({
   userName?: string;
 }) {
   const endRef = React.useRef<HTMLDivElement>(null);
+  const lastRef = React.useRef<HTMLElement>(null);
+  const answered = Boolean(turns.at(-1)?.answer);
   React.useEffect(() => {
-    // Optional call: not every rendering environment implements scrollIntoView (jsdom, some embeds).
-    endRef.current?.scrollIntoView?.({ block: "end" });
-  }, [turns.length, busy]);
+    // While waiting, keep the "finding the answer" row in view; once it lands, show the answer from its
+    // top (its title and first steps), not its last line. Optional calls: jsdom has no scrollIntoView.
+    if (answered) lastRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    else endRef.current?.scrollIntoView?.({ block: "end" });
+  }, [turns.length, busy, answered]);
 
-  const followUps = turns.at(-1)?.answer?.suggestions ?? [];
+  const last = turns.at(-1)?.answer;
+  // A help answer lists its related topics inside the card; repeating them as chips is noise.
+  const followUps = last && !last.help ? last.suggestions : [];
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-6">
       {turns.map((turn, index) => (
-        <article key={index} className="grid gap-3">
+        <article key={index} ref={index === turns.length - 1 ? lastRef : undefined} className="grid scroll-mt-2 gap-3">
           <div className="flex items-start justify-end gap-2">
             <p className="sr-only">You</p>
-            <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-[#dcfce7] px-4 py-2.5 text-sm text-fg">{turn.question}</p>
+            <p className="max-w-[85%] rounded-2xl rounded-tr-md bg-[#15803d] px-3.5 py-2 text-[13px] leading-relaxed whitespace-pre-wrap text-white shadow-sm">
+              {turn.question}
+            </p>
             <Avatar name={userName || "You"} size="sm" className="[&>span]:bg-chrome [&>span]:text-white" />
           </div>
-          <div className="flex items-start gap-2">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-chrome text-white" aria-hidden>
-              <Bot className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="sr-only">WorkEasy</p>
+          <div className="grid gap-2">
+            <p className="flex items-center gap-2 text-xs font-semibold text-fg">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-chrome text-white" aria-hidden>
+                <Bot className="size-3.5" />
+              </span>
+              WorkEasy AI
+            </p>
+            <div className="min-w-0">
               {turn.answer ? (
-                <div className="grid gap-2">
-                  <TurnAnswer answer={turn.answer} currency={currency} onAsk={onAsk} onNavigate={onNavigate} />
-                  {turn.answer.turn_id ? <AnswerFeedback turnId={turn.answer.turn_id} /> : null}
-                </div>
+                <TurnAnswer
+                  answer={turn.answer}
+                  currency={currency}
+                  onAsk={onAsk}
+                  onNavigate={onNavigate}
+                  feedback={turn.answer.turn_id ? <AnswerFeedback turnId={turn.answer.turn_id} /> : null}
+                />
               ) : turn.error ? (
-                <p className="text-sm text-danger">{turn.error}</p>
+                <p className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger">{turn.error}</p>
               ) : (
-                <p className="flex items-center gap-2 text-sm text-fg-muted">
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Looking through your CRM…
-                </p>
+                <Thinking />
               )}
             </div>
           </div>
@@ -462,34 +486,72 @@ function TurnAnswer({
   currency,
   onAsk,
   onNavigate,
+  feedback,
 }: {
   answer: AssistantAnswer;
   currency: string;
   onAsk: (question: string) => void;
   onNavigate?: () => void;
+  feedback?: React.ReactNode;
 }) {
   if (answer.help) {
+    // The permission note is already in the card; only show other notices (e.g. "showing the English guide").
+    const notice = answer.help.article && !answer.help.article.permission_ok ? "" : answer.notice;
     return (
       <div className="grid gap-2">
-        <HelpAnswerCard help={answer.help} onAsk={onAsk} onNavigate={onNavigate} />
-        {answer.notice ? <p className="text-xs leading-relaxed text-fg-subtle">{answer.notice}</p> : null}
+        <HelpAnswerCard help={answer.help} onAsk={onAsk} onNavigate={onNavigate} feedback={feedback} notice={notice} />
       </div>
     );
   }
   if (answer.action) {
     return (
       <div className="grid gap-2">
-        <p className="text-sm font-medium text-fg">{answer.headline}</p>
+        <p className="text-[13px] font-medium text-fg">{answer.headline}</p>
         <ActionProposalCard action={answer.action} onNavigate={onNavigate} />
-        {answer.analysis ? <p className="text-xs text-fg-subtle">{answer.analysis}</p> : null}
+        <div className="flex items-start justify-between gap-3">
+          {answer.analysis ? <p className="text-xs text-fg-subtle">{answer.analysis}</p> : <span />}
+          {feedback}
+        </div>
       </div>
     );
   }
-  return <AnswerView answer={answer} currency={currency} />;
+  return (
+    <div className="grid gap-2">
+      <AnswerView answer={answer} currency={currency} />
+      {feedback ? <div className="flex justify-end">{feedback}</div> : null}
+    </div>
+  );
 }
 
-/** The empty panel: questions about the page the member is on, then the usual CRM prompts. */
-function PanelWelcome({ page, onAsk, suggestions, open }: { page: string; onAsk: (q: string) => void; suggestions: string[]; open: boolean }) {
+function Thinking() {
+  return (
+    <div className="flex w-fit items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] text-fg-muted shadow-sm" role="status">
+      <span className="flex gap-1" aria-hidden>
+        {[0, 150, 300].map((delay) => (
+          <span key={delay} className="size-1.5 animate-bounce rounded-full bg-[#15803d]" style={{ animationDelay: `${delay}ms` }} />
+        ))}
+      </span>
+      Finding the answer…
+    </div>
+  );
+}
+
+/** The empty panel: a greeting, questions about the page the member is on, then the usual CRM prompts. */
+function PanelWelcome({
+  page,
+  onAsk,
+  suggestions,
+  open,
+  userName,
+  onNavigate,
+}: {
+  page: string;
+  onAsk: (q: string) => void;
+  suggestions: string[];
+  open: boolean;
+  userName?: string;
+  onNavigate?: () => void;
+}) {
   const help = useQuery({
     queryKey: crmKeys.helpSuggestions(page),
     queryFn: () => getHelpSuggestions(page),
@@ -497,38 +559,47 @@ function PanelWelcome({ page, onAsk, suggestions, open }: { page: string; onAsk:
     staleTime: 10 * 60_000,
   });
   const pageQuestions = help.data?.suggestions ?? [];
+  const firstName = (userName || "").trim().split(/\s+/)[0];
   return (
-    <div className="grid gap-4">
-      <p className="text-sm text-fg-muted">Ask how to do anything in WorkEasy360, or about your customers, deals and activities.</p>
+    <div className="grid gap-5">
+      <div className="grid gap-1">
+        <p className="text-base font-semibold text-fg">{firstName ? `Hi ${firstName}, how can I help?` : "How can I help?"}</p>
+        <p className="text-[13px] leading-relaxed text-fg-muted">
+          Get step-by-step help with any feature, in English, Hindi or Hinglish, or ask about your customers, deals and activities.
+        </p>
+      </div>
       {pageQuestions.length > 0 ? (
-        <ChipGroup title="Help with this page" icon={<CircleHelp className="size-3.5" aria-hidden />} items={pageQuestions.map((s) => s.question)} onAsk={onAsk} />
+        <QuestionList title="Help with this page" icon={<CircleHelp className="size-4" aria-hidden />} items={pageQuestions.map((s) => s.question)} onAsk={onAsk} />
       ) : null}
       {suggestions.length > 0 ? (
-        <ChipGroup title="About your CRM" icon={<Sparkles className="size-3.5" aria-hidden />} items={suggestions.slice(0, 3)} onAsk={onAsk} />
+        <QuestionList title="Ask about your CRM" icon={<Sparkles className="size-4" aria-hidden />} items={suggestions.slice(0, 3)} onAsk={onAsk} />
       ) : null}
+      <Link href="/help" onClick={onNavigate} className="flex w-fit items-center gap-1.5 text-[13px] font-medium text-[#15803d] hover:underline">
+        <BookOpen className="size-4" aria-hidden /> Browse all guides in the Help Center
+      </Link>
     </div>
   );
 }
 
-function ChipGroup({ title, icon, items, onAsk }: { title: string; icon: React.ReactNode; items: string[]; onAsk: (q: string) => void }) {
+function QuestionList({ title, icon, items, onAsk }: { title: string; icon: React.ReactNode; items: string[]; onAsk: (q: string) => void }) {
   return (
-    <section aria-label={title} className="grid gap-1.5">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-fg-subtle">
-        {icon}
-        {title}
-      </p>
-      <div className="flex flex-wrap gap-1.5">
+    <section aria-label={title} className="grid gap-2">
+      <p className="text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">{title}</p>
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {items.map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onAsk(item)}
-            className="rounded-full border border-border bg-surface px-2.5 py-1 text-left text-xs text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {item}
-          </button>
+          <li key={item}>
+            <button
+              type="button"
+              onClick={() => onAsk(item)}
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-fg transition-colors hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-none"
+            >
+              <span className="text-[#15803d]">{icon}</span>
+              <span className="min-w-0 flex-1">{item}</span>
+              <ChevronRight className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

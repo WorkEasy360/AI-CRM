@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ChevronRight, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,24 +10,28 @@ import { cn } from "@/lib/utils";
 export function HelpMarkdown({ text, className }: { text: string; className?: string }) {
   const blocks = React.useMemo(() => parseBlocks(text), [text]);
   return (
-    <div className={cn("grid gap-2 text-sm leading-relaxed text-fg", className)}>
+    <div className={cn("grid gap-2.5 text-[13px] leading-relaxed text-fg", className)}>
       {blocks.map((block, index) => {
         if (block.type === "heading") {
           return (
-            <p key={index} className="pt-1 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+            <p key={index} className="pt-1 text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">
               {block.text}
             </p>
           );
         }
         if (block.type === "ol") {
           return (
-            <ol key={index} className="grid gap-1.5">
+            <ol key={index} className="grid">
               {block.items.map((item, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#dcfce7] text-[11px] font-semibold text-[#15803d]" aria-hidden>
+                <li key={i} className="relative flex gap-3 pb-3 last:pb-0">
+                  {i < block.items.length - 1 ? <span aria-hidden className="absolute top-6 bottom-0 left-[11px] w-px bg-border" /> : null}
+                  <span
+                    className="relative z-[1] flex size-6 shrink-0 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#f0fdf4] text-[11px] font-semibold text-[#15803d]"
+                    aria-hidden
+                  >
                     {i + 1}
                   </span>
-                  <span className="min-w-0">
+                  <span className="min-w-0 pt-0.5">
                     <span className="sr-only">{`Step ${i + 1}: `}</span>
                     <Inline text={item} />
                   </span>
@@ -114,7 +119,7 @@ export function Inline({ text }: { text: string }) {
         }
         if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
           return (
-            <code key={index} className="rounded bg-bg-subtle px-1 py-0.5 text-[0.85em]">
+            <code key={index} className="rounded border border-border bg-bg-subtle px-1 py-px font-mono text-[0.8em] text-fg-muted">
               {part.slice(1, -1)}
             </code>
           );
@@ -125,22 +130,26 @@ export function Inline({ text }: { text: string }) {
   );
 }
 
-/** "Settings → CRM Configuration → Pipelines & Stages" as breadcrumb chips. */
+/** "Settings → CRM Configuration → Pipelines & Stages" as a breadcrumb: where to click, in order. */
 export function MenuPath({ path, className }: { path: string; className?: string }) {
   const parts = path.split(/\s*→\s*/).filter(Boolean);
   if (!parts.length) return null;
   return (
-    <nav aria-label="Where to find it" className={cn("flex flex-wrap items-center gap-1 text-xs", className)}>
-      {parts.map((part, index) => (
-        <React.Fragment key={index}>
-          {index > 0 ? (
-            <span aria-hidden className="text-fg-subtle">
-              →
-            </span>
-          ) : null}
-          <span className="rounded-md border border-border bg-bg-subtle px-1.5 py-0.5 font-medium text-fg">{part}</span>
-        </React.Fragment>
-      ))}
+    <nav aria-label="Where to find it" className={cn("flex items-start gap-1.5 text-xs", className)}>
+      <MapPin className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" aria-hidden />
+      <ol className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
+        {parts.map((part, index) => (
+          <li key={index} className="flex items-center gap-1">
+            {index > 0 ? (
+              <>
+                <ChevronRight className="size-3 text-fg-subtle" aria-hidden />
+                <span className="sr-only">then</span>
+              </>
+            ) : null}
+            <span className={cn("font-medium", index === parts.length - 1 ? "text-fg" : "text-fg-muted")}>{part}</span>
+          </li>
+        ))}
+      </ol>
     </nav>
   );
 }

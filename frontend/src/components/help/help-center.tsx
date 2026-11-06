@@ -158,18 +158,6 @@ export function HelpArticlePage({ id }: { id: string }) {
             </p>
           ) : null}
           <ArticleBody content={data.content} />
-          {data.content.troubleshooting.length > 0 ? (
-            <section aria-label="Troubleshooting" className="grid gap-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">Troubleshooting</p>
-              <ul className="grid gap-1 text-sm text-fg-muted">
-                {data.content.troubleshooting.map((item, index) => (
-                  <li key={index}>
-                    <Inline text={item} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
