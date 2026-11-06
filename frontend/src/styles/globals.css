@@ -189,3 +189,36 @@
   background-size: 200% 100%;
   animation: kl-shimmer 1.4s linear infinite;
 }
+
+/* "Take me there" spotlight (lib/spotlight.ts): a pulsing ring around the button an article names. */
+.kl-spotlight {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px #15803d, 0 0 0 9999px rgb(0 0 0 / 0.18);
+  animation: kl-spotlight-pulse 1.2s ease-in-out infinite;
+  transition: top 0.1s, left 0.1s, width 0.1s, height 0.1s;
+}
+.kl-spotlight-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  white-space: nowrap;
+  border-radius: 6px;
+  background: #15803d;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+@keyframes kl-spotlight-pulse {
+  50% {
+    box-shadow: 0 0 0 6px #15803d, 0 0 0 9999px rgb(0 0 0 / 0.18);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kl-spotlight {
+    animation: none;
+  }
+}

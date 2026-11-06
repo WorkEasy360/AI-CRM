@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Bot, Loader2, Mic, MicOff, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUp, Bot, CircleHelp, Loader2, Mic, MicOff, Search, Sparkles, Trash2 } from "lucide-react";
+import { ActionProposalCard, AnswerFeedback, HelpAnswerCard } from "@/components/help/help-answer";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { askKeel, deleteAssistantConversation, getAssistantHome } from "@/lib/api/crm";
-import type { AssistantAnswer } from "@/lib/api/crm-types";
+import { askKeel, deleteAssistantConversation, getAssistantConversation, getAssistantHome, getHelpArticle, getHelpSuggestions } from "@/lib/api/crm";
+import type { AssistantAnswer, AssistantConversation } from "@/lib/api/crm-types";
 import { errorMessage } from "@/lib/api/problem";
 import { crmKeys } from "@/lib/crm/keys";
 import { hasPermission, useSession } from "@/lib/session";
@@ -31,6 +33,9 @@ interface AssistantContextValue {
   submit: (question: string) => void;
   /** Open the answer panel without asking anything. */
   openPanel: () => void;
+  closePanel: () => void;
+  /** Whether this member may use the assistant at all (the API checks it again on every request). */
+  available: boolean;
   busy: boolean;
   suggestions: string[];
   knowledgeOnly: boolean;
@@ -66,11 +71,39 @@ export function AssistantProvider({ children, force = false }: { children: React
   // `force` is for a caller that has already decided to show the assistant (the standalone card).
   const allowed = force || hasPermission(session?.active, "ai.assistant.use");
   const queryClient = useQueryClient();
+  const pathname = usePathname() || "";
+  const threadKey = session?.active ? `workeasy.assistant.thread:${session.active.membership_id}` : "";
 
   const home = useQuery({ queryKey: crmKeys.assistantHome, queryFn: getAssistantHome, staleTime: 5 * 60_000, enabled: allowed });
 
+  // Chat history persists per member: the thread id is remembered in this browser and the turns are
+  // re-read from the server (which only ever returns the caller's own thread).
+  const restored = React.useRef(false);
+  React.useEffect(() => {
+    if (!allowed || !threadKey || restored.current) return;
+    restored.current = true;
+    const stored = safeStorage()?.getItem(threadKey);
+    if (!stored) return;
+    let cancelled = false;
+    restoreThread(stored)
+      .then((restoredTurns) => {
+        if (cancelled || !restoredTurns) return;
+        setConversationId(stored);
+        setTurns((current) => (current.length ? current : restoredTurns));
+      })
+      .catch(() => safeStorage()?.removeItem(threadKey));
+    return () => {
+      cancelled = true;
+    };
+  }, [allowed, threadKey]);
+  React.useEffect(() => {
+    if (!threadKey) return;
+    if (conversationId) safeStorage()?.setItem(threadKey, conversationId);
+    else safeStorage()?.removeItem(threadKey);
+  }, [conversationId, threadKey]);
+
   const mutation = useMutation({
-    mutationFn: (question: string) => askKeel({ question, conversation_id: conversationId }),
+    mutationFn: (question: string) => askKeel({ question, conversation_id: conversationId, page: pathname }),
     onSuccess: (answer) => {
       setConversationId(answer.conversation_id);
       setTurns((previous) => replaceLast(previous, { question: answer.question, answer }));
@@ -110,10 +143,11 @@ export function AssistantProvider({ children, force = false }: { children: React
   const suggestions = React.useMemo(() => home.data?.suggestions ?? [], [home.data]);
   const knowledgeOnly = home.data ? !home.data.generative_available : false;
   const openPanel = React.useCallback(() => setOpen(true), []);
+  const closePanel = React.useCallback(() => setOpen(false), []);
   const recent = React.useMemo(() => home.data?.recent ?? [], [home.data]);
   const value = React.useMemo(
-    () => ({ submit, openPanel, busy: isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent }),
-    [submit, openPanel, isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent],
+    () => ({ submit, openPanel, closePanel, available: allowed, busy: isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent }),
+    [submit, openPanel, closePanel, allowed, isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent],
   );
 
   return (
@@ -130,7 +164,7 @@ export function AssistantProvider({ children, force = false }: { children: React
             <header className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
               <SheetTitle className="flex items-center gap-1.5 text-sm font-semibold">
                 <Sparkles className="size-4 text-primary" aria-hidden />
-                Ask WorkEasy
+                Ask WorkEasy AI
               </SheetTitle>
               {knowledgeOnly ? <ModeBadge /> : null}
               <div className="ml-auto">
@@ -145,14 +179,26 @@ export function AssistantProvider({ children, force = false }: { children: React
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
               {turns.length === 0 ? (
-                <p className="text-sm text-fg-muted">Ask anything about your customers, deals or sales activity.</p>
+                <PanelWelcome page={pathname} onAsk={submit} suggestions={suggestions} open={open} />
               ) : (
-                <Conversation turns={turns} currency={currency} busy={isPending} onAsk={submit} userName={session?.user.display_name || session?.user.email} />
+                <Conversation
+                  turns={turns}
+                  currency={currency}
+                  busy={isPending}
+                  onAsk={submit}
+                  onNavigate={closePanel}
+                  userName={session?.user.display_name || session?.user.email}
+                />
               )}
             </div>
 
             <footer className="border-t border-border px-4 py-3">
-              <AskForm onSubmit={submit} busy={isPending} placeholder={turns.length ? "Ask another question…" : "Ask WorkEasy…"} />
+              <AskForm
+                onSubmit={submit}
+                busy={isPending}
+                voice
+                placeholder={turns.length ? "Ask another question…" : "Ask how to do anything, or about your CRM…"}
+              />
             </footer>
           </SheetContent>
         </Sheet>
@@ -339,12 +385,15 @@ export function Conversation({
   currency,
   busy,
   onAsk,
+  onNavigate,
   userName,
 }: {
   turns: Turn[];
   currency: string;
   busy: boolean;
   onAsk: (question: string) => void;
+  /** Called before an answer navigates away ("Take me there", "Review and create"). */
+  onNavigate?: () => void;
   userName?: string;
 }) {
   const endRef = React.useRef<HTMLDivElement>(null);
@@ -371,7 +420,10 @@ export function Conversation({
             <div className="min-w-0 flex-1">
               <p className="sr-only">WorkEasy</p>
               {turn.answer ? (
-                <AnswerView answer={turn.answer} currency={currency} />
+                <div className="grid gap-2">
+                  <TurnAnswer answer={turn.answer} currency={currency} onAsk={onAsk} onNavigate={onNavigate} />
+                  {turn.answer.turn_id ? <AnswerFeedback turnId={turn.answer.turn_id} /> : null}
+                </div>
               ) : turn.error ? (
                 <p className="text-sm text-danger">{turn.error}</p>
               ) : (
@@ -402,6 +454,127 @@ export function Conversation({
       <div ref={endRef} />
     </div>
   );
+}
+
+/** Help and action answers have their own cards; everything else is the CRM answer view. */
+function TurnAnswer({
+  answer,
+  currency,
+  onAsk,
+  onNavigate,
+}: {
+  answer: AssistantAnswer;
+  currency: string;
+  onAsk: (question: string) => void;
+  onNavigate?: () => void;
+}) {
+  if (answer.help) {
+    return (
+      <div className="grid gap-2">
+        <HelpAnswerCard help={answer.help} onAsk={onAsk} onNavigate={onNavigate} />
+        {answer.notice ? <p className="text-xs leading-relaxed text-fg-subtle">{answer.notice}</p> : null}
+      </div>
+    );
+  }
+  if (answer.action) {
+    return (
+      <div className="grid gap-2">
+        <p className="text-sm font-medium text-fg">{answer.headline}</p>
+        <ActionProposalCard action={answer.action} onNavigate={onNavigate} />
+        {answer.analysis ? <p className="text-xs text-fg-subtle">{answer.analysis}</p> : null}
+      </div>
+    );
+  }
+  return <AnswerView answer={answer} currency={currency} />;
+}
+
+/** The empty panel: questions about the page the member is on, then the usual CRM prompts. */
+function PanelWelcome({ page, onAsk, suggestions, open }: { page: string; onAsk: (q: string) => void; suggestions: string[]; open: boolean }) {
+  const help = useQuery({
+    queryKey: crmKeys.helpSuggestions(page),
+    queryFn: () => getHelpSuggestions(page),
+    enabled: open && Boolean(page),
+    staleTime: 10 * 60_000,
+  });
+  const pageQuestions = help.data?.suggestions ?? [];
+  return (
+    <div className="grid gap-4">
+      <p className="text-sm text-fg-muted">Ask how to do anything in WorkEasy360, or about your customers, deals and activities.</p>
+      {pageQuestions.length > 0 ? (
+        <ChipGroup title="Help with this page" icon={<CircleHelp className="size-3.5" aria-hidden />} items={pageQuestions.map((s) => s.question)} onAsk={onAsk} />
+      ) : null}
+      {suggestions.length > 0 ? (
+        <ChipGroup title="About your CRM" icon={<Sparkles className="size-3.5" aria-hidden />} items={suggestions.slice(0, 3)} onAsk={onAsk} />
+      ) : null}
+    </div>
+  );
+}
+
+function ChipGroup({ title, icon, items, onAsk }: { title: string; icon: React.ReactNode; items: string[]; onAsk: (q: string) => void }) {
+  return (
+    <section aria-label={title} className="grid gap-1.5">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-fg-subtle">
+        {icon}
+        {title}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onAsk(item)}
+            className="rounded-full border border-border bg-surface px-2.5 py-1 text-left text-xs text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function safeStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Rebuild a saved thread. Help answers are re-rendered from their article; other answers as their saved text. */
+async function restoreThread(conversationId: string): Promise<Turn[] | null> {
+  const thread: AssistantConversation = await getAssistantConversation(conversationId);
+  if (!thread.id || thread.turns.length === 0) return null;
+  const articles = new Map<string, Awaited<ReturnType<typeof getHelpArticle>> | null>();
+  await Promise.all(
+    [...new Set(thread.turns.map((t) => t.help_article).filter((slug): slug is string => Boolean(slug)))].map(async (slug) => {
+      articles.set(slug, await getHelpArticle(slug).catch(() => null));
+    }),
+  );
+  return thread.turns.map((turn) => {
+    const detail = turn.help_article ? articles.get(turn.help_article) : null;
+    const answer: AssistantAnswer = {
+      conversation_id: thread.id ?? conversationId,
+      question: turn.question,
+      intent: turn.intent ?? "",
+      mode: turn.mode,
+      answer_type: detail ? "help" : "answer",
+      headline: detail ? detail.summary : turn.answer,
+      facts: [],
+      analysis: "",
+      recommendation: "",
+      sections: [],
+      sources: [],
+      suggestions: [],
+      notice: "",
+      knowledge_search_only: false,
+      turn_id: turn.turn_id,
+      help: detail
+        ? { found: true, article: detail.article, summary: detail.summary, content: detail.content, text: "", related: detail.related, language: "en", verified: true }
+        : undefined,
+    };
+    return { question: turn.question, answer };
+  });
 }
 
 function replaceLast(turns: Turn[], turn: Turn): Turn[] {

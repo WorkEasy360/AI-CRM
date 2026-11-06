@@ -103,7 +103,7 @@ describe("AssistantPage", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole("button", { name: "Show deal forecast" }));
-    await waitFor(() => expect(askKeel).toHaveBeenCalledWith({ question: "Show my deal forecast for the next three months.", conversation_id: null }));
+    await waitFor(() => expect(askKeel).toHaveBeenCalledWith({ question: "Show my deal forecast for the next three months.", conversation_id: null, page: "/assistant" }));
     const conversation = screen.getByRole("region", { name: "Conversation" });
     expect(await within(conversation).findByText("₹62,80,000 is expected to close in three months.")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CircleHelp, Menu, MessageCircle, Search, Settings, Sparkles } from "lucide-react";
+import { BookOpen, CircleHelp, Menu, MessageCircle, Search, Settings, Sparkles } from "lucide-react";
 import { AskFloatingButton, AssistantProvider, useAssistant } from "@/components/assistant/ask-keel";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
@@ -133,11 +133,16 @@ function HelpMenu({ onSearch }: { onSearch: () => void }) {
           <Search /> Search everything
           <kbd className="ml-auto text-[11px] text-fg-subtle">Ctrl K</kbd>
         </DropdownMenuItem>
-        {assistant ? (
+        {assistant?.available ? (
           <DropdownMenuItem onSelect={() => assistant.openPanel()}>
             <Sparkles /> Ask WorkEasy AI
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuItem asChild>
+          <Link href="/help">
+            <BookOpen /> Help Center
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/settings">

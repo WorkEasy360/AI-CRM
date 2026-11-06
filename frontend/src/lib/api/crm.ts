@@ -15,6 +15,13 @@ import type {
   AISettings,
   AIUsage,
   AssistantAnswer,
+  HelpAdminList,
+  HelpArticleDetail,
+  HelpArticleEditable,
+  HelpArticleSummary,
+  HelpReport,
+  HelpRevision,
+  HelpUnanswered,
   AssistantConversation,
   AssistantHome,
   Board,
@@ -417,12 +424,44 @@ export const updateAISettings = (input: { ai_enabled?: boolean; monthly_budget_u
 /* ------------------------------------------------------------------ Ask Keel (one assistant, every mode) */
 
 /** Always answers: with a model when one is available, from CRM + knowledge retrieval otherwise. */
-export const askKeel = (input: { question: string; conversation_id?: string | null }) =>
+export const askKeel = (input: { question: string; conversation_id?: string | null; page?: string }) =>
   api.post<AssistantAnswer>("/api/v1/assistant/ask/", input);
 export const getAssistantHome = () => api.get<AssistantHome>("/api/v1/assistant/home/");
 export const getAssistantConversation = (id: string) =>
   api.get<AssistantConversation>(`/api/v1/assistant/conversations/${enc(id)}/`);
 export const deleteAssistantConversation = (id: string) => api.delete(`/api/v1/assistant/conversations/${enc(id)}/`);
+
+/* ------------------------------------------------------------------ help knowledge base */
+
+export const listHelpArticles = (query?: { q?: string; module?: string }) =>
+  api.get<{ modules: string[]; results: HelpArticleSummary[] }>("/api/v1/help/articles/", query);
+export const getHelpArticle = (id: string) => api.get<HelpArticleDetail>(`/api/v1/help/articles/${enc(id)}/`);
+export const getHelpSuggestions = (page: string) =>
+  api.get<{ page: string; suggestions: { id: string; question: string }[] }>("/api/v1/help/suggestions/", { page });
+export const sendHelpFeedback = (input: { turn_id: string; rating: 1 | -1; comment?: string }) =>
+  api.post<{ ok: boolean; rating: 1 | -1 }>("/api/v1/help/feedback/", input);
+
+export type HelpArticleInput = Omit<HelpArticleEditable, "id" | "updated" | "version" | "source" | "overrides_global"> & {
+  slug?: string;
+  version?: number;
+  from_unanswered?: string | null;
+};
+export const listHelpAdminArticles = () => api.get<HelpAdminList>("/api/v1/help/admin/articles/");
+export const getHelpAdminArticle = (id: string) => api.get<HelpArticleEditable>(`/api/v1/help/admin/articles/${enc(id)}/`);
+export const createHelpArticle = (input: HelpArticleInput) =>
+  api.post<HelpArticleEditable>("/api/v1/help/admin/articles/", input);
+export const saveHelpArticle = (id: string, input: HelpArticleInput) =>
+  api.put<HelpArticleEditable>(`/api/v1/help/admin/articles/${enc(id)}/`, input);
+export const deleteHelpArticle = (id: string) => api.delete(`/api/v1/help/admin/articles/${enc(id)}/`);
+export const listHelpRevisions = (id: string) =>
+  api.get<{ results: HelpRevision[] }>(`/api/v1/help/admin/articles/${enc(id)}/revisions/`);
+export const restoreHelpRevision = (id: string, version: number) =>
+  api.post<HelpArticleEditable>(`/api/v1/help/admin/articles/${enc(id)}/revisions/`, { version });
+export const listHelpUnanswered = (status: HelpUnanswered["status"] = "open") =>
+  api.get<{ results: HelpUnanswered[] }>("/api/v1/help/admin/unanswered/", { status });
+export const setHelpUnansweredStatus = (id: string, status: HelpUnanswered["status"]) =>
+  api.patch<{ id: string; status: string }>(`/api/v1/help/admin/unanswered/${enc(id)}/`, { status });
+export const getHelpReport = (days = 30) => api.get<HelpReport>("/api/v1/help/admin/report/", { days });
 
 /* ------------------------------------------------------------------ import / export */
 

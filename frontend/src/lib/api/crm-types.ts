@@ -1221,7 +1221,18 @@ export interface AIUsage {
  */
 export type AssistantMode = "ai" | "ai_fallback" | "retrieval";
 
-export type AssistantAnswerType = "summary" | "deal_risk" | "next_action" | "crm_results" | "timeline" | "forecast" | "draft" | "answer";
+export type AssistantAnswerType =
+  | "summary"
+  | "deal_risk"
+  | "next_action"
+  | "crm_results"
+  | "timeline"
+  | "forecast"
+  | "draft"
+  | "answer"
+  | "help"
+  | "action"
+  | "out_of_scope";
 
 /** One row inside an answer section. The shape varies by the section's `kind`. */
 export interface AssistantItem {
@@ -1278,6 +1289,153 @@ export interface AssistantAnswer {
   knowledge_search_only: boolean;
   degraded_retrieval?: boolean;
   flagged_input?: boolean;
+  /** The saved turn, for feedback. */
+  turn_id?: string;
+  /** Present when the question was "how do I...": the help article that answers it. */
+  help?: HelpAnswer;
+  /** Present when the user asked the assistant to create something: a proposal, never a write. */
+  action?: AssistantActionProposal;
+}
+
+export interface HelpArticleCard {
+  id: string;
+  title: string;
+  question: string;
+  module: string;
+  /** App route where the task is done ("Take me there"). */
+  route: string;
+  menu_path: string;
+  /** Exact label of the button to highlight on arrival, when the article names one. */
+  spotlight: string;
+  permission: string;
+  permission_ok: boolean;
+  source: "global" | "org";
+  updated: string;
+}
+
+export interface HelpContent {
+  overview: string;
+  before_you_start: string[];
+  steps: string[];
+  result: string;
+  tips: string[];
+  troubleshooting: string[];
+}
+
+export interface HelpRelated {
+  id: string;
+  title: string;
+  question: string;
+}
+
+export interface HelpAnswer {
+  found: boolean;
+  article: HelpArticleCard | null;
+  summary: string;
+  /** The article's own sections. Always correct; shown when there is no verified model text. */
+  content: HelpContent | null;
+  /** Model-written Markdown in the user's language, already checked against the article. "" when none. */
+  text: string;
+  related: HelpRelated[];
+  language: "en" | "hi" | "hinglish";
+  verified: boolean;
+}
+
+export interface AssistantActionProposal {
+  kind: "task" | "call" | "meeting" | "deal" | "contact" | "company" | "ticket";
+  title: string;
+  /** ISO date, or "". */
+  due_date: string;
+  links: Partial<Record<"contact" | "company" | "deal", { id: string; name: string }>>;
+  permission_ok: boolean;
+}
+
+export interface HelpArticleSummary {
+  id: string;
+  title: string;
+  question: string;
+  module: string;
+  route: string;
+  menu_path: string;
+  permission_ok: boolean;
+  source: "global" | "org";
+}
+
+export interface HelpArticleDetail {
+  article: HelpArticleCard;
+  summary: string;
+  content: HelpContent;
+  related: HelpRelated[];
+}
+
+/** The editable article, as the Knowledge Base admin screen reads and writes it. */
+export interface HelpArticleEditable {
+  id: string;
+  title: string;
+  question: string;
+  module: string;
+  keywords: string[];
+  route: string;
+  menu_path: string;
+  spotlight: string;
+  permission: string;
+  related: string[];
+  body: string;
+  status: "published" | "draft";
+  updated: string;
+  version: number;
+  source: "global" | "org";
+  overrides_global: boolean;
+}
+
+export interface HelpAdminList {
+  workspace: {
+    id: string;
+    title: string;
+    module: string;
+    status: "published" | "draft";
+    version: number;
+    overrides_global: boolean;
+    updated_at: string;
+  }[];
+  global: { id: string; title: string; module: string; customized: boolean }[];
+  modules: string[];
+}
+
+export interface HelpRevision {
+  version: number;
+  title: string;
+  status: string;
+  body: string;
+  edited_by: string;
+  created_at: string;
+}
+
+export interface HelpUnanswered {
+  id: string;
+  question: string;
+  page: string;
+  times_asked: number;
+  last_asked_at: string;
+  status: "open" | "answered" | "dismissed";
+  article_slug: string;
+}
+
+export interface HelpReportItem {
+  id: string;
+  title: string;
+  asked: number;
+  helpful: number;
+  unhelpful: number;
+  helpful_rate: number | null;
+}
+
+export interface HelpReport {
+  days: number;
+  most_asked: HelpReportItem[];
+  lowest_rated: HelpReportItem[];
+  unanswered_open: number;
+  recent_comments: { article_id: string; question: string; rating: 1 | -1; comment: string; created_at: string }[];
 }
 
 export interface AssistantHome {
@@ -1290,7 +1448,16 @@ export interface AssistantHome {
 export interface AssistantConversation {
   id: string | null;
   title?: string;
-  turns: { position: number; question: string; answer: string; mode: AssistantMode; created_at: string }[];
+  turns: {
+    position: number;
+    question: string;
+    answer: string;
+    mode: AssistantMode;
+    created_at: string;
+    intent?: string;
+    help_article?: string;
+    turn_id?: string;
+  }[];
 }
 
 export interface AISettings {

@@ -17,6 +17,9 @@ export interface QuickCreateDefaults {
   contact?: NamedRef | null;
   company?: NamedRef | null;
   deal?: NamedRef | null;
+  /** Activity dialogs only: a pre-filled title and start/due ("YYYY-MM-DDTHH:mm"). */
+  title?: string;
+  start_at?: string;
 }
 
 export interface QuickCreateContextValue {

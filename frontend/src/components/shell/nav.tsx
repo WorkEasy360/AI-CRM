@@ -35,6 +35,7 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
+import { useAssistant } from "@/components/assistant/ask-keel";
 import type { ActiveContext, Organization, Session } from "@/lib/api/types";
 import { hasPermission } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -187,7 +188,11 @@ export function SideNav({ onNavigate }: { session: Session; onNavigate?: () => v
 }
 
 /** The sidebar's "WorkEasy AI" card: a way into the assistant from every page. */
+const ASK_NOW =
+  "mt-2.5 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-white text-sm font-semibold text-chrome hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 export function AiPromoCard({ onNavigate }: { onNavigate?: () => void }) {
+  const assistant = useAssistant();
   return (
     <section aria-label="WorkEasy AI" className="rounded-xl border border-brand/60 bg-white/5 px-3 pb-3 pt-3 text-center shadow-[0_0_18px_-6px_var(--kl-brand)]">
       <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-white text-chrome shadow-sm">
@@ -195,14 +200,23 @@ export function AiPromoCard({ onNavigate }: { onNavigate?: () => void }) {
       </span>
       <p className="mt-2 text-base font-bold text-fg">WorkEasy AI</p>
       <p className="mt-0.5 text-xs leading-snug text-fg-muted">Your AI CRM Assistant for Sales, Follow-ups &amp; Automation.</p>
-      <Link
-        href="/assistant"
-        prefetch={PREFETCH_PRIMARY}
-        onClick={onNavigate}
-        className="mt-2.5 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-white text-sm font-semibold text-chrome hover:bg-white/90"
-      >
-        Ask AI Now <ArrowRight className="size-4" aria-hidden />
-      </Link>
+      {assistant?.available ? (
+        // The same assistant as the floating button: opens the side panel on whatever page this is.
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            assistant.openPanel();
+          }}
+          className={ASK_NOW}
+        >
+          Ask AI Now <ArrowRight className="size-4" aria-hidden />
+        </button>
+      ) : (
+        <Link href="/assistant" prefetch={PREFETCH_PRIMARY} onClick={onNavigate} className={ASK_NOW}>
+          Ask AI Now <ArrowRight className="size-4" aria-hidden />
+        </Link>
+      )}
     </section>
   );
 }

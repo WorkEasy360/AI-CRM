@@ -63,5 +63,13 @@ export const crmKeys = {
   aiSettings: ["ai", "settings"] as const,
   // assistant
   assistantHome: ["assistant", "home"] as const,
+  helpArticles: (q: string) => ["help", "articles", q] as const,
+  helpArticle: (id: string) => ["help", "article", id] as const,
+  helpSuggestions: (page: string) => ["help", "suggestions", page] as const,
+  helpAdmin: ["help", "admin"] as const,
+  helpAdminArticle: (id: string) => ["help", "admin", "article", id] as const,
+  helpRevisions: (id: string) => ["help", "admin", "revisions", id] as const,
+  helpUnanswered: (status: string) => ["help", "admin", "unanswered", status] as const,
+  helpReport: ["help", "admin", "report"] as const,
   assistantConversation: (id: string) => ["assistant", "conversation", id] as const,
 };

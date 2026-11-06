@@ -89,6 +89,8 @@ export interface FormDefaults {
   company?: NamedRef | null;
   deal?: NamedRef | null;
   start_at?: string;
+  /** Pre-filled title (e.g. from an assistant proposal); the usual "Call <name>" default otherwise. */
+  title?: string;
 }
 
 /** Start of the next full hour, for "schedule" defaults. */
@@ -146,7 +148,7 @@ export function initialValues(
   const start = defaultStart(kind, mode, defaults?.start_at);
   return {
     kind,
-    title: defaultTitle(kind, defaults?.contact?.name),
+    title: defaults?.title || defaultTitle(kind, defaults?.contact?.name),
     description: "",
     priority: "normal",
     status: "open",
