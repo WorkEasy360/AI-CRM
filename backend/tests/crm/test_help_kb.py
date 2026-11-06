@@ -193,7 +193,9 @@ def test_model_answer_without_steps_is_discarded(owner_client):
 
 
 def test_model_saying_not_found_is_believed(owner_client, org_a):
-    FakeProvider.next_text = "I couldn't find this in the WorkEasy360 help guide yet. I've shared your question with our team."
+    FakeProvider.next_text = (
+        "I couldn't find this in the WorkEasy360 help guide yet. I've shared your question with our team."
+    )
     answer = ask(owner_client, "How do I create a pipeline for my warehouse robots?")
     assert answer["help"]["found"] is False
     with tenant_context(org_a.org.pk, reason="test.helpkb"):
@@ -342,26 +344,34 @@ def test_workspace_article_is_searchable_only_in_its_workspace(owner_client, org
 
 def test_override_replaces_the_global_article_for_one_workspace(owner_client, org_b, client_for):
     put = owner_client.put(
-        f"{ADMIN_ARTICLES}pipeline-create/", _payload("pipeline-create", title="Create a Pipeline (Our Way)"), format="json"
+        f"{ADMIN_ARTICLES}pipeline-create/",
+        _payload("pipeline-create", title="Create a Pipeline (Our Way)"),
+        format="json",
     )
     assert put.status_code == 200, put.content
     assert put.json()["overrides_global"] is True
     assert ask(owner_client, "How do I create a pipeline?")["help"]["article"]["title"] == "Create a Pipeline (Our Way)"
     other = client_for(org_b.owner, org_b.owner_membership)
-    assert ask(other, "How do I create a pipeline?")["help"]["article"]["title"] == global_article("pipeline-create").title
+    assert (
+        ask(other, "How do I create a pipeline?")["help"]["article"]["title"] == global_article("pipeline-create").title
+    )
 
 
 def test_draft_is_not_served_and_a_draft_override_keeps_the_global(owner_client):
     owner_client.post(ADMIN_ARTICLES, _payload("lead-qualification", status="draft"), format="json")
     assert owner_client.get("/api/v1/help/articles/lead-qualification/").status_code == 404
-    owner_client.put(f"{ADMIN_ARTICLES}pipeline-create/", _payload("pipeline-create", title="Draft", status="draft"), format="json")
+    owner_client.put(
+        f"{ADMIN_ARTICLES}pipeline-create/", _payload("pipeline-create", title="Draft", status="draft"), format="json"
+    )
     assert ask(owner_client, "How do I create a pipeline?")["help"]["article"]["source"] == "global"
 
 
 def test_versions_conflicts_and_restore(owner_client):
     owner_client.post(ADMIN_ARTICLES, _payload("lead-qualification"), format="json")
     url = f"{ADMIN_ARTICLES}lead-qualification/"
-    v2 = owner_client.put(url, {**_payload("lead-qualification", title="Lead Qualification v2"), "version": 1}, format="json")
+    v2 = owner_client.put(
+        url, {**_payload("lead-qualification", title="Lead Qualification v2"), "version": 1}, format="json"
+    )
     assert v2.status_code == 200 and v2.json()["version"] == 2
     stale = owner_client.put(url, {**_payload("lead-qualification", title="Stale"), "version": 1}, format="json")
     assert stale.status_code == 409
@@ -383,9 +393,13 @@ def test_invalid_articles_are_rejected(owner_client):
         format="json",
     )
     assert html.status_code == 400
-    bad_permission = owner_client.post(ADMIN_ARTICLES, _payload("lead-qualification", permission="root.all"), format="json")
+    bad_permission = owner_client.post(
+        ADMIN_ARTICLES, _payload("lead-qualification", permission="root.all"), format="json"
+    )
     assert bad_permission.status_code == 400
-    bad_route = owner_client.post(ADMIN_ARTICLES, _payload("lead-qualification", route="https://evil.example"), format="json")
+    bad_route = owner_client.post(
+        ADMIN_ARTICLES, _payload("lead-qualification", route="https://evil.example"), format="json"
+    )
     assert bad_route.status_code == 400
 
 

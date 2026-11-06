@@ -17,17 +17,6 @@ from apps.ai.api import (
     DealSummaryView,
 )
 from apps.assistant.api import AskKeelView, AssistantHomeView, ConversationView
-from apps.helpkb.api import (
-    HelpArticleDetailView,
-    HelpArticleListView,
-    HelpFeedbackView,
-    HelpSuggestionsView,
-    KBAdminArticlesView,
-    KBAdminArticleView,
-    KBAdminRevisionsView,
-    KBReportView,
-    KBUnansweredView,
-)
 from apps.audit.api import AuditEventViewSet
 from apps.authz.api import FieldPermissionsView, HierarchyRoleViewSet, RoleDetailView, RolesView
 from apps.automation.api import AutomationRuleViewSet
@@ -42,6 +31,17 @@ from apps.files import api as file_views
 from apps.files.api import FileAttachmentViewSet
 from apps.forecasting.api import ForecastView
 from apps.helpdesk.api import TicketViewSet
+from apps.helpkb.api import (
+    HelpArticleDetailView,
+    HelpArticleListView,
+    HelpFeedbackView,
+    HelpSuggestionsView,
+    KBAdminArticlesView,
+    KBAdminArticleView,
+    KBAdminRevisionsView,
+    KBReportView,
+    KBUnansweredView,
+)
 from apps.importexport.api import (
     CompanyExportViewSet,
     CompanyImportViewSet,
@@ -186,13 +186,9 @@ urlpatterns = [
     path("help/feedback/", HelpFeedbackView.as_view(), name="help-feedback"),
     path("help/admin/articles/", KBAdminArticlesView.as_view(), name="help-admin-articles"),
     path("help/admin/articles/<slug:slug>/", KBAdminArticleView.as_view(), name="help-admin-article"),
-    path(
-        "help/admin/articles/<slug:slug>/revisions/", KBAdminRevisionsView.as_view(), name="help-admin-revisions"
-    ),
+    path("help/admin/articles/<slug:slug>/revisions/", KBAdminRevisionsView.as_view(), name="help-admin-revisions"),
     path("help/admin/unanswered/", KBUnansweredView.as_view(), name="help-admin-unanswered"),
-    path(
-        "help/admin/unanswered/<uuid:question_id>/", KBUnansweredView.as_view(), name="help-admin-unanswered-detail"
-    ),
+    path("help/admin/unanswered/<uuid:question_id>/", KBUnansweredView.as_view(), name="help-admin-unanswered-detail"),
     path("help/admin/report/", KBReportView.as_view(), name="help-admin-report"),
     path("schema/", SpectacularAPIView.as_view(permission_classes=_schema_permission), name="schema"),
     path(
