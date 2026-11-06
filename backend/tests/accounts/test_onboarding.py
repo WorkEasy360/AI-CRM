@@ -25,7 +25,7 @@ from tests.factories import DEFAULT_PASSWORD
 
 pytestmark = pytest.mark.django_db
 
-EXPECTED_STAGES = ["Qualification", "Needs analysis", "Proposal", "Negotiation", "Closed won", "Closed lost"]
+EXPECTED_STAGES = ["Discovery", "Fit confirmed", "Proposal sent", "Terms agreed", "Won", "Lost"]
 
 
 def _memberships(user) -> list[Membership]:

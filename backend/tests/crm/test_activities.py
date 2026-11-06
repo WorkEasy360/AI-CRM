@@ -245,3 +245,21 @@ def test_reminders_create_notifications(org_a, crm):
         kinds = list(Notification.objects.values_list("kind", "recipient_id"))
     assert sorted(k for k, _ in kinds) == ["meeting_soon", "meeting_soon"]
     assert {r for _, r in kinds} == {org_a.owner_membership.pk, rep.pk}
+
+
+def test_follow_ups_and_summary_totals(org_a, org_b, owner_client, make_member, client_for, crm):
+    from tests.factories import make_activity
+
+    follow = make_activity(org_a, kind="task", title="Follow up with Apex")
+    call = make_activity(org_a, kind="call", title="Pricing call", outcome="follow_up_required")
+    make_activity(org_a, kind="meeting", title="Demo")
+    make_activity(org_b, kind="task", title="Follow up elsewhere")
+    ids = {a["id"] for a in owner_client.get("/api/v1/activities/?follow_up=1").json()["results"]}
+    assert ids == {str(follow.pk), str(call.pk)}
+    summary = owner_client.get("/api/v1/activities/summary/").json()
+    assert summary["follow_ups"] == 2
+    assert summary["totals"] == {"all": 3, "task": 1, "call": 1, "meeting": 1}
+    assert summary["created"]["current"]["all"] == 3 and summary["created"]["previous"]["all"] == 0
+    # a rep counts only their own
+    rep = make_member(org_a, "sales_rep")
+    assert client_for(rep.user, rep).get("/api/v1/activities/summary/").json()["totals"]["all"] == 0

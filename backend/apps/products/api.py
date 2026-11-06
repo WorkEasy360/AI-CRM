@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from rest_framework import serializers
+from rest_framework import mixins, serializers, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from apps.core import validators
 from apps.core.api.crm import CrmViewSet, crud_permission_map
 from apps.core.api.filters import Filter, FilterSet
 from apps.core.api.serializers import CrmReadSerializer, CustomDataField, owner_field
+from apps.core.api.viewsets import TenantViewSet
+from apps.core.concurrency import expected_version
 from apps.core.exceptions import ConflictError
 from apps.crm.records import RecordSpec
-from apps.products.models import Product
+from apps.products import services
+from apps.products.models import PriceBook, PriceBookEntry, Product
 
 SPEC = RecordSpec(module="products", entity_type="product", model=Product, display=lambda p: p.name)
 
@@ -30,6 +35,7 @@ class ProductSerializer(CrmReadSerializer):
             "tax_rate",
             "tax_label",
             "status",
+            "in_stock",
             "owner",
             "tags",
             "custom_data",
@@ -50,6 +56,7 @@ class ProductWriteSerializer(serializers.Serializer):
     tax_rate = serializers.DecimalField(max_digits=5, decimal_places=2, required=False)
     tax_label = serializers.CharField(max_length=40, required=False, allow_blank=True)
     status = serializers.ChoiceField(choices=Product.Status.choices, required=False)
+    in_stock = serializers.BooleanField(required=False)
     owner_id = owner_field()
     custom_data = CustomDataField("product")
 
@@ -101,6 +108,7 @@ FILTERS = FilterSet(
         "status": Filter("choice", "status", choices=tuple(Product.Status.values)),
         "currency": Filter("exact", "currency", max_length=3),
         "price_min": Filter("decimal_min", "unit_price"),
+        "in_stock": Filter("bool", "in_stock"),
         "price_max": Filter("decimal_max", "unit_price"),
         "ids": Filter("uuid_list", "id"),
     },
@@ -128,3 +136,137 @@ class ProductViewSet(CrmViewSet):
         from rest_framework.exceptions import MethodNotAllowed
 
         raise MethodNotAllowed("POST")
+
+
+# ----------------------------------------------------------------------------- price books
+
+
+class PriceBookSerializer(serializers.ModelSerializer):
+    entry_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = PriceBook
+        fields = [
+            "id",
+            "name",
+            "currency",
+            "description",
+            "is_active",
+            "entry_count",
+            "version",
+            "archived_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class PriceBookWriteSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=80, required=False)
+    currency = serializers.CharField(max_length=3, required=False)
+    description = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
+
+
+class PriceBookEntrySerializer(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField()
+    list_price = serializers.DecimalField(source="product.unit_price", max_digits=18, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = PriceBookEntry
+        fields = ["id", "product", "unit_price", "list_price", "updated_at"]
+        read_only_fields = fields
+
+    def get_product(self, obj: PriceBookEntry) -> dict:
+        return {"id": str(obj.product_id), "name": obj.product.name, "sku": obj.product.sku}
+
+    def to_representation(self, instance: PriceBookEntry) -> dict:
+        from apps.authz import fields as field_rules
+
+        data = super().to_representation(instance)
+        # A price-book price is a product price: hidden wherever the product's unit price is.
+        if "unit_price" in field_rules.hidden_fields(self.context.get("actor"), "product"):
+            data.pop("unit_price", None)
+            data.pop("list_price", None)
+        return data
+
+
+class PriceBookEntryInputSerializer(serializers.Serializer):
+    product_id = serializers.UUIDField()
+    unit_price = serializers.DecimalField(max_digits=18, decimal_places=2, min_value=0, allow_null=True)
+
+
+class PriceBookEntriesSerializer(serializers.Serializer):
+    entries = serializers.ListField(child=PriceBookEntryInputSerializer(), max_length=services.MAX_ENTRIES_PER_REQUEST)
+
+
+class PriceBookViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet):
+    """Price books (``products.view`` to read, ``pricebooks.manage`` to change)."""
+
+    serializer_class = PriceBookSerializer
+    resolved_ordering = ("name", "id")
+    permission_map = {
+        "list": "products.view",
+        "retrieve": "products.view",
+        "create": "pricebooks.manage",
+        "partial_update": "pricebooks.manage",
+        "destroy": "pricebooks.manage",
+        "entries": "products.view",
+        "set_entries": "pricebooks.manage",
+    }
+
+    def base_queryset(self):
+        from django.db.models import Count
+
+        qs = PriceBook.objects.annotate(entry_count=Count("entries"))
+        if self.action == "list" and self.request.query_params.get("archived", "").lower() not in {"true", "1"}:
+            qs = qs.filter(archived_at__isnull=True)
+        return qs.order_by("name")
+
+    def _read(self, book: PriceBook) -> dict:
+        return PriceBookSerializer(self.base_queryset().get(pk=book.pk)).data
+
+    def create(self, request):
+        ser = PriceBookWriteSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        if not ser.validated_data.get("name"):
+            raise serializers.ValidationError({"name": "Name is required."})
+        book = services.create_price_book(
+            request.actor,
+            name=ser.validated_data["name"],
+            currency=ser.validated_data.get("currency", ""),
+            description=ser.validated_data.get("description", ""),
+            request=request._request,
+        )
+        return Response(self._read(book), status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, pk=None):
+        book = self.get_object()
+        ser = PriceBookWriteSerializer(data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        version = expected_version(request._request, request.data, required=False)
+        services.update_price_book(
+            request.actor, book, expected_version=version, request=request._request, **ser.validated_data
+        )
+        return Response(self._read(book))
+
+    def destroy(self, request, pk=None):
+        book = self.get_object()
+        services.archive_price_book(request.actor, book, request=request._request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["get"])
+    def entries(self, request, pk=None):
+        book = self.get_object()
+        rows = PriceBookEntry.objects.filter(price_book=book).select_related("product").order_by("product__name")
+        return Response({"results": PriceBookEntrySerializer(rows, many=True, context={"actor": request.actor}).data})
+
+    @action(detail=True, methods=["put"], url_path="entries/set")
+    def set_entries(self, request, pk=None):
+        book = self.get_object()
+        ser = PriceBookEntriesSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        rows = services.set_entries(
+            request.actor, book, entries=ser.validated_data["entries"], request=request._request
+        )
+        return Response({"results": PriceBookEntrySerializer(rows, many=True, context={"actor": request.actor}).data})

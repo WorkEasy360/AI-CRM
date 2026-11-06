@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from django.urls import include, path
 
+from apps.accounts.workeasy360 import views as workeasy360_views
 from apps.core.api import views as core_views
 
 
@@ -25,5 +26,10 @@ urlpatterns = [
     path("health/", core_views.health, name="health"),  # alias
     path("ready/", core_views.ready, name="ready"),  # alias
     path("_allauth/", include("allauth.headless.urls")),
+    # Sign in with Workeasy360: browser navigations, not API calls (docs/workeasy360-sso.md). The callback
+    # path is the redirect URI registered in Workeasy360, so it must not change.
+    path("api/auth/workeasy360/start", workeasy360_views.start, name="workeasy360-start"),
+    path("api/auth/callback/workeasy360", workeasy360_views.callback, name="workeasy360-callback"),
+    path("api/auth/workeasy360/logout", workeasy360_views.end_session, name="workeasy360-end-session"),
     path("api/v1/", include("config.api_v1")),
 ]

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "@/components/dashboard/dashboard-page";
 import type { Pipeline } from "@/lib/api/crm-types";
@@ -17,6 +17,8 @@ vi.mock("@/lib/api/crm", () => ({
   getAssistantHome: vi.fn(),
   askKeel: vi.fn(),
   deleteAssistantConversation: vi.fn(),
+  getMyDay: vi.fn(async () => ({ date: "2026-11-05", timezone: "UTC", overdue: [], tasks: [], events: [], calls: [], no_date: [], completed_today: 0 })),
+  listActivities: vi.fn(async () => ({ next: null, previous: null, results: [] })),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -87,6 +89,19 @@ const summary: DashboardSummary = {
     { month: "2026-11", count: 1, amount: "4000.00", weighted: "4000.00" },
   ],
   top_companies: [{ id: "c1", name: "Globex", count: 2, amount: "30000.00" }],
+  totals: { contacts: { count: 1248, previous: 1058 }, companies: { count: 386, previous: 345 }, deals: { count: 86, previous: 69 } },
+  tickets: { open: 24, overdue: 2, created: 23, created_previous: 25 },
+  deals_by_source: [
+    { source: "whatsapp", count: 32 },
+    { source: "facebook_ads", count: 18 },
+    { source: "", count: 2 },
+  ],
+  top_team: [{ id: "m1", name: "Deepti", count: 24, amount: "1840000.00" }],
+  deals_closing_week: 5,
+  insights: [
+    { key: "follow_ups_today", count: 6 },
+    { key: "win_rate_change", points: 6, current: 32 },
+  ],
 };
 
 const noAccess: DashboardSummary = {
@@ -105,10 +120,16 @@ const noAccess: DashboardSummary = {
   revenue_trend: null,
   forecast: null,
   top_companies: null,
+  totals: { contacts: null, companies: null, deals: null },
+  tickets: null,
+  deals_by_source: null,
+  top_team: null,
+  deals_closing_week: null,
+  insights: [],
 };
 
 function pipeline(id: string, name: string): Pipeline {
-  return { id, name, position: 0, is_default: id === "p1", stages: [], version: 1, archived_at: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
+  return { id, name, position: 0, is_default: id === "p1", parent_id: null, restricted: false, layout: {}, effective_layout: {}, template_key: "", access: { team_ids: [], hierarchy_role_ids: [] }, stages: [], version: 1, archived_at: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
 }
 
 function renderDashboard() {
@@ -134,83 +155,84 @@ describe("DashboardPage", () => {
     });
   });
 
-  it("renders the KPI tiles from the summary endpoint", async () => {
+  it("greets the member and asks for this month by default", async () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     renderDashboard();
-
-    expect(await screen.findByText("$42,000.00")).toBeInTheDocument(); // pipeline value
-    expect(screen.getByText("8 open deals")).toBeInTheDocument();
-    expect(screen.getByText("$21,000.00")).toBeInTheDocument(); // weighted pipeline
-    expect(screen.getByText("Value × probability")).toBeInTheDocument();
-    expect(screen.getByText("75% win rate")).toBeInTheDocument();
-    expect(screen.getByText("40%")).toBeInTheDocument(); // lead conversion
-    expect(screen.getByText("4 converted / 10 created")).toBeInTheDocument();
-    expect(screen.getAllByText("$5,000.00").length).toBeGreaterThan(0); // average deal size
-    expect(getDashboard).toHaveBeenCalledWith("30d", undefined);
-
-    expect(screen.getByRole("link", { name: /Pipeline value/ })).toHaveAttribute("href", "/pipeline");
-    expect(screen.getByRole("link", { name: /Weighted pipeline/ })).toHaveAttribute("href", "/dashboard/forecast");
-    expect(screen.getByRole("link", { name: /Deals lost/ })).toHaveAttribute("href", "/pipeline?view=list&status=lost");
+    expect(await screen.findByRole("heading", { level: 1, name: /^Good (Morning|Afternoon|Evening), Owner! 👋$/ })).toBeInTheDocument();
+    expect(screen.getByText("Here's what's happening in your CRM today.")).toBeInTheDocument();
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    expect(getDashboard).toHaveBeenCalledWith(month, undefined, 6);
   });
 
-  it("renders the activity tiles with overdue and upcoming work", async () => {
+  it("renders the five KPI tiles with growth since the period started", async () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     renderDashboard();
-
-    await screen.findByText("2 overdue"); // the link exists while loading too; wait for the numbers
-    const tasks = screen.getByRole("link", { name: /Tasks due/ });
-    expect(tasks).toHaveAttribute("href", "/activities?tab=tasks&due=today");
-    expect(tasks).toHaveTextContent("4");
-    expect(tasks).toHaveTextContent("2 overdue");
-    expect(screen.getByRole("link", { name: /Meetings/ })).toHaveTextContent("3");
-    const calls = screen.getByRole("link", { name: /Calls/ });
-    expect(calls).toHaveTextContent("7");
-    expect(calls).toHaveTextContent("5 upcoming");
+    const kpis = await screen.findByRole("region", { name: "Key figures" });
+    expect(await within(kpis).findByRole("link", { name: /Total Contactss*1,248/ })).toHaveAttribute("href", "/contacts");
+    expect(within(kpis).getByRole("link", { name: /Companiess*386/ })).toBeInTheDocument();
+    expect(within(kpis).getByRole("link", { name: /Total Dealss*86/ })).toBeInTheDocument();
+    expect(within(kpis).getByText("$21,000.00")).toBeInTheDocument(); // expected (weighted) revenue
+    expect(within(kpis).getByText("75%")).toBeInTheDocument();
+    expect(within(kpis).getByText("Up 18% compared with the start of the month")).toBeInTheDocument(); // 1,248 vs 1,058
   });
 
-  it("renders the charts, the owner bars and the top companies", async () => {
+  it("shows the pipeline tiles, source donut, team and business summary", async () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     renderDashboard();
+    const overview = await screen.findByRole("region", { name: "Sales Pipeline Overview" });
+    expect(await within(overview).findByRole("link", { name: /Qualifications*5/ })).toHaveAttribute("href", "/pipeline?view=list&stage=s1&pipeline=p1");
+    const sources = screen.getByRole("region", { name: "Deals by Source" });
+    expect(within(sources).getByText("WhatsApp")).toBeInTheDocument();
+    expect(within(sources).getByText("32 (62%)")).toBeInTheDocument();
+    expect(within(sources).getByText("Not set")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Top Performing Team" })).getByText("Deepti")).toBeInTheDocument();
+    const business = screen.getByRole("region", { name: "Key Business Summary" });
+    expect(within(business).getByRole("link", { name: /Open Tickets/ })).toHaveTextContent("24");
+    expect(screen.getByRole("img", { name: /Won revenue by month/ })).toBeInTheDocument();
+  });
 
-    expect(await screen.findByRole("img", { name: /Revenue by month/ })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /Forecast by month/ })).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Forecast by expected close month" })).toBeInTheDocument();
-    expect(screen.getByText("Sales pipeline")).toBeInTheDocument();
+  it("lists upcoming work and the computed insights", async () => {
+    vi.mocked(getDashboard).mockResolvedValue({ ...summary, activities: { ...summary.activities!, overdue: 3, due_week: 12 } });
+    renderDashboard();
+    const upcoming = await screen.findByRole("region", { name: "Upcoming & Overdue" });
+    expect(within(upcoming).getByRole("link", { name: "3 Overdue Activities" })).toHaveAttribute("href", "/activities?due=overdue");
+    expect(within(upcoming).getByRole("link", { name: "12 Activities Due This Week" })).toBeInTheDocument();
+    expect(within(upcoming).getByRole("link", { name: "5 Deals Closing This Week" })).toBeInTheDocument();
+    const insights = screen.getByRole("region", { name: "WorkEasy AI Insights" });
+    expect(within(insights).getByRole("link", { name: "6 follow-ups are due today." })).toHaveAttribute("href", "/activities?due=today");
+    expect(within(insights).getByText("Your win rate improved by 6 points this period.")).toBeInTheDocument();
+    expect(within(insights).getByRole("link", { name: /Ask WorkEasy AI/ })).toHaveAttribute("href", "/assistant");
+  });
 
-    const ada = screen.getByRole("link", { name: /Ada Lovelace/ });
-    expect(ada).toHaveAttribute("href", "/pipeline?view=list&owner=m1");
-    expect(ada).toHaveTextContent("$30,000.00");
-    expect(ada).toHaveTextContent("3 deals · $9,000.00 weighted");
-
+  it("keeps the earlier detail charts under More insights", async () => {
+    vi.mocked(getDashboard).mockResolvedValue(summary);
+    renderDashboard();
+    expect(await screen.findByRole("table", { name: "Forecast by expected close month" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Sales pipeline funnel" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Globex" })).toHaveAttribute("href", "/companies/c1");
-    expect(screen.getByRole("link", { name: "Forecast" })).toHaveAttribute("href", "/dashboard/forecast");
     expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   });
 
   it("shows no-access notes instead of numbers for modules the member cannot view", async () => {
     vi.mocked(getDashboard).mockResolvedValue(noAccess);
     renderDashboard();
-
-    expect((await screen.findAllByText("Your role does not include access to this data.")).length).toBe(5);
-    expect(screen.getAllByText("Your role does not include Activities")).toHaveLength(3);
-    expect(screen.queryByText("$42,000.00")).not.toBeInTheDocument();
-    expect(screen.queryByText("overdue")).not.toBeInTheDocument();
+    const kpis = await screen.findByRole("region", { name: "Key figures" });
+    expect((await within(kpis).findAllByText("No access")).length).toBe(3);
+    expect(screen.getAllByText("Your role does not include access to this data.").length).toBeGreaterThan(0);
   });
 
   it("offers a pipeline filter only when the organisation has more than one pipeline", async () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     vi.mocked(listPipelines).mockResolvedValue({ next: null, previous: null, results: [pipeline("p1", "Sales pipeline"), pipeline("p2", "Partners")] });
     renderDashboard();
-
-    expect(await screen.findByRole("combobox", { name: "Pipeline" })).toHaveTextContent("All pipelines");
-    expect(screen.getByRole("combobox", { name: "Period" })).toHaveTextContent("Last 30 days");
+    expect(await screen.findByRole("combobox", { name: "Pipeline" })).toBeInTheDocument();
   });
 
   it("keeps the pipeline filter hidden for a single pipeline", async () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     renderDashboard();
-
-    await screen.findByText("$42,000.00");
+    await screen.findByRole("region", { name: "Key figures" });
     expect(screen.queryByRole("combobox", { name: "Pipeline" })).not.toBeInTheDocument();
   });
 });

@@ -30,6 +30,9 @@
   --color-primary-hover: var(--kl-primary-hover);
   --color-primary-soft: var(--kl-primary-soft);
   --color-primary-fg: var(--kl-primary-fg);
+  --color-brand: var(--kl-brand);
+  --color-brand-hover: var(--kl-brand-hover);
+  --color-brand-fg: var(--kl-brand-fg);
   --color-accent: var(--kl-accent);
   --color-accent-hover: var(--kl-accent-hover);
   --color-accent-soft: var(--kl-accent-soft);
@@ -44,6 +47,11 @@
   --color-danger-soft: var(--kl-danger-soft);
   --color-danger-fg: var(--kl-danger-fg);
   --color-overlay: var(--kl-overlay);
+  --color-chrome: var(--kl-chrome);
+  --color-chrome-sidebar: var(--kl-chrome-sidebar);
+  --color-chrome-active: var(--kl-chrome-active);
+  --color-chrome-indicator: var(--kl-chrome-indicator);
+  --color-brand-bright: var(--kl-brand-bright);
 
   --radius-sm: var(--kl-radius-sm);
   --radius-md: var(--kl-radius-md);
@@ -94,6 +102,31 @@
   ::selection {
     background: var(--kl-primary-soft);
   }
+}
+
+/* The sidebar rail: forest green, a shade deeper toward the bottom. */
+.kl-sidebar {
+  background: linear-gradient(180deg, var(--kl-chrome-sidebar) 0%, var(--kl-chrome-sidebar-end) 100%);
+}
+
+/*
+ * The green app chrome (sidebar and sub-panels). Re-pointing the neutral tokens here lets the same
+ * ghost buttons, search field and nav links used everywhere else read light-on-navy without
+ * per-component colour overrides. Menus and dialogs opened from the chrome portal to <body>, so
+ * they keep the normal surface colours. Brand/danger are left alone: the green "New" button and
+ * the unread badge look the same here as anywhere.
+ */
+.kl-chrome {
+  --kl-fg: var(--kl-chrome-fg);
+  --kl-fg-muted: var(--kl-chrome-fg-muted);
+  --kl-fg-subtle: var(--kl-chrome-fg-muted);
+  --kl-bg: rgb(255 255 255 / 0.08);
+  --kl-bg-subtle: rgb(255 255 255 / 0.1);
+  --kl-surface: var(--kl-chrome);
+  --kl-border: rgb(255 255 255 / 0.1);
+  --kl-border-strong: rgb(255 255 255 / 0.18);
+  --kl-ring: var(--kl-brand-bright);
+  color: var(--kl-fg);
 }
 
 @keyframes kl-fade-in {
@@ -155,4 +188,37 @@
   background: linear-gradient(90deg, var(--kl-bg-subtle) 25%, var(--kl-border) 50%, var(--kl-bg-subtle) 75%);
   background-size: 200% 100%;
   animation: kl-shimmer 1.4s linear infinite;
+}
+
+/* "Take me there" spotlight (lib/spotlight.ts): a pulsing ring around the button an article names. */
+.kl-spotlight {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px #15803d, 0 0 0 9999px rgb(0 0 0 / 0.18);
+  animation: kl-spotlight-pulse 1.2s ease-in-out infinite;
+  transition: top 0.1s, left 0.1s, width 0.1s, height 0.1s;
+}
+.kl-spotlight-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  white-space: nowrap;
+  border-radius: 6px;
+  background: #15803d;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+@keyframes kl-spotlight-pulse {
+  50% {
+    box-shadow: 0 0 0 6px #15803d, 0 0 0 9999px rgb(0 0 0 / 0.18);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kl-spotlight {
+    animation: none;
+  }
 }

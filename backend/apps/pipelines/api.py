@@ -6,10 +6,12 @@ from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.core.api.fields import TenantPrimaryKeyRelatedField
 from apps.core.api.viewsets import TenantViewSet
 from apps.core.concurrency import expected_version
 from apps.pipelines import services
 from apps.pipelines.models import STAGE_COLORS, Pipeline, PipelineStage
+from apps.pipelines.templates import TEMPLATES
 
 
 class StageSerializer(serializers.ModelSerializer):
@@ -31,8 +33,16 @@ class StageSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class PipelineAccessSerializer(serializers.Serializer):
+    team_ids = serializers.ListField(child=serializers.UUIDField(), max_length=50)
+    hierarchy_role_ids = serializers.ListField(child=serializers.UUIDField(), max_length=50)
+
+
 class PipelineSerializer(serializers.ModelSerializer):
     stages = serializers.SerializerMethodField()
+    parent_id = serializers.UUIDField(read_only=True, allow_null=True)
+    access = serializers.SerializerMethodField()
+    effective_layout = serializers.SerializerMethodField()
 
     class Meta:
         model = Pipeline
@@ -41,6 +51,12 @@ class PipelineSerializer(serializers.ModelSerializer):
             "name",
             "position",
             "is_default",
+            "parent_id",
+            "restricted",
+            "layout",
+            "effective_layout",
+            "template_key",
+            "access",
             "stages",
             "version",
             "archived_at",
@@ -53,6 +69,24 @@ class PipelineSerializer(serializers.ModelSerializer):
         stages = [s for s in obj.stages.all() if s.archived_at is None]
         return StageSerializer(sorted(stages, key=lambda s: s.position), many=True).data
 
+    def get_access(self, obj: Pipeline) -> dict[str, list[str]]:
+        rules = list(obj.access_rules.all()) if obj.parent_id is None else []
+        return {
+            "team_ids": [str(r.team_id) for r in rules if r.team_id],
+            "hierarchy_role_ids": [str(r.hierarchy_role_id) for r in rules if r.hierarchy_role_id],
+        }
+
+    def get_effective_layout(self, obj: Pipeline) -> dict[str, Any]:
+        """The layout this pipeline renders with: its own, or its parent's for a sub-pipeline."""
+        return (obj.parent.layout if obj.parent_id and obj.parent else obj.layout) or {}
+
+
+class TemplateSerializer(serializers.Serializer):
+    key = serializers.CharField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    description = serializers.CharField(read_only=True)
+    stages = serializers.ListField(child=serializers.DictField(), read_only=True)
+
 
 class StageInputSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=80, required=False)
@@ -62,15 +96,27 @@ class StageInputSerializer(serializers.Serializer):
     color_token = serializers.ChoiceField(choices=[(c, c) for c in STAGE_COLORS], required=False)
 
 
+def _active_top_level_pipelines():
+    return Pipeline.objects.filter(archived_at__isnull=True, parent__isnull=True)
+
+
 class PipelineCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=80)
     stages = StageInputSerializer(many=True, required=False)
+    template = serializers.ChoiceField(choices=[(k, k) for k in TEMPLATES], required=False)
+    parent_id = TenantPrimaryKeyRelatedField(
+        source="parent", model=Pipeline, queryset_fn=_active_top_level_pipelines, required=False, allow_null=True
+    )
+    layout = serializers.JSONField(required=False)
+    restricted = serializers.BooleanField(required=False, default=False)
 
 
 class PipelineUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=80, required=False)
     is_default = serializers.BooleanField(required=False)
     position = serializers.IntegerField(min_value=0, max_value=1000, required=False)
+    layout = serializers.JSONField(required=False)
+    restricted = serializers.BooleanField(required=False)
 
 
 class ReorderSerializer(serializers.Serializer):
@@ -86,29 +132,56 @@ class PipelineViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantVi
         "destroy": "pipelines.manage",
         "add_stage": "pipelines.manage",
         "reorder_stages": "pipelines.manage",
+        "templates": "pipelines.view",
+        "set_access": "pipelines.manage",
     }
     serializer_class = PipelineSerializer
     resolved_ordering = ("position", "id")
 
     def base_queryset(self):
-        qs = Pipeline.objects.prefetch_related("stages")
+        qs = Pipeline.objects.select_related("parent").prefetch_related("stages", "access_rules")
         if self.action == "list" and self.request.query_params.get("archived", "").lower() not in {"true", "1"}:
             qs = qs.filter(archived_at__isnull=True)
         return qs
 
     def _read(self, pipeline: Pipeline) -> dict:
-        return PipelineSerializer(Pipeline.objects.prefetch_related("stages").get(pk=pipeline.pk)).data
+        return PipelineSerializer(self.base_queryset().get(pk=pipeline.pk)).data
 
     def create(self, request):
         ser = PipelineCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        data = ser.validated_data
         pipeline = services.create_pipeline(
             request.actor,
-            name=ser.validated_data["name"],
-            stages=ser.validated_data.get("stages"),
+            name=data["name"],
+            stages=data.get("stages"),
+            template=data.get("template"),
+            parent=data.get("parent"),
+            layout=data.get("layout"),
+            restricted=data.get("restricted", False),
             request=request._request,
         )
         return Response(self._read(pipeline), status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"])
+    def templates(self, request):
+        """The pipeline templates shipped with the product (original wording, DECISIONS M2.5)."""
+        return Response({"results": TemplateSerializer(services.templates(), many=True).data})
+
+    @action(detail=True, methods=["put"], url_path="access")
+    def set_access(self, request, pk=None):
+        """Replace the teams and hierarchy roles that may use this (restricted) pipeline."""
+        pipeline = self.get_object()
+        ser = PipelineAccessSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        services.set_access(
+            request.actor,
+            pipeline,
+            team_ids=ser.validated_data["team_ids"],
+            hierarchy_role_ids=ser.validated_data["hierarchy_role_ids"],
+            request=request._request,
+        )
+        return Response(self._read(pipeline))
 
     def partial_update(self, request, pk=None):
         pipeline = self.get_object()

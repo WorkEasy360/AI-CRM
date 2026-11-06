@@ -11,6 +11,7 @@
  */
 import { request, type RawResponse } from "@/lib/api/client";
 import { ApiError, PROBLEM_TYPES, parseProblem } from "@/lib/api/problem";
+import { clearSignedOutMarker, markSignedOut } from "@/lib/direct-sign-in";
 
 const BASE = "/_allauth/browser/v1";
 
@@ -100,6 +101,7 @@ export async function login(input: { email: string; password: string }): Promise
   const res = await request(`${BASE}/auth/login`, { method: "POST", body: input });
   const outcome = interpretAuth(res);
   if (outcome.kind === "unknown") fail(res);
+  if (outcome.kind === "authenticated") clearSignedOutMarker();
   return outcome;
 }
 
@@ -107,13 +109,27 @@ export async function mfaAuthenticate(code: string): Promise<AuthOutcome> {
   const res = await request(`${BASE}/auth/2fa/authenticate`, { method: "POST", body: { code } });
   const outcome = interpretAuth(res);
   if (outcome.kind === "unknown") fail(res);
+  if (outcome.kind === "authenticated") clearSignedOutMarker();
   return outcome;
 }
 
-/** Logout. allauth answers 401 once the session is gone; that is success. */
+/**
+ * Logout. allauth answers 401 once the session is gone; that is success.
+ *
+ * Every sign-out goes through here, and each leaves the signed-out marker (lib/direct-sign-in.ts):
+ * the next visit shows the sign-in page instead of starting a Workeasy360 sign-in by itself. It is set
+ * before the request so that no tab can see the session gone while the marker is still missing.
+ *
+ * It stays set when the outcome is unclear (a network error, a 5xx): the server may have ended the
+ * session before the answer was lost, and taking the marker back would let the next 401 sign the person
+ * straight back in. It is taken back only when the server clearly refused (a 4xx other than 401, e.g. a
+ * 403 for a failed CSRF check): the session is certainly still there.
+ */
 export async function logout(): Promise<void> {
+  markSignedOut();
   const res = await request(`${BASE}/auth/session`, { method: "DELETE" });
   if (res.ok || res.status === 401) return;
+  if (res.status >= 400 && res.status < 500) clearSignedOutMarker();
   fail(res);
 }
 

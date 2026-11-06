@@ -4,13 +4,14 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Timeline } from "@/components/crm/timeline";
-import type { TimelineEvent } from "@/lib/api/crm-types";
+import type { TimelineEvent, TimelinePage } from "@/lib/api/crm-types";
 
 vi.mock("@/lib/api/crm", () => ({
-  getTimeline: vi.fn(),
+  getTimelinePage: vi.fn(),
+  fileDownloadUrl: (id: string) => `/api/v1/files/${id}/download/`,
 }));
 
-import { getTimeline } from "@/lib/api/crm";
+import { getTimelinePage } from "@/lib/api/crm";
 
 const alex = { id: "m1", display_name: "Alex" };
 const now = new Date();
@@ -36,6 +37,16 @@ const events: TimelineEvent[] = [
   { id: "e14", kind: "record.created", occurred_at: iso(30, 9), actor: alex, data: {} },
 ];
 
+const SOURCES = [
+  { key: "record", label: "Record" },
+  { key: "notes", label: "Notes" },
+  { key: "activities", label: "Activities" },
+  { key: "emails", label: "Emails" },
+  { key: "files", label: "Files" },
+];
+
+const page = (results: TimelineEvent[], next_before: string | null = null): TimelinePage => ({ results, next_before, sources: SOURCES });
+
 function renderTimeline() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -47,8 +58,8 @@ function renderTimeline() {
 
 describe("Timeline", () => {
   beforeEach(() => {
-    vi.mocked(getTimeline).mockReset();
-    vi.mocked(getTimeline).mockResolvedValue({ results: events });
+    vi.mocked(getTimelinePage).mockReset();
+    vi.mocked(getTimelinePage).mockResolvedValue(page(events));
   });
 
   it("renders every event kind as a sentence, grouped by day and newest first", async () => {
@@ -103,22 +114,53 @@ describe("Timeline", () => {
     expect(screen.queryByText("Hi Hank, here is the proposal we discussed.")).not.toBeInTheDocument();
   });
 
-  it("filters by event family and passes the selected kinds to the API", async () => {
+  it("builds the filter chips from the server's sources and passes the selection to the API", async () => {
     const user = userEvent.setup();
     renderTimeline();
     await screen.findByText(/logged a call/);
-    expect(getTimeline).toHaveBeenLastCalledWith("deal", "d1", []);
+    expect(getTimelinePage).toHaveBeenLastCalledWith("deal", "d1", { before: null, limit: 30, sources: [], kinds: [] });
+    const chips = screen.getByRole("group", { name: "Filter timeline" });
+    expect(within(chips).getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "Record", "Notes", "Activities", "Emails", "Files"]);
 
-    vi.mocked(getTimeline).mockResolvedValue({ results: events.filter((e) => e.kind.startsWith("activity.")) });
+    vi.mocked(getTimelinePage).mockResolvedValue(page(events.filter((e) => e.kind.startsWith("activity."))));
     await user.click(screen.getByRole("button", { name: "Activities" }));
-    await waitFor(() => expect(getTimeline).toHaveBeenLastCalledWith("deal", "d1", ["activity"]));
+    await waitFor(() => expect(getTimelinePage).toHaveBeenLastCalledWith("deal", "d1", { before: null, limit: 30, sources: ["activities"], kinds: [] }));
     expect(screen.getByRole("button", { name: "Activities" })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(screen.queryByText("Budget confirmed for Q4.")).not.toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: "Emails" }));
-    await waitFor(() => expect(getTimeline).toHaveBeenLastCalledWith("deal", "d1", ["activity", "email"]));
+    await waitFor(() => expect(getTimelinePage).toHaveBeenLastCalledWith("deal", "d1", { before: null, limit: 30, sources: ["activities", "emails"], kinds: [] }));
 
     await user.click(screen.getByRole("button", { name: "All" }));
-    await waitFor(() => expect(getTimeline).toHaveBeenLastCalledWith("deal", "d1", []));
+    await waitFor(() => expect(getTimelinePage).toHaveBeenLastCalledWith("deal", "d1", { before: null, limit: 30, sources: [], kinds: [] }));
+  });
+
+  it("loads older events with next_before", async () => {
+    const user = userEvent.setup();
+    vi.mocked(getTimelinePage).mockImplementation(async (_type, _id, opts) =>
+      opts?.before ? page([{ id: "old", kind: "note", occurred_at: iso(60, 9), actor: alex, data: { body: "Very first note." } }]) : page(events.slice(0, 3), "2026-01-01T00:00:00Z"),
+    );
+    renderTimeline();
+    await screen.findByText(/logged a call/);
+    expect(screen.queryByText("Very first note.")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Load older" }));
+    expect(await screen.findByText("Very first note.")).toBeInTheDocument();
+    expect(getTimelinePage).toHaveBeenLastCalledWith("deal", "d1", { before: "2026-01-01T00:00:00Z", limit: 30, sources: [], kinds: [] });
+    expect(screen.getByText(/logged a call/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load older" })).not.toBeInTheDocument();
+  });
+
+  it("renders attached files and kinds it does not know yet", async () => {
+    vi.mocked(getTimelinePage).mockResolvedValue(
+      page([
+        { id: "f1", kind: "file", occurred_at: iso(0, 11), actor: alex, data: { file_id: "file1", filename: "contract.pdf", content_type: "application/pdf", size_bytes: 2048 } },
+        { id: "x1", kind: "payment.received", occurred_at: iso(0, 10), actor: null, data: { title: "Invoice #42" }, source: "payments" },
+      ]),
+    );
+    renderTimeline();
+    expect(await screen.findByRole("link", { name: "contract.pdf" })).toHaveAttribute("href", "/api/v1/files/file1/download/");
+    expect(screen.getByText(/Attached/)).toBeInTheDocument();
+    expect(screen.getByText(/Invoice #42/)).toBeInTheDocument();
   });
 });

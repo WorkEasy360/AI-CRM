@@ -1,0 +1,125 @@
+[
+ {
+  "q": "How can I add my sales colleague to the CRM?",
+  "lang": "en",
+  "expected": "settings-invite-user"
+ },
+ {
+  "q": "How do I make someone an admin?",
+  "lang": "en",
+  "expected": "settings-change-role"
+ },
+ {
+  "q": "An employee left, how do I take away their access?",
+  "lang": "en",
+  "expected": "settings-remove-user"
+ },
+ {
+  "q": "What is the difference between Sales Manager and Sales Representative?",
+  "lang": "en",
+  "expected": "settings-roles-permissions"
+ },
+ {
+  "q": "I lost my phone with the authenticator app, how do I log in?",
+  "lang": "en",
+  "expected": "faq-locked-out"
+ },
+ {
+  "q": "It says this record was changed by someone else and won't save",
+  "lang": "en",
+  "expected": "faq-record-changed-by-someone-else"
+ },
+ {
+  "q": "Does the AI send our customer data to an outside service?",
+  "lang": "en",
+  "expected": "faq-ai-data-usage"
+ },
+ {
+  "q": "What happens when we hit 500 records on the free plan?",
+  "lang": "en",
+  "expected": "faq-plan-limits"
+ },
+ {
+  "q": "How do I create a team here?",
+  "lang": "en",
+  "expected": "settings-create-team",
+  "page": "/settings/teams"
+ },
+ {
+  "q": "Can I filter this by a date range?",
+  "lang": "en",
+  "expected": "settings-audit-log",
+  "page": "/settings/audit-log"
+ },
+ {
+  "q": "how do I hide the discount field from reps",
+  "lang": "en",
+  "expected": "settings-field-permissions"
+ },
+ {
+  "q": "invite link expired, can I send it again?",
+  "lang": "en",
+  "expected": "settings-manage-invitations"
+ },
+ {
+  "q": "naye user ko kaise invite kare",
+  "lang": "hinglish",
+  "expected": "settings-invite-user"
+ },
+ {
+  "q": "password bhool gaya, reset kaise karu",
+  "lang": "hinglish",
+  "expected": "getting-started-forgot-password"
+ },
+ {
+  "q": "2FA kaise on kare mere account pe",
+  "lang": "hinglish",
+  "expected": "settings-enable-2fa"
+ },
+ {
+  "q": "mujhe permission nahi hai likha aa raha hai",
+  "lang": "hinglish",
+  "expected": "faq-permission-denied"
+ },
+ {
+  "q": "company ka logo kaise lagaye",
+  "lang": "hinglish",
+  "expected": "settings-upload-logo"
+ },
+ {
+  "q": "plan upgrade kaise kare",
+  "lang": "hinglish",
+  "expected": "settings-billing-plan",
+  "page": "/settings/billing"
+ },
+ {
+  "q": "पासवर्ड कैसे बदलें",
+  "lang": "hi",
+  "expected": "settings-change-password"
+ },
+ {
+  "q": "किसी यूज़र का रोल कैसे बदलें",
+  "lang": "hi",
+  "expected": "settings-change-role"
+ },
+ {
+  "q": "क्या हमारा डेटा सुरक्षित है",
+  "lang": "hi",
+  "expected": "faq-data-security"
+ },
+ {
+  "q": "टीम में सदस्य कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "settings-team-members"
+ },
+ {
+  "q": "मोबाइल पर ऐप कैसे चलाएं",
+  "lang": "hi",
+  "expected": "faq-mobile-app"
+ },
+ {
+  "q": "Why is it asking for my password again before saving?",
+  "lang": "en",
+  "expected": "faq-confirm-its-you"
+ }
+]

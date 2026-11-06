@@ -311,6 +311,9 @@ class EmailMessageViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tena
             if params.get(key):
                 record = resolve_viewable(self.request.actor, key, params[key])
                 return qs.filter(**{key: record})
+        if params.get("inbox") in ("1", "true"):
+            # The Activities "Emails" tab: everything the caller may see, newest first.
+            return services.visible_messages(self.request.actor, qs)
         if params.get("thread"):
             thread = str(params["thread"])[:255]
             return qs.filter(provider_thread_id=thread, sent_by_id=self.request.actor.membership.id) | qs.filter(
@@ -509,6 +512,10 @@ class WhatsAppMessageViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, T
             if params.get(key):
                 record = resolve_viewable(self.request.actor, key, params[key])
                 return qs.filter(**{key: record})
+        if params.get("inbox") in ("1", "true"):
+            # The Activities "WhatsApp" tab: every message the caller may see, newest first.
+            self.resolved_ordering = ("-created_at", "-id")
+            return services.visible_messages(self.request.actor, qs)
         return qs.filter(sent_by_id=self.request.actor.membership.id)
 
     def get_object(self):

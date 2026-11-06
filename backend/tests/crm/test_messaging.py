@@ -361,3 +361,25 @@ def test_whatsapp_webhook_signature_inbound_and_status(
         WhatsAppMessage.objects.filter(direction="inbound").update(received_at=timezone.now() - timedelta(hours=25))
     with tenant_context(org_a.org.pk):
         assert services.within_service_window("15550100300") is False
+
+
+def test_inbox_lists_only_messages_on_records_the_member_may_view(
+    org_a, org_b, owner_client, client_for, crm, make_member
+):
+    rep = make_member(org_a, "sales_rep")  # contacts.view: team (here: own)
+    mine = crm.make_contact(org_a, owner=rep, phone="+15550111")
+    theirs = crm.make_contact(org_a, phone="+15550222")  # owned by the organization owner
+    crm.make_whatsapp_message(org_a, contact=mine, direction="inbound", status="received", sent_by=None)
+    crm.make_whatsapp_message(org_a, contact=theirs)
+    crm.make_whatsapp_message(org_b)
+    crm.make_email_message(org_a, contact=mine)
+    crm.make_email_message(org_a, contact=theirs)
+
+    rep_client = client_for(rep.user, rep)
+    wa = rep_client.get("/api/v1/whatsapp/messages/?inbox=1").json()["results"]
+    assert [m["contact"]["id"] for m in wa] == [str(mine.pk)]
+    emails = rep_client.get("/api/v1/email/messages/?inbox=1").json()["results"]
+    assert len(emails) == 1
+    # the owner sees both of the organization's conversations, never org B's
+    assert len(owner_client.get("/api/v1/whatsapp/messages/?inbox=1").json()["results"]) == 2
+    assert len(owner_client.get("/api/v1/email/messages/?inbox=1").json()["results"]) == 2

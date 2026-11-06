@@ -17,4 +17,8 @@ MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
 # normal authenticated behaviour back (anonymous requests answer 401 and the UI shows /login).
 AUTO_LOGIN_ENABLED = env.bool("AUTO_LOGIN_ENABLED", default=True)
 
+# Local development keeps the password form next to "Continue with Workeasy360" (which appears once the
+# WORKEASY360_* settings are filled in). Set WORKEASY360_SSO_ONLY=1 to rehearse the production behaviour.
+WORKEASY360_SSO_ONLY = env.bool("WORKEASY360_SSO_ONLY", default=False)
+
 LOGGING = configure_logging(json_output=False, level="INFO")

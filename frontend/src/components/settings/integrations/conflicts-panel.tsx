@@ -53,7 +53,7 @@ export function ConflictsPanel({ connection, options, canManage }: { connection:
   }
   const rows = conflicts.data.results;
   if (rows.length === 0) {
-    return <EmptyState icon={<CheckCircle2 />} title="No open conflicts" description="When a record changes in both Keel and the external system, it waits here for your decision." />;
+    return <EmptyState icon={<CheckCircle2 />} title="No open conflicts" description="When a record changes in both WorkEasy CRM and the external system, it waits here for your decision." />;
   }
 
   return (

@@ -4,10 +4,15 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { visibleSettingsNav } from "@/components/shell/nav";
+import { visibleSettingsNav, type SettingsNavItem } from "@/components/shell/nav";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { ActiveContext } from "@/lib/api/types";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+
+export function settingsNavItems(active: ActiveContext | null | undefined): SettingsNavItem[] {
+  return visibleSettingsNav(active);
+}
 
 /**
  * Settings live behind the gear icon with their own left navigation. Entries are filtered by the
@@ -17,9 +22,12 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
-  const items = visibleSettingsNav(session?.active);
+  const items = settingsNavItems(session?.active);
   const matches = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const current = items.find((item) => matches(item.href) || (item.also ?? []).some(matches));
+
+  // The Settings home is its own full-width card grid; the section navigation starts one level down.
+  if (pathname === "/settings") return <div className="mx-auto max-w-7xl">{children}</div>;
 
   return (
     <div className="mx-auto flex max-w-6xl gap-6">

@@ -25,17 +25,22 @@ def _seed(crm, org, owner=None):
     crm.make_contact(org, owner=owner)
     crm.make_deal(org, owner=owner, company=company, amount="1000.00", amount_base="1000.00")
     crm.make_deal(
-        org, owner=owner, company=other, stage=stage_named(pipeline, "Proposal"), amount="250.00", amount_base="250.00"
+        org,
+        owner=owner,
+        company=other,
+        stage=stage_named(pipeline, "Proposal sent"),
+        amount="250.00",
+        amount_base="250.00",
     )
     won = crm.make_deal(
         org,
         owner=owner,
         company=company,
-        stage=stage_named(pipeline, "Closed won"),
+        stage=stage_named(pipeline, "Won"),
         amount="5000.00",
         amount_base="5000.00",
     )
-    crm.make_deal(org, owner=owner, stage=stage_named(pipeline, "Closed lost"), amount="700.00", amount_base="700.00")
+    crm.make_deal(org, owner=owner, stage=stage_named(pipeline, "Lost"), amount="700.00", amount_base="700.00")
     return pipeline, company, won
 
 
@@ -55,11 +60,11 @@ def test_owner_sees_organization_wide_numbers(org_a, owner_client, crm):
     by_stage = data["deals_by_stage"]
     assert by_stage["pipeline"]["id"] == str(pipeline.pk)
     counts = {s["name"]: (s["count"], s["amount"]) for s in by_stage["stages"]}
-    assert counts["Qualification"] == (1, "1000.00")
-    assert counts["Proposal"] == (1, "250.00")
-    assert counts["Closed won"] == (1, "5000.00")
-    assert counts["Closed lost"] == (1, "700.00")
-    assert counts["Negotiation"] == (0, "0.00")
+    assert counts["Discovery"] == (1, "1000.00")
+    assert counts["Proposal sent"] == (1, "250.00")
+    assert counts["Won"] == (1, "5000.00")
+    assert counts["Lost"] == (1, "700.00")
+    assert counts["Terms agreed"] == (0, "0.00")
 
     trend = data["revenue_trend"]
     assert len(trend) == 6
@@ -129,3 +134,54 @@ def test_widgets_are_null_without_the_module_permission(org_a, crm):
 def test_dashboard_requires_session_and_organization(anon_client, make_user, client_for):
     assert anon_client.get("/api/v1/dashboard/").status_code in (401, 403)
     assert client_for(make_user()).get("/api/v1/dashboard/").status_code == 403
+
+
+def test_previous_period_feeds_the_tile_changes(org_a, owner_client, crm):
+    pipeline, company, _ = _seed(crm, org_a)
+    earlier = crm.make_deal(
+        org_a, company=company, stage=stage_named(pipeline, "Won"), amount="2000.00", amount_base="2000.00"
+    )
+    forty_days_ago = timezone.now() - timedelta(days=40)
+    with tenant_context(org_a.org.pk):
+        Deal.objects.filter(pk=earlier.pk).update(created_at=forty_days_ago, closed_at=forty_days_ago)
+        Deal.objects.filter(pk=crm.make_deal(org_a).pk).update(created_at=timezone.now() - timedelta(days=100))
+    data = owner_client.get("/api/v1/dashboard/").json()
+    assert data["deals_created"] == 4  # the seeded deals; the 40- and 100-day-old ones are outside
+    assert data["previous"]["deals_created"] == 1
+    assert data["previous"]["deals_won"] == {"count": 1, "amount": "2000.00"}
+    assert data["previous"]["win_rate"] == 100 and data["win_rate"] == 50
+    assert data["deals_won"]["amount"] == "5000.00"
+
+
+def test_month_period_totals_sources_team_and_insights(org_a, owner_client, crm):
+    _seed(crm, org_a)
+    with tenant_context(org_a.org.pk, reason="test.dashboard"):
+        Deal.objects.filter(status="open").update(lead_source="whatsapp", probability=70)
+        Deal.objects.filter(status="open").update(expected_close_date=timezone.localdate() + timedelta(days=3))
+    month = timezone.localtime().strftime("%Y-%m")
+    data = owner_client.get(f"/api/v1/dashboard/?period={month}&months=3").json()
+    assert data["period"] == month and len(data["revenue_trend"]) == 3
+    assert data["totals"]["contacts"]["count"] == 2 and data["totals"]["contacts"]["previous"] == 0
+    assert data["totals"]["companies"]["count"] == 2 and data["totals"]["deals"]["count"] == 4
+    sources = {row["source"]: row["count"] for row in data["deals_by_source"]}
+    assert sources["whatsapp"] == 2 and sources[""] == 2  # the won and the lost deal
+    assert data["top_team"][0]["count"] == 1 and data["top_team"][0]["amount"] == "5000.00"
+    assert data["deals_closing_week"] == 2
+    keys = [i["key"] for i in data["insights"]]
+    assert "deals_close_to_winning" in keys and "deals_without_next_step" in keys
+    assert data["tickets"] == {"open": 0, "overdue": 0, "created": 0, "created_previous": 0}
+    # a month that has not started, a bad month and an unsupported trend length are refused
+    assert owner_client.get("/api/v1/dashboard/?period=2999-01").status_code == 400
+    assert owner_client.get("/api/v1/dashboard/?period=2026-13").status_code == 400
+    assert owner_client.get("/api/v1/dashboard/?months=5").status_code == 400
+
+
+def test_new_widgets_stay_inside_the_scope(org_a, org_b, make_member, client_for, crm):
+    _seed(crm, org_b)
+    rep = make_member(org_a, "sales_rep")
+    crm.make_deal(org_a, owner=rep, lead_source="referral")
+    crm.make_deal(org_a, lead_source="website")  # the owner's, outside the rep's own scope
+    data = client_for(rep.user, rep).get("/api/v1/dashboard/").json()
+    assert [row["source"] for row in data["deals_by_source"]] == ["referral"]
+    assert data["totals"]["deals"]["count"] == 1
+    assert data["top_team"] == []

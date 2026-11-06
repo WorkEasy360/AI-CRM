@@ -35,3 +35,22 @@ class TaggedItem(TenantModel):
             models.UniqueConstraint(fields=["tag", "entity_type", "entity_id"], name="uniq_tagged_item"),
         ]
         indexes = [models.Index(fields=["organization", "entity_type", "entity_id"], name="taggeditem_org_entity_idx")]
+
+
+FAVORITE_TYPES = ("contact", "company")
+
+
+class Favorite(TenantModel):
+    """A record a member starred (Contacts → Favorites). Personal: only that member's lists use it."""
+
+    membership = models.ForeignKey("accounts.Membership", on_delete=models.CASCADE, related_name="+")
+    entity_type = models.CharField(max_length=16)
+    entity_id = models.UUIDField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["membership", "entity_type", "entity_id"], name="uniq_favorite"),
+        ]
+        indexes = [
+            models.Index(fields=["organization", "membership", "entity_type"], name="favorite_org_member_idx"),
+        ]

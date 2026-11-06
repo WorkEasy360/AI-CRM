@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { FormError } from "@/components/ui/form-field";
 import { reauthenticate } from "@/lib/api/allauth";
 import { errorMessage, isApiError } from "@/lib/api/problem";
+import type { Session } from "@/lib/api/types";
+import { workeasy360StartUrl } from "@/lib/auth-methods";
 import { queryKeys } from "@/lib/session";
 
 export class ReauthCancelledError extends Error {
@@ -93,12 +95,43 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = React.useMemo(() => ({ runSensitive }), [runSensitive]);
+  // Workeasy360 sessions have no Keel password to re-enter: the user confirms by signing in at
+  // Workeasy360 again - a fresh sign-in (prompt=login), checked by the server - which brings them back
+  // to this page. The action itself then has to be repeated.
+  const federated = queryClient.getQueryData<Session>(queryKeys.session)?.identity_provider === "workeasy360";
+  const confirmWithWorkeasy360 = () => {
+    window.location.assign(
+      workeasy360StartUrl(`${window.location.pathname}${window.location.search}`, { reauth: true }),
+    );
+  };
 
   return (
     <ReauthContext.Provider value={value}>
       {children}
       <Dialog open={pending !== null} onOpenChange={(open) => !open && close(true)}>
         <DialogContent className="max-w-md">
+          {federated ? (
+            <div className="grid gap-4">
+              <DialogHeader>
+                <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-primary-soft text-primary">
+                  <ShieldCheck className="size-5" aria-hidden />
+                </div>
+                <DialogTitle>Confirm it&apos;s you</DialogTitle>
+                <DialogDescription>
+                  This action is sensitive. Enter your Workeasy360 password again to confirm; you will come back to this page
+                  and can repeat the action. You won&apos;t be asked again for a few minutes.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={() => close(true)}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={confirmWithWorkeasy360}>
+                  Confirm with Workeasy360
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
           <form onSubmit={submit} className="grid gap-4">
             <DialogHeader>
               <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-primary-soft text-primary">
@@ -130,6 +163,7 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
               </Button>
             </DialogFooter>
           </form>
+          )}
         </DialogContent>
       </Dialog>
     </ReauthContext.Provider>

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Copy, KeyRound, MonitorSmartphone, ShieldCheck, ShieldOff } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { TotpQr } from "@/components/settings/totp-qr";
@@ -35,13 +36,20 @@ import {
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { queryKeys, useSession } from "@/lib/session";
 import { formatDateTime } from "@/lib/utils";
+import { useAuthMethods } from "@/lib/auth-methods";
 import { passwordSchema, totpCodeSchema } from "@/lib/validation";
 
 export function SecurityPage() {
+  // With Workeasy360 as the only sign-in a Keel password cannot be used, so it is not offered here.
+  const passwordEnabled = useAuthMethods().data?.password !== false;
   return (
     <div className="grid max-w-3xl grid-cols-1 gap-6">
       <PageHeader title="Security" description="Password, two-factor authentication and active sessions for your account." className="mb-0" />
-      <ChangePasswordCard />
+      {passwordEnabled ? (
+        <ChangePasswordCard />
+      ) : (
+        <p className="text-sm text-fg-muted">You sign in with your Workeasy360 account. Change your password and two-step verification in Workeasy360.</p>
+      )}
       <MfaCard />
       <SessionsCard />
     </div>
@@ -326,7 +334,7 @@ function MfaCard() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-fg-muted">
               {session?.active?.mfa_required
-                ? "Your organization requires two-factor authentication. Set it up to continue using Keel."
+                ? "Your organization requires two-factor authentication. Set it up to continue using WorkEasy CRM."
                 : "Add an authenticator app such as Aegis, 1Password or Google Authenticator."}
             </p>
             <Button onClick={() => beginSetup.mutate()} loading={beginSetup.isPending}>

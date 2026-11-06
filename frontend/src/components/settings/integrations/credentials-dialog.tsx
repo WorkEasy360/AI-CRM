@@ -104,7 +104,7 @@ export function CredentialsDialog({ connection, open, onOpenChange }: { connecti
               {reconnectOnly
                 ? "Turn this webhook-only connection back on. Enable the inbound webhook again afterwards to get a new URL and secret."
                 : connection.auth_type === "oauth2_code"
-                  ? "Save the client secret, then connect with OAuth again to authorize Keel."
+                  ? "Save the client secret, then connect with OAuth again to authorize WorkEasy CRM."
                   : "The new value replaces the stored one. It is stored encrypted and never shown again."}
             </DialogDescription>
           </DialogHeader>

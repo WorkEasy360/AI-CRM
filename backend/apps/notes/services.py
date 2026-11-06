@@ -14,6 +14,22 @@ from apps.notes.models import MAX_NOTE_LENGTH, Note
 from apps.notes.registry import resolve_viewable
 
 
+def _announce(note: Note, change: str) -> None:
+    from apps.core.domain_events import RecordChanged, publish
+
+    publish(
+        RecordChanged(
+            organization_id=note.organization_id,
+            entity_type="note",
+            entity_ids=(note.pk,),
+            change=change,
+            owner_id=note.author_id,
+            orm_signals_fired=change == "created",
+            related=((note.entity_type, str(note.entity_id)),),
+        )
+    )
+
+
 def _clean_body(body: str) -> str:
     body = validators.clean_text(body, max_length=MAX_NOTE_LENGTH, allow_newlines=True)
     if not body:
@@ -34,6 +50,7 @@ def create_note(
         author=actor.membership,
         pinned=bool(pinned),
     )
+    _announce(note, "created")
     audit.record(
         "notes.created",
         request=request,
@@ -59,6 +76,7 @@ def update_note(
         changed.append("pinned")
     if changed:
         note.save(update_fields=[*changed, "updated_at"])
+        _announce(note, "updated")
         audit.record("notes.updated", request=request, user=actor.user, resource=note, metadata={"fields": changed})
     return note
 
@@ -67,6 +85,7 @@ def update_note(
 def delete_note(actor: Actor, note: Note, *, request: Any = None) -> None:
     check(actor, "notes.delete", note)
     note_id, entity_type, entity_id = note.pk, note.entity_type, note.entity_id
+    _announce(note, "deleted")
     note.delete()
     audit.record(
         "notes.deleted",

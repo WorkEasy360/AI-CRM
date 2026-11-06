@@ -1,0 +1,831 @@
+[
+ {
+  "q": "how do I add a to-do for tomorrow?",
+  "lang": "en",
+  "expected": "activities-create-task"
+ },
+ {
+  "q": "where do I plan a call with a lead for next Monday",
+  "lang": "en",
+  "expected": "activities-schedule-call"
+ },
+ {
+  "q": "I just spoke to a client on the phone, how do I record it?",
+  "lang": "en",
+  "expected": "activities-log-call"
+ },
+ {
+  "q": "can I get notified 1 hour before my meeting?",
+  "lang": "en",
+  "expected": "activities-set-reminder"
+ },
+ {
+  "q": "how to make a weekly team meeting that repeats every Monday",
+  "lang": "en",
+  "expected": "activities-repeat"
+ },
+ {
+  "q": "how do I move this task to next week?",
+  "lang": "en",
+  "expected": "activities-reschedule",
+  "page": "/activities"
+ },
+ {
+  "q": "show me what's due today",
+  "lang": "en",
+  "expected": "activities-my-day",
+  "also": [
+   "dashboard-today-panel"
+  ]
+ },
+ {
+  "q": "how do I mark several tasks done at once?",
+  "lang": "en",
+  "expected": "activities-bulk-actions"
+ },
+ {
+  "q": "where are the WhatsApp messages customers sent us?",
+  "lang": "en",
+  "expected": "activities-whatsapp-inbox"
+ },
+ {
+  "q": "customer raised a complaint, how do I log it?",
+  "lang": "en",
+  "expected": "helpdesk-create-ticket"
+ },
+ {
+  "q": "how do I add one here?",
+  "lang": "en",
+  "expected": "helpdesk-create-ticket",
+  "page": "/helpdesk"
+ },
+ {
+  "q": "how can I give this ticket to my colleague?",
+  "lang": "en",
+  "expected": "helpdesk-assign-ticket",
+  "page": "/helpdesk"
+ },
+ {
+  "q": "how do I write a private comment on a ticket the customer can't see?",
+  "lang": "en",
+  "expected": "helpdesk-internal-notes"
+ },
+ {
+  "q": "change how many hours an urgent ticket has before it's late",
+  "lang": "en",
+  "expected": "helpdesk-sla-overdue"
+ },
+ {
+  "q": "two tickets for the same issue, how to combine them",
+  "lang": "en",
+  "expected": "helpdesk-merge-delete"
+ },
+ {
+  "q": "naya task kaise banaye",
+  "lang": "hinglish",
+  "expected": "activities-create-task"
+ },
+ {
+  "q": "meeting ko calendar mein kaise dekhe",
+  "lang": "hinglish",
+  "expected": "activities-calendar-view"
+ },
+ {
+  "q": "customer ko whatsapp par reply kaise kare",
+  "lang": "hinglish",
+  "expected": "activities-whatsapp-reply"
+ },
+ {
+  "q": "ticket resolve kaise karte hai",
+  "lang": "hinglish",
+  "expected": "helpdesk-resolve-close"
+ },
+ {
+  "q": "follow up wale kaam kaha dikhte hai",
+  "lang": "hinglish",
+  "expected": "activities-follow-ups"
+ },
+ {
+  "q": "ticket ka jawab email se kaise bheje",
+  "lang": "hinglish",
+  "expected": "helpdesk-reply-customer"
+ },
+ {
+  "q": "मीटिंग कैसे शेड्यूल करें",
+  "lang": "hi",
+  "expected": "activities-schedule-meeting"
+ },
+ {
+  "q": "बकाया काम कैसे देखें",
+  "lang": "hi",
+  "expected": "activities-overdue"
+ },
+ {
+  "q": "नया टिकट कैसे बनाएं",
+  "lang": "hi",
+  "expected": "helpdesk-create-ticket"
+ },
+ {
+  "q": "टिकट की प्राथमिकता कैसे बदलें",
+  "lang": "hi",
+  "expected": "helpdesk-priority-category"
+ },
+ {
+  "q": "how do I add a new customer to the CRM",
+  "lang": "en",
+  "expected": "contacts-add-contact"
+ },
+ {
+  "q": "how do I add one here?",
+  "lang": "en",
+  "expected": "companies-add-company",
+  "page": "/companies"
+ },
+ {
+  "q": "I accidentally deleted a contact, can I get it back?",
+  "lang": "en",
+  "expected": "contacts-archive-restore"
+ },
+ {
+  "q": "move all of Priya's contacts to Rahul",
+  "lang": "en",
+  "expected": "contacts-bulk-reassign"
+ },
+ {
+  "q": "why does this contact have a score of 45",
+  "lang": "en",
+  "expected": "contacts-lead-score"
+ },
+ {
+  "q": "it says possible duplicate, what should I do",
+  "lang": "en",
+  "expected": "contacts-duplicate-warning"
+ },
+ {
+  "q": "save my filter so I can use it tomorrow",
+  "lang": "en",
+  "expected": "contacts-saved-views",
+  "page": "/contacts"
+ },
+ {
+  "q": "mark a contact as customer instead of lead",
+  "lang": "en",
+  "expected": "contacts-lifecycle-status"
+ },
+ {
+  "q": "attach a signed contract PDF to a person",
+  "lang": "en",
+  "expected": "contacts-files"
+ },
+ {
+  "q": "can I see contacts as a kanban board",
+  "lang": "en",
+  "expected": "contacts-view-modes"
+ },
+ {
+  "q": "contact ko company se kaise link kare",
+  "lang": "hinglish",
+  "expected": "contacts-link-company"
+ },
+ {
+  "q": "customer ko whatsapp message kaise bheje",
+  "lang": "hinglish",
+  "expected": "contacts-send-whatsapp"
+ },
+ {
+  "q": "ek saath 20 contacts par VIP tag kaise lagaye",
+  "lang": "hinglish",
+  "expected": "contacts-bulk-tags"
+ },
+ {
+  "q": "contact ka phone number kaise change kare",
+  "lang": "hinglish",
+  "expected": "contacts-edit-contact"
+ },
+ {
+  "q": "नया संपर्क कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "contacts-add-contact"
+ },
+ {
+  "q": "कंपनी को कैसे हटाएं",
+  "lang": "hi",
+  "expected": "companies-archive-restore"
+ },
+ {
+  "q": "ग्राहक को ईमेल कैसे भेजें",
+  "lang": "hi",
+  "expected": "contacts-send-email"
+ },
+ {
+  "q": "संपर्क पर नोट कैसे लिखें",
+  "lang": "hi",
+  "expected": "contacts-notes"
+ },
+ {
+  "q": "where do I see support tickets raised by this person",
+  "lang": "en",
+  "expected": "contacts-tickets-tab"
+ },
+ {
+  "q": "how do I star someone so I find them fast",
+  "lang": "en",
+  "expected": "contacts-favorites"
+ },
+ {
+  "q": "Is there a keyboard shortcut to find a customer quickly?",
+  "lang": "en",
+  "expected": "getting-started-global-search"
+ },
+ {
+  "q": "Where is the button to add a new contact from any screen?",
+  "lang": "en",
+  "expected": "getting-started-create-menu"
+ },
+ {
+  "q": "I can't remember my password, what do I do?",
+  "lang": "en",
+  "expected": "getting-started-forgot-password"
+ },
+ {
+  "q": "I got an invite email from my manager, how do I join?",
+  "lang": "en",
+  "expected": "getting-started-accept-invitation"
+ },
+ {
+  "q": "How can I switch to my other company's account?",
+  "lang": "en",
+  "expected": "getting-started-switch-workspace"
+ },
+ {
+  "q": "Can I see last month's numbers here?",
+  "lang": "en",
+  "expected": "dashboard-filter-period",
+  "page": "/dashboard"
+ },
+ {
+  "q": "How much revenue are we expected to close this quarter?",
+  "lang": "en",
+  "expected": "dashboard-forecast"
+ },
+ {
+  "q": "Why does it say knowledge search mode instead of powered by AI?",
+  "lang": "en",
+  "expected": "assistant-knowledge-search-mode",
+  "page": "/assistant"
+ },
+ {
+  "q": "How do I ask the AI which deals are at risk?",
+  "lang": "en",
+  "expected": "assistant-chat"
+ },
+ {
+  "q": "Can I talk to the assistant instead of typing?",
+  "lang": "en",
+  "expected": "assistant-voice-input",
+  "page": "/assistant"
+ },
+ {
+  "q": "how do I turn on dark mode",
+  "lang": "en",
+  "expected": "getting-started-theme"
+ },
+ {
+  "q": "where do I log out",
+  "lang": "en",
+  "expected": "getting-started-sign-out"
+ },
+ {
+  "q": "notification ka red dot kaise hataye",
+  "lang": "hinglish",
+  "expected": "getting-started-notifications"
+ },
+ {
+  "q": "dashboard pe quick actions kya karte hai",
+  "lang": "hinglish",
+  "expected": "dashboard-quick-actions",
+  "page": "/dashboard"
+ },
+ {
+  "q": "naya account kaise banaye",
+  "lang": "hinglish",
+  "expected": "getting-started-sign-up"
+ },
+ {
+  "q": "AI se naya sawal kaise shuru kare, purani chat clear karni hai",
+  "lang": "hinglish",
+  "expected": "assistant-recent-conversations"
+ },
+ {
+  "q": "login karte time 6 digit code maang raha hai",
+  "lang": "hinglish",
+  "expected": "getting-started-login-two-factor"
+ },
+ {
+  "q": "डैशबोर्ड पर विन रेट का क्या मतलब है?",
+  "lang": "hi",
+  "expected": "dashboard-overview"
+ },
+ {
+  "q": "आज मुझे कौन से काम करने हैं, कहाँ दिखेगा?",
+  "lang": "hi",
+  "expected": "dashboard-today-panel",
+  "also": [
+   "activities-my-day"
+  ]
+ },
+ {
+  "q": "एआई असिस्टेंट से सवाल कैसे पूछें?",
+  "lang": "hi",
+  "expected": "assistant-chat"
+ },
+ {
+  "q": "मेरा ईमेल वेरिफाई नहीं हुआ, लिंक कहाँ है?",
+  "lang": "hi",
+  "expected": "getting-started-verify-email"
+ },
+ {
+  "q": "What do the From your CRM and Suggested next step parts of the answer mean?",
+  "lang": "en",
+  "expected": "assistant-understanding-answers"
+ },
+ {
+  "q": "Can I get the AI to write a proposal for my biggest deal?",
+  "lang": "en",
+  "expected": "assistant-quick-actions",
+  "page": "/assistant"
+ },
+ {
+  "q": "phone pe baaki pages kaise khole",
+  "lang": "hinglish",
+  "expected": "getting-started-mobile-navigation"
+ },
+ {
+  "q": "Can the AI tell me the steps to do something in the CRM?",
+  "lang": "en",
+  "expected": "assistant-help-guide"
+ },
+ {
+  "q": "Where can I read the user guide?",
+  "lang": "en",
+  "expected": "getting-started-help-center"
+ },
+ {
+  "q": "How do I add our own help articles for my team?",
+  "lang": "en",
+  "expected": "settings-knowledge-base"
+ },
+ {
+  "q": "Can WorkEasy AI create a task for me?",
+  "lang": "en",
+  "expected": "assistant-create-from-chat"
+ },
+ {
+  "q": "unanswered questions kaha dikhenge",
+  "lang": "hinglish",
+  "expected": "settings-knowledge-base-unanswered"
+ },
+ {
+  "q": "सहायता केंद्र कहाँ है",
+  "lang": "hi",
+  "expected": "getting-started-help-center"
+ },
+ {
+  "q": "How do I change the app language to Tamil?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "How do I run payroll for my employees?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "How do I track stock levels in my warehouse?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "How do I connect Salesforce to WorkEasy?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "How can I record my screen?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "How do I book a flight for a client visit?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "How do I create a GST e-invoice?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "How do I set up a loyalty points programme?",
+  "lang": "en",
+  "expected": null
+ },
+ {
+  "q": "attendance kaise lagaye",
+  "lang": "hinglish",
+  "expected": null
+ },
+ {
+  "q": "salary slip kaise download kare",
+  "lang": "hinglish",
+  "expected": null
+ },
+ {
+  "q": "वेबसाइट कैसे बनाएं",
+  "lang": "hi",
+  "expected": null
+ },
+ {
+  "q": "बारकोड कैसे स्कैन करें",
+  "lang": "hi",
+  "expected": null
+ },
+ {
+  "q": "how can I set up a second pipeline for renewals",
+  "lang": "en",
+  "expected": "pipeline-create"
+ },
+ {
+  "q": "I need to put a deal I just got from a referral into the CRM",
+  "lang": "en",
+  "expected": "deal-create"
+ },
+ {
+  "q": "how do I add one here?",
+  "lang": "en",
+  "expected": "deal-create",
+  "page": "/pipeline"
+ },
+ {
+  "q": "where do I change the win percentage for the proposal stage",
+  "lang": "en",
+  "expected": "pipeline-edit-stage"
+ },
+ {
+  "q": "can I drag a card from one column to another",
+  "lang": "en",
+  "expected": "deal-drag-drop"
+ },
+ {
+  "q": "how do I record why we lost a customer",
+  "lang": "en",
+  "expected": "deal-mark-won-lost"
+ },
+ {
+  "q": "only my team should see the enterprise pipeline",
+  "lang": "en",
+  "expected": "pipeline-restrict-access"
+ },
+ {
+  "q": "add line items with discount to a quote",
+  "lang": "en",
+  "expected": "products-add-to-deal"
+ },
+ {
+  "q": "how much revenue is expected this quarter",
+  "lang": "en",
+  "expected": "pipeline-forecast",
+  "also": [
+   "dashboard-forecast"
+  ]
+ },
+ {
+  "q": "how do I add a new item to the catalogue?",
+  "lang": "en",
+  "expected": "products-add",
+  "page": "/products"
+ },
+ {
+  "q": "wholesale customers get a different rate, how do I set that up",
+  "lang": "en",
+  "expected": "products-price-book-create"
+ },
+ {
+  "q": "stage ka order kaise change kare",
+  "lang": "hinglish",
+  "expected": "pipeline-reorder-stages",
+  "page": "/settings/pipelines"
+ },
+ {
+  "q": "naya pipeline kaise banaye",
+  "lang": "hinglish",
+  "expected": "pipeline-create"
+ },
+ {
+  "q": "deal ko next stage mein kaise bheje",
+  "lang": "hinglish",
+  "expected": "deal-move-next-stage"
+ },
+ {
+  "q": "sirf meri deals board par kaise dikhe",
+  "lang": "hinglish",
+  "expected": "pipeline-filter-deals"
+ },
+ {
+  "q": "deal mein product kaise add kare",
+  "lang": "hinglish",
+  "expected": "products-add-to-deal"
+ },
+ {
+  "q": "deals ko excel mein download karna hai",
+  "lang": "hinglish",
+  "expected": "deal-export"
+ },
+ {
+  "q": "पाइपलाइन कैसे बनाएं",
+  "lang": "hi",
+  "expected": "pipeline-create"
+ },
+ {
+  "q": "नई डील कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "deal-create"
+ },
+ {
+  "q": "पाइपलाइन में नया स्टेज कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "pipeline-add-stage"
+ },
+ {
+  "q": "डील को हारा हुआ कैसे मार्क करें",
+  "lang": "hi",
+  "expected": "deal-mark-won-lost"
+ },
+ {
+  "q": "उत्पाद की कीमत कैसे बदलें",
+  "lang": "hi",
+  "expected": "products-edit-delete",
+  "also": [
+   "products-price-book-prices"
+  ]
+ },
+ {
+  "q": "How can I add my sales colleague to the CRM?",
+  "lang": "en",
+  "expected": "settings-invite-user"
+ },
+ {
+  "q": "How do I make someone an admin?",
+  "lang": "en",
+  "expected": "settings-change-role"
+ },
+ {
+  "q": "An employee left, how do I take away their access?",
+  "lang": "en",
+  "expected": "settings-remove-user"
+ },
+ {
+  "q": "What is the difference between Sales Manager and Sales Representative?",
+  "lang": "en",
+  "expected": "settings-roles-permissions"
+ },
+ {
+  "q": "I lost my phone with the authenticator app, how do I log in?",
+  "lang": "en",
+  "expected": "faq-locked-out"
+ },
+ {
+  "q": "It says this record was changed by someone else and won't save",
+  "lang": "en",
+  "expected": "faq-record-changed-by-someone-else"
+ },
+ {
+  "q": "Does the AI send our customer data to an outside service?",
+  "lang": "en",
+  "expected": "faq-ai-data-usage"
+ },
+ {
+  "q": "What happens when we hit 500 records on the free plan?",
+  "lang": "en",
+  "expected": "faq-plan-limits"
+ },
+ {
+  "q": "How do I create a team here?",
+  "lang": "en",
+  "expected": "settings-create-team",
+  "page": "/settings/teams"
+ },
+ {
+  "q": "Can I filter this by a date range?",
+  "lang": "en",
+  "expected": "settings-audit-log",
+  "page": "/settings/audit-log"
+ },
+ {
+  "q": "how do I hide the discount field from reps",
+  "lang": "en",
+  "expected": "settings-field-permissions"
+ },
+ {
+  "q": "invite link expired, can I send it again?",
+  "lang": "en",
+  "expected": "settings-manage-invitations"
+ },
+ {
+  "q": "naye user ko kaise invite kare",
+  "lang": "hinglish",
+  "expected": "settings-invite-user"
+ },
+ {
+  "q": "password bhool gaya, reset kaise karu",
+  "lang": "hinglish",
+  "expected": "getting-started-forgot-password"
+ },
+ {
+  "q": "2FA kaise on kare mere account pe",
+  "lang": "hinglish",
+  "expected": "settings-enable-2fa"
+ },
+ {
+  "q": "mujhe permission nahi hai likha aa raha hai",
+  "lang": "hinglish",
+  "expected": "faq-permission-denied"
+ },
+ {
+  "q": "company ka logo kaise lagaye",
+  "lang": "hinglish",
+  "expected": "settings-upload-logo"
+ },
+ {
+  "q": "plan upgrade kaise kare",
+  "lang": "hinglish",
+  "expected": "settings-billing-plan",
+  "page": "/settings/billing"
+ },
+ {
+  "q": "पासवर्ड कैसे बदलें",
+  "lang": "hi",
+  "expected": "settings-change-password"
+ },
+ {
+  "q": "किसी यूज़र का रोल कैसे बदलें",
+  "lang": "hi",
+  "expected": "settings-change-role"
+ },
+ {
+  "q": "क्या हमारा डेटा सुरक्षित है",
+  "lang": "hi",
+  "expected": "faq-data-security"
+ },
+ {
+  "q": "टीम में सदस्य कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "settings-team-members"
+ },
+ {
+  "q": "मोबाइल पर ऐप कैसे चलाएं",
+  "lang": "hi",
+  "expected": "faq-mobile-app"
+ },
+ {
+  "q": "Why is it asking for my password again before saving?",
+  "lang": "en",
+  "expected": "faq-confirm-its-you"
+ },
+ {
+  "q": "How do I add a dropdown field for lead source on contacts?",
+  "lang": "en",
+  "expected": "settings-custom-fields-create"
+ },
+ {
+  "q": "Can I upload my contact list from an Excel sheet?",
+  "lang": "en",
+  "expected": "settings-import-data"
+ },
+ {
+  "q": "I imported the wrong file, how do I undo it?",
+  "lang": "en",
+  "expected": "settings-import-rollback"
+ },
+ {
+  "q": "How do I download all my deals as a CSV?",
+  "lang": "en",
+  "expected": "settings-export-data",
+  "also": [
+   "deal-export"
+  ]
+ },
+ {
+  "q": "How do I hook up our WhatsApp Business number?",
+  "lang": "en",
+  "expected": "settings-whatsapp-connect"
+ },
+ {
+  "q": "Customer replies on WhatsApp are not showing up in the CRM",
+  "lang": "en",
+  "expected": "settings-whatsapp-webhook"
+ },
+ {
+  "q": "Where do I generate an API key for our accounting software?",
+  "lang": "en",
+  "expected": "settings-api-keys"
+ },
+ {
+  "q": "How do I revoke an API key that leaked?",
+  "lang": "en",
+  "expected": "settings-api-keys",
+  "page": "/settings/integrations/api-keys"
+ },
+ {
+  "q": "How can I notify our data warehouse when a deal changes stage?",
+  "lang": "en",
+  "expected": "settings-webhooks-create"
+ },
+ {
+  "q": "How do I see whether my webhook calls are failing?",
+  "lang": "en",
+  "expected": "settings-webhooks-manage",
+  "page": "/settings/integrations/webhooks"
+ },
+ {
+  "q": "How do I add one here?",
+  "lang": "en",
+  "expected": "settings-whatsapp-add-template",
+  "page": "/settings/whatsapp"
+ },
+ {
+  "q": "Stop emailing me every time a task is due",
+  "lang": "en",
+  "expected": "settings-notifications-preferences"
+ },
+ {
+  "q": "How do I connect my Outlook so I can send emails from the CRM?",
+  "lang": "en",
+  "expected": "settings-email-connect-mailbox"
+ },
+ {
+  "q": "Can I switch off AI completely for my company?",
+  "lang": "en",
+  "expected": "settings-ai-policy"
+ },
+ {
+  "q": "Create a task automatically two days after a new lead comes in",
+  "lang": "en",
+  "expected": "settings-automation-create"
+ },
+ {
+  "q": "excel se contacts kaise import kare",
+  "lang": "hinglish",
+  "expected": "settings-import-data"
+ },
+ {
+  "q": "whatsapp integration kaise add kare",
+  "lang": "hinglish",
+  "expected": "settings-whatsapp-connect"
+ },
+ {
+  "q": "api key kaise generate kare",
+  "lang": "hinglish",
+  "expected": "settings-api-keys"
+ },
+ {
+  "q": "naye lead ko apne aap whatsapp message kaise bheje",
+  "lang": "hinglish",
+  "expected": "settings-automation-whatsapp"
+ },
+ {
+  "q": "naya tag kaise banaye",
+  "lang": "hinglish",
+  "expected": "settings-tags-create"
+ },
+ {
+  "q": "email template kaise banaye",
+  "lang": "hinglish",
+  "expected": "settings-email-templates"
+ },
+ {
+  "q": "संपर्क एक्सेल फ़ाइल से कैसे आयात करें",
+  "lang": "hi",
+  "expected": "settings-import-data"
+ },
+ {
+  "q": "व्हाट्सएप को सीआरएम से कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "settings-whatsapp-connect"
+ },
+ {
+  "q": "डेटा को सीएसवी में कैसे निर्यात करें",
+  "lang": "hi",
+  "expected": "settings-export-data"
+ },
+ {
+  "q": "कस्टम फ़ील्ड कैसे बनाएं",
+  "lang": "hi",
+  "expected": "settings-custom-fields-create"
+ },
+ {
+  "q": "वेबहुक कैसे बनाएं",
+  "lang": "hi",
+  "expected": "settings-webhooks-create"
+ }
+]

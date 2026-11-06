@@ -2,23 +2,26 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.db.models.functions import Coalesce
+
 from apps.activities.models import Activity
 from apps.authz.actor import Actor
 from apps.authz.service import scope
-from apps.notes.timeline import TimelineEvent, member_ref, register
+from apps.notes.timeline import TimelineEvent, Window, member_ref, register
 
 
-@register(("contact", "company", "deal"))
-def _activities(actor: Actor, entity_type: str, record: Any) -> list[TimelineEvent]:
+@register(("contact", "company", "deal"), source="activities", label="Activities")
+def _activities(actor: Actor, entity_type: str, record: Any, window: Window) -> list[TimelineEvent]:
     """Activities linked to the record that the actor may view (owner scope)."""
-    qs = (
+    qs = window.apply(
         scope(actor, "activities.view", Activity.objects.filter(**{entity_type: record}))
         .select_related("owner__user")
-        .order_by("-created_at")[:100]
+        .annotate(occurred=Coalesce("completed_at", "start_at", "created_at")),
+        "occurred",
     )
     events: list[TimelineEvent] = []
     for a in qs:
-        occurred = a.completed_at or a.start_at or a.created_at
+        occurred = a.occurred
         events.append(
             {
                 "id": f"activity:{a.pk}",

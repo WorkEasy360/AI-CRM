@@ -59,7 +59,7 @@ def webhook_disabled(subscription, code: str) -> None:
     _notify(
         "webhooks.manage",
         title=f"Webhook {subscription.name} was turned off",
-        body="Deliveries kept failing, so Keel stopped sending them. Check the endpoint and turn it back on.",
+        body="Deliveries kept failing, so WorkEasy CRM stopped sending them. Check the endpoint and turn it back on.",
         entity_type="webhook",
         entity_id=subscription.pk,
     )

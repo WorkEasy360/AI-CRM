@@ -1,0 +1,14 @@
+[
+ {"q": "How do I change the app language to Tamil?", "lang": "en", "expected": null},
+ {"q": "How do I run payroll for my employees?", "lang": "en", "expected": null},
+ {"q": "How do I track stock levels in my warehouse?", "lang": "en", "expected": null},
+ {"q": "How do I connect Salesforce to WorkEasy?", "lang": "en", "expected": null},
+ {"q": "How can I record my screen?", "lang": "en", "expected": null},
+ {"q": "How do I book a flight for a client visit?", "lang": "en", "expected": null},
+ {"q": "How do I create a GST e-invoice?", "lang": "en", "expected": null},
+ {"q": "How do I set up a loyalty points programme?", "lang": "en", "expected": null},
+ {"q": "attendance kaise lagaye", "lang": "hinglish", "expected": null},
+ {"q": "salary slip kaise download kare", "lang": "hinglish", "expected": null},
+ {"q": "वेबसाइट कैसे बनाएं", "lang": "hi", "expected": null},
+ {"q": "बारकोड कैसे स्कैन करें", "lang": "hi", "expected": null}
+]

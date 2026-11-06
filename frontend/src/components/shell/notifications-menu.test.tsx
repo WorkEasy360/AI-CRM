@@ -66,10 +66,10 @@ describe("NotificationsMenu", () => {
     vi.mocked(markAllNotificationsRead).mockReset().mockResolvedValue({ updated: 1 });
   });
 
-  it("labels the bell with the unread count and shows the badge", async () => {
+  it("labels the bell with the unread count and shows the red dot", async () => {
     renderMenu();
     expect(await screen.findByRole("button", { name: "Notifications, 1 unread" })).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByTestId("unread-dot")).toBeInTheDocument();
     // The list is only fetched once the menu opens.
     expect(listNotifications).not.toHaveBeenCalled();
   });

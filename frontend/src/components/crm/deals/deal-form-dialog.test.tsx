@@ -54,6 +54,7 @@ const pipelines: Pipeline[] = [
     name: "Sales",
     position: 1,
     is_default: true,
+    parent_id: null, restricted: false, layout: {}, effective_layout: {}, template_key: "", access: { team_ids: [], hierarchy_role_ids: [] },
     version: 1,
     archived_at: null,
     created_at: "2026-01-01T00:00:00Z",
@@ -100,6 +101,8 @@ const existingDeal: Deal = {
   risk_level: "low",
   contact_count: 0,
   products_total: null,
+  amount_from_lines: false,
+  price_book: null,
 };
 
 function renderDialog(props: Partial<React.ComponentProps<typeof DealFormDialog>> = {}) {

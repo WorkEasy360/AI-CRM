@@ -1,7 +1,8 @@
 """Beat jobs for activities: reminders and overdue notices.
 
 Runs system-wide, then binds each organization in turn so notifications are created inside the right
-tenant context (RLS included). Idempotent: a reminder is marked sent in the same transaction.
+tenant context (RLS included). Idempotent: a reminder is marked sent in the same transaction. Organizations
+whose Workeasy360 access has ended are skipped (class A, docs/workeasy360-sso.md).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import structlog
 from celery import shared_task
 from django.utils import timezone
 
+from apps.accounts.workeasy360 import background
 from apps.activities.models import Activity, ActivityAttendee
 from apps.core.tenancy.context import system_context, tenant_context
 
@@ -27,14 +29,21 @@ def send_reminders() -> int:
     from apps.notifications import service as notifications
 
     now = timezone.now()
-    with system_context("activities.send_reminders"):
-        due = list(
-            Activity.all_objects.filter(
-                reminder_at__lte=now, reminder_sent_at__isnull=True, status__in=("open", "in_progress")
+
+    def fetch(excluded: set[uuid.UUID]) -> list:
+        with system_context("activities.send_reminders"):
+            return list(
+                Activity.all_objects.filter(
+                    reminder_at__lte=now, reminder_sent_at__isnull=True, status__in=("open", "in_progress")
+                )
+                .exclude(organization_id__in=excluded)
+                .values_list("organization_id", "id")
+                .order_by("reminder_at")[:REMINDER_BATCH]
             )
-            .values_list("organization_id", "id")
-            .order_by("reminder_at")[:REMINDER_BATCH]
-        )
+
+    # An organization whose Workeasy360 access has ended gets no reminders; they stay unsent and go out
+    # once access is renewed (apps.accounts.workeasy360.background).
+    due = background.fetch_allowed(fetch, task="activities.send_reminders")
     by_org: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
     for org_id, activity_id in due:
         by_org[org_id].append(activity_id)

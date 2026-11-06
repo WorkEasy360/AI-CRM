@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { RecordActivities } from "@/components/activities/record-activities";
 import { ContactFormDialog } from "@/components/crm/contacts/contact-form-dialog";
-import { ContactHeader } from "@/components/crm/contacts/contact-header";
+import { ContactProfileCard, ContactToolbar } from "@/components/crm/contacts/contact-header";
+import { ContactOverview } from "@/components/crm/contacts/contact-overview";
 import { RecordDeals } from "@/components/crm/contacts/record-deals";
 import { Disclosure, RecordLayout } from "@/components/crm/contacts/record-layout";
 import { CustomFieldsSummary, useCustomFields } from "@/components/crm/custom-fields-form";
@@ -23,6 +25,9 @@ import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useSession } from "@/lib/session";
 import { formatDateTime } from "@/lib/utils";
+
+const FilesPanel = dynamic(() => import("@/components/crm/files-panel").then((m) => m.FilesPanel), { ssr: false });
+const ContactTickets = dynamic(() => import("@/components/helpdesk/contact-tickets").then((m) => m.ContactTickets), { ssr: false });
 
 export function ContactDetailPage({ id }: { id: string }) {
   const { data: session } = useSession();
@@ -46,7 +51,7 @@ export function ContactDetailPage({ id }: { id: string }) {
   if (contact.company) newDealQs.set("company", contact.company.id);
 
   const hasDetails = Boolean(
-    contact.source || contact.description || definitions.length > 0 || Object.values(contact.address ?? {}).some(Boolean),
+    contact.description || definitions.length > 0 || Object.values(contact.address ?? {}).some(Boolean),
   );
 
   return (
@@ -54,8 +59,10 @@ export function ContactDetailPage({ id }: { id: string }) {
       <RecordLayout
         backHref="/contacts"
         backLabel="Contacts"
+        hideBack
+        asideFirst
         header={
-          <ContactHeader
+          <ContactToolbar
             contact={contact}
             canEdit={canEdit}
             canDelete={canDelete}
@@ -64,9 +71,14 @@ export function ContactDetailPage({ id }: { id: string }) {
             onRestore={() => restore.mutate(contact.id)}
           />
         }
-        defaultTab="timeline"
+        defaultTab="overview"
         tabs={[
-          { value: "timeline", label: "Timeline", content: <Timeline entity="contact" recordId={contact.id} /> },
+          { value: "overview", label: "Overview", content: <ContactOverview contact={contact} newDealHref={`/pipeline?${newDealQs.toString()}`} /> },
+          {
+            value: "activities",
+            label: "Activities",
+            content: can(active, "activities.view") ? <RecordActivities entity="contact" recordId={contact.id} record={record} /> : null,
+          },
           {
             value: "deals",
             label: "Deals",
@@ -80,9 +92,15 @@ export function ContactDetailPage({ id }: { id: string }) {
             ),
           },
           {
-            value: "activities",
-            label: "Activities",
-            content: can(active, "activities.view") ? <RecordActivities entity="contact" recordId={contact.id} record={record} /> : null,
+            value: "tickets",
+            label: "Tickets",
+            content: can(active, "tickets.view") ? <ContactTickets contactId={contact.id} canCreate={can(active, "tickets.create")} /> : null,
+          },
+          { value: "notes", label: "Notes", content: <NotesPanel entity="contact" recordId={contact.id} /> },
+          {
+            value: "files",
+            label: "Files",
+            content: can(active, "files.view") ? <FilesPanel entity="contact" recordId={contact.id} disabled={Boolean(contact.archived_at) || !canEdit} /> : null,
           },
           {
             value: "emails",
@@ -106,24 +124,11 @@ export function ContactDetailPage({ id }: { id: string }) {
               )
             ) : null,
           },
-          {
-            value: "calls",
-            label: "Calls",
-            content: can(active, "activities.view") ? (
-              <RecordActivities entity="contact" recordId={contact.id} record={record} kinds={["call"]} title="Calls" emptyDescription="Log a call to keep the conversation history here." />
-            ) : null,
-          },
-          {
-            value: "meetings",
-            label: "Meetings",
-            content: can(active, "activities.view") ? (
-              <RecordActivities entity="contact" recordId={contact.id} record={record} kinds={["meeting"]} title="Meetings" emptyDescription="Schedule a meeting with this person." />
-            ) : null,
-          },
-          { value: "notes", label: "Notes", content: <NotesPanel entity="contact" recordId={contact.id} /> },
+          { value: "timeline", label: "Timeline", content: <Timeline entity="contact" recordId={contact.id} /> },
         ]}
         aside={
           <>
+            <ContactProfileCard contact={contact} canEdit={canEdit} />
             <Section title="Tags">
               <TagPicker entity="contact" recordId={contact.id} current={contact.tags} disabled={!canEdit} />
             </Section>
@@ -132,7 +137,6 @@ export function ContactDetailPage({ id }: { id: string }) {
                 <div className="flex flex-col gap-3">
                   <Facts
                     items={[
-                      { label: "Source", value: contact.source },
                       { label: "Address", value: formatAddress(contact.address) },
                       { label: "WhatsApp consent", value: contact.whatsapp_opt_in ? "Given" : "Not given" },
                     ]}

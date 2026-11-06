@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime as dt
+
 from django.core.validators import EmailValidator
 from django.db.models import Count, Exists, F, IntegerField, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Coalesce
@@ -21,6 +23,7 @@ from apps.crm.records import RecordSpec
 from apps.deals.models import Deal
 from apps.lifecycle import service as lifecycle
 from apps.lifecycle.stages import LIFECYCLE_STAGES, LifecycleStage
+from apps.tagging import favorites
 
 SPEC = RecordSpec(module="contacts", entity_type="contact", model=Contact, display=lambda c: c.display_name)
 
@@ -37,6 +40,8 @@ class ContactSerializer(CrmReadSerializer):
     open_deal_count = serializers.IntegerField(read_only=True, default=0)
     next_activity_title = serializers.CharField(read_only=True, default="")
     lead_score = serializers.SerializerMethodField()
+    # The signed-in member's own star (Contacts → Favorites).
+    is_favorite = serializers.BooleanField(read_only=True, default=False)
 
     def get_lead_score(self, obj: Contact) -> int:
         from apps.ai.scoring import score_contact_row
@@ -61,6 +66,7 @@ class ContactSerializer(CrmReadSerializer):
             "tags",
             "custom_data",
             "open_deal_count",
+            "is_favorite",
             "last_activity_at",
             "next_activity_at",
             "next_activity_title",
@@ -149,6 +155,7 @@ FILTERS = FilterSet(
         "lifecycle": Filter("choice", "lifecycle_stage", choices=LIFECYCLE_STAGES),
         "ids": Filter("uuid_list", "id"),
     },
+    extra={"favorite": favorites.favorite_filter("contact"), "tag": favorites.tag_filter("contact")},
     sort_fields={
         "name": "last_name",
         "first_name": "first_name",
@@ -166,6 +173,44 @@ FILTERS = FilterSet(
 )
 
 
+def create_contact(actor, data, *, request=None):
+    """Create through the record lifecycle, plus the contact's lifecycle-stage and opt-in rules."""
+    stage = data.pop("lifecycle_stage", None)
+    opt_in = data.pop("whatsapp_opt_in", None)
+    if stage is not None:
+        data["lifecycle_stage"] = lifecycle.clean_stage(stage)
+    if opt_in:
+        data["whatsapp_opt_in"] = True
+        data["whatsapp_opt_in_at"] = timezone.now()
+    obj = records.create(actor, SPEC, data, request=request)
+    if stage is not None and stage != LifecycleStage.LEAD:
+        lifecycle.record_initial_stage(actor, obj)
+    return obj
+
+
+def update_contact(actor, obj, data, *, expected_version, request=None):
+    stage = data.pop("lifecycle_stage", None)
+    opt_in = data.pop("whatsapp_opt_in", None)
+    extra: list[str] = []
+    if opt_in is not None and opt_in != obj.whatsapp_opt_in:
+        data["whatsapp_opt_in"] = bool(opt_in)
+        data["whatsapp_opt_in_at"] = timezone.now() if opt_in else None
+    if stage is not None and lifecycle.clean_stage(stage) != obj.lifecycle_stage:
+        # Same authorization as any edit (including field rules); the lifecycle service writes the history row.
+        records.check_update(actor, SPEC, obj)
+        from apps.authz import fields as field_rules
+
+        field_rules.assert_writable(actor, SPEC.entity_type, {"lifecycle_stage": stage})
+        lifecycle.set_stage(actor, obj, stage, request=request)
+        extra = ["lifecycle_stage", "lifecycle_changed_at"]
+    return records.update(
+        actor, SPEC, obj, data, expected_version=expected_version, request=request, extra_update_fields=extra
+    )
+
+
+STATS_DAYS = 30
+
+
 class ContactViewSet(CrmViewSet):
     spec = SPEC
     filterset = FILTERS
@@ -174,39 +219,10 @@ class ContactViewSet(CrmViewSet):
     permission_map = crud_permission_map("contacts", stats="contacts.view", duplicates="contacts.view")
 
     def perform_create(self, data):
-        stage = data.pop("lifecycle_stage", None)
-        opt_in = data.pop("whatsapp_opt_in", None)
-        if stage is not None:
-            data["lifecycle_stage"] = lifecycle.clean_stage(stage)
-        if opt_in:
-            data["whatsapp_opt_in"] = True
-            data["whatsapp_opt_in_at"] = timezone.now()
-        obj = super().perform_create(data)
-        if stage is not None and stage != LifecycleStage.LEAD:
-            lifecycle.record_initial_stage(self.request.actor, obj)
-        return obj
+        return create_contact(self.request.actor, data, request=self.request._request)
 
     def perform_update(self, obj, data, version):
-        stage = data.pop("lifecycle_stage", None)
-        opt_in = data.pop("whatsapp_opt_in", None)
-        extra: list[str] = []
-        if opt_in is not None and opt_in != obj.whatsapp_opt_in:
-            data["whatsapp_opt_in"] = bool(opt_in)
-            data["whatsapp_opt_in_at"] = timezone.now() if opt_in else None
-        if stage is not None and lifecycle.clean_stage(stage) != obj.lifecycle_stage:
-            # Same authorization as any edit; the lifecycle service writes the history row.
-            records.check_update(self.request.actor, self.spec, obj)
-            lifecycle.set_stage(self.request.actor, obj, stage, request=self.request._request)
-            extra = ["lifecycle_stage", "lifecycle_changed_at"]
-        return records.update(
-            self.request.actor,
-            self.spec,
-            obj,
-            data,
-            expected_version=version,
-            request=self.request._request,
-            extra_update_fields=extra,
-        )
+        return update_contact(self.request.actor, obj, data, expected_version=version, request=self.request._request)
 
     def base_queryset(self):
         # Correlated subquery (evaluated per returned row) instead of a LEFT JOIN + GROUP BY over every
@@ -229,6 +245,7 @@ class ContactViewSet(CrmViewSet):
                 open_deal_count=Coalesce(Subquery(open_deals, output_field=IntegerField()), Value(0)),
                 company_name=Coalesce(F("company__name"), Value("")),
                 next_activity_title=next_activity_title_subquery("contact"),
+                is_favorite=favorites.is_favorite_annotation("contact"),
             )
         )
 
@@ -256,10 +273,38 @@ class ContactViewSet(CrmViewSet):
         qs = scope(self.request.actor, "contacts.view", Contact.objects.filter(archived_at__isnull=True))
         open_deals = Deal.objects.filter(primary_contact=OuterRef("pk"), status="open", archived_at__isnull=True)
         any_deals = Deal.objects.filter(primary_contact=OuterRef("pk"))
-        agg = qs.annotate(has_open=Exists(open_deals), has_deal=Exists(any_deals)).aggregate(
+        now = timezone.now()
+        since = now - dt.timedelta(days=STATS_DAYS)
+        before = since - dt.timedelta(days=STATS_DAYS)
+        agg = qs.annotate(
+            has_open=Exists(open_deals),
+            has_deal=Exists(any_deals),
+            is_starred=favorites.is_favorite_annotation("contact"),
+            has_tag=favorites.tagged_annotation("contact"),
+        ).aggregate(
             total=Count("id"),
             with_open_deals=Count("id", filter=Q(has_open=True)),
             without_deals=Count("id", filter=Q(has_deal=False)),
             untouched=Count("id", filter=Q(last_activity_at__isnull=True)),
+            favorites=Count("id", filter=Q(is_starred=True)),
+            tagged=Count("id", filter=Q(has_tag=True)),
+            created=Count("id", filter=Q(created_at__gte=since)),
+            created_previous=Count("id", filter=Q(created_at__gte=before, created_at__lt=since)),
         )
+        # The Contacts page counts companies too (Total = people + companies), within the companies scope.
+        agg["companies"] = None
+        if request.actor.scope_for("companies.view") is not None:
+            from apps.companies.models import Company
+
+            companies = scope(request.actor, "companies.view", Company.objects.filter(archived_at__isnull=True))
+            agg["companies"] = companies.annotate(
+                is_starred=favorites.is_favorite_annotation("company"), has_tag=favorites.tagged_annotation("company")
+            ).aggregate(
+                total=Count("id"),
+                favorites=Count("id", filter=Q(is_starred=True)),
+                tagged=Count("id", filter=Q(has_tag=True)),
+                created=Count("id", filter=Q(created_at__gte=since)),
+                created_previous=Count("id", filter=Q(created_at__gte=before, created_at__lt=since)),
+            )
+        agg["days"] = STATS_DAYS
         return Response(agg)

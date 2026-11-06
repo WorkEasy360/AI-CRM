@@ -18,20 +18,38 @@ from apps.ai.api import (
 )
 from apps.assistant.api import AskKeelView, AssistantHomeView, ConversationView
 from apps.audit.api import AuditEventViewSet
-from apps.authz.api import RolesView
+from apps.authz.api import FieldPermissionsView, HierarchyRoleViewSet, RoleDetailView, RolesView
+from apps.automation.api import AutomationRuleViewSet
+from apps.billing.api import AddonCancelView, AddonListView, EditionCatalogView, SubscriptionView, UsageView
 from apps.companies.api import CompanyViewSet
 from apps.contacts.api import ContactViewSet
+from apps.crm import api as records_api
 from apps.customfields.api import CustomFieldDefinitionViewSet
 from apps.dashboards.api import DashboardSummaryView
 from apps.deals.api import DealViewSet
+from apps.files import api as file_views
 from apps.files.api import FileAttachmentViewSet
 from apps.forecasting.api import ForecastView
+from apps.helpdesk.api import TicketViewSet
+from apps.helpkb.api import (
+    HelpArticleDetailView,
+    HelpArticleListView,
+    HelpFeedbackView,
+    HelpSuggestionsView,
+    KBAdminArticlesView,
+    KBAdminArticleView,
+    KBAdminRevisionsView,
+    KBReportView,
+    KBUnansweredView,
+)
 from apps.importexport.api import (
     CompanyExportViewSet,
     CompanyImportViewSet,
     ContactExportViewSet,
     ContactImportViewSet,
     DealExportViewSet,
+    DealImportViewSet,
+    FullExportViewSet,
     ProductExportViewSet,
     ProductImportViewSet,
 )
@@ -56,9 +74,10 @@ from apps.messaging.webhooks import WhatsAppWebhookView
 from apps.notes.api import NoteViewSet, TimelineView
 from apps.notifications.api import NotificationPreferenceView, NotificationViewSet
 from apps.pipelines.api import PipelineStageViewSet, PipelineViewSet
-from apps.products.api import ProductViewSet
+from apps.products.api import PriceBookViewSet, ProductViewSet
+from apps.savedviews.api import SavedViewViewSet
 from apps.search.api import GlobalSearchView
-from apps.tagging.api import TagViewSet
+from apps.tagging.api import FavoriteView, TagViewSet
 from apps.teams.api import TeamViewSet
 
 router = DefaultRouter(trailing_slash=True)
@@ -67,27 +86,34 @@ router.include_format_suffixes = False  # JSON only; no `.format` URL variants
 router.register("members", account_views.MemberViewSet, basename="member")
 router.register("invitations", account_views.InvitationViewSet, basename="invitation")
 router.register("teams", TeamViewSet, basename="team")
+router.register("hierarchy-roles", HierarchyRoleViewSet, basename="hierarchy-role")
 router.register("audit-events", AuditEventViewSet, basename="audit-event")
 # CRM core (Phase 2)
 router.register("companies", CompanyViewSet, basename="company")
 router.register("contacts", ContactViewSet, basename="contact")
 router.register("products", ProductViewSet, basename="product")
+router.register("price-books", PriceBookViewSet, basename="price-book")
 router.register("pipelines", PipelineViewSet, basename="pipeline")
 router.register("stages", PipelineStageViewSet, basename="stage")
 router.register("deals", DealViewSet, basename="deal")
 router.register("custom-fields", CustomFieldDefinitionViewSet, basename="custom-field")
 router.register("tags", TagViewSet, basename="tag")
+router.register("views", SavedViewViewSet, basename="saved-view")
 router.register("notes", NoteViewSet, basename="note")
 router.register("files", FileAttachmentViewSet, basename="file")
 router.register("imports/contacts", ContactImportViewSet, basename="import-contact")
 router.register("imports/companies", CompanyImportViewSet, basename="import-company")
 router.register("imports/products", ProductImportViewSet, basename="import-product")
+router.register("imports/deals", DealImportViewSet, basename="import-deal")
 router.register("exports/contacts", ContactExportViewSet, basename="export-contact")
 router.register("exports/companies", CompanyExportViewSet, basename="export-company")
 router.register("exports/products", ProductExportViewSet, basename="export-product")
 router.register("exports/deals", DealExportViewSet, basename="export-deal")
+router.register("exports/all", FullExportViewSet, basename="export-all")
 # Sales operations
 router.register("activities", ActivityViewSet, basename="activity")
+router.register("tickets", TicketViewSet, basename="ticket")
+router.register("automation-rules", AutomationRuleViewSet, basename="automation-rule")
 router.register("notifications", NotificationViewSet, basename="notification")
 # Communication
 router.register("email/accounts", EmailAccountViewSet, basename="email-account")
@@ -103,13 +129,32 @@ router.register("integrations/api-credentials", ApiCredentialViewSet, basename="
 _schema_permission = [AllowAny] if settings.DEBUG else [IsAuthenticated]
 
 urlpatterns = [
+    path("auth/methods/", account_views.AuthMethodsView.as_view(), name="auth-methods"),
     path("session/", account_views.SessionView.as_view(), name="session"),
     path("session/switch-organization/", account_views.SwitchOrganizationView.as_view(), name="session-switch"),
     path("session/bootstrap/", account_views.SessionBootstrapView.as_view(), name="session-bootstrap"),
     path("organizations/", account_views.OrganizationCreateView.as_view(), name="organization-create"),
     path("organizations/current/", account_views.OrganizationCurrentView.as_view(), name="organization-current"),
+    path("organizations/current/logo/", file_views.OrganizationLogoView.as_view(), name="organization-logo"),
+    path("favorites/", FavoriteView.as_view(), name="favorites"),
     path("roles/", RolesView.as_view(), name="roles"),
+    path("roles/<slug:key>/", RoleDetailView.as_view(), name="role-detail"),
+    path("roles/<slug:key>/field-permissions/", FieldPermissionsView.as_view(), name="role-field-permissions"),
+    path("billing/editions/", EditionCatalogView.as_view(), name="billing-editions"),
+    path("billing/subscription/", SubscriptionView.as_view(), name="billing-subscription"),
+    path("billing/usage/", UsageView.as_view(), name="billing-usage"),
+    path("billing/addons/", AddonListView.as_view(), name="billing-addons"),
+    path("billing/addons/<uuid:addon_id>/cancel/", AddonCancelView.as_view(), name="billing-addon-cancel"),
     path("search/", GlobalSearchView.as_view(), name="search"),
+    # Module schema and the generic views (Sheet, Kanban, Calendar, Chart) for any registered module.
+    path("records/", records_api.ModulesView.as_view(), name="record-modules"),
+    path("records/<slug:entity_type>/schema/", records_api.ModuleSchemaView.as_view(), name="record-schema"),
+    path("records/<slug:entity_type>/rows/", records_api.RowsView.as_view(), name="record-rows"),
+    path("records/<slug:entity_type>/edits/", records_api.EditsView.as_view(), name="record-edits"),
+    path("records/<slug:entity_type>/groups/", records_api.GroupsView.as_view(), name="record-groups"),
+    path("records/<slug:entity_type>/groups/page/", records_api.GroupPageView.as_view(), name="record-group-page"),
+    path("records/<slug:entity_type>/calendar/", records_api.CalendarView.as_view(), name="record-calendar"),
+    path("records/<slug:entity_type>/chart/", records_api.ChartView.as_view(), name="record-chart"),
     path("dashboard/", DashboardSummaryView.as_view(), name="dashboard"),
     path("timeline/", TimelineView.as_view(), name="timeline"),
     path("forecast/", ForecastView.as_view(), name="forecast"),
@@ -134,6 +179,17 @@ urlpatterns = [
         ConversationView.as_view(),
         name="assistant-conversation",
     ),
+    # Help knowledge base: the product guide behind WorkEasy AI's "how do I" answers.
+    path("help/articles/", HelpArticleListView.as_view(), name="help-articles"),
+    path("help/articles/<slug:slug>/", HelpArticleDetailView.as_view(), name="help-article"),
+    path("help/suggestions/", HelpSuggestionsView.as_view(), name="help-suggestions"),
+    path("help/feedback/", HelpFeedbackView.as_view(), name="help-feedback"),
+    path("help/admin/articles/", KBAdminArticlesView.as_view(), name="help-admin-articles"),
+    path("help/admin/articles/<slug:slug>/", KBAdminArticleView.as_view(), name="help-admin-article"),
+    path("help/admin/articles/<slug:slug>/revisions/", KBAdminRevisionsView.as_view(), name="help-admin-revisions"),
+    path("help/admin/unanswered/", KBUnansweredView.as_view(), name="help-admin-unanswered"),
+    path("help/admin/unanswered/<uuid:question_id>/", KBUnansweredView.as_view(), name="help-admin-unanswered-detail"),
+    path("help/admin/report/", KBReportView.as_view(), name="help-admin-report"),
     path("schema/", SpectacularAPIView.as_view(permission_classes=_schema_permission), name="schema"),
     path(
         "docs/",

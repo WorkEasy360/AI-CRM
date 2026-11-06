@@ -45,7 +45,7 @@ def test_foreign_references_are_rejected(org_a, org_b, owner_client, crm):
     foreign_company = crm.make_company(org_b)
     foreign_contact = crm.make_contact(org_b)
     foreign_pipeline = crm.make_pipeline(org_b)
-    foreign_stage = crm.stage_named(foreign_pipeline, "Proposal")
+    foreign_stage = crm.stage_named(foreign_pipeline, "Proposal sent")
     foreign_product = crm.make_product(org_b)
     foreign_tag = crm.make_tag(org_b)
 

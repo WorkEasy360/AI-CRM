@@ -39,7 +39,7 @@ export function AnswerView({ answer, currency }: { answer: AssistantAnswer; curr
       ) : null}
 
       {answer.analysis ? (
-        <section aria-label="Keel's analysis" className="grid gap-1.5">
+        <section aria-label="WorkEasy's analysis" className="grid gap-1.5">
           <SectionLabel icon={<Sparkles />} tone="analysis">
             Analysis
           </SectionLabel>

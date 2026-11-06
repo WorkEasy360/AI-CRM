@@ -125,7 +125,7 @@ function renderCard() {
   );
 }
 
-describe("Ask Keel", () => {
+describe("Ask WorkEasy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getSession).mockResolvedValue(session);
@@ -135,8 +135,8 @@ describe("Ask Keel", () => {
 
   it("offers one entry point with suggested questions", async () => {
     renderCard();
-    expect(await screen.findByRole("heading", { name: "Ask Keel" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Ask Keel a question")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Ask WorkEasy" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ask WorkEasy a question")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Summarize my pipeline." })).toBeInTheDocument();
     // There is no separate AI search / RAG search / chat surface to choose between.
     expect(screen.queryByText(/RAG/i)).not.toBeInTheDocument();
@@ -145,12 +145,12 @@ describe("Ask Keel", () => {
   it("answers in a panel, keeping facts, analysis and advice apart", async () => {
     const user = userEvent.setup();
     renderCard();
-    await user.type(await screen.findByLabelText("Ask Keel a question"), "What happened with ABC Corp?");
+    await user.type(await screen.findByLabelText("Ask WorkEasy a question"), "What happened with ABC Corp?");
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     expect(await screen.findByText("ABC Corp has one open deal in Proposal.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "From your CRM" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Keel's analysis" })).toHaveTextContent("Engagement has slowed");
+    expect(screen.getByRole("region", { name: "WorkEasy's analysis" })).toHaveTextContent("Engagement has slowed");
     expect(screen.getByRole("region", { name: "Recommended next step" })).toHaveTextContent("decision maker");
     // Money is formatted for the viewer, from the server's exact figure.
     expect(screen.getByText(/8,50,000|850,000/)).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe("Ask Keel", () => {
   it("shows sources as links to the records they came from", async () => {
     const user = userEvent.setup();
     renderCard();
-    await user.type(await screen.findByLabelText("Ask Keel a question"), "What happened with ABC Corp?");
+    await user.type(await screen.findByLabelText("Ask WorkEasy a question"), "What happened with ABC Corp?");
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     const sources = await screen.findByRole("region", { name: "Sources" });
@@ -173,13 +173,13 @@ describe("Ask Keel", () => {
     vi.mocked(askKeel).mockResolvedValue(fallbackAnswer);
     const user = userEvent.setup();
     renderCard();
-    await user.type(await screen.findByLabelText("Ask Keel a question"), "What happened with ABC Corp?");
+    await user.type(await screen.findByLabelText("Ask WorkEasy a question"), "What happened with ABC Corp?");
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     // Same headline, same facts, same sources: only the written analysis is missing.
     expect(await screen.findByText("ABC Corp has one open deal in Proposal.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "From your CRM" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Keel's analysis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "WorkEasy's analysis" })).not.toBeInTheDocument();
     expect(screen.getByText(/Customer requested revised pricing/)).toBeInTheDocument();
     expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument();
     // No provider names, no status codes.
@@ -211,7 +211,7 @@ describe("Ask Keel", () => {
     vi.mocked(askKeel).mockRejectedValue(new Error("Network down"));
     const user = userEvent.setup();
     renderCard();
-    await user.type(await screen.findByLabelText("Ask Keel a question"), "What happened with ABC Corp?");
+    await user.type(await screen.findByLabelText("Ask WorkEasy a question"), "What happened with ABC Corp?");
     await user.click(screen.getByRole("button", { name: "Ask" }));
     expect(await screen.findByText("What happened with ABC Corp?")).toBeInTheDocument();
   });

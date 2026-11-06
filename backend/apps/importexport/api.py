@@ -1,7 +1,7 @@
 """Per-entity import and export viewsets so each route carries a static ``permission_map``.
 
-``/imports/contacts/``, ``/imports/companies/``, ``/imports/products/`` and
-``/exports/{contacts,companies,products,deals}/``. Jobs are visible only to the member who requested them.
+``/imports/{contacts,companies,products,deals}/`` and ``/exports/{contacts,companies,products,deals,all}/``.
+Jobs are visible only to the member who requested them.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from rest_framework.response import Response
 
 from apps.core.api.serializers import MembershipRefSerializer
 from apps.core.api.viewsets import TenantViewSet
-from apps.importexport import service
+from apps.importexport import importing, service
 from apps.importexport.models import ExportJob, ImportJob
 
 
@@ -34,12 +34,19 @@ class ImportJobSerializer(serializers.ModelSerializer):
             "headers",
             "mapping",
             "options",
+            "file_format",
             "total_rows",
             "processed_rows",
             "created_rows",
+            "updated_rows",
+            "skipped_rows",
             "error_rows",
             "errors",
             "error_message",
+            "preview",
+            "stop",
+            "rollback",
+            "rolled_back_at",
             "requested_by",
             "started_at",
             "finished_at",
@@ -49,7 +56,7 @@ class ImportJobSerializer(serializers.ModelSerializer):
 
 
 class ImportStartSerializer(serializers.Serializer):
-    mapping = serializers.DictField(child=serializers.CharField(max_length=60, allow_blank=True))
+    mapping = serializers.DictField(child=serializers.CharField(max_length=60, allow_blank=True), required=False)
     options = serializers.DictField(required=False, default=dict)
 
     def validate_mapping(self, value):
@@ -79,6 +86,10 @@ class ExportJobSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class SuggestSerializer(serializers.Serializer):
+    preset = serializers.ChoiceField(choices=[(k, k) for k in importing.PRESETS], required=False, allow_blank=True)
 
 
 class ExportCreateSerializer(serializers.Serializer):
@@ -114,16 +125,52 @@ class _ImportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
             request.actor, entity_type=self.entity_type, uploaded=uploaded, request=request._request
         )
         data = ImportJobSerializer(job).data
-        data["preview"] = service.preview_rows(job)
-        data["targets"] = service.allowed_targets(self.entity_type)
+        data["preview_rows"] = data["sample"] = service.preview_rows(job)
+        data["targets"] = service.allowed_targets(request.actor, self.entity_type)
+        data["presets"] = importing.presets(self.entity_type)
+        # Before Milestone 2 ``preview`` held the sample rows; keep that for older clients on upload.
+        data["preview"] = data["sample"]
         return Response(data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def preview(self, request, pk=None):
+        """The first rows of the file (raw) and the fields they may be mapped to."""
         job = self.get_object()
-        if job.status != "uploaded":
-            return Response({"preview": [], "targets": service.allowed_targets(self.entity_type)})
-        return Response({"preview": service.preview_rows(job), "targets": service.allowed_targets(self.entity_type)})
+        targets = service.allowed_targets(request.actor, self.entity_type)
+        if job.status not in {"uploaded", "previewed"}:
+            return Response({"preview": [], "targets": targets})
+        return Response({"preview": service.preview_rows(job), "targets": targets})
+
+    @action(detail=False, methods=["get"])
+    def presets(self, request):
+        """Column-mapping presets for exports of other CRMs (Zoho CRM, HubSpot, Pipedrive)."""
+        return Response({"results": importing.presets(self.entity_type)})
+
+    @action(detail=True, methods=["post"])
+    def suggest(self, request, pk=None):
+        """A suggested mapping for this file's headers, optionally from a migration preset."""
+        job = self.get_object()
+        ser = SuggestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        mapping = service.suggest_mapping(
+            request.actor, self.entity_type, job.headers, preset=ser.validated_data.get("preset") or None
+        )
+        return Response({"mapping": mapping})
+
+    @action(detail=True, methods=["post"])
+    def check(self, request, pk=None):
+        """Dry run: validate every row with this mapping and options, write nothing (see ``preview`` on the job)."""
+        job = self.get_object()
+        ser = ImportStartSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        job = service.start_preview(
+            request.actor,
+            job,
+            mapping=ser.validated_data.get("mapping"),
+            options=ser.validated_data.get("options"),
+            request=request._request,
+        )
+        return Response(ImportJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
 
     @action(detail=True, methods=["post"])
     def start(self, request, pk=None):
@@ -133,16 +180,26 @@ class _ImportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
         job = service.start_import(
             request.actor,
             job,
-            mapping=ser.validated_data["mapping"],
+            mapping=ser.validated_data.get("mapping"),
             options=ser.validated_data.get("options"),
             request=request._request,
         )
+        return Response(ImportJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
+
+    @action(detail=True, methods=["post"])
+    def rollback(self, request, pk=None):
+        """Undo this import: delete what it created, restore what it updated; conflicts are reported."""
+        job = self.get_object()
+        job = service.start_rollback(request.actor, job, request=request._request)
         return Response(ImportJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
 
 
 class _ExportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantViewSet):
     entity_type: ClassVar[str]
     serializer_class = ExportJobSerializer
+    # Starting an export is a POST but changes no CRM data: a read-only (suspended) organization may still
+    # export, as Workeasy360's entitlement contract and the read-only message promise.
+    entitlement_read_actions: ClassVar[frozenset[str]] = frozenset({"create"})
     throttle_scope = "sensitive"
     resolved_ordering = ("-created_at", "-id")
 
@@ -170,7 +227,8 @@ class _ExportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
             # Object storage: a short-lived signed URL (attachment disposition enforced by the URL itself).
             response = HttpResponseRedirect(download.url)
         else:
-            response = HttpResponse(download.data, content_type="text/csv; charset=utf-8")
+            content_type = "application/zip" if download.filename.endswith(".zip") else "text/csv; charset=utf-8"
+            response = HttpResponse(download.data, content_type=content_type)
             response["Content-Disposition"] = f'attachment; filename="{download.filename}"'
         response["X-Content-Type-Options"] = "nosniff"
         response["Cache-Control"] = "no-store"
@@ -179,7 +237,18 @@ class _ExportJobViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, Tenant
 
 def _perms(module: str, action: str) -> dict[str, str]:
     p = f"{module}.{action}"
-    return {"list": p, "retrieve": p, "create": p, "preview": p, "start": p, "download": p}
+    return {
+        "list": p,
+        "retrieve": p,
+        "create": p,
+        "preview": p,
+        "presets": p,
+        "suggest": p,
+        "check": p,
+        "start": p,
+        "rollback": p,
+        "download": p,
+    }
 
 
 class ContactImportViewSet(_ImportJobViewSet):
@@ -195,6 +264,11 @@ class CompanyImportViewSet(_ImportJobViewSet):
 class ProductImportViewSet(_ImportJobViewSet):
     entity_type = "product"
     permission_map = _perms("products", "import")
+
+
+class DealImportViewSet(_ImportJobViewSet):
+    entity_type = "deal"
+    permission_map = _perms("deals", "import")
 
 
 class ContactExportViewSet(_ExportJobViewSet):
@@ -215,3 +289,14 @@ class ProductExportViewSet(_ExportJobViewSet):
 class DealExportViewSet(_ExportJobViewSet):
     entity_type = "deal"
     permission_map = _perms("deals", "export")
+
+
+class FullExportViewSet(_ExportJobViewSet):
+    """Every module the requester may export, one CSV per module in a ZIP (hierarchy and field rules applied).
+
+    The route only needs membership; the service exports just the modules the requester holds
+    ``<module>.export`` for and refuses with 403 when that is none.
+    """
+
+    entity_type = service.FULL_EXPORT
+    permission_map = {"list": "org.view", "retrieve": "org.view", "create": "org.view", "download": "org.view"}

@@ -49,7 +49,8 @@ function fmtDate(value: string | undefined): string {
  * Deterministic revenue forecast: open deals by expected close date, weighted by their probability.
  * Arithmetic on today's pipeline, not a prediction, and the page says so.
  */
-export function ForecastPage() {
+/** ``embedded``: shown as the Pipeline page's Forecast tab, under that page's own header. */
+export function ForecastPage({ embedded = false }: { embedded?: boolean } = {}) {
   const session = useSession();
   const currency = session.data?.active?.organization.base_currency ?? "USD";
   const canView = usePermission("reports.view");
@@ -78,7 +79,11 @@ export function ForecastPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHeader title="Forecast" description={rangeLabel ? `${rangeLabel}${data?.pipeline ? ` · ${data.pipeline.name}` : ""}` : "Open deals by expected close date, weighted by probability"} actions={<DashboardTabs active="forecast" />} />
+      {embedded ? (
+        <p className="mb-3 text-sm text-fg-muted">{rangeLabel ? `Expected revenue by close month · ${rangeLabel}` : "Open deals by expected close date, weighted by probability"}</p>
+      ) : (
+        <PageHeader title="Forecast" description={rangeLabel ? `${rangeLabel}${data?.pipeline ? ` · ${data.pipeline.name}` : ""}` : "Open deals by expected close date, weighted by probability"} actions={<DashboardTabs active="forecast" />} />
+      )}
 
       {session.isSuccess && session.data.active && canView === null ? (
         <EmptyState icon={<Lock />} title="Forecast is not available for your role" description="Ask an administrator for the Reports permission to see weighted revenue by period." />

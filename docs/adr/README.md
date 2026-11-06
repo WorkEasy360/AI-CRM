@@ -16,3 +16,4 @@ Format: Context → Decision → Consequences. All ADRs were accepted with the P
 | [ADR-0010](ADR-0010-dependency-policy.md) | Dependency introduction and supply-chain policy | Accepted |
 | [ADR-0011](ADR-0011-search-postgres.md) | PostgreSQL full-text search before any search engine | Accepted |
 | [ADR-0012](ADR-0012-money-and-currency.md) | Money handling and multi-currency snapshotting | Accepted |
+| [ADR-0013](ADR-0013-workeasy360-identity-provider.md) | Workeasy360 is the identity provider (Sign in with Workeasy360) | Accepted |

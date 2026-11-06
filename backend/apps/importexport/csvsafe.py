@@ -1,10 +1,16 @@
-"""CSV safety: upload validation, size/row caps and spreadsheet formula neutralisation (T12, T13, T19)."""
+"""CSV/XLSX safety: upload validation, size/row caps and spreadsheet formula neutralisation (T12, T13, T19).
+
+An XLSX upload is converted to CSV once, at upload, and every later step (preview, mapping, import,
+resume) reads that CSV, so the rest of the pipeline knows one format.
+"""
 
 from __future__ import annotations
 
 import csv
+import datetime as dt
 import io
 import re
+import zipfile
 from collections.abc import Iterator
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -18,6 +24,8 @@ MAX_HEADER_LENGTH = 100
 MAX_CELL_LENGTH = 5_000
 SNIFF_BYTES = 8 * 1024
 
+# A 5 MB .xlsx can inflate a lot: refuse workbooks whose XML expands beyond this (zip-bomb guard).
+MAX_XLSX_UNCOMPRESSED_BYTES = 80 * 1024 * 1024
 FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r", "\n")
 _NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?$")
 _FILENAME_SAFE = re.compile(r"[^A-Za-z0-9._ -]")
@@ -61,8 +69,9 @@ def validate_upload(uploaded: Any) -> tuple[bytes, list[str], int]:
     cell length cap. The whole file is parsed once so a malformed file is rejected before it is stored.
     """
     name = safe_filename(getattr(uploaded, "name", ""))
-    if not name.lower().endswith(".csv"):
-        raise ValidationError({"file": "Only .csv files are accepted."})
+    is_xlsx = name.lower().endswith(".xlsx")
+    if not (name.lower().endswith(".csv") or is_xlsx):
+        raise ValidationError({"file": "Upload a .csv or .xlsx file."})
     size = getattr(uploaded, "size", None)
     if size is None or size <= 0:
         raise ValidationError({"file": "The file is empty."})
@@ -71,6 +80,8 @@ def validate_upload(uploaded: Any) -> tuple[bytes, list[str], int]:
     raw = uploaded.read(MAX_UPLOAD_BYTES + 1)
     if len(raw) > MAX_UPLOAD_BYTES:
         raise ValidationError({"file": "The file is too large."})
+    if is_xlsx:
+        raw = xlsx_to_csv(raw)
     head = raw[:SNIFF_BYTES]
     if b"\x00" in head:
         raise ValidationError({"file": "The file does not look like a text CSV file."})
@@ -80,6 +91,53 @@ def validate_upload(uploaded: Any) -> tuple[bytes, list[str], int]:
         raise ValidationError({"file": "The file must be UTF-8 encoded."}) from exc
     headers, count = _scan(text)
     return raw, headers, count
+
+
+def _cell_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, dt.datetime):
+        return value.isoformat() if value.time() != dt.time(0) else value.date().isoformat()
+    if isinstance(value, dt.date):
+        return value.isoformat()
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def xlsx_to_csv(raw: bytes) -> bytes:
+    """The first worksheet of an .xlsx workbook as UTF-8 CSV (values only, never formulas)."""
+    from openpyxl import load_workbook
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            if sum(i.file_size for i in archive.infolist()) > MAX_XLSX_UNCOMPRESSED_BYTES:
+                raise ValidationError({"file": "The workbook is too large once unpacked."})
+        workbook = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+    except ValidationError:
+        raise
+    except Exception as exc:  # openpyxl raises a zoo of exception types for malformed files
+        raise ValidationError({"file": "The file is not a valid .xlsx workbook."}) from exc
+    try:
+        sheet = workbook.worksheets[0]
+        out = io.StringIO(newline="")
+        writer = csv.writer(out, lineterminator="\r\n")
+        rows = 0
+        for row in sheet.iter_rows(values_only=True):
+            cells = [_cell_text(v) for v in row[: MAX_COLUMNS + 1]]
+            while cells and cells[-1] == "":
+                cells.pop()
+            if not cells:
+                continue
+            rows += 1
+            if rows > MAX_ROWS + 1:
+                raise ValidationError({"file": f"At most {MAX_ROWS} rows per import. Split the file."})
+            writer.writerow(cells)
+    finally:
+        workbook.close()
+    return out.getvalue().encode("utf-8")
 
 
 def _scan(text: str) -> tuple[list[str], int]:

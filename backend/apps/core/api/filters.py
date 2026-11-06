@@ -25,6 +25,21 @@ RESERVED_PARAMS = frozenset({"cursor", "limit", "sort", "q", "expand", "format",
 ME = "me"
 
 
+def field_root(lookup: str) -> str:
+    """The API field an ORM lookup reads: ``amount_base`` -> ``amount_base``, ``company__name`` -> ``company``,
+    ``primary_contact_id`` -> ``primary_contact``. Used to apply field permissions to filters and sorts."""
+    root = lookup.split("__", 1)[0]
+    return root[:-3] if root.endswith("_id") and root != "id" else root
+
+
+def _hidden_for(actor: Any, entity_type: str | None) -> frozenset[str]:
+    if actor is None or not entity_type:
+        return frozenset()
+    from apps.authz import fields as field_rules
+
+    return field_rules.hidden_fields(actor, entity_type)
+
+
 @dataclass(frozen=True)
 class Filter:
     """One accepted query parameter.
@@ -50,6 +65,10 @@ class FilterSet:
     extra: dict[str, Callable[[QuerySet, str, Any], QuerySet]] = field(default_factory=dict)
 
     def apply(self, qs: QuerySet, params: Mapping[str, str], *, actor: Any = None) -> tuple[QuerySet, tuple[str, ...]]:
+        # A field the actor may not see may not be filtered, sorted or searched on either: otherwise
+        # ``?amount_min=`` or ``?sort=amount`` would answer questions about a hidden value. Such keys
+        # are refused exactly like unknown ones, so the response does not reveal the field exists.
+        hidden = _hidden_for(actor, self.custom_field_entity)
         errors: dict[str, str] = {}
         custom_filters: dict[str, str] = {}
         for raw_key, raw_value in params.items():
@@ -61,10 +80,15 @@ class FilterSet:
             if key.startswith("custom."):
                 if self.custom_field_entity is None:
                     errors[raw_key] = "Custom field filters are not supported here."
+                elif f"custom_data.{key[7:]}" in hidden:
+                    errors[raw_key] = "Unknown custom field."
                 else:
                     custom_filters[key[7:]] = raw_value
                 continue
             spec = self.filters.get(key)
+            if spec is not None and field_root(spec.lookup) in hidden:
+                errors[raw_key] = "Unknown filter."
+                continue
             if spec is None:
                 if key in self.extra:
                     qs = self.extra[key](qs, key, raw_value)
@@ -90,18 +114,23 @@ class FilterSet:
             elif self.search_fields:
                 cond = Q()
                 for f in self.search_fields:
-                    cond |= Q(**{f"{f}__icontains": q})
-                qs = qs.filter(cond)
-        ordering = self.resolve_sort(params.get("sort"), errors)
+                    if field_root(f) not in hidden:
+                        cond |= Q(**{f"{f}__icontains": q})
+                qs = qs.filter(cond) if cond else qs.none()
+        ordering = self.resolve_sort(params.get("sort"), errors, hidden=hidden)
         if errors:
             raise ValidationError(errors)
         return qs, ordering
 
-    def resolve_sort(self, raw: str | None, errors: dict[str, str]) -> tuple[str, ...]:
+    def resolve_sort(
+        self, raw: str | None, errors: dict[str, str], *, hidden: frozenset[str] = frozenset()
+    ) -> tuple[str, ...]:
         raw = (raw or self.default_sort).strip()
         desc = raw.startswith("-")
         key = raw[1:] if desc else raw
         column = self.sort_fields.get(key)
+        if column is not None and (field_root(column) in hidden or key in hidden):
+            column = None
         if column is None:
             errors["sort"] = f"Unknown sort key. Allowed: {', '.join(sorted(self.sort_fields))}."
             return ("-created_at", "-id")

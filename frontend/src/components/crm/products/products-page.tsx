@@ -31,7 +31,7 @@ import { useCursorList } from "@/lib/use-cursor-list";
 const importProductForm = () => import("@/components/crm/products/product-form-dialog");
 const ProductFormDialog = dynamic(() => importProductForm().then((m) => m.ProductFormDialog), { ssr: false });
 
-const ALLOWED = ["q", "sort", "owner", "archived", "status", "currency", "price_min", "price_max"] as const;
+const ALLOWED = ["q", "sort", "owner", "archived", "status", "in_stock", "currency", "price_min", "price_max"] as const;
 const DEFAULTS: ListParams = { sort: "name" };
 const SORT_OPTIONS: SortOption[] = [
   { value: "name", label: "Name A–Z" },
@@ -51,6 +51,10 @@ function Dash() {
 
 export function StatusBadge({ status }: { status: Product["status"] }) {
   return <Badge variant={status === "active" ? "success" : "neutral"}>{status === "active" ? "Active" : "Inactive"}</Badge>;
+}
+
+export function StockBadge({ inStock }: { inStock: boolean }) {
+  return <Badge variant={inStock ? "success" : "warning"}>{inStock ? "In stock" : "Out of stock"}</Badge>;
 }
 
 export function ProductsPage() {
@@ -97,6 +101,7 @@ export function ProductsPage() {
       { key: "sku", header: "SKU", sortKey: "sku", render: (p) => (p.sku ? <span className="font-mono text-xs">{p.sku}</span> : <Dash />) },
       { key: "price", header: "Unit price", sortKey: "unit_price", className: "text-right tabular-nums whitespace-nowrap", render: (p) => formatMoney(p.unit_price, p.currency) },
       { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} /> },
+      { key: "stock", header: "Stock", className: "hidden sm:table-cell", render: (p) => <StockBadge inStock={p.in_stock} /> },
       { key: "owner", header: "Owner", className: "hidden md:table-cell", render: (p) => p.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span> },
       {
         key: "actions",
@@ -202,6 +207,16 @@ export function ProductsPage() {
             <SelectItem value="all">Any status</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={params.in_stock ?? "all"} onValueChange={(v) => setParam("in_stock", v === "all" ? undefined : v)}>
+          <SelectTrigger className="h-8 w-36" aria-label="Stock filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any stock</SelectItem>
+            <SelectItem value="true">In stock</SelectItem>
+            <SelectItem value="false">Out of stock</SelectItem>
           </SelectContent>
         </Select>
       </ListToolbar>

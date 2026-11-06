@@ -9,6 +9,7 @@ import structlog
 from celery import shared_task
 from django.utils import timezone
 
+from apps.accounts.workeasy360 import background
 from apps.core.tenancy.context import system_context, tenant_context
 from apps.deals.models import Deal
 
@@ -31,8 +32,14 @@ def deal_health_sweep() -> int:
             .values_list("organization_id", flat=True)
             .distinct()
         )
+    # Class A: organizations whose Workeasy360 access has ended get no alerts until it is renewed.
+    denied = background.denied_organizations(
+        [uuid.UUID(str(o)) for o in org_ids], task="notifications.deal_health_sweep"
+    )
     created = 0
     for org_id in org_ids:
+        if uuid.UUID(str(org_id)) in denied:
+            continue
         with tenant_context(uuid.UUID(str(org_id)), reason="task:notifications.deal_health_sweep"):
             thresholds = {
                 p.membership_id: p.deal_inactive_days

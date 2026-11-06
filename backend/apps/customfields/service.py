@@ -8,9 +8,12 @@ never constructed from raw client input.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import json
 import re
+from collections.abc import Iterator
+from contextvars import ContextVar
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -23,6 +26,7 @@ from rest_framework.exceptions import ValidationError
 from apps.audit import service as audit
 from apps.authz.actor import Actor
 from apps.authz.service import check
+from apps.billing import entitlements
 from apps.core import validators
 from apps.core.exceptions import ConflictError, DomainError
 from apps.customfields.models import ENTITY_TYPES, KEY_PATTERN, CustomFieldDefinition
@@ -140,14 +144,35 @@ OPTION_TYPES = frozenset({FT.DROPDOWN, FT.MULTI_SELECT})
 # ----------------------------------------------------------------------------- definitions
 
 
+_definitions_cache: ContextVar[dict[str, list[CustomFieldDefinition]] | None] = ContextVar(
+    "customfield_definitions_cache", default=None
+)
+
+
+@contextlib.contextmanager
+def cached_definitions() -> Iterator[None]:
+    """Read each entity's definitions once for the duration of a bulk operation (Sheet edits, imports)."""
+    token = _definitions_cache.set({})
+    try:
+        yield
+    finally:
+        _definitions_cache.reset(token)
+
+
 def active_definitions(entity_type: str) -> list[CustomFieldDefinition]:
     if entity_type not in ENTITY_TYPES:
         raise ValidationError({"entity_type": "Unknown entity type."})
-    return list(
+    cache = _definitions_cache.get()
+    if cache is not None and entity_type in cache:
+        return cache[entity_type]
+    rows = list(
         CustomFieldDefinition.objects.filter(entity_type=entity_type, archived_at__isnull=True).order_by(
             "position", "created_at"
         )
     )
+    if cache is not None:
+        cache[entity_type] = rows
+    return rows
 
 
 def _clean_options(field_type: str, options: Any) -> list[str]:
@@ -210,6 +235,7 @@ def create_definition(
         raise ConflictError("A field with this key already exists (possibly archived).", code="customfield_key_taken")
     if existing.filter(archived_at__isnull=True).count() >= MAX_DEFINITIONS_PER_ENTITY:
         raise DomainError(f"At most {MAX_DEFINITIONS_PER_ENTITY} custom fields per entity.", code="customfield_limit")
+    entitlements.check_capacity(actor.organization, "custom_fields", module=entity_type)
     position = existing.count()
     definition = CustomFieldDefinition.objects.create(
         entity_type=entity_type,
@@ -266,6 +292,20 @@ def archive_definition(actor: Actor, definition: CustomFieldDefinition, *, reque
     definition.archived_at = timezone.now()
     definition.save(update_fields=["archived_at", "updated_at"])
     audit.record("customfields.archived", request=request, user=actor.user, resource=definition)
+
+
+@transaction.atomic
+def restore_definition(
+    actor: Actor, definition: CustomFieldDefinition, *, request: Any = None
+) -> CustomFieldDefinition:
+    check(actor, "customfields.manage", definition)
+    if definition.archived_at is None:
+        return definition
+    entitlements.check_capacity(actor.organization, "custom_fields", module=definition.entity_type)
+    definition.archived_at = None
+    definition.save(update_fields=["archived_at", "updated_at"])
+    audit.record("customfields.restored", request=request, user=actor.user, resource=definition)
+    return definition
 
 
 # ----------------------------------------------------------------------------- values

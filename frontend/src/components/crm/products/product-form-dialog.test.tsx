@@ -2,7 +2,7 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductFormDialog } from "@/components/crm/products/product-form-dialog";
 import { ToastProvider } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/problem";
@@ -31,6 +31,16 @@ vi.mock("@/lib/session", async (importOriginal) => {
 import { createProduct, listCustomFields } from "@/lib/api/crm";
 
 const EMPTY_PAGE = { next: null, previous: null, results: [] };
+
+// jsdom lacks ResizeObserver, which the Radix Switch (stock flag) uses for sizing.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+beforeAll(() => {
+  vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+});
 
 function renderDialog() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -100,10 +110,28 @@ describe("ProductFormDialog", () => {
       sku: "",
       tax_label: "",
       status: "active",
+      in_stock: true,
       description: "",
       custom_data: {},
       unit_price: "19.99",
       currency: "USD",
     });
+  });
+
+  it("sends the stock flag when it is switched off", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createProduct).mockResolvedValue({ id: "p1", name: "Widget" } as never);
+    renderDialog();
+
+    const stock = screen.getByRole("switch", { name: "Stock" });
+    expect(stock).toBeChecked();
+    await user.click(stock);
+    expect(screen.getByText("Out of stock")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Name"), "Widget");
+    await user.click(screen.getByRole("button", { name: "Create product" }));
+
+    await waitFor(() => expect(createProduct).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createProduct).mock.calls[0]?.[0]).toMatchObject({ name: "Widget", in_stock: false });
   });
 });

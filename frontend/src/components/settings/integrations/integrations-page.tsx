@@ -73,7 +73,7 @@ export function IntegrationsPage() {
     );
   }
 
-  const header = <PageHeader title="Integrations" description="Connect other systems to Keel and decide exactly which data they can see or change." />;
+  const header = <PageHeader title="Integrations" description="Connect other systems to WorkEasy CRM and decide exactly which data they can see or change." />;
 
   if (!session || catalog.isPending) {
     return (
@@ -154,7 +154,7 @@ export function IntegrationsPage() {
           <HubCard
             icon={<Webhook aria-hidden />}
             title="Webhooks"
-            description="Notify other systems the moment contacts, companies or deals change in Keel."
+            description="Notify other systems the moment contacts, companies or deals change in WorkEasy CRM."
             action={
               canManageWebhooks ? (
                 <Button asChild size="sm" variant="secondary">
@@ -166,7 +166,7 @@ export function IntegrationsPage() {
           <HubCard
             icon={<KeyRound aria-hidden />}
             title="API keys"
-            description="Let external software read or update CRM records through the Keel API with limited scopes."
+            description="Let external software read or update CRM records through the WorkEasy CRM API with limited scopes."
             action={
               canManage ? (
                 <Button asChild size="sm" variant="secondary">

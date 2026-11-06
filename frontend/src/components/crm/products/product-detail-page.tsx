@@ -6,7 +6,7 @@ import { Archive, ArchiveRestore, MoreHorizontal, Pencil } from "lucide-react";
 import { CustomFieldsSummary, useCustomFields } from "@/components/crm/custom-fields-form";
 import { NotesPanel } from "@/components/crm/notes-panel";
 import { ProductFormDialog } from "@/components/crm/products/product-form-dialog";
-import { StatusBadge } from "@/components/crm/products/products-page";
+import { StatusBadge, StockBadge } from "@/components/crm/products/products-page";
 import { Facts, RecordPage, RecordPageError, RecordPageSkeleton, Section } from "@/components/crm/record-page";
 import { TagPicker } from "@/components/crm/tag-picker";
 import { Timeline } from "@/components/crm/timeline";
@@ -68,7 +68,12 @@ export function ProductDetailPage({ id }: { id: string }) {
         backLabel="Products"
         title={product.name}
         subtitle={product.sku ? <span className="font-mono">SKU {product.sku}</span> : undefined}
-        badges={<StatusBadge status={product.status} />}
+        badges={
+          <>
+            <StatusBadge status={product.status} />
+            <StockBadge inStock={product.in_stock} />
+          </>
+        }
         archived={Boolean(product.archived_at)}
         actions={
           <>

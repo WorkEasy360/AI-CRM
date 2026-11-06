@@ -44,6 +44,11 @@ Change = Literal[
     "lifecycle_changed",
     "tagged",
     "untagged",
+    "completed",
+    "deleted",
+    "linked",
+    "unlinked",
+    "rolled_back",
 ]
 
 # Changes that must reach the integrations outbox as a plain "the record was updated" event.
@@ -64,6 +69,9 @@ class RecordChanged:
     owner_changed: bool = False
     orm_signals_fired: bool = False
     fields: tuple[str, ...] = field(default_factory=tuple)
+    # Records this change belongs to, as (entity_type, id) pairs: a note's or file's record, the other
+    # deal of a connection. Lets a workflow react to "a note was added to deal X" without a lookup.
+    related: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
     @classmethod
     def one(cls, *, entity_id: uuid.UUID, **kwargs) -> RecordChanged:

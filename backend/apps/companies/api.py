@@ -20,6 +20,7 @@ from apps.crm.records import RecordSpec
 from apps.deals.models import Deal
 from apps.lifecycle import service as lifecycle
 from apps.lifecycle.stages import LIFECYCLE_STAGES, LifecycleStage
+from apps.tagging import favorites
 
 SPEC = RecordSpec(module="companies", entity_type="company", model=Company, display=lambda c: c.name)
 
@@ -32,6 +33,7 @@ class CompanySerializer(CrmReadSerializer):
         max_digits=18, decimal_places=2, read_only=True, default=Decimal("0.00")
     )
     won_deal_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=Decimal("0.00"))
+    is_favorite = serializers.BooleanField(read_only=True, default=False)
     next_activity_title = serializers.CharField(read_only=True, default="")
 
     class Meta:
@@ -52,6 +54,7 @@ class CompanySerializer(CrmReadSerializer):
             "tags",
             "custom_data",
             "contact_count",
+            "is_favorite",
             "open_deal_count",
             "open_deal_amount",
             "won_deal_amount",
@@ -137,7 +140,33 @@ FILTERS = FilterSet(
     default_sort="-created_at",
     search_fields=("name", "website", "phone", "industry"),
     custom_field_entity="company",
+    extra={"favorite": favorites.favorite_filter("company"), "tag": favorites.tag_filter("company")},
 )
+
+
+def create_company(actor, data, *, request=None):
+    stage = data.pop("lifecycle_stage", None)
+    if stage is not None:
+        data["lifecycle_stage"] = lifecycle.clean_stage(stage)
+    obj = records.create(actor, SPEC, data, request=request)
+    if stage is not None and stage != LifecycleStage.LEAD:
+        lifecycle.record_initial_stage(actor, obj)
+    return obj
+
+
+def update_company(actor, obj, data, *, expected_version, request=None):
+    stage = data.pop("lifecycle_stage", None)
+    extra: list[str] = []
+    if stage is not None and lifecycle.clean_stage(stage) != obj.lifecycle_stage:
+        records.check_update(actor, SPEC, obj)
+        from apps.authz import fields as field_rules
+
+        field_rules.assert_writable(actor, SPEC.entity_type, {"lifecycle_stage": stage})
+        lifecycle.set_stage(actor, obj, stage, request=request)
+        extra = ["lifecycle_stage", "lifecycle_changed_at"]
+    return records.update(
+        actor, SPEC, obj, data, expected_version=expected_version, request=request, extra_update_fields=extra
+    )
 
 
 class CompanyViewSet(CrmViewSet):
@@ -148,30 +177,10 @@ class CompanyViewSet(CrmViewSet):
     permission_map = crud_permission_map("companies", stats="companies.view", duplicates="companies.view")
 
     def perform_create(self, data):
-        stage = data.pop("lifecycle_stage", None)
-        if stage is not None:
-            data["lifecycle_stage"] = lifecycle.clean_stage(stage)
-        obj = super().perform_create(data)
-        if stage is not None and stage != LifecycleStage.LEAD:
-            lifecycle.record_initial_stage(self.request.actor, obj)
-        return obj
+        return create_company(self.request.actor, data, request=self.request._request)
 
     def perform_update(self, obj, data, version):
-        stage = data.pop("lifecycle_stage", None)
-        extra: list[str] = []
-        if stage is not None and lifecycle.clean_stage(stage) != obj.lifecycle_stage:
-            records.check_update(self.request.actor, self.spec, obj)
-            lifecycle.set_stage(self.request.actor, obj, stage, request=self.request._request)
-            extra = ["lifecycle_stage", "lifecycle_changed_at"]
-        return records.update(
-            self.request.actor,
-            self.spec,
-            obj,
-            data,
-            expected_version=version,
-            request=self.request._request,
-            extra_update_fields=extra,
-        )
+        return update_company(self.request.actor, obj, data, expected_version=version, request=self.request._request)
 
     @action(detail=False, methods=["get"])
     def duplicates(self, request):
@@ -230,6 +239,7 @@ class CompanyViewSet(CrmViewSet):
                 open_deal_amount=Coalesce(Subquery(open_amount, output_field=money), zero),
                 won_deal_amount=Coalesce(Subquery(won_amount, output_field=money), zero),
                 next_activity_title=next_activity_title_subquery("company"),
+                is_favorite=favorites.is_favorite_annotation("company"),
             )
         )
 

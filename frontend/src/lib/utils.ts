@@ -17,10 +17,38 @@ export function initials(name: string | undefined | null, fallback = "?"): strin
   return (first + second).toUpperCase();
 }
 
+/** Date formats a workspace may choose in General settings (the backend accepts exactly these). */
+export const DATE_FORMATS = ["DD MMM YYYY", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] as const;
+export type DateFormat = (typeof DATE_FORMATS)[number];
+
+let workspaceDateFormat: DateFormat | null = null;
+
+/** Set by the app shell from the active organization; null keeps the viewer's locale format. */
+export function setWorkspaceDateFormat(format: string | null | undefined): void {
+  workspaceDateFormat = (DATE_FORMATS as readonly string[]).includes(format ?? "") ? (format as DateFormat) : null;
+}
+
+function datePart(date: Date, format: DateFormat): string {
+  const parts = new Intl.DateTimeFormat(undefined, { day: "2-digit", month: format === "DD MMM YYYY" ? "short" : "2-digit", year: "numeric" }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  const [d, m, y] = [get("day"), get("month"), get("year")];
+  switch (format) {
+    case "DD MMM YYYY":
+      return `${d} ${m} ${y}`;
+    case "DD/MM/YYYY":
+      return `${d}/${m}/${y}`;
+    case "MM/DD/YYYY":
+      return `${m}/${d}/${y}`;
+    case "YYYY-MM-DD":
+      return `${y}-${m}-${d}`;
+  }
+}
+
 export function formatDateTime(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "—";
   const date = typeof value === "number" ? new Date(value * (value < 1e12 ? 1000 : 1)) : new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
+  if (workspaceDateFormat) return `${datePart(date, workspaceDateFormat)}, ${new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(date)}`;
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
@@ -28,6 +56,7 @@ export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
+  if (workspaceDateFormat) return datePart(date, workspaceDateFormat);
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
 }
 

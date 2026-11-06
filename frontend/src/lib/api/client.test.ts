@@ -172,3 +172,26 @@ describe("CSRF bootstrap on a fresh browser", () => {
     expect(calls().map((c) => c.url)).toEqual([BOOTSTRAP, "/api/v1/contacts/"]);
   });
 });
+
+describe("an ended Workeasy360 access", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is reported to the registered handler, and still thrown to the caller", async () => {
+    const problem = { type: "workeasy360_access_ended", title: "Forbidden", status: 403, detail: "ended" };
+    vi.stubGlobal("fetch", vi.fn(async () => json(403, problem)));
+    const { client } = await load();
+    const seen: string[] = [];
+    client.setAccessEndedHandler((error) => seen.push(error.type));
+    await expect(client.apiFetch("/api/v1/contacts/")).rejects.toMatchObject({ status: 403 });
+    expect(seen).toEqual(["workeasy360_access_ended"]);
+  });
+
+  it("is not reported for any other refusal", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json(403, { type: "permission_denied", title: "Forbidden", status: 403 })));
+    const { client } = await load();
+    const seen: string[] = [];
+    client.setAccessEndedHandler((error) => seen.push(error.type));
+    await expect(client.apiFetch("/api/v1/contacts/")).rejects.toMatchObject({ status: 403 });
+    expect(seen).toEqual([]);
+  });
+});

@@ -7,6 +7,8 @@ a sales representative's dashboard counts only the records they could open, and 
 
 from __future__ import annotations
 
+import datetime as dt
+import re
 import uuid
 from datetime import timedelta
 from decimal import Decimal
@@ -24,7 +26,12 @@ from apps.pipelines.models import Pipeline
 
 PERIODS: dict[str, int] = {"7d": 7, "30d": 30, "90d": 90, "365d": 365}
 DEFAULT_PERIOD = "30d"
+# A calendar month ("2026-11") is also a period: the dashboard's month selector.
+MONTH_PERIOD = re.compile(r"^(20\d{2})-(0[1-9]|1[0-2])$")
 TREND_MONTHS = 6
+TREND_CHOICES = (3, 6, 12)
+TOP_TEAM = 5
+HIGH_PROBABILITY = 60
 FORECAST_MONTHS = 3
 TOP_COMPANIES = 5
 TOP_OWNERS = 8
@@ -61,7 +68,34 @@ def _months_forward(value, months: int):
     return value.replace(year=year, month=month)
 
 
-def _activity_summary(actor: Actor, *, since, now) -> dict[str, Any] | None:
+def is_period(value: str) -> bool:
+    if value in PERIODS:
+        return True
+    match = MONTH_PERIOD.match(value or "")
+    if not match:
+        return False
+    return (int(match.group(1)), int(match.group(2))) <= (timezone.now().year, timezone.now().month)
+
+
+def bounds(period: str, now: dt.datetime) -> tuple[dt.datetime, dt.datetime, dt.datetime]:
+    """(since, until, before): the window and the start of the same-length window just before it.
+
+    A month runs from its first day (in the server's time zone) to the next month's, or to now for the
+    current month; its comparison window is the whole previous month."""
+    match = MONTH_PERIOD.match(period)
+    if match:
+        local = timezone.localtime(now)
+        since = local.replace(
+            year=int(match.group(1)), month=int(match.group(2)), day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        until = min(_months_forward(since, 1), now)
+        return since, until, _months_back(since, 1)
+    days = PERIODS[period]
+    since = now - timedelta(days=days)
+    return since, now, since - timedelta(days=days)
+
+
+def _activity_summary(actor: Actor, *, since, now, until=None, before=None) -> dict[str, Any] | None:
     """Activity counters inside the actor's ``activities.view`` scope (None without the permission)."""
     from apps.activities.models import Activity
     from apps.activities.queries import OPEN_STATUSES
@@ -71,10 +105,34 @@ def _activity_summary(actor: Actor, *, since, now) -> dict[str, Any] | None:
         return None
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_end = today_start + timedelta(days=7)
+    until = until or now
+    before = before or since - (until - since)
+    window = Q(created_at__gte=since, created_at__lt=until)
+    previous = Q(created_at__gte=before, created_at__lt=since)
     agg = qs.aggregate(
-        tasks_completed=Count("id", filter=Q(kind="task", status="completed", completed_at__gte=since)),
-        meetings_completed=Count("id", filter=Q(kind="meeting", status="completed", completed_at__gte=since)),
-        calls_completed=Count("id", filter=Q(kind="call", status="completed", completed_at__gte=since)),
+        tasks_completed=Count(
+            "id", filter=Q(kind="task", status="completed", completed_at__gte=since, completed_at__lt=until)
+        ),
+        meetings_completed=Count(
+            "id", filter=Q(kind="meeting", status="completed", completed_at__gte=since, completed_at__lt=until)
+        ),
+        calls_completed=Count(
+            "id", filter=Q(kind="call", status="completed", completed_at__gte=since, completed_at__lt=until)
+        ),
+        overdue=Count("id", filter=Q(status__in=OPEN_STATUSES, start_at__lt=now)),
+        due_week=Count("id", filter=Q(status__in=OPEN_STATUSES, start_at__gte=now, start_at__lt=week_end)),
+        due_today=Count(
+            "id",
+            filter=Q(status__in=OPEN_STATUSES, start_at__gte=today_start, start_at__lt=today_start + timedelta(days=1)),
+        ),
+        logged=Count("id", filter=window),
+        logged_tasks=Count("id", filter=window & Q(kind="task")),
+        logged_calls=Count("id", filter=window & Q(kind="call")),
+        logged_meetings=Count("id", filter=window & Q(kind="meeting")),
+        prev_logged=Count("id", filter=previous),
+        prev_logged_tasks=Count("id", filter=previous & Q(kind="task")),
+        prev_logged_calls=Count("id", filter=previous & Q(kind="call")),
+        prev_logged_meetings=Count("id", filter=previous & Q(kind="meeting")),
         tasks_due=Count(
             "id", filter=Q(kind="task", status__in=OPEN_STATUSES, start_at__lt=today_start + timedelta(days=1))
         ),
@@ -101,37 +159,78 @@ def _lead_conversion(contacts: QuerySet, *, since) -> dict[str, Any]:
     return {"created": created, "converted": converted, "rate": rate}
 
 
-def summary(actor: Actor, *, period: str = DEFAULT_PERIOD, pipeline_id: uuid.UUID | None = None) -> dict[str, Any]:
+def summary(
+    actor: Actor,
+    *,
+    period: str = DEFAULT_PERIOD,
+    pipeline_id: uuid.UUID | None = None,
+    trend_months: int = TREND_MONTHS,
+) -> dict[str, Any]:
     """Cached per organization + member + permission scope (see ``apps.dashboards.cache``)."""
     from apps.dashboards import cache as dashboard_cache
 
     return dashboard_cache.get_or_compute(
         actor,
-        period=period,
+        period=f"{period}:t{trend_months}",
         pipeline_id=pipeline_id,
-        compute=lambda: compute_summary(actor, period=period, pipeline_id=pipeline_id),
+        compute=lambda: compute_summary(actor, period=period, pipeline_id=pipeline_id, trend_months=trend_months),
+    )
+
+
+def _growth(qs: QuerySet, *, since, until) -> dict[str, int]:
+    """How many exist at the end of the window, and how many existed when it started."""
+    return {"count": qs.filter(created_at__lt=until).count(), "previous": qs.filter(created_at__lt=since).count()}
+
+
+def _open_tickets(actor: Actor, *, since, until, before) -> dict[str, Any] | None:
+    from apps.helpdesk import services as helpdesk
+    from apps.helpdesk.models import Ticket
+
+    tickets = _scoped(actor, "tickets.view", Ticket.objects.all())
+    if tickets is None:
+        return None
+    hours = helpdesk.sla_hours(actor.organization)
+    return tickets.aggregate(
+        open=Count("id", filter=Q(status__in=helpdesk.ACTIVE_STATUSES)),
+        overdue=Count("id", filter=helpdesk.overdue_q(hours)),
+        created=Count("id", filter=Q(created_at__gte=since, created_at__lt=until)),
+        created_previous=Count("id", filter=Q(created_at__gte=before, created_at__lt=since)),
     )
 
 
 def compute_summary(
-    actor: Actor, *, period: str = DEFAULT_PERIOD, pipeline_id: uuid.UUID | None = None
+    actor: Actor,
+    *,
+    period: str = DEFAULT_PERIOD,
+    pipeline_id: uuid.UUID | None = None,
+    trend_months: int = TREND_MONTHS,
 ) -> dict[str, Any]:
-    days = PERIODS[period]
     now = timezone.now()
-    since = now - timedelta(days=days)
+    since, until, before = bounds(period, now)
     out: dict[str, Any] = {
         "period": period,
         "since": since,
-        "until": now,
+        "until": until,
         "currency": actor.organization.base_currency,
-        "activities": _activity_summary(actor, since=since, now=now),
+        "activities": _activity_summary(actor, since=since, now=now, until=until, before=before),
+        "tickets": _open_tickets(actor, since=since, until=until, before=before),
     }
 
+    from apps.companies.models import Company
+
     contacts = _scoped(actor, "contacts.view", Contact.objects.filter(archived_at__isnull=True))
-    out["contacts_created"] = None if contacts is None else contacts.filter(created_at__gte=since).count()
+    companies = _scoped(actor, "companies.view", Company.objects.filter(archived_at__isnull=True))
+    out["contacts_created"] = (
+        None if contacts is None else contacts.filter(created_at__gte=since, created_at__lt=until).count()
+    )
     out["lead_conversion"] = None if contacts is None else _lead_conversion(contacts, since=since)
+    out["totals"] = {
+        "contacts": None if contacts is None else _growth(contacts, since=since, until=until),
+        "companies": None if companies is None else _growth(companies, since=since, until=until),
+    }
 
     deals = _scoped(actor, "deals.view", Deal.objects.filter(archived_at__isnull=True))
+    out["totals"]["deals"] = None if deals is None else _growth(deals, since=since, until=until)
     if deals is None:
         for key in (
             "deals_won",
@@ -145,13 +244,22 @@ def compute_summary(
             "revenue_trend",
             "forecast",
             "top_companies",
+            "deals_created",
+            "previous",
+            "deals_by_source",
+            "top_team",
+            "deals_closing_week",
         ):
             out[key] = None
+        out["insights"] = _insights(actor, out, deals=None, now=now)
         return out
 
-    # One pass over the actor's deals with conditional aggregates instead of three scans.
-    won_q = Q(status=Deal.Status.WON, closed_at__gte=since)
-    lost_q = Q(status=Deal.Status.LOST, closed_at__gte=since)
+    # One pass over the actor's deals with conditional aggregates instead of three scans. The previous
+    # period (same length, just before) feeds the "vs previous" changes on the dashboard tiles.
+    won_q = Q(status=Deal.Status.WON, closed_at__gte=since, closed_at__lt=until)
+    lost_q = Q(status=Deal.Status.LOST, closed_at__gte=since, closed_at__lt=until)
+    prev_won_q = Q(status=Deal.Status.WON, closed_at__gte=before, closed_at__lt=since)
+    prev_lost_q = Q(status=Deal.Status.LOST, closed_at__gte=before, closed_at__lt=since)
     open_q = Q(status=Deal.Status.OPEN)
     weighted = ExpressionWrapper(F("amount_base") * F("probability") / Value(100), output_field=MONEY)
     agg = deals.aggregate(
@@ -162,6 +270,11 @@ def compute_summary(
         open_count=Count("id", filter=open_q),
         open_amount=Sum("amount_base", filter=open_q),
         weighted_amount=Sum(weighted, filter=open_q),
+        created_count=Count("id", filter=Q(created_at__gte=since, created_at__lt=until)),
+        prev_created_count=Count("id", filter=Q(created_at__gte=before, created_at__lt=since)),
+        prev_won_count=Count("id", filter=prev_won_q),
+        prev_won_amount=Sum("amount_base", filter=prev_won_q),
+        prev_lost_count=Count("id", filter=prev_lost_q),
     )
     out["deals_won"] = {"count": agg["won_count"], "amount": _money(agg["won_amount"])}
     out["deals_lost"] = {"count": agg["lost_count"], "amount": _money(agg["lost_amount"])}
@@ -170,6 +283,14 @@ def compute_summary(
     closed = agg["won_count"] + agg["lost_count"]
     out["win_rate"] = round(100 * agg["won_count"] / closed) if closed else None
     out["average_deal_size"] = _money(Decimal(agg["won_amount"] or 0) / agg["won_count"]) if agg["won_count"] else None
+    out["deals_created"] = agg["created_count"]
+    prev_closed = agg["prev_won_count"] + agg["prev_lost_count"]
+    out["previous"] = {
+        "since": before,
+        "deals_created": agg["prev_created_count"],
+        "deals_won": {"count": agg["prev_won_count"], "amount": _money(agg["prev_won_amount"])},
+        "win_rate": round(100 * agg["prev_won_count"] / prev_closed) if prev_closed else None,
+    }
 
     pipelines = Pipeline.objects.filter(archived_at__isnull=True)
     pipeline = pipelines.filter(pk=pipeline_id).first() if pipeline_id else None
@@ -200,18 +321,21 @@ def compute_summary(
             )
         out["deals_by_stage"] = {"pipeline": {"id": str(pipeline.pk), "name": pipeline.name}, "stages": stages}
 
-    trend_start = _months_back(_month_start(now), TREND_MONTHS - 1)
+    trend_end = _month_start(timezone.localtime(until - timedelta(microseconds=1)))
+    trend_start = _months_back(trend_end, trend_months - 1)
     by_month = {
         row["month"].date().isoformat()[:7]: row
-        for row in deals.filter(status=Deal.Status.WON, closed_at__gte=trend_start)
+        for row in deals.filter(
+            status=Deal.Status.WON, closed_at__gte=trend_start, closed_at__lt=_months_forward(trend_end, 1)
+        )
         .annotate(month=TruncMonth("closed_at"))
         .values("month")
         .annotate(count=Count("id"), amount=Sum("amount_base"))
         .order_by()
     }
     trend = []
-    for i in range(TREND_MONTHS):
-        month = _months_back(_month_start(now), TREND_MONTHS - 1 - i)
+    for i in range(trend_months):
+        month = _months_back(trend_end, trend_months - 1 - i)
         key = month.date().isoformat()[:7]
         row = by_month.get(key, {})
         trend.append({"month": key, "count": row.get("count", 0), "amount": _money(row.get("amount"))})
@@ -285,4 +409,62 @@ def compute_summary(
         }
         for row in top
     ]
+
+    # Deals by source: deals created in the window, by where they came from ("" = not recorded).
+    out["deals_by_source"] = [
+        {"source": row["lead_source"] or "", "count": row["n"]}
+        for row in deals.filter(created_at__gte=since, created_at__lt=until)
+        .values("lead_source")
+        .annotate(n=Count("id"))
+        .order_by("-n", "lead_source")
+    ]
+
+    # Top performing team: deals won in the window and the revenue they brought, per owner.
+    team = (
+        deals.filter(won_q, owner__isnull=False)
+        .values("owner_id", "owner__user__first_name", "owner__user__last_name", "owner__user__email")
+        .annotate(count=Count("id"), amount=Sum("amount_base"))
+        .order_by("-amount", "-count")[:TOP_TEAM]
+    )
+    out["top_team"] = [
+        {
+            "id": str(row["owner_id"]),
+            "name": f"{row['owner__user__first_name']} {row['owner__user__last_name']}".strip()
+            or (row["owner__user__email"] or "").split("@")[0],
+            "count": row["count"],
+            "amount": _money(row["amount"]),
+        }
+        for row in team
+    ]
+    today = timezone.localdate()
+    out["deals_closing_week"] = deals.filter(
+        status=Deal.Status.OPEN, expected_close_date__gte=today, expected_close_date__lte=today + timedelta(days=7)
+    ).count()
+    out["insights"] = _insights(actor, out, deals=deals, now=now)
     return out
+
+
+def _insights(actor: Actor, out: dict[str, Any], *, deals: QuerySet | None, now) -> list[dict[str, Any]]:
+    """Short, computed observations for the WorkEasy AI Insights card. Each is a count over data the
+    actor may already see; the client words them and links each to the filtered list."""
+    items: list[dict[str, Any]] = []
+    activities = out.get("activities")
+    if activities and activities.get("due_today"):
+        items.append({"key": "follow_ups_today", "count": activities["due_today"]})
+    if deals is not None:
+        soon = timezone.localdate() + timedelta(days=30)
+        close = deals.filter(
+            status=Deal.Status.OPEN, probability__gte=HIGH_PROBABILITY, expected_close_date__lte=soon
+        ).aggregate(n=Count("id"), amount=Sum("amount_base"))
+        if close["n"]:
+            items.append({"key": "deals_close_to_winning", "count": close["n"], "amount": _money(close["amount"])})
+        previous = (out.get("previous") or {}).get("win_rate")
+        if out.get("win_rate") is not None and previous is not None and out["win_rate"] != previous:
+            items.append({"key": "win_rate_change", "points": out["win_rate"] - previous, "current": out["win_rate"]})
+        idle = deals.filter(status=Deal.Status.OPEN, next_activity_at__isnull=True).count()
+        if idle:
+            items.append({"key": "deals_without_next_step", "count": idle})
+    tickets = out.get("tickets")
+    if tickets and tickets.get("overdue"):
+        items.append({"key": "tickets_overdue", "count": tickets["overdue"]})
+    return items[:4]

@@ -3,8 +3,7 @@ from __future__ import annotations
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.accounts.models import Invitation, Membership, Organization
-from apps.authz.roles import ROLE_ORDER
+from apps.accounts.models import DATE_FORMATS, Invitation, Membership, Organization
 
 
 class UserPublicSerializer(serializers.Serializer):
@@ -15,11 +14,33 @@ class UserPublicSerializer(serializers.Serializer):
 
 class OrganizationSerializer(serializers.ModelSerializer):
     require_mfa = serializers.BooleanField(read_only=True)
+    crm_name = serializers.CharField(read_only=True)
+    date_format = serializers.CharField(read_only=True)
+    logo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
-        fields = ["id", "name", "slug", "base_currency", "timezone", "plan", "status", "require_mfa", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "base_currency",
+            "timezone",
+            "plan",
+            "status",
+            "require_mfa",
+            "crm_name",
+            "date_format",
+            "logo_url",
+            "created_at",
+        ]
         read_only_fields = fields
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_logo_url(self, obj: Organization) -> str | None:
+        # The key changes with every upload, so its tail doubles as a cache-busting version.
+        key = obj.logo_key
+        return f"/api/v1/organizations/current/logo/?v={key[-12:]}" if key else None
 
 
 class OrganizationCreateSerializer(serializers.Serializer):
@@ -33,6 +54,8 @@ class OrganizationUpdateSerializer(serializers.Serializer):
     base_currency = serializers.CharField(max_length=3, required=False)
     timezone = serializers.CharField(max_length=64, required=False)
     require_mfa = serializers.BooleanField(required=False)
+    crm_name = serializers.CharField(max_length=60, required=False, allow_blank=True)
+    date_format = serializers.ChoiceField(choices=list(DATE_FORMATS), required=False)
 
 
 class RoleRefSerializer(serializers.Serializer):
@@ -53,6 +76,7 @@ class MembershipSerializer(serializers.ModelSerializer):
     display_status = serializers.SerializerMethodField()
     mfa_enabled = serializers.BooleanField(read_only=True, default=False)
     last_login = serializers.DateTimeField(source="user.last_login", read_only=True, allow_null=True)
+    hierarchy_role_id = serializers.UUIDField(read_only=True, allow_null=True)
 
     class Meta:
         model = Membership
@@ -60,6 +84,7 @@ class MembershipSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "role",
+            "hierarchy_role_id",
             "status",
             "display_status",
             "teams",
@@ -94,7 +119,8 @@ class MembershipSummarySerializer(serializers.ModelSerializer):
 
 
 class RoleChangeSerializer(serializers.Serializer):
-    role = serializers.ChoiceField(choices=[(k, k) for k in ROLE_ORDER])
+    # A system role key or a custom role's key; the service resolves and authorizes it.
+    role = serializers.SlugField(max_length=40)
 
 
 class SwitchOrganizationSerializer(serializers.Serializer):
@@ -134,7 +160,7 @@ class InvitationSerializer(serializers.ModelSerializer):
 
 class InvitationCreateSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
-    role = serializers.ChoiceField(choices=[(k, k) for k in ROLE_ORDER])
+    role = serializers.SlugField(max_length=40)
     name = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
     team_id = serializers.UUIDField(required=False, allow_null=True, default=None)
 

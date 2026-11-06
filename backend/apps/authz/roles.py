@@ -80,9 +80,12 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
             **{
                 p: SCOPE_ALL
                 for p in PERMISSIONS
-                if p.split(".")[0] in {"contacts", "companies", "deals", "activities", "notes", "files"}
+                if p.split(".")[0] in {"contacts", "companies", "deals", "activities", "notes", "files", "tickets"}
             },
             "pipelines.manage": SCOPE_ALL,
+            "pricebooks.manage": SCOPE_ALL,
+            "automation.view": SCOPE_ALL,
+            "views.share": SCOPE_ALL,
             "tags.manage": SCOPE_ALL,
             "dashboards.manage_own": SCOPE_ALL,
             "dashboards.manage_shared": SCOPE_ALL,
@@ -131,6 +134,9 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
             "email.send": SCOPE_ALL,
             "email.connect": SCOPE_ALL,
             "whatsapp.send": SCOPE_ALL,
+            "tickets.view": SCOPE_TEAM,
+            "tickets.create": SCOPE_ALL,
+            "tickets.update": SCOPE_OWN,
         },
     ),
     VIEWER: RoleDefinition(
@@ -144,6 +150,7 @@ SYSTEM_ROLES: dict[str, RoleDefinition] = {
             "deals.view": SCOPE_ALL,
             "activities.view": SCOPE_ALL,
             "reports.view": SCOPE_ALL,
+            "tickets.view": SCOPE_ALL,
         },
     ),
 }

@@ -38,6 +38,11 @@ export interface Organization {
   plan: string;
   status: string;
   require_mfa: boolean;
+  /** Product name for this workspace's sidebar; empty means "WorkEasy360". */
+  crm_name?: string;
+  date_format?: string;
+  /** Same-origin URL of the workspace logo, or null. */
+  logo_url?: string | null;
   created_at: string;
 }
 
@@ -60,6 +65,8 @@ export interface Session {
   user: UserPublic;
   mfa_enabled: boolean;
   recently_authenticated: boolean;
+  /** "workeasy360" when Workeasy360 signed this session in: MFA and re-authentication happen there. */
+  identity_provider?: "workeasy360" | null;
   memberships: SessionMembership[];
   active: ActiveContext | null;
 }
@@ -110,6 +117,8 @@ export interface UpdateOrganizationInput {
   base_currency?: string;
   timezone?: string;
   require_mfa?: boolean;
+  crm_name?: string;
+  date_format?: string;
 }
 
 export interface TeamMember {
@@ -147,7 +156,34 @@ export interface DashboardActivities {
   tasks_overdue: number;
   meetings_upcoming: number;
   calls_upcoming: number;
+  /** Every open activity past its time, and those due in the next 7 days or today. */
+  overdue?: number;
+  due_week?: number;
+  due_today?: number;
+  /** Activities logged in the period, and in the period before it. */
+  logged?: number;
+  logged_tasks?: number;
+  logged_calls?: number;
+  logged_meetings?: number;
+  prev_logged?: number;
+  prev_logged_tasks?: number;
+  prev_logged_calls?: number;
+  prev_logged_meetings?: number;
 }
+
+/** A count at the end of the period and when it started (for growth). */
+export interface DashboardGrowth {
+  count: number;
+  previous: number;
+}
+
+/** A computed observation for the AI Insights card; the client words it. */
+export type DashboardInsight =
+  | { key: "follow_ups_today"; count: number }
+  | { key: "deals_close_to_winning"; count: number; amount: string }
+  | { key: "win_rate_change"; points: number; current: number }
+  | { key: "deals_without_next_step"; count: number }
+  | { key: "tickets_overdue"; count: number };
 
 export interface DashboardLeadConversion {
   created: number;
@@ -173,7 +209,8 @@ export interface DashboardForecastMonth {
 }
 
 export interface DashboardSummary {
-  period: DashboardPeriod;
+  /** A preset ("30d") or a month ("2026-11"). */
+  period: string;
   since: string;
   until: string;
   currency: string;
@@ -196,6 +233,18 @@ export interface DashboardSummary {
   /** Next three months by expected close date. */
   forecast: DashboardForecastMonth[] | null;
   top_companies: { id: string; name: string; count: number; amount: string }[] | null;
+  /** Deals created in the period. */
+  deals_created?: number | null;
+  /** The same-length period just before ``since``, for "vs previous" changes. */
+  previous?: { since: string; deals_created: number; deals_won: DashboardMoney; win_rate: number | null } | null;
+  totals?: { contacts: DashboardGrowth | null; companies: DashboardGrowth | null; deals: DashboardGrowth | null };
+  tickets?: { open: number; overdue: number; created: number; created_previous: number } | null;
+  /** Deals created in the period by lead source ("" = not recorded). */
+  deals_by_source?: { source: string; count: number }[] | null;
+  /** Deals won in the period per owner, highest revenue first. */
+  top_team?: { id: string; name: string; count: number; amount: string }[] | null;
+  deals_closing_week?: number | null;
+  insights?: DashboardInsight[];
 }
 
 export interface AuditEventFilters {

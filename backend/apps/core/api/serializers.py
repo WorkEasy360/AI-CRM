@@ -63,6 +63,12 @@ class CrmReadSerializer(serializers.ModelSerializer):
     tags = serializers.SerializerMethodField()
     custom_data = serializers.SerializerMethodField()
 
+    def to_representation(self, instance: Any) -> dict[str, Any]:
+        from apps.authz import fields as field_rules
+
+        # Field-level permissions: hidden fields never leave the server for this actor.
+        return field_rules.mask(self.context.get("actor"), self.entity_type, super().to_representation(instance))
+
     def get_tags(self, obj: Any) -> Any:
         tags_map = self.context.get("tags_map")
         if tags_map is None:

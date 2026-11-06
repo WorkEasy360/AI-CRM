@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2 } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { AuthHeading } from "@/components/auth/auth-heading";
 import { Badge, roleBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -169,7 +170,7 @@ function CreateAccountForm({
   if (accountExists) {
     return (
       <div className="grid gap-3">
-        <FormError message={`${invitation.email} already has a Keel account. Sign in to accept the invitation.`} />
+        <FormError message={`${invitation.email} already has a WorkEasy CRM account. Sign in to accept the invitation.`} />
         <Button asChild className="w-full">
           <Link href={signInHref}>Sign in to accept</Link>
         </Button>
@@ -200,7 +201,7 @@ function CreateAccountForm({
         Create account and join
       </Button>
       <p className="text-center text-sm text-fg-muted">
-        Already have a Keel account?{" "}
+        Already have a WorkEasy CRM account?{" "}
         <Link href={signInHref} className="font-medium text-primary hover:underline">
           Sign in
         </Link>

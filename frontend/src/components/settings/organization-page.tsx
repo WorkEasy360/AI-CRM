@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +17,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
-import { getCurrentOrganization, updateCurrentOrganization } from "@/lib/api/endpoints";
+import { getCurrentOrganization, removeOrganizationLogo, updateCurrentOrganization, uploadOrganizationLogo } from "@/lib/api/endpoints";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import type { Organization } from "@/lib/api/types";
 import { CURRENCIES, timezoneOptions } from "@/lib/reference-data";
 import { hasPermission, queryKeys, useSession } from "@/lib/session";
-import { formatDate } from "@/lib/utils";
+import { DATE_FORMATS, formatDate } from "@/lib/utils";
 import { organizationNameSchema } from "@/lib/validation";
 import { OrganizationsCard } from "@/components/settings/organizations-card";
 
@@ -30,8 +31,25 @@ const schema = z.object({
   base_currency: z.string().length(3, "Choose a currency."),
   timezone: z.string().min(1, "Choose a time zone."),
   require_mfa: z.boolean(),
+  crm_name: z.string().trim().max(60, "Use at most 60 characters."),
+  date_format: z.enum(DATE_FORMATS),
 });
 type Input_ = z.infer<typeof schema>;
+
+const LOGO_SRC = "/brand/logo.png";
+
+/** What each format looks like, shown beside the option. */
+const FORMAT_EXAMPLE: Record<(typeof DATE_FORMATS)[number], string> = {
+  "DD MMM YYYY": "05 Nov 2026",
+  "DD/MM/YYYY": "05/11/2026",
+  "MM/DD/YYYY": "11/05/2026",
+  "YYYY-MM-DD": "2026-11-05",
+};
+
+function formValues(org: Organization): Input_ {
+  const format = (DATE_FORMATS as readonly string[]).includes(org.date_format ?? "") ? (org.date_format as Input_["date_format"]) : "DD MMM YYYY";
+  return { name: org.name, base_currency: org.base_currency, timezone: org.timezone, require_mfa: Boolean(org.require_mfa), crm_name: org.crm_name ?? "", date_format: format };
+}
 
 export function OrganizationPage() {
   const { data: session } = useSession();
@@ -51,19 +69,12 @@ export function OrganizationPage() {
 
   const form = useForm<Input_>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", base_currency: "USD", timezone: "UTC", require_mfa: false },
+    defaultValues: { name: "", base_currency: "USD", timezone: "UTC", require_mfa: false, crm_name: "", date_format: "DD MMM YYYY" },
   });
 
   const loaded = org.data as Organization | undefined;
   React.useEffect(() => {
-    if (loaded) {
-      form.reset({
-        name: loaded.name,
-        base_currency: loaded.base_currency,
-        timezone: loaded.timezone,
-        require_mfa: Boolean(loaded.require_mfa),
-      });
-    }
+    if (loaded) form.reset(formValues(loaded));
   }, [loaded, form]);
 
   const mutation = useMutation({
@@ -95,7 +106,7 @@ export function OrganizationPage() {
 
   return (
     <div className="max-w-2xl">
-      <PageHeader title="General" description="Name, defaults and security policy for this organization." />
+      <PageHeader title="General Settings" description="Manage your CRM basics and business details." />
 
       {org.isPending && !loaded ? (
         <SkeletonRows rows={4} />
@@ -135,9 +146,14 @@ export function OrganizationPage() {
                 </p>
               ) : null}
               <FormError message={fieldErrors.non_field_errors} />
-              <FormField control={form.control} name="name" label="Organization name" serverError={fieldErrors.name}>
-                {(field) => <Input {...field} disabled={!canUpdate} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
-              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField control={form.control} name="name" label="Company name" serverError={fieldErrors.name}>
+                  {(field) => <Input {...field} disabled={!canUpdate} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+                </FormField>
+                <FormField control={form.control} name="crm_name" label="CRM name" serverError={fieldErrors.crm_name} description="Shown at the top of the sidebar.">
+                  {(field) => <Input {...field} disabled={!canUpdate} value={field.value} placeholder="WorkEasy360" maxLength={60} onChange={(e) => field.onChange(e.target.value)} />}
+                </FormField>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField control={form.control} name="base_currency" label="Base currency" serverError={fieldErrors.base_currency}>
                   {(field) => (
@@ -171,6 +187,22 @@ export function OrganizationPage() {
                     </Select>
                   )}
                 </FormField>
+                <FormField control={form.control} name="date_format" label="Date format" serverError={fieldErrors.date_format}>
+                  {(field) => (
+                    <Select value={field.value} onValueChange={field.onChange} disabled={!canUpdate}>
+                      <SelectTrigger id={field.id} aria-invalid={field["aria-invalid"]} aria-describedby={field["aria-describedby"]}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DATE_FORMATS.map((f) => (
+                          <SelectItem key={f} value={f}>
+                            {f} (e.g. {FORMAT_EXAMPLE[f]})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </FormField>
               </div>
               <FormField
                 control={form.control}
@@ -190,7 +222,7 @@ export function OrganizationPage() {
             </CardContent>
             {canUpdate ? (
               <CardFooter className="justify-end">
-                <Button type="button" variant="secondary" onClick={() => loaded && form.reset({ ...loaded, require_mfa: Boolean(loaded.require_mfa) })} disabled={!form.formState.isDirty}>
+                <Button type="button" variant="secondary" onClick={() => loaded && form.reset(formValues(loaded))} disabled={!form.formState.isDirty}>
                   Reset
                 </Button>
                 <Button type="submit" loading={mutation.isPending} disabled={!form.formState.isDirty}>
@@ -201,7 +233,72 @@ export function OrganizationPage() {
           </Card>
         </form>
       )}
+      {loaded ? <LogoCard org={loaded} canUpdate={canUpdate} /> : null}
       <OrganizationsCard />
     </div>
+  );
+}
+
+/** Workspace logo for the sidebar: PNG, JPEG or WebP up to 512 KB; the server checks the bytes. */
+function LogoCard({ org, canUpdate }: { org: Organization; canUpdate: boolean }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { runSensitive } = useReauth();
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const done = async (title: string) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.organization }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.session }),
+    ]);
+    toast({ tone: "success", title });
+  };
+  const fail = (err: unknown) => {
+    if (!isReauthCancelled(err)) toast({ tone: "error", title: "Could not change the logo", description: errorMessage(err) });
+  };
+  const upload = useMutation({ mutationFn: (file: File) => runSensitive(() => uploadOrganizationLogo(file)), onSuccess: () => done("Logo updated"), onError: fail });
+  const remove = useMutation({ mutationFn: () => runSensitive(() => removeOrganizationLogo()), onSuccess: () => done("Logo removed"), onError: fail });
+
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle>Logo</CardTitle>
+        <CardDescription>Shown in the sidebar for everyone in this workspace. PNG, JPEG or WebP, up to 512 KB.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center gap-4">
+        <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a same-origin image behind the session, not optimisable */}
+          <img src={org.logo_url ?? LOGO_SRC} alt={org.logo_url ? `${org.name} logo` : "Default logo"} className={org.logo_url ? "size-full object-contain" : "size-10 object-contain"} />
+        </span>
+        {canUpdate ? (
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="sr-only"
+              aria-label="Choose a logo image"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                if (file.size > 512 * 1024) {
+                  toast({ tone: "error", title: "That image is too large", description: "Choose an image of at most 512 KB." });
+                  return;
+                }
+                upload.mutate(file);
+              }}
+            />
+            <Button type="button" variant="secondary" size="sm" loading={upload.isPending} onClick={() => inputRef.current?.click()}>
+              Upload logo
+            </Button>
+            {org.logo_url ? (
+              <Button type="button" variant="ghost" size="sm" loading={remove.isPending} onClick={() => remove.mutate()}>
+                Remove
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

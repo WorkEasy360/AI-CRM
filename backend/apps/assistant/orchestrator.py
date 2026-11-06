@@ -35,7 +35,7 @@ from apps.ai import budgets
 from apps.ai.providers.base import LLMError, LLMRequest
 from apps.ai.providers.router import AllProvidersUnavailableError
 from apps.ai.providers.router import complete as route_complete
-from apps.assistant import crm_tools, fallback, memory, prompts
+from apps.assistant import actions, crm_tools, fallback, memory, prompts
 from apps.assistant import intent as intent_module
 from apps.assistant.crm_tools import ToolResult
 from apps.audit import service as audit
@@ -74,51 +74,83 @@ def _phase(timings: dict[str, int], name: str) -> Iterator[None]:
         timings[name] = int((time.monotonic() - started) * 1000)
 
 
-def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: Any = None) -> dict[str, Any]:
-    """Answer one question. Never raises for "AI is unavailable" -- that is a supported mode."""
+def ask(
+    actor: Actor, question: str, *, conversation_id: Any = None, page: str = "", request: Any = None
+) -> dict[str, Any]:
+    """Answer one question. Never raises for "AI is unavailable" -- that is a supported mode.
+
+    ``page`` is the route the user is looking at. It only steers *which help article* answers a
+    question like "how do I add one here?"; it grants nothing and is never used for authorization.
+    """
     check(actor, "ai.assistant.use")
     question = (question or "").strip()[:MAX_QUESTION_CHARS]
+    page = _clean_page(page)
     started = time.monotonic()
     timings: dict[str, int] = {}
 
     with _phase(timings, "memory_ms"):
         history = memory.load(actor, conversation_id)
     parsed = intent_module.classify(question)
-    with _phase(timings, "structured_ms"):
-        records = _resolve_focus(actor, parsed, history)
-        tools = _run_tools(actor, parsed, records)
-    with _phase(timings, "rag_ms"):
-        chunks, retrieval_ok = _retrieve(actor, parsed, records, history)
 
-    reason = _generative_reason(actor)
-    if reason:
-        timings["provider_ms"] = 0
-        payload = fallback.build(
-            question=question,
-            intent=parsed,
-            tools=tools,
-            chunks=chunks,
-            reason=reason,
-            degraded_retrieval=not retrieval_ok,
-        )
-        model_used, level = "", ""
+    routed = _route_special(actor, parsed, question=question, page=page, history=history, timings=timings)
+    if routed is not None:
+        payload, model_used, level, records = routed
+        chunks: list[Any] = []
+        tools = ToolResult(answer_type=payload["answer_type"])
     else:
-        with _phase(timings, "provider_ms"):
-            payload, model_used, level = _generate(
-                actor, question=question, parsed=parsed, tools=tools, chunks=chunks, history=history, request=request
+        with _phase(timings, "structured_ms"):
+            records = _resolve_focus(actor, parsed, history)
+            tools = _run_tools(actor, parsed, records)
+        with _phase(timings, "rag_ms"):
+            chunks, retrieval_ok = _retrieve(actor, parsed, records, history)
+
+        reason = _generative_reason(actor)
+        if reason:
+            timings["provider_ms"] = 0
+            payload = fallback.build(
+                question=question,
+                intent=parsed,
+                tools=tools,
+                chunks=chunks,
+                reason=reason,
+                degraded_retrieval=not retrieval_ok,
             )
-        payload["degraded_retrieval"] = not retrieval_ok
+            model_used, level = "", ""
+        else:
+            with _phase(timings, "provider_ms"):
+                payload, model_used, level = _generate(
+                    actor,
+                    question=question,
+                    parsed=parsed,
+                    tools=tools,
+                    chunks=chunks,
+                    history=history,
+                    request=request,
+                )
+            payload["degraded_retrieval"] = not retrieval_ok
+        payload["sources"] = _sources(tools, chunks, records)
+        payload["suggestions"] = _suggestions(parsed, records)
 
     payload["intent"] = parsed.name
-    payload["sources"] = _sources(tools, chunks, records)
-    payload["suggestions"] = _suggestions(parsed, records)
+    payload.setdefault("sources", [])
+    payload.setdefault("suggestions", [])
     payload["question"] = question
     payload["knowledge_search_only"] = payload["mode"] == MODE_RETRIEVAL
 
-    conversation = _persist(
-        actor, question=question, parsed=parsed, payload=payload, history=history, tools=tools, model=model_used
+    help_payload = payload.get("help") or {}
+    help_slug = (help_payload.get("article") or {}).get("id", "") if help_payload else ""
+    conversation, turn = _persist(
+        actor,
+        question=question,
+        parsed=parsed,
+        payload=payload,
+        history=history,
+        tools=tools,
+        model=model_used,
+        help_article=help_slug,
     )
     payload["conversation_id"] = str(conversation.pk)
+    payload["turn_id"] = str(turn.pk)
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
     timings["total_ms"] = elapsed_ms
@@ -163,6 +195,7 @@ def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: An
             "model": model_used,
             "records": len(records),
             "chunks": len(chunks),
+            "help_article": help_slug,
             "latency_ms": elapsed_ms,
             "structured_ms": timings.get("structured_ms"),
             "rag_ms": timings.get("rag_ms"),
@@ -171,6 +204,108 @@ def ask(actor: Actor, question: str, *, conversation_id: Any = None, request: An
         },
     )
     return payload
+
+
+# --------------------------------------------------------------------------- help, actions, scope
+
+_PAGE = re.compile(r"^/[A-Za-z0-9/_\-]{0,199}$")
+# A general question this close to a help article is a help question even without "how do I".
+HELP_TAKEOVER_COVERAGE = 0.75
+
+
+def _clean_page(page: Any) -> str:
+    text = str(page or "").split("?", 1)[0].split("#", 1)[0].strip()
+    return text if _PAGE.match(text) else ""
+
+
+def _route_special(
+    actor: Actor, parsed: Any, *, question: str, page: str, history: memory.History, timings: dict[str, int]
+) -> tuple[dict[str, Any], str, str, list[tuple[str, Any]]] | None:
+    """Help, action and out-of-scope answers. ``None`` hands the question to the CRM data path."""
+    from apps.helpkb import search as help_search
+
+    name = parsed.name
+    if name == intent_module.OUT_OF_SCOPE:
+        return _out_of_scope(actor, page), "", "", []
+    if name == intent_module.ACTION_REQUEST:
+        with _phase(timings, "structured_ms"):
+            records = crm_tools.resolve_records(actor, parsed.entity_hints) if parsed.entity_hints else []
+        return actions.propose(actor, parsed, records), "", "", records
+    if name not in {intent_module.HOW_TO, intent_module.GENERAL_CRM_QUESTION}:
+        return None
+    with _phase(timings, "help_ms"):
+        result = help_search.search(actor, question, page=page)
+    if name == intent_module.GENERAL_CRM_QUESTION:
+        best = result.best
+        if not (result.confident and best and best.coverage >= HELP_TAKEOVER_COVERAGE and not parsed.entity_hints):
+            return None
+    with _phase(timings, "provider_ms"):
+        return (*_help_answer(actor, question, result, page=page), [])
+
+
+def _help_answer(actor: Actor, question: str, result: Any, *, page: str) -> tuple[dict[str, Any], str, str]:
+    from apps.helpkb import answer as help_answer
+    from apps.helpkb import search as help_search
+
+    if result.confident:
+        reason = _generative_reason(actor)
+        body, model_used, level, flagged = help_answer.build(actor, question, result, page=page, reason=reason)
+    else:
+        suggestions = [
+            {"id": m.slug, "title": m.article.title, "question": m.article.question} for m in result.matches[:3]
+        ] or [
+            {"id": s["id"], "title": "", "question": s["question"]}
+            for s in help_search.suggestions_for_page(actor, page)
+        ]
+        body = help_answer.not_found_payload(question, page=page, suggestions=suggestions)
+        model_used, level, flagged, reason = "", "", False, ""
+    if not model_used or model_used == help_answer.KB_MODEL:
+        # Answered from the guide alone: no tokens, but still counted under Usage & Limits.
+        budgets.record_usage(actor, feature="help", model=help_answer.KB_MODEL, input_tokens=0, output_tokens=0)
+    article = body.get("article") or {}
+    payload = {
+        "answer_type": "help",
+        "mode": MODE_AI if body.get("text") else MODE_RETRIEVAL,
+        "headline": body.get("summary") or "",
+        "facts": [],
+        "analysis": "",
+        "recommendation": "",
+        "sections": [],
+        "notice": help_answer.notice_for(body, reason),
+        "flagged_input": flagged,
+        "help": body,
+        "suggestions": [item["question"] for item in body.get("related", []) if item.get("question")][:3],
+        "sources": (
+            [
+                {
+                    "type": "help",
+                    "id": article["id"],
+                    "title": article["title"],
+                    "subtitle": article["module"],
+                    "occurred_at": None,
+                    "href": f"/help/{article['id']}",
+                }
+            ]
+            if article
+            else []
+        ),
+    }
+    return payload, model_used, level
+
+
+def _out_of_scope(actor: Actor, page: str) -> dict[str, Any]:
+    return {
+        "answer_type": "out_of_scope",
+        "mode": MODE_RETRIEVAL,
+        "headline": "I can only help with WorkEasy360 CRM.",
+        "facts": [],
+        "analysis": "Ask me how to use a feature, or about your own customers, deals and activities.",
+        "recommendation": "",
+        "sections": [],
+        "notice": "",
+        "flagged_input": False,
+        "suggestions": suggestions_for(actor)[:3],
+    }
 
 
 # --------------------------------------------------------------------------- pipeline steps
@@ -395,7 +530,8 @@ def _persist(
     history: memory.History,
     tools: ToolResult,
     model: str = "",
-) -> Any:
+    help_article: str = "",
+) -> tuple[Any, Any]:
     conversation = history.conversation or memory.start(actor, question=question)
     answer_text = "\n".join(
         part
@@ -403,7 +539,7 @@ def _persist(
         if part
     )
     focus: tuple[str, uuid.UUID] | None = tools.focus[0] if tools.focus else None
-    memory.record(
+    turn = memory.record(
         conversation,
         question=question,
         answer=answer_text,
@@ -414,8 +550,9 @@ def _persist(
         model=model,
         flagged_input=bool(payload.get("flagged_input")),
         focus=focus,
+        help_article=help_article,
     )
-    return conversation
+    return conversation, turn
 
 
 def suggestions_for(actor: Actor) -> list[str]:

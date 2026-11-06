@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { CustomFieldsForm, useCustomFields } from "@/components/crm/custom-fields-form";
 import { OwnerSelect } from "@/components/crm/owner-select";
 import { isVersionConflict, useInvalidateRecord } from "@/components/crm/use-record-mutations";
@@ -13,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FormError, FormField } from "@/components/ui/form-field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { createProduct, getProduct, updateProduct } from "@/lib/api/crm";
 import type { CustomData, Product, ProductInput } from "@/lib/api/crm-types";
@@ -42,6 +44,7 @@ const schema = z.object({
     .refine((v) => v === "" || (/^\d{1,3}(\.\d{1,2})?$/.test(v) && Number(v) <= 100), "Tax rate must be between 0 and 100."),
   tax_label: z.string().trim().max(40, "Tax label is too long."),
   status: z.enum(["active", "inactive"]),
+  in_stock: z.boolean(),
   description: z.string().max(5000, "Description is too long."),
   owner_id: z.string(),
 });
@@ -56,6 +59,7 @@ function defaults(product: Product | null, membershipId: string | undefined, bas
     tax_rate: product?.tax_rate ?? "",
     tax_label: product?.tax_label ?? "",
     status: product?.status ?? "active",
+    in_stock: product?.in_stock ?? true,
     description: product?.description ?? "",
     owner_id: product?.owner?.id ?? membershipId ?? "",
   };
@@ -67,6 +71,7 @@ function toPayload(values: FormValues, customData: CustomData, includeOwner: boo
     sku: values.sku,
     tax_label: values.tax_label,
     status: values.status,
+    in_stock: values.in_stock,
     description: values.description,
     custom_data: customData,
   };
@@ -247,6 +252,20 @@ export function ProductFormDialog({
             </FormField>
             <FormField control={form.control} name="tax_label" label="Tax label" description="Shown next to the rate, e.g. VAT or GST." serverError={fieldErrors.tax_label}>
               {(field) => <Input {...field} maxLength={40} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
+            </FormField>
+            <FormField control={form.control} name="in_stock" label="Stock" description="Off when this item can't be sold right now." serverError={fieldErrors.in_stock}>
+              {(field) => (
+                <div className="flex h-9 items-center gap-2">
+                  <Switch
+                    id={field.id}
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    aria-invalid={field["aria-invalid"]}
+                    aria-describedby={field["aria-describedby"]}
+                  />
+                  <span className="text-sm text-fg-muted">{field.value ? "In stock" : "Out of stock"}</span>
+                </div>
+              )}
             </FormField>
             {reassign ? (
               <FormField control={form.control} name="owner_id" label="Owner" serverError={fieldErrors.owner_id}>

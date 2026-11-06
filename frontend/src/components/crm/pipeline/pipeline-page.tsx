@@ -3,25 +3,40 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { KanbanSquare, List, Plus, Search, Settings2, X } from "lucide-react";
+import { BarChart3, CalendarRange, CornerDownRight, Filter, IndianRupee, KanbanSquare, LayoutGrid, LineChart, List, Lock, Plus, Search, Settings2, Target, Trophy, X } from "lucide-react";
 import { DealsList } from "@/components/crm/pipeline/deals-list";
+import { DealDetailsPanel } from "@/components/crm/pipeline/deal-details-panel";
 import { KanbanBoard, type BoardSort } from "@/components/crm/pipeline/kanban-board";
+import { PipelineAnalyticsView } from "@/components/crm/pipeline/pipeline-analytics";
+import { KpiTile, percentChange, pointChange, type KpiChange } from "@/components/dashboard/stat-tile";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
-import { getBoard, getCompany, getContact, listPipelines } from "@/lib/api/crm";
-import type { ListParams, Pipeline } from "@/lib/api/crm-types";
+import { getBoard, getCompany, getContact, listPipelines, listProducts } from "@/lib/api/crm";
+import { DEAL_SOURCES, DEAL_SOURCE_LABELS, type ListParams, type Pipeline } from "@/lib/api/crm-types";
+import { listMembers } from "@/lib/api/endpoints";
+import { getPipelineStats, pipelineKeys } from "@/lib/api/pipeline-analytics";
 import { errorMessage } from "@/lib/api/problem";
 import { formatMoney } from "@/lib/crm/format";
 import { crmKeys } from "@/lib/crm/keys";
 import { can } from "@/lib/crm/permissions";
 import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
 import { useDebounced, useListParams } from "@/lib/crm/use-list-params";
-import { useSession } from "@/lib/session";
+import { queryKeys, useSession } from "@/lib/session";
+import { useCursorList } from "@/lib/use-cursor-list";
 import { cn } from "@/lib/utils";
+import { orderFamilies } from "@/lib/crm/pipelines";
+import { VIEW_KEYS, columnsOf, filterParams, viewKindOf } from "@/lib/views";
+import { ViewBar } from "@/components/views/view-bar";
+
+const SheetView = dynamic(() => import("@/components/views/sheet-view").then((m) => m.SheetView), { ssr: false });
+const RecordCalendar = dynamic(() => import("@/components/views/record-calendar").then((m) => m.RecordCalendar), { ssr: false });
+const RecordChart = dynamic(() => import("@/components/views/record-chart").then((m) => m.RecordChart), { ssr: false });
+const ForecastPage = dynamic(() => import("@/components/forecast/forecast-page").then((m) => m.ForecastPage), { ssr: false });
 
 // The new-deal form is a click away, not part of the board: it is imported lazily and mounted only
 // while it is open. `useWarmRecordForm` loads it, and the deal custom fields it renders, ahead of the
@@ -30,8 +45,13 @@ const importDealForm = () => import("@/components/crm/deals/deal-form-dialog");
 const DealFormDialog = dynamic(() => importDealForm().then((m) => m.DealFormDialog), { ssr: false });
 
 const ALL = "__all__";
-const URL_KEYS = ["pipeline", "view", "new", "company", "contact", "q", "owner", "status", "stage", "sort", "archived"] as const;
-const BOARD_KEYS = ["q", "owner", "status"] as const;
+const URL_KEYS = ["pipeline", "new", "company", "contact", "q", "owner", "status", "stage", "sort", "archived", "tab", "lead_source", "product", "deal", "into", ...VIEW_KEYS] as const;
+/** Cards per column on the first board load; the rest page in as a column is scrolled. */
+const BOARD_PER_STAGE = 200;
+const BOARD_KEYS = ["q", "owner", "status", "lead_source", "product"] as const;
+/** Filters that also narrow the KPI row and Analytics (not status: a won/lost filter would empty the win rate). */
+const STATS_KEYS = ["q", "owner", "lead_source", "product"] as const;
+type PageTab = "kanban" | "list" | "forecast" | "analytics";
 
 const BOARD_SORTS: { value: BoardSort; label: string }[] = [
   { value: "recent", label: "Recently moved" },
@@ -58,7 +78,8 @@ export function PipelinePage() {
   const showRisk = can(active, "ai.scores.view");
 
   const { params, setParam, setParams, clear } = useListParams(URL_KEYS);
-  const view = params.view === "list" ? "list" : "board";
+  const kind = viewKindOf(params.view, "kanban");
+  const view = kind === "kanban" ? "board" : kind;
   const newOpen = params.new === "1";
 
   // `?new=1&company=<id>&contact=<id>` (from the record pages' quick actions) prefills the new-deal form.
@@ -105,28 +126,47 @@ export function PipelinePage() {
   // the API picks the default pipeline exactly as `selectedPipeline` does below.
   const board = useQuery({
     queryKey: crmKeys.board(params.pipeline, boardParams),
-    queryFn: () => getBoard(params.pipeline, boardParams),
+    queryFn: () => getBoard(params.pipeline, boardParams, BOARD_PER_STAGE),
     enabled: view === "board",
     placeholderData: (prev) => prev,
   });
 
+  const statsParams = React.useMemo<ListParams>(() => {
+    const out: ListParams = {};
+    for (const key of STATS_KEYS) if (params[key]) out[key] = params[key];
+    return out;
+  }, [params]);
+  const stats = useQuery({
+    queryKey: pipelineKeys.stats(params.pipeline, statsParams),
+    queryFn: () => getPipelineStats(params.pipeline, statsParams),
+    placeholderData: (prev) => prev,
+    staleTime: 30_000,
+  });
+  const pageTab: PageTab = params.tab === "forecast" || params.tab === "analytics" ? params.tab : view === "list" ? "list" : "kanban";
+  const stageTargets = React.useMemo(() => (board.data?.stages ?? []).map((s) => ({ id: s.id, name: s.name, kind: s.kind })), [board.data]);
+
   const summary = React.useMemo(() => {
     if (!board.data) return null;
     let open = 0;
-    let openAmount = 0;
     let total = 0;
     for (const stage of board.data.stages) {
       total += stage.deal_count;
-      if (stage.kind === "open") {
-        open += stage.deal_count;
-        openAmount += Number(stage.total_amount_base || 0);
-      }
+      if (stage.kind === "open") open += stage.deal_count;
     }
-    return { open, openAmount, total };
+    // Totals come from the server: computed over every deal in scope, hidden with the amount field.
+    const totals = board.data.totals;
+    return { open, total, openAmount: totals?.open_amount_base ?? null, weighted: totals?.weighted_forecast_base ?? null };
   }, [board.data]);
+  // Filters for the generic views: the board/list filters plus the selected pipeline (a deal filter).
+  const viewFilters = React.useMemo<ListParams>(
+    () => ({ ...filterParams(params, ["pipeline"]), ...(pipelineId ? { pipeline: pipelineId } : {}), company: undefined, contact: undefined }),
+    [params, pipelineId],
+  );
 
   const warmForm = useWarmRecordForm("deal", importDealForm);
-  const setNewOpen = (open: boolean) => (open ? setParam("new", "1") : setParams({ new: undefined, company: undefined, contact: undefined }));
+  const setNewOpen = (open: boolean) => (open ? setParam("new", "1") : setParams({ new: undefined, company: undefined, contact: undefined, into: undefined }));
+  const selectTab = (tab: PageTab) =>
+    setParams(tab === "forecast" || tab === "analytics" ? { tab } : { tab: undefined, view: tab === "list" ? "list" : undefined });
   const selectPipeline = (id: string) => setParams({ pipeline: id, stage: undefined });
   const listFilterCount = Object.keys(params).filter((k) => ["status", "stage", "archived", "owner"].includes(k) || k.startsWith("custom.")).length;
   const showPanel = pipelineList.length > 1 || canManagePipelines;
@@ -138,48 +178,75 @@ export function PipelinePage() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <div className="min-w-0">
-            {pipelines.isPending ? (
-              <Skeleton className="h-6 w-40" />
-            ) : (
-              <h1 className="truncate text-lg font-semibold tracking-tight text-fg">{selectedPipeline?.name ?? "Pipeline"}</h1>
-            )}
-            {summary ? (
-              <p className="text-xs text-fg-muted" aria-live="polite">
-                {summary.open} open {summary.open === 1 ? "deal" : "deals"} · {formatMoney(summary.openAmount, baseCurrency)}
-                {summary.total !== summary.open ? ` · ${summary.total} shown` : ""}
-              </p>
-            ) : null}
+        <PageHeader icon={Filter} title="Pipeline – Leads & Deals" description="Track, manage and close your leads with a visual sales pipeline." className="mb-3" />
+        <PipelineKpis stats={stats.data} baseCurrency={baseCurrency} />
+        {summary ? (
+          <p className="sr-only" aria-live="polite">
+            {summary.open} open {summary.open === 1 ? "deal" : "deals"}
+            {summary.openAmount !== null ? ` · ${formatMoney(summary.openAmount, baseCurrency)}` : ""}
+          </p>
+        ) : null}
+
+        <div className="mb-3 mt-4 flex flex-wrap items-center gap-2">
+          <div role="tablist" aria-label="Pipeline views" className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-surface p-1 shadow-sm">
+            {(
+              [
+                ["kanban", "Kanban View", LayoutGrid],
+                ["list", "List View", List],
+                ["forecast", "Forecast", LineChart],
+                ["analytics", "Analytics", BarChart3],
+              ] as const
+            ).map(([value, label, Icon]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={pageTab === value}
+                onClick={() => selectTab(value)}
+                className={cn("inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors", pageTab === value ? "bg-brand text-brand-fg shadow-sm" : "text-fg hover:bg-bg-subtle")}
+              >
+                <Icon className="size-4" aria-hidden />
+                {label}
+              </button>
+            ))}
           </div>
-          {pipelineList.length > 1 ? (
-            <Select value={selectedPipeline?.id ?? ""} onValueChange={selectPipeline}>
-              <SelectTrigger className={cn("h-8 w-48", showPanel && "xl:hidden")} aria-label="Pipeline">
-                <SelectValue placeholder="Pipeline" />
-              </SelectTrigger>
-              <SelectContent>
-                {pipelineList.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {canCreate ? (
+            <Button className="ml-auto" onClick={() => setNewOpen(true)} onPointerEnter={warmForm} onFocus={warmForm} disabled={pipelineList.length === 0}>
+              <Plus /> Add Deal
+            </Button>
           ) : null}
-          <div className="ml-auto flex items-center gap-2">
-            <div className="inline-flex h-8 items-center gap-0.5 rounded-sm bg-bg-subtle p-0.5" role="group" aria-label="View">
-              <ViewButton active={view === "board"} onClick={() => setParam("view", undefined)} icon={<KanbanSquare />} label="Kanban" />
-              <ViewButton active={view === "list"} onClick={() => setParam("view", "list")} icon={<List />} label="List" />
-            </div>
-            {canCreate ? (
-              <Button size="sm" onClick={() => setNewOpen(true)} onPointerEnter={warmForm} onFocus={warmForm} disabled={pipelineList.length === 0}>
-                <Plus /> Deal
-              </Button>
-            ) : null}
-          </div>
         </div>
 
-        {pipelines.isError ? (
+        {pageTab === "kanban" || pageTab === "list" ? (
+          <ViewBar entity="deal" kind={kind} defaultKind="kanban" params={params} setParams={setParams} ownedKeys={["pipeline"]} extraFilterKeys={["pipeline"]} />
+        ) : null}
+        {board.data?.family && board.data.family.length > 1 && view === "board" ? (
+          <div className="mb-2 flex flex-wrap items-center gap-1" role="group" aria-label="Sub-pipelines">
+            {board.data.family.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => selectPipeline(f.id)}
+                aria-pressed={f.id === board.data?.pipeline?.id}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium",
+                  f.id === board.data?.pipeline?.id ? "border-primary bg-primary-soft text-primary" : "border-border text-fg-muted hover:text-fg",
+                )}
+              >
+                {f.parent_id ? <CornerDownRight className="size-3" aria-hidden /> : null}
+                {f.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {pageTab === "forecast" ? (
+          <ForecastPage embedded />
+        ) : pageTab === "analytics" ? (
+          <>
+            <BoardFilters params={params} setParam={setParam} onClear={() => setParams({ q: undefined, owner: undefined, lead_source: undefined, product: undefined })} pipelineSelect={<PipelineSelect pipelines={pipelineList} selected={selectedPipeline} onSelect={selectPipeline} />} hideStatus />
+            <PipelineAnalyticsView pipelineId={pipelineId} filters={statsParams} baseCurrency={baseCurrency} />
+          </>
+        ) : pipelines.isError ? (
           <EmptyState title="Could not load pipelines" description={errorMessage(pipelines.error)} action={<Button variant="secondary" onClick={() => pipelines.refetch()}>Retry</Button>} />
         ) : pipelines.isSuccess && pipelineList.length === 0 ? (
           <EmptyState
@@ -194,6 +261,31 @@ export function PipelinePage() {
               ) : null
             }
           />
+        ) : view === "sheet" || view === "calendar" || view === "chart" ? (
+          pipelines.isPending ? (
+            <SkeletonRows rows={6} />
+          ) : view === "sheet" ? (
+            <SheetView entity="deal" filters={viewFilters} columns={columnsOf(params)} onColumnsChange={(cols) => setParam("cols", cols.join(",") || undefined)} />
+          ) : view === "calendar" ? (
+            <RecordCalendar
+              entity="deal"
+              filters={viewFilters}
+              dateField={params.datef ?? "expected_close_date"}
+              onDateFieldChange={(f) => setParam("datef", f)}
+              includeActivities={params.acts !== "0"}
+              onIncludeActivitiesChange={(on) => setParam("acts", on ? undefined : "0")}
+            />
+          ) : (
+            <RecordChart
+              entity="deal"
+              filters={viewFilters}
+              groupBy={params.group ?? "stage"}
+              measure={params.measure === "count" ? "count" : "sum"}
+              field={params.mfield ?? "amount"}
+              baseCurrency={baseCurrency}
+              onChange={(patch) => setParams(patch)}
+            />
+          )
         ) : view === "list" ? (
           pipelines.isPending ? (
             // The list is scoped to the resolved pipeline. Mounted before the pipelines arrive it fetched
@@ -213,21 +305,37 @@ export function PipelinePage() {
           )
         ) : (
           <>
-            <BoardFilters params={params} setParam={setParam} onClear={() => setParams({ q: undefined, owner: undefined, status: undefined, sort: undefined })} />
+            <BoardFilters
+              params={params}
+              setParam={setParam}
+              onClear={() => setParams({ q: undefined, owner: undefined, status: undefined, sort: undefined, lead_source: undefined, product: undefined })}
+              pipelineSelect={<PipelineSelect pipelines={pipelineList} selected={selectedPipeline} onSelect={selectPipeline} />}
+            />
             {board.isPending || pipelines.isPending ? (
               <BoardSkeleton />
             ) : board.isError ? (
               <EmptyState title="Could not load the board" description={errorMessage(board.error)} action={<Button variant="secondary" onClick={() => board.refetch()}>Retry</Button>} />
             ) : (
-              <KanbanBoard board={board.data} baseCurrency={baseCurrency} canMove={canMove} showRisk={showRisk} isFetching={board.isFetching} sort={boardSortOf(params.sort)} />
+              <KanbanBoard
+                board={board.data}
+                baseCurrency={baseCurrency}
+                canMove={canMove}
+                showRisk={showRisk}
+                isFetching={board.isFetching}
+                sort={boardSortOf(params.sort)}
+                filters={boardParams}
+                onOpenDeal={(deal) => setParam("deal", deal.id)}
+                onAddDeal={canCreate ? (stage) => setParams({ new: "1", into: stage.id }) : undefined}
+              />
             )}
           </>
         )}
       </div>
 
       {newOpen && canCreate ? (
-        <DealFormDialog open onOpenChange={setNewOpen} pipelines={pipelineList} defaultPipelineId={pipelineId} defaults={formDefaults} />
+        <DealFormDialog open onOpenChange={setNewOpen} pipelines={pipelineList} defaultPipelineId={pipelineId} defaultStageId={params.into} defaults={formDefaults} />
       ) : null}
+      <DealDetailsPanel dealId={params.deal ?? null} stages={stageTargets} onClose={() => setParam("deal", undefined)} />
     </div>
   );
 }
@@ -244,13 +352,14 @@ function PipelinePanel({
   canManage: boolean;
 }) {
   return (
-    <aside className="hidden w-44 shrink-0 xl:block" aria-label="Pipelines">
+    // A light column beside the sidebar; the negative margins cancel <main>'s padding (xl only).
+    <aside className="-my-4 -ml-5 hidden w-48 shrink-0 overflow-y-auto border-r border-border bg-surface px-2 py-4 xl:block" aria-label="Pipelines">
       <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Pipelines</p>
       <ul className="flex flex-col gap-0.5">
-        {pipelines.map((p) => {
+        {orderFamilies(pipelines).map((p) => {
           const current = p.id === selectedId;
           return (
-            <li key={p.id}>
+            <li key={p.id} className={p.parent_id ? "pl-3" : undefined}>
               <button
                 type="button"
                 onClick={() => onSelect(p.id)}
@@ -260,8 +369,9 @@ function PipelinePanel({
                   current ? "bg-primary-soft text-primary" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
                 )}
               >
-                <KanbanSquare className="size-4 shrink-0" aria-hidden />
+                {p.parent_id ? <CornerDownRight className="size-3.5 shrink-0" aria-hidden /> : <KanbanSquare className="size-4 shrink-0" aria-hidden />}
                 <span className="truncate">{p.name}</span>
+                {p.restricted ? <Lock className="ml-auto size-3 shrink-0 text-fg-subtle" aria-label="Restricted" /> : null}
               </button>
             </li>
           );
@@ -285,24 +395,101 @@ function PipelinePanel({
   );
 }
 
-function ViewButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+
+function PipelineSelect({ pipelines, selected, onSelect }: { pipelines: Pipeline[]; selected: Pipeline | null; onSelect: (id: string) => void }) {
+  if (pipelines.length === 0) return null;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs font-medium transition-colors [&_svg]:size-3.5",
-        active ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
-      )}
-    >
-      {icon}
-      {label}
-    </button>
+    <Select value={selected?.id ?? ""} onValueChange={onSelect}>
+      <SelectTrigger className="h-9 w-48" aria-label="Pipeline">
+        <SelectValue placeholder="Pipeline" />
+      </SelectTrigger>
+      <SelectContent>
+        {orderFamilies(pipelines).map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
-function BoardFilters({ params, setParam, onClear }: { params: ListParams; setParam: (key: string, value: string | undefined) => void; onClear: () => void }) {
+/** The Pipeline KPI row: totals over the board's deal set, compared with the previous 30 days. */
+function PipelineKpis({ stats, baseCurrency }: { stats: import("@/lib/api/pipeline-analytics").PipelineStats | undefined; baseCurrency: string }) {
+  const versus = stats ? `vs previous ${stats.days} days` : "";
+  const money = (v: string | null | undefined) => (v === null ? "—" : v === undefined ? undefined : formatMoney(v, baseCurrency));
+  const cycle: KpiChange | null = stats ? withLowerIsBetter(percentChange(stats.current.avg_cycle_days, stats.previous.avg_cycle_days, versus)) : null;
+  return (
+    <section aria-label="Pipeline summary" className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <KpiTile tone="green" icon={<BarChart3 />} label="Total Deals" value={stats?.total_deals.toLocaleString()} change={stats ? percentChange(stats.current.created, stats.previous.created, versus) : null} changeNote="new" />
+      <KpiTile tone="blue" icon={<IndianRupee />} label="Pipeline Value" value={money(stats?.pipeline_value)} sub={stats ? `${stats.open_deals.toLocaleString()} open deals` : undefined} />
+      <KpiTile tone="orange" icon={<Trophy />} label="Expected Revenue" value={money(stats?.expected_revenue)} sub="Weighted by probability" />
+      <KpiTile tone="purple" icon={<Target />} label="Win Rate" value={stats ? (stats.current.win_rate === null ? "—" : `${Math.round(stats.current.win_rate)}%`) : undefined} change={stats ? pointChange(stats.current.win_rate, stats.previous.win_rate, versus) : null} changeNote="" sub={stats?.current.win_rate === null ? "No deals closed in 30 days" : "Deals closed in 30 days"} />
+      <KpiTile tone="pink" icon={<CalendarRange />} label="Avg. Deal Cycle" value={stats ? (stats.current.avg_cycle_days === null ? "—" : `${Math.round(stats.current.avg_cycle_days)} Days`) : undefined} change={cycle} changeNote="" sub={stats?.current.avg_cycle_days === null ? "No deals won in 30 days" : "Created to won"} />
+    </section>
+  );
+}
+
+function withLowerIsBetter(change: KpiChange | null): KpiChange | null {
+  return change ? { ...change, lowerIsBetter: true } : null;
+}
+
+function OwnerFilter({ value, onChange }: { value: string | undefined; onChange: (value: string | undefined) => void }) {
+  const members = useCursorList(queryKeys.members, listMembers);
+  const options = members.isError ? [] : members.items.filter((m) => m.status === "active");
+  return (
+    <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? undefined : v)}>
+      <SelectTrigger className="h-9 w-36" aria-label="Owner filter">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL}>All Owners</SelectItem>
+        <SelectItem value="me">My deals</SelectItem>
+        {options.map((m) => (
+          <SelectItem key={m.id} value={m.id}>
+            {m.user.display_name || m.user.email}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ProductFilter({ value, onChange }: { value: string | undefined; onChange: (value: string | undefined) => void }) {
+  const { data: session } = useSession();
+  const allowed = can(session?.active ?? null, "products.view");
+  const products = useQuery({ queryKey: ["crm", "products", "filter-options"], queryFn: () => listProducts({ limit: "100", sort: "name" }), enabled: allowed, staleTime: 60_000 });
+  if (!allowed || products.isError) return null;
+  return (
+    <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? undefined : v)}>
+      <SelectTrigger className="h-9 w-40" aria-label="Product filter">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL}>All Products</SelectItem>
+        {(products.data?.results ?? []).map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function BoardFilters({
+  params,
+  setParam,
+  onClear,
+  pipelineSelect,
+  hideStatus = false,
+}: {
+  params: ListParams;
+  setParam: (key: string, value: string | undefined) => void;
+  onClear: () => void;
+  pipelineSelect?: React.ReactNode;
+  hideStatus?: boolean;
+}) {
   const [draft, setDraft] = React.useState(params.q ?? "");
   const debounced = useDebounced(draft, 300);
   React.useEffect(() => {
@@ -314,36 +501,45 @@ function BoardFilters({ params, setParam, onClear }: { params: ListParams; setPa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.q]);
 
-  const hasFilters = Boolean(params.q || params.owner || params.status || params.sort);
+  const hasFilters = Boolean(params.q || params.owner || params.status || params.sort || params.lead_source || params.product);
 
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
       <div className="relative w-full sm:w-60">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-subtle" aria-hidden />
-        <Input aria-label="Search deals" placeholder="Search deals…" value={draft} onChange={(e) => setDraft(e.target.value)} className="h-8 pl-8" maxLength={200} />
+        <Input aria-label="Search deals" placeholder="Search deals…" value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9 pl-8" maxLength={200} />
       </div>
-      <Select value={params.owner === "me" ? "me" : "all"} onValueChange={(v) => setParam("owner", v === "me" ? "me" : undefined)}>
-        <SelectTrigger className="h-8 w-32" aria-label="Owner filter">
+      {pipelineSelect}
+      <OwnerFilter value={params.owner} onChange={(v) => setParam("owner", v)} />
+      <Select value={params.lead_source ?? ALL} onValueChange={(v) => setParam("lead_source", v === ALL ? undefined : v)}>
+        <SelectTrigger className="h-9 w-36" aria-label="Source filter">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All deals</SelectItem>
-          <SelectItem value="me">My deals</SelectItem>
+          <SelectItem value={ALL}>All Sources</SelectItem>
+          {DEAL_SOURCES.map((source) => (
+            <SelectItem key={source} value={source}>
+              {DEAL_SOURCE_LABELS[source]}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
-      <Select value={params.status ?? ALL} onValueChange={(v) => setParam("status", v === ALL ? undefined : v)}>
-        <SelectTrigger className="h-8 w-32" aria-label="Status filter">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>Any status</SelectItem>
-          <SelectItem value="open">Open</SelectItem>
-          <SelectItem value="won">Won</SelectItem>
-          <SelectItem value="lost">Lost</SelectItem>
-        </SelectContent>
-      </Select>
+      <ProductFilter value={params.product} onChange={(v) => setParam("product", v)} />
+      {hideStatus ? null : (
+        <Select value={params.status ?? ALL} onValueChange={(v) => setParam("status", v === ALL ? undefined : v)}>
+          <SelectTrigger className="h-9 w-32" aria-label="Status filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Any status</SelectItem>
+            <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="won">Won</SelectItem>
+            <SelectItem value="lost">Lost</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
       <Select value={boardSortOf(params.sort)} onValueChange={(v) => setParam("sort", v === "recent" ? undefined : v)}>
-        <SelectTrigger className="h-8 w-40" aria-label="Sort">
+        <SelectTrigger className="h-9 w-40" aria-label="Sort">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

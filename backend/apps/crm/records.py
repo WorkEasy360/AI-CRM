@@ -19,9 +19,11 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.accounts.models import Membership
 from apps.audit import service as audit
+from apps.authz import fields as field_rules
 from apps.authz.actor import Actor
 from apps.authz.catalogue import SCOPE_ALL
 from apps.authz.service import check, scope
+from apps.billing import entitlements
 from apps.core.concurrency import save_with_version
 from apps.core.domain_events import RecordChanged, publish
 from apps.core.exceptions import DomainError
@@ -89,12 +91,15 @@ def create(
     actor: Actor, spec: RecordSpec, data: dict[str, Any], *, request: Any = None, audit_extra: dict | None = None
 ):
     check(actor, spec.perm("create"))
+    field_rules.assert_writable(actor, spec.entity_type, data)
     if "custom_data" not in data:
         # Required custom fields apply even when the client omits custom_data entirely.
         from apps.customfields import service as customfields
 
         data["custom_data"] = customfields.validate_values(spec.entity_type, {}, partial=False)
     owner = resolve_owner(actor, spec, data.pop("owner", None), current=None) or actor.membership
+    # Plan limit (edition records + add-ons). Consumed in this transaction, so a failed create gives it back.
+    entitlements.consume(actor.organization, "records")
     obj = spec.model(**data, owner=owner, created_by=actor.membership, updated_by=actor.membership)
     obj.save()
     _announce(actor, spec, ids=[obj.pk], change="created", owner_id=owner.pk if owner else None, orm_signals_fired=True)
@@ -130,6 +135,7 @@ def update(
     check(actor, spec.perm("update"), obj)
     if obj.archived_at is not None:
         raise DomainError("Restore the record before editing it.", code="record_archived", status_code=409)
+    field_rules.assert_writable(actor, spec.entity_type, data, existing_custom=obj.custom_data)
     changed: list[str] = []
     metadata: dict[str, Any] = {}
     if "owner" in data:
@@ -198,6 +204,7 @@ def archive(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
     obj.archived_at = timezone.now()
     obj.updated_by = actor.membership
     save_with_version(obj, None, ["archived_at", "updated_by"])
+    entitlements.release(actor.organization, "records")
     _announce(actor, spec, ids=[obj.pk], change="archived", owner_id=obj.owner_id)
     audit.record(
         f"{spec.module}.archived",
@@ -215,6 +222,7 @@ def restore(actor: Actor, spec: RecordSpec, obj: Any, *, request: Any = None):
     check(actor, spec.perm("delete"), obj)
     if obj.archived_at is None:
         return obj
+    entitlements.consume(actor.organization, "records")
     obj.archived_at = None
     obj.updated_by = actor.membership
     save_with_version(obj, None, ["archived_at", "updated_by"])
@@ -261,6 +269,10 @@ def bulk(
     # Bulk writes bump ``version`` exactly like single-record saves (ADR-0007): otherwise a client still
     # holding the old version could PATCH straight over a bulk archive or reassignment without a 409.
     if action in {"archive", "restore"}:
+        if action == "restore":
+            entitlements.consume(actor.organization, "records", len(records))
+        else:
+            entitlements.release(actor.organization, "records", len(records))
         affected = spec.model.objects.filter(pk__in=[r.pk for r in records]).update(
             archived_at=now if action == "archive" else None,
             updated_by=actor.membership,

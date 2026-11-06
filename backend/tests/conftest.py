@@ -14,9 +14,14 @@ from tests import factories
 
 @pytest.fixture(autouse=True)
 def _clear_cache():
+    from apps.accounts.workeasy360 import entitlement
+
+    # The entitlement re-check also keeps a per-process copy of its answers (it stands in for the cache).
     cache.clear()
+    entitlement.clear_local()
     yield
     cache.clear()
+    entitlement.clear_local()
 
 
 def _seed_system_roles() -> None:

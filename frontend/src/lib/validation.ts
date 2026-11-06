@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/zod-config";
 import { ROLE_KEYS } from "@/lib/api/types";
 
 export const emailSchema = z.email("Enter a valid email address.").max(254, "Email is too long.");

@@ -48,7 +48,7 @@ def test_closed_won_promotes_contacts_and_company_to_customer(org_a, owner_clien
     extra = crm.make_contact(org_a, company=company)
     deal = crm.make_deal(org_a, company=company, contact=contact)
     owner_client.post(f"/api/v1/deals/{deal.pk}/contacts/add/", {"contact_id": str(extra.pk)}, format="json")
-    won = crm.stage_named(pipeline, "Closed won")
+    won = crm.stage_named(pipeline, "Won")
     resp = owner_client.post(f"/api/v1/deals/{deal.pk}/stage/", {"stage_id": str(won.pk), "version": 1}, format="json")
     assert resp.status_code == 200, resp.content
     assert owner_client.get(f"/api/v1/contacts/{contact.pk}/").json()["lifecycle_stage"] == "customer"

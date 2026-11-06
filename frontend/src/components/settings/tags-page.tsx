@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, MoreHorizontal, Pencil, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { PageHeader } from "@/components/page-header";
 import { TagChip } from "@/components/crm/tag-picker";
 import { Button } from "@/components/ui/button";

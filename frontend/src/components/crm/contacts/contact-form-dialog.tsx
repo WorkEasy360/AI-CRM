@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import "@/lib/zod-config";
 import { AddressFields, cleanAddress } from "@/components/crm/address-fields";
 import { Disclosure } from "@/components/crm/contacts/record-layout";
 import { CustomFieldsForm, useCustomFields } from "@/components/crm/custom-fields-form";

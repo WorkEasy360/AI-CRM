@@ -15,7 +15,7 @@ import pytest
 
 from apps.contacts.models import Contact
 from apps.core.tenancy.context import tenant_context
-from apps.importexport import service
+from apps.importexport import importing
 from apps.importexport.models import ImportJob, JobStatus
 from apps.importexport.tasks import resume_stalled_imports, run_import
 
@@ -88,7 +88,7 @@ def test_progress_is_checkpointed_while_the_job_runs(org_a, owner_client, settin
     job = _reset_to_pending(org_a, job)
 
     seen: list[tuple[int, int]] = []
-    original = service._run_batch
+    original = importing._run_batch
 
     def spy(*args, **kwargs):
         original(*args, **kwargs)
@@ -96,7 +96,7 @@ def test_progress_is_checkpointed_while_the_job_runs(org_a, owner_client, settin
         row = _job(org_a, job.pk)
         seen.append((row.checkpoint_row, row.processed_rows))
 
-    monkeypatch.setattr(service, "_run_batch", spy)
+    monkeypatch.setattr(importing, "_run_batch", spy)
     run_import(
         job_id=str(job.pk),
         organization_id=str(org_a.org.pk),
@@ -115,7 +115,7 @@ def test_a_batch_commits_its_rows_and_its_checkpoint_together(org_a, owner_clien
     job = _make_job(org_a, owner_client, rows=20)
     job = _reset_to_pending(org_a, job)
 
-    original = service._run_batch
+    original = importing._run_batch
     calls = {"n": 0}
 
     def fail_third(*args, **kwargs):
@@ -124,7 +124,7 @@ def test_a_batch_commits_its_rows_and_its_checkpoint_together(org_a, owner_clien
             raise RuntimeError("worker died mid-batch")
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(service, "_run_batch", fail_third)
+    monkeypatch.setattr(importing, "_run_batch", fail_third)
     run_import(
         job_id=str(job.pk),
         organization_id=str(org_a.org.pk),
@@ -146,7 +146,7 @@ def test_a_stalled_job_resumes_from_its_checkpoint_without_duplicating(org_a, ow
     job = _make_job(org_a, owner_client, rows=20)
     job = _reset_to_pending(org_a, job)
 
-    original = service._run_batch
+    original = importing._run_batch
     calls = {"n": 0}
 
     def fail_third(*args, **kwargs):
@@ -155,7 +155,7 @@ def test_a_stalled_job_resumes_from_its_checkpoint_without_duplicating(org_a, ow
             raise RuntimeError("worker died mid-batch")
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(service, "_run_batch", fail_third)
+    monkeypatch.setattr(importing, "_run_batch", fail_third)
     assert (
         run_import(
             job_id=str(job.pk),
@@ -245,7 +245,7 @@ def test_a_failed_import_reports_how_far_it_got(org_a, owner_client, settings, m
     job = _make_job(org_a, owner_client, rows=20)
     job = _reset_to_pending(org_a, job)
 
-    original = service._run_batch
+    original = importing._run_batch
     calls = {"n": 0}
 
     def fail_second(*args, **kwargs):
@@ -254,7 +254,7 @@ def test_a_failed_import_reports_how_far_it_got(org_a, owner_client, settings, m
             raise RuntimeError("provider exploded")
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(service, "_run_batch", fail_second)
+    monkeypatch.setattr(importing, "_run_batch", fail_second)
     result = run_import(
         job_id=str(job.pk),
         organization_id=str(org_a.org.pk),

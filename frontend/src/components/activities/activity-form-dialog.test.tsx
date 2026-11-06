@@ -105,6 +105,31 @@ describe("ActivityFormDialog", () => {
     expect(new Date(payload.start_at ?? "").getTime()).toBe(new Date(2026, 8, 15, 0, 0).getTime());
   });
 
+  it("builds a weekly repeat for a task and needs a due date for it", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createActivity).mockResolvedValue({ id: "a3", kind: "task", title: "Weekly report", status: "open", contact: null, company: null, deal: null } as never);
+    renderDialog({ kind: "task" });
+
+    await user.type(screen.getByLabelText("Title"), "Weekly report");
+    await user.click(screen.getByRole("combobox", { name: "Repeat" }));
+    await user.click(await screen.findByRole("option", { name: "Weekly" }));
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    expect(await screen.findByText("Pick a due date to repeat this task.")).toBeInTheDocument();
+    expect(createActivity).not.toHaveBeenCalled();
+
+    // 15 Sep 2026 is a Tuesday; picking Wednesday as well and ending after 4 times.
+    fireEvent.change(screen.getByLabelText("Due date"), { target: { value: "2026-09-15" } });
+    await user.click(screen.getByRole("button", { name: "Wed" }));
+    await user.click(screen.getByRole("combobox", { name: "Ends" }));
+    await user.click(await screen.findByRole("option", { name: "Ends after" }));
+    fireEvent.change(screen.getByLabelText("Number of times"), { target: { value: "4" } });
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+
+    await waitFor(() => expect(createActivity).toHaveBeenCalledTimes(1));
+    // Tuesday was not preselected because the due date came after Weekly was picked.
+    expect(payloadOf(vi.mocked(createActivity).mock.calls[0]).recurrence).toBe("FREQ=WEEKLY;BYDAY=WE;COUNT=4");
+  });
+
   it("logs a call as completed with direction, outcome and the linked contact", async () => {
     const user = userEvent.setup();
     vi.mocked(createActivity).mockResolvedValue({ id: "a2", kind: "call", title: "Call with Ada", status: "completed", contact: { id: "c1", name: "Ada" }, company: null, deal: null } as never);

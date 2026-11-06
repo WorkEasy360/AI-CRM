@@ -32,7 +32,7 @@ test("manifest and icons are served and complete", async ({ request }) => {
     display: string;
     icons: { src: string; sizes: string; type: string; purpose: string }[];
   };
-  expect(manifest).toMatchObject({ name: "Keel CRM", short_name: "Keel", scope: "/", display: "standalone" });
+  expect(manifest).toMatchObject({ name: "WorkEasy CRM", short_name: "WorkEasy", scope: "/", display: "standalone" });
   expect(manifest.start_url).toBe(twaManifest.startUrl);
   const has = (sizes: string, purpose: string) => manifest.icons.some((i) => i.sizes === sizes && i.purpose === purpose);
   expect(has("192x192", "any") && has("512x512", "any") && has("512x512", "maskable")).toBe(true);

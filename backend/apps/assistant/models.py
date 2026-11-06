@@ -55,6 +55,8 @@ class ConversationTurn(TenantModel):
     mode = models.CharField(max_length=16, blank=True)
     model = models.CharField(max_length=64, blank=True)
     flagged_input = models.BooleanField(default=False)
+    # The help article that answered a "how do I" question, so a reopened thread can show the guide again.
+    help_article = models.CharField(max_length=80, blank=True)
 
     class Meta:
         constraints = [

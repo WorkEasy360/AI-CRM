@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Menu, Settings } from "lucide-react";
+import { BookOpen, CircleHelp, Menu, MessageCircle, Search, Settings, Sparkles } from "lucide-react";
+import { AskFloatingButton, AssistantProvider, useAssistant } from "@/components/assistant/ask-keel";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { SideNav, Wordmark } from "@/components/shell/nav";
@@ -11,12 +12,18 @@ import { QuickAdd } from "@/components/shell/quick-add";
 import { QuickCreateProvider } from "@/components/shell/quick-create-provider";
 import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ActiveContext, Session } from "@/lib/api/types";
+import { workeasy360StartUrl } from "@/lib/auth-methods";
+import { hasPermission } from "@/lib/session";
+import { setWorkspaceDateFormat } from "@/lib/utils";
 
 export function AppShell({ session, active, children }: { session: Session; active: ActiveContext; children: React.ReactNode }) {
   const [navOpen, setNavOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
+  // Before the children render, so every formatted date on this render already uses the workspace format.
+  setWorkspaceDateFormat(active.organization.date_format);
 
   // Ctrl/⌘+K toggles the global search from anywhere in the app.
   React.useEffect(() => {
@@ -30,33 +37,36 @@ export function AppShell({ session, active, children }: { session: Session; acti
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const mfaBanner = active.mfa_required && !session.mfa_enabled;
+  // Workeasy360 sessions satisfy the requirement only through Workeasy360's own two-step verification.
+  const federated = session.identity_provider === "workeasy360";
+  const mfaBanner = active.mfa_required && (federated || !session.mfa_enabled);
 
   return (
     <QuickCreateProvider>
+      <AssistantProvider>
       <div className="flex h-dvh overflow-hidden bg-bg">
         {/* Desktop navigation */}
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-surface lg:flex">
-          <div className="flex h-12 items-center border-b border-border px-4">
-            <Wordmark />
+        <aside className="kl-chrome kl-sidebar hidden w-60 shrink-0 flex-col lg:flex">
+          <div className="flex h-14 items-center border-b border-border px-4">
+            <Wordmark organization={active.organization} />
           </div>
           <SideNav session={session} />
         </aside>
 
         {/* Full navigation on small screens */}
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
-          <SheetContent side="left" className="p-0">
+          <SheetContent side="left" className="kl-chrome kl-sidebar border-r-0 p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SheetDescription className="sr-only">Primary navigation</SheetDescription>
-            <div className="flex h-12 items-center border-b border-border px-4">
-              <Wordmark />
+            <div className="flex h-14 items-center border-b border-border px-4">
+              <Wordmark organization={active.organization} />
             </div>
             <SideNav session={session} onNavigate={() => setNavOpen(false)} />
           </SheetContent>
         </Sheet>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border bg-surface px-3">
+          <header className="flex h-14 shrink-0 items-center gap-1.5 border-b border-border bg-surface px-3 sm:px-4">
             <Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open navigation">
               <Menu />
             </Button>
@@ -64,12 +74,15 @@ export function AppShell({ session, active, children }: { session: Session; acti
 
             <div className="ml-auto flex items-center gap-1">
               <QuickAdd active={active} />
+              {hasPermission(active, "whatsapp.view") ? (
+                <Button asChild size="icon-sm" className="bg-[#25D366] text-white hover:bg-[#1ebe5b]" aria-label="WhatsApp inbox">
+                  <Link href="/activities?tab=whatsapp">
+                    <MessageCircle />
+                  </Link>
+                </Button>
+              ) : null}
               <NotificationsMenu />
-              <Button asChild variant="ghost" size="icon-sm" aria-label="Settings">
-                <Link href="/settings">
-                  <Settings />
-                </Link>
-              </Button>
+              <HelpMenu onSearch={() => setSearchOpen(true)} />
               <UserMenu session={session} />
             </div>
           </header>
@@ -77,9 +90,18 @@ export function AppShell({ session, active, children }: { session: Session; acti
           {mfaBanner ? (
             <div className="border-b border-warning/40 bg-warning-soft px-4 py-1.5 text-xs text-fg">
               <span className="font-medium">{active.organization.name}</span> requires two-factor authentication.{" "}
-              <Link href="/settings/security" className="font-medium text-primary underline-offset-2 hover:underline">
-                Set it up now
-              </Link>
+              {federated ? (
+                <>
+                  Turn on two-step verification in your Workeasy360 account, then{" "}
+                  <a href={workeasy360StartUrl("/pipeline")} className="font-medium text-primary underline-offset-2 hover:underline">
+                    sign in again
+                  </a>
+                </>
+              ) : (
+                <Link href="/settings/security" className="font-medium text-primary underline-offset-2 hover:underline">
+                  Set it up now
+                </Link>
+              )}
               .
             </div>
           ) : null}
@@ -89,7 +111,45 @@ export function AppShell({ session, active, children }: { session: Session; acti
         </div>
 
         <MobileNav active={active} onSearch={() => setSearchOpen(true)} />
+        <AskFloatingButton />
       </div>
+      </AssistantProvider>
     </QuickCreateProvider>
+  );
+}
+
+/** The top bar's "?": quick ways in (search, the assistant) and settings, which live in the sidebar too. */
+function HelpMenu({ onSearch }: { onSearch: () => void }) {
+  const assistant = useAssistant();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Help">
+          <CircleHelp />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onSelect={onSearch}>
+          <Search /> Search everything
+          <kbd className="ml-auto text-[11px] text-fg-subtle">Ctrl K</kbd>
+        </DropdownMenuItem>
+        {assistant?.available ? (
+          <DropdownMenuItem onSelect={() => assistant.openPanel()}>
+            <Sparkles /> Ask WorkEasy AI
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem asChild>
+          <Link href="/help">
+            <BookOpen /> Help Center
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings /> Settings
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

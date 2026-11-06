@@ -111,8 +111,5 @@ class CustomFieldDefinitionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMi
 
     @action(detail=True, methods=["post"])
     def restore(self, request, pk=None):
-        definition = self.get_object()
-        if definition.archived_at is not None:
-            definition.archived_at = None
-            definition.save(update_fields=["archived_at", "updated_at"])
+        definition = service.restore_definition(request.actor, self.get_object(), request=request._request)
         return Response(CustomFieldDefinitionSerializer(definition).data)

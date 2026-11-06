@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 
 import structlog
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
+from apps.accounts.workeasy360 import background
 from apps.core.tenancy.context import system_context, tenant_atomic, tenant_context
 from apps.core.tenancy.tasks import tenant_task
 from apps.messaging import services
@@ -24,12 +26,21 @@ SYNC_FANOUT_EXPIRES_SECONDS = 270
 # is predictable no matter how bad an outage was.
 RECONCILE_LIMIT = 200
 
+# A send is enqueued the moment its request commits and claimed within seconds, so one still QUEUED and
+# untouched after this long was skipped (the organization's Workeasy360 access had ended), requeued by
+# reconciliation, or lost with a broker outage. Five minutes is the beat interval: shorter would race a send
+# that is merely waiting behind others on the notifications queue (harmless - the claim is atomic - but
+# wasteful), and the access answer a job trusts is only refreshed every 15 minutes anyway.
+RESUME_QUEUED_AFTER = timedelta(minutes=5)
+
 
 # The send tasks are ``atomic=False`` on purpose: the claim has to be *committed* before the provider
 # is called, which is impossible while one transaction wraps the whole task body. See the design note
 # above ``services.claim_email``.
 @tenant_task(name="messaging.send_email_message", soft_time_limit=60, time_limit=90, ignore_result=True, atomic=False)
 def send_email_message(*, message_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
+    if not background.allowed(organization_id, task="messaging.send_email_message"):
+        return "access_ended"  # stays queued, untouched: nothing reaches the customer's contacts
     message = services.claim_email(uuid.UUID(str(message_id)), actor_membership_id=uuid.UUID(str(actor_membership_id)))
     if message is None:
         # Already claimed, already sent, or not this member's message. A redelivered task lands here.
@@ -41,6 +52,8 @@ def send_email_message(*, message_id: str, organization_id, actor_membership_id:
     name="messaging.send_whatsapp_message", soft_time_limit=60, time_limit=90, ignore_result=True, atomic=False
 )
 def send_whatsapp_message(*, message_id: str, organization_id, actor_membership_id: str, **kwargs) -> str:
+    if not background.allowed(organization_id, task="messaging.send_whatsapp_message"):
+        return "access_ended"
     message = services.claim_whatsapp(
         uuid.UUID(str(message_id)), actor_membership_id=uuid.UUID(str(actor_membership_id))
     )
@@ -114,15 +127,60 @@ def _reconcile_one(organization_id, message_id, *, channel: str) -> int:
     return 1
 
 
+@shared_task(name="messaging.resume_queued_sends", ignore_result=True, soft_time_limit=240, time_limit=300)
+def resume_queued_sends() -> int:
+    """Beat: hand sends that are still QUEUED to a worker again.
+
+    Class A (docs/workeasy360-sso.md): organizations whose Workeasy360 access has ended are left out, so
+    their queued messages go out once it is renewed. Nothing here sends: ``claim_*`` turns QUEUED into
+    SENDING in one conditional UPDATE, so a message handed over twice (a task still waiting in the queue,
+    two sweeps) is sent exactly once.
+    """
+    cutoff = timezone.now() - RESUME_QUEUED_AFTER
+    resumed = 0
+    for model, task in (
+        (EmailMessage, send_email_message),
+        (WhatsAppMessage, send_whatsapp_message),
+    ):
+
+        def fetch(excluded: set[uuid.UUID], model=model) -> list:
+            with system_context("messaging.resume_queued_sends"):
+                return list(
+                    model.all_objects.filter(status=model.Status.QUEUED, sent_by__isnull=False, updated_at__lt=cutoff)
+                    .exclude(organization_id__in=excluded)
+                    .order_by("updated_at")
+                    .values_list("organization_id", "id", "sent_by_id")[:RECONCILE_LIMIT]
+                )
+
+        for org_id, message_id, sender_id in background.fetch_allowed(fetch, task="messaging.resume_queued_sends"):
+            task.apply_async(
+                kwargs={
+                    "message_id": str(message_id),
+                    "organization_id": str(org_id),
+                    "actor_membership_id": str(sender_id),
+                }
+            )
+            resumed += 1
+    if resumed:
+        log.info("messaging.resumed_queued_sends", count=resumed)
+    return resumed
+
+
 @shared_task(name="messaging.sync_email_accounts", ignore_result=True, soft_time_limit=240, time_limit=300)
 def sync_email_accounts() -> int:
     """Beat: fan out one sync task per connected mailbox (each runs in its own tenant context)."""
-    with system_context("messaging.sync_email_accounts"):
-        rows = list(
-            EmailAccount.all_objects.filter(status__in=[ConnectionStatus.CONNECTED, ConnectionStatus.ERROR])
-            .exclude(refresh_token_enc="")  # nosec B106 - empty means no stored token
-            .values_list("organization_id", "id")[:2000]
-        )
+
+    def fetch(excluded: set[uuid.UUID]) -> list:
+        with system_context("messaging.sync_email_accounts"):
+            return list(
+                EmailAccount.all_objects.filter(status__in=[ConnectionStatus.CONNECTED, ConnectionStatus.ERROR])
+                .exclude(refresh_token_enc="")  # nosec B106 - empty means no stored token
+                .exclude(organization_id__in=excluded)
+                .values_list("organization_id", "id")[:2000]
+            )
+
+    # Class A: pulling mail into an organization whose Workeasy360 access has ended waits for the renewal.
+    rows = background.fetch_allowed(fetch, task="messaging.sync_email_accounts")
     for org_id, account_id in rows:
         sync_email_account.apply_async(
             kwargs={"account_id": str(account_id), "organization_id": str(org_id)},
@@ -133,6 +191,8 @@ def sync_email_accounts() -> int:
 
 @tenant_task(name="messaging.sync_email_account", soft_time_limit=120, time_limit=150, ignore_result=True)
 def sync_email_account(*, account_id: str, organization_id, **kwargs) -> int:
+    if not background.allowed(organization_id, task="messaging.sync_email_account"):
+        return 0
     account = EmailAccount.objects.filter(pk=uuid.UUID(str(account_id))).first()
     if account is None or not account.is_usable:
         return 0

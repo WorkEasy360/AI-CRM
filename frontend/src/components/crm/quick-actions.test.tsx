@@ -67,6 +67,8 @@ const deal: Deal = {
   risk_level: "low",
   contact_count: 1,
   products_total: null,
+  amount_from_lines: false,
+  price_book: null,
 };
 
 describe("QuickActions on a deal", () => {

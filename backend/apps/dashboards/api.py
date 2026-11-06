@@ -9,8 +9,15 @@ from apps.dashboards import service
 
 
 class DashboardQuerySerializer(serializers.Serializer):
-    period = serializers.ChoiceField(choices=list(service.PERIODS), required=False, default=service.DEFAULT_PERIOD)
+    # A preset ("30d") or a calendar month that has started ("2026-11").
+    period = serializers.CharField(max_length=8, required=False, default=service.DEFAULT_PERIOD)
     pipeline = serializers.UUIDField(required=False, allow_null=True)
+    months = serializers.ChoiceField(choices=list(service.TREND_CHOICES), required=False, default=service.TREND_MONTHS)
+
+    def validate_period(self, value: str) -> str:
+        if not service.is_period(value):
+            raise serializers.ValidationError("Choose 7d, 30d, 90d, 365d or a month like 2026-11.")
+        return value
 
 
 class DashboardSummaryView(TenantAPIView):
@@ -23,6 +30,9 @@ class DashboardSummaryView(TenantAPIView):
         ser = DashboardQuerySerializer(data=request.query_params)
         ser.is_valid(raise_exception=True)
         data = service.summary(
-            request.actor, period=ser.validated_data["period"], pipeline_id=ser.validated_data.get("pipeline")
+            request.actor,
+            period=ser.validated_data["period"],
+            pipeline_id=ser.validated_data.get("pipeline"),
+            trend_months=int(ser.validated_data["months"]),
         )
         return Response(data)

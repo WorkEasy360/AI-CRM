@@ -24,6 +24,12 @@ FORECAST = "forecast"
 DRAFT_GENERATION = "draft_generation"
 MY_DAY = "my_day"
 GENERAL_CRM_QUESTION = "general_crm_question"
+# "How do I create a pipeline?": answered from the help knowledge base (apps.helpkb), never from CRM data.
+HOW_TO = "how_to"
+# "Create a task for tomorrow": proposed, never written -- the user confirms in the normal create form.
+ACTION_REQUEST = "action_request"
+# "What's the weather?": politely declined.
+OUT_OF_SCOPE = "out_of_scope"
 
 INTENTS = (
     CRM_LOOKUP,
@@ -36,6 +42,9 @@ INTENTS = (
     DRAFT_GENERATION,
     MY_DAY,
     GENERAL_CRM_QUESTION,
+    HOW_TO,
+    ACTION_REQUEST,
+    OUT_OF_SCOPE,
 )
 
 # Intents whose evidence is unstructured text and therefore needs the knowledge index.
@@ -135,10 +144,77 @@ class Intent:
         return self.name in NEEDS_STRUCTURED
 
 
+# --------------------------------------------------------------------------- help, actions, scope
+# Checked before the data rules above: "how do I see overdue tasks" is a question about the software,
+# even though it mentions tasks.
+_HOW_TO = re.compile(
+    r"\bhow (do|can|should|would|could|does) (i|we|you|one|a user|someone)\b"
+    r"|\bhow to\b|\bhow (does|do) .{1,60} work\b"
+    r"|\bwhere (do|can|should) (i|we)\b|\bwhere (is|are) (the )?\w+.{0,40}\b(button|menu|page|setting|settings"
+    r"|option|tab)\b"
+    r"|\b(steps|instructions|guide) (to|for)\b|\bhelp me (to )?(set ?up|create|add|change|configure|connect|import"
+    r"|export|invite|enable|turn)\b"
+    r"|\bcan (i|we) (set ?up|configure|change|customi[sz]e|export|import|connect|turn on|turn off|enable|disable"
+    r"|rename|invite|delete|restore|undo|reorder|add an?)\b"
+    r"|\bi (can'?t|cannot|don'?t|do not) (find|see)\b|\b(not able|unable) to (find|see|open)\b|\bis there an? (way"
+    r"|option|setting)\b"
+    r"|\b(kaise|kese|kaisey|kaise?y|kaha|kahan|kidhar)\b|\bkya (hai|hain|hota|hoti|matlab)\b|\bkis tarah\b"
+    r"|(कैसे|कहाँ|कहां|क्या है|क्या होता|किस तरह)",
+    re.IGNORECASE,
+)
+_WHAT_IS_FEATURE = re.compile(
+    r"\b(what|which) (is|are|does|do) (a |an |the )?.{0,40}\b(view|page|button|tab|widget|setting|settings|field"
+    r"|fields"
+    r"|role|roles|permission|permissions|feature|mode|badge|menu|option|probability|template|templates|webhook"
+    r"|webhooks"
+    r"|api key|automation|sla|lead score|lifecycle|kanban|forecast view|audit log|price book|custom field)s?\b"
+    r"|\bwhat does .{1,40} mean\b|\bwhat is .{1,30} used for\b",
+    re.IGNORECASE,
+)
+# A "what is" about the user's own numbers is a data question, not a feature question.
+_OWN_DATA = re.compile(
+    r"\b(my|our|total|value|worth|this (week|month|quarter|year)|today|amount|revenue)\b", re.IGNORECASE
+)
+_ACTION = re.compile(
+    r"^\s*(please |can you |could you |kindly )?(create|add|schedule|book|set up|log|make|remind me|set an? reminder"
+    r"|new)\b"
+    r".{0,80}\b(task|call|meeting|follow[ -]?up|reminder|deal|contact|company|ticket|note)s?\b"
+    r"|\b(task|call|meeting|reminder|follow[ -]?up|deal|contact|ticket)\b.{0,60}\b(bana do|bana de|banao|bana dijiye"
+    r"|create karo"
+    r"|add karo|schedule karo|set karo|laga do|daal do|add kar do|create kar do)\b",
+    re.IGNORECASE,
+)
+_OFF_TOPIC = re.compile(
+    r"\b(weather|joke|poem|song|lyrics|recipe|movie|cricket|football|ipl|match score|stock price|share price|bitcoin"
+    r"|crypto"
+    r"|horoscope|capital of|president of|prime minister|write (me )?(a |an )?(story|poem|essay|code|program|script)"
+    r"|who won|tell me a fact|meaning of life)\b",
+    re.IGNORECASE,
+)
+_CRM_WORDS = re.compile(
+    r"\b(crm|deal|deals|pipeline|contact|contacts|company|companies|lead|leads|customer|customers|task|tasks|meeting"
+    r"|ticket"
+    r"|tickets|activity|activities|workeasy|dashboard|forecast|settings?)\b",
+    re.IGNORECASE,
+)
+
+
+def is_how_to(text: str) -> bool:
+    if _HOW_TO.search(text):
+        return True
+    return bool(_WHAT_IS_FEATURE.search(text)) and not _OWN_DATA.search(text)
+
+
 def classify(question: str) -> Intent:
     text = (question or "").strip()
     name = GENERAL_CRM_QUESTION
-    for candidate, pattern in _COMPILED:
+    if is_how_to(text):
+        return Intent(name=HOW_TO, question=text)
+    if _ACTION.search(text):
+        name = ACTION_REQUEST
+    elif _OFF_TOPIC.search(text) and not _CRM_WORDS.search(text):
+        return Intent(name=OUT_OF_SCOPE, question=text)
+    for candidate, pattern in _COMPILED if name == GENERAL_CRM_QUESTION else ():
         if pattern.search(text):
             name = candidate
             break

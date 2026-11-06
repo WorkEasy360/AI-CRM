@@ -34,6 +34,8 @@ export type CustomData = Record<string, CustomValue>;
 
 export const ENTITY_TYPES = ["contact", "company", "deal", "product"] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
+/** Records that can carry file attachments. */
+export type FileEntityType = EntityType | "ticket";
 
 /** Entity types that carry notes, activities, emails and a timeline (products do not). */
 export type RelatedEntityType = "contact" | "company" | "deal";
@@ -115,6 +117,8 @@ export interface CrmRecord {
   id: string;
   owner: MembershipRef | null;
   tags: TagRef[];
+  /** Contacts and companies: the signed-in member's own star. */
+  is_favorite?: boolean;
   custom_data: CustomData;
   version: number;
   archived_at: string | null;
@@ -227,6 +231,8 @@ export interface Product extends CrmRecord {
   tax_rate: string;
   tax_label: string;
   status: "active" | "inactive";
+  /** Stock flag: available to sell right now (not inventory tracking). */
+  in_stock: boolean;
 }
 
 export interface ProductInput {
@@ -238,6 +244,7 @@ export interface ProductInput {
   tax_rate?: string;
   tax_label?: string;
   status?: "active" | "inactive";
+  in_stock?: boolean;
   owner_id?: string | null;
   custom_data?: CustomData;
 }
@@ -256,16 +263,38 @@ export interface PipelineStage {
   archived_at: string | null;
 }
 
+/** Field keys (module schema) a pipeline shows on its Kanban cards and deal form. */
+export interface PipelineLayout {
+  card_fields?: string[];
+  form_fields?: string[];
+}
+
 export interface Pipeline {
   id: string;
   name: string;
   position: number;
   is_default: boolean;
+  /** Set on a sub-pipeline: the team pipeline it is a variant of. */
+  parent_id: string | null;
+  /** Restricted: only the listed teams/roles (and pipeline managers) see it and its deals. */
+  restricted: boolean;
+  layout: PipelineLayout;
+  /** The layout in force: its own, or its parent's for a sub-pipeline. */
+  effective_layout: PipelineLayout;
+  template_key: string;
+  access: { team_ids: string[]; hierarchy_role_ids: string[] };
   stages: PipelineStage[];
   version: number;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PipelineTemplate {
+  key: string;
+  name: string;
+  description: string;
+  stages: StageInput[];
 }
 
 export interface StageInput {
@@ -295,8 +324,24 @@ export interface ContactRef {
 export type DealStatus = "open" | "won" | "lost";
 export type RiskLevel = "low" | "medium" | "high";
 
+export const DEAL_PRIORITIES = ["low", "medium", "high"] as const;
+export type DealPriority = (typeof DEAL_PRIORITIES)[number];
+export const DEAL_SOURCES = ["whatsapp", "facebook_ads", "website", "referral", "other"] as const;
+export type DealSource = (typeof DEAL_SOURCES)[number];
+export const DEAL_SOURCE_LABELS: Record<DealSource, string> = {
+  whatsapp: "WhatsApp",
+  facebook_ads: "Facebook Ads",
+  website: "Website",
+  referral: "Referral",
+  other: "Other",
+};
+
 export interface Deal extends CrmRecord {
   name: string;
+  /** Always sent by the API; optional for older fixtures and cached payloads. */
+  priority?: DealPriority;
+  /** Where the deal came from; "" when not recorded. */
+  lead_source?: DealSource | "";
   pipeline: NamedRef;
   stage: StageRef;
   company: NamedRef | null;
@@ -322,6 +367,9 @@ export interface Deal extends CrmRecord {
   line_count: number;
   contact_count: number;
   products_total: string | null;
+  /** True while product lines drive the amount (it cannot be edited by hand then). */
+  amount_from_lines: boolean;
+  price_book: NamedRef | null;
 }
 
 export interface DealInput {
@@ -337,20 +385,28 @@ export interface DealInput {
   expected_close_date?: string | null;
   lost_reason?: string;
   description?: string;
+  priority?: DealPriority;
+  lead_source?: DealSource | "";
+  price_book_id?: string | null;
   owner_id?: string | null;
   custom_data?: CustomData;
 }
 
+/** A product line. Money fields are absent when the member's field rules hide them. */
 export interface DealLine {
   id: string;
   product: NamedRef;
   sku: string;
-  quantity: string;
-  unit_price: string;
+  quantity?: string;
+  unit_price?: string;
   currency: string;
-  discount_percent: string;
-  tax_rate: string;
-  line_total: string;
+  discount_percent?: string;
+  tax_rate?: string;
+  /** quantity x unit price less the discount */
+  subtotal?: string;
+  tax_amount?: string;
+  /** subtotal + tax: what the line adds to the deal amount */
+  line_total?: string;
   created_at: string;
 }
 
@@ -360,6 +416,46 @@ export interface DealLineInput {
   unit_price?: string;
   discount_percent?: string;
   tax_rate?: string;
+  /** The deal version the client saw (optional; 409 when it moved on). */
+  version?: number;
+}
+
+export interface DealConnection {
+  id: string;
+  direction: "outgoing" | "incoming";
+  origin: "manual" | "automation";
+  created_at: string;
+  deal: {
+    id: string;
+    name: string;
+    pipeline: NamedRef;
+    stage: { id: string; name: string; kind: StageKind };
+    status: DealStatus;
+    amount?: string;
+    currency: string;
+    owner: MembershipRef | null;
+  };
+}
+
+export interface PriceBook {
+  id: string;
+  name: string;
+  currency: string;
+  description: string;
+  is_active: boolean;
+  entry_count: number;
+  version: number;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PriceBookEntry {
+  id: string;
+  product: { id: string; name: string; sku: string };
+  unit_price?: string;
+  list_price?: string;
+  updated_at: string;
 }
 
 export interface DealContactLink {
@@ -404,21 +500,37 @@ export interface DealCard {
   probability_overridden: boolean;
   expected_close_date: string | null;
   status: DealStatus;
+  priority?: DealPriority;
   next_activity_title: string;
   risk_level: RiskLevel;
   version: number;
+  /** The pipeline's card layout fields (only those the member may see). */
+  extra?: { key: string; label: string; value: unknown }[];
 }
 
 export interface BoardStage extends PipelineStage {
   deal_count: number;
-  total_amount_base: string;
+  /** null when the member may not see deal amounts */
+  total_amount_base: string | null;
+  /** sum of amount x probability over the column (server-computed) */
+  weighted_amount_base: string | null;
   deals: DealCard[];
   has_more: boolean;
 }
 
 export interface Board {
-  pipeline: NamedRef | null;
+  pipeline: (NamedRef & { parent_id: string | null; layout: PipelineLayout }) | null;
+  /** The team pipeline and its sub-pipelines, for the board's pipeline switcher. */
+  family?: { id: string; name: string; parent_id: string | null }[];
+  totals?: { deal_count: number; open_amount_base: string | null; weighted_forecast_base: string | null };
   stages: BoardStage[];
+}
+
+export interface BoardStagePage {
+  stage_id: string;
+  offset: number;
+  deals: DealCard[];
+  has_more: boolean;
 }
 
 /* ------------------------------------------------------------------ deal insights (rules-based, no LLM) */
@@ -497,6 +609,15 @@ export interface TimelineEvent {
   occurred_at: string;
   actor: MembershipRef | null;
   data: Record<string, unknown>;
+  /** The registered timeline source that produced it (notes, activities, emails, files, ...). */
+  source?: string;
+}
+
+export interface TimelinePage {
+  results: TimelineEvent[];
+  /** Pass back as `before` for the next (older) page; null at the beginning of the record. */
+  next_before: string | null;
+  sources: { key: string; label: string }[];
 }
 
 /** Families accepted by `?kinds=` on the timeline endpoint. */
@@ -512,7 +633,7 @@ export const TIMELINE_FILTERS = [
 
 /* ------------------------------------------------------------------ search */
 
-export type SearchEntityType = EntityType | "activity";
+export type SearchEntityType = EntityType | "activity" | "ticket";
 
 export interface SearchHit {
   id: string;
@@ -529,7 +650,48 @@ export interface SearchResponse {
 
 /* ------------------------------------------------------------------ import / export */
 
-export type JobStatus = "uploaded" | "pending" | "running" | "completed" | "failed";
+export type JobStatus =
+  | "uploaded"
+  | "previewing"
+  | "previewed"
+  | "pending"
+  | "running"
+  | "completed"
+  | "stopped"
+  | "failed"
+  | "rolling_back"
+  | "rolled_back";
+
+/** The `upgrade` member of a 403 plan problem: which edition or add-on lifts a limit. */
+export interface UpgradePath {
+  kind?: string;
+  metric?: string;
+  limit?: number | null;
+  used?: number;
+  current_edition?: { key: string; name: string } | null;
+  required_edition?: { key: string; name: string } | null;
+  addon?: string | null;
+  url?: string;
+}
+
+export interface ImportPreview {
+  rows_checked: number;
+  would_create: number;
+  would_update: number;
+  would_skip: number;
+  would_fail: number;
+  companies_to_create: number;
+  errors: ImportRowError[];
+  limit: { stops_at_row: number; capacity: number; message: string; upgrade: UpgradePath } | null;
+}
+
+export interface ImportPreset {
+  key: string;
+  label: string;
+  mapping: Record<string, string>;
+}
+
+export type DedupeMode = "create" | "skip" | "update";
 
 export interface ImportRowError {
   row: number;
@@ -545,19 +707,29 @@ export interface ImportJob {
   headers: string[];
   mapping: Record<string, string>;
   options: Record<string, unknown>;
+  file_format: "csv" | "xlsx";
   total_rows: number;
   processed_rows: number;
   created_rows: number;
+  updated_rows: number;
+  skipped_rows: number;
   error_rows: number;
   errors: ImportRowError[];
   error_message: string;
+  /** The dry-run result once the file was checked (empty object before). */
+  preview: ImportPreview | Record<string, never> | Record<string, string>[];
+  /** Set when the import stopped at the plan's record limit. */
+  stop: { row?: number; message?: string; upgrade?: UpgradePath };
+  rollback: { deleted?: number; reverted?: number; missing?: number; conflict_count?: number; conflicts?: { row: number; entity_type: string; entity_id: string; reason: string }[] };
+  rolled_back_at: string | null;
   requested_by: MembershipRef | null;
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
-  /** Present on the upload response and the preview endpoint. */
-  preview?: Record<string, string>[];
+  /** First rows of the file (upload response). */
+  sample?: Record<string, string>[];
   targets?: Record<string, string>;
+  presets?: ImportPreset[];
 }
 
 export interface ExportJob {
@@ -587,6 +759,14 @@ export interface ContactStats {
   with_open_deals: number;
   without_deals: number;
   untouched: number;
+  favorites?: number;
+  tagged?: number;
+  /** Created in the last ``days`` days, and in the ``days`` before. */
+  created?: number;
+  created_previous?: number;
+  days?: number;
+  /** The same counts for companies; null when the member may not see companies. */
+  companies?: { total: number; favorites: number; tagged: number; created: number; created_previous: number } | null;
 }
 
 export interface CompanyStats {
@@ -654,9 +834,30 @@ export interface Activity {
   deal: NamedRef | null;
   attendees: MembershipRef[];
   is_overdue: boolean;
+  /** Set on a subtask: the task it belongs to. */
+  parent_id: string | null;
+  subtask_count: number;
+  subtasks_done: number;
+  /** RRULE (e.g. "FREQ=WEEKLY;BYDAY=MO"), "" when it does not repeat. */
+  recurrence: string;
+  series_id: string | null;
+  /** Calendar occurrences of a repeating event carry the id of the event they come from. */
+  occurrence_of?: string;
+  occurrence_key?: string;
   version: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface MyDay {
+  date: string;
+  timezone: string;
+  overdue: Activity[];
+  tasks: Activity[];
+  events: Activity[];
+  calls: Activity[];
+  no_date: Activity[];
+  completed_today: number;
 }
 
 export interface ActivityInput {
@@ -682,6 +883,17 @@ export interface ActivityInput {
   attendee_ids?: string[];
   /** Create the activity already completed (log a call, tick a task). */
   completed?: boolean;
+  /** Make it a subtask of this task. */
+  parent_id?: string;
+  /** RRULE, "" to stop repeating. */
+  recurrence?: string;
+}
+
+export interface ActivityKindCounts {
+  all: number;
+  task: number;
+  call: number;
+  meeting: number;
 }
 
 export interface ActivitySummary {
@@ -690,6 +902,11 @@ export interface ActivitySummary {
   open_tasks: number;
   meetings_week: number;
   calls_week: number;
+  due_week?: number;
+  follow_ups?: number;
+  totals?: ActivityKindCounts;
+  /** Logged in the last ``days`` days, and in the ``days`` before. */
+  created?: { days: number; current: ActivityKindCounts; previous: ActivityKindCounts };
 }
 
 /* ------------------------------------------------------------------ notifications */
@@ -703,6 +920,7 @@ export const NOTIFICATION_KINDS = [
   "customer_replied",
   "ai_high_risk",
   "integration_alert",
+  "automation",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export const NOTIFICATION_LABELS: Record<NotificationKind, string> = {
@@ -714,6 +932,7 @@ export const NOTIFICATION_LABELS: Record<NotificationKind, string> = {
   customer_replied: "Customer replied",
   ai_high_risk: "Deal at high risk",
   integration_alert: "Integration needs attention",
+  automation: "Automation",
 };
 
 export interface Notification {
@@ -1002,7 +1221,18 @@ export interface AIUsage {
  */
 export type AssistantMode = "ai" | "ai_fallback" | "retrieval";
 
-export type AssistantAnswerType = "summary" | "deal_risk" | "next_action" | "crm_results" | "timeline" | "forecast" | "draft" | "answer";
+export type AssistantAnswerType =
+  | "summary"
+  | "deal_risk"
+  | "next_action"
+  | "crm_results"
+  | "timeline"
+  | "forecast"
+  | "draft"
+  | "answer"
+  | "help"
+  | "action"
+  | "out_of_scope";
 
 /** One row inside an answer section. The shape varies by the section's `kind`. */
 export interface AssistantItem {
@@ -1059,6 +1289,153 @@ export interface AssistantAnswer {
   knowledge_search_only: boolean;
   degraded_retrieval?: boolean;
   flagged_input?: boolean;
+  /** The saved turn, for feedback. */
+  turn_id?: string;
+  /** Present when the question was "how do I...": the help article that answers it. */
+  help?: HelpAnswer;
+  /** Present when the user asked the assistant to create something: a proposal, never a write. */
+  action?: AssistantActionProposal;
+}
+
+export interface HelpArticleCard {
+  id: string;
+  title: string;
+  question: string;
+  module: string;
+  /** App route where the task is done ("Take me there"). */
+  route: string;
+  menu_path: string;
+  /** Exact label of the button to highlight on arrival, when the article names one. */
+  spotlight: string;
+  permission: string;
+  permission_ok: boolean;
+  source: "global" | "org";
+  updated: string;
+}
+
+export interface HelpContent {
+  overview: string;
+  before_you_start: string[];
+  steps: string[];
+  result: string;
+  tips: string[];
+  troubleshooting: string[];
+}
+
+export interface HelpRelated {
+  id: string;
+  title: string;
+  question: string;
+}
+
+export interface HelpAnswer {
+  found: boolean;
+  article: HelpArticleCard | null;
+  summary: string;
+  /** The article's own sections. Always correct; shown when there is no verified model text. */
+  content: HelpContent | null;
+  /** Model-written Markdown in the user's language, already checked against the article. "" when none. */
+  text: string;
+  related: HelpRelated[];
+  language: "en" | "hi" | "hinglish";
+  verified: boolean;
+}
+
+export interface AssistantActionProposal {
+  kind: "task" | "call" | "meeting" | "deal" | "contact" | "company" | "ticket";
+  title: string;
+  /** ISO date, or "". */
+  due_date: string;
+  links: Partial<Record<"contact" | "company" | "deal", { id: string; name: string }>>;
+  permission_ok: boolean;
+}
+
+export interface HelpArticleSummary {
+  id: string;
+  title: string;
+  question: string;
+  module: string;
+  route: string;
+  menu_path: string;
+  permission_ok: boolean;
+  source: "global" | "org";
+}
+
+export interface HelpArticleDetail {
+  article: HelpArticleCard;
+  summary: string;
+  content: HelpContent;
+  related: HelpRelated[];
+}
+
+/** The editable article, as the Knowledge Base admin screen reads and writes it. */
+export interface HelpArticleEditable {
+  id: string;
+  title: string;
+  question: string;
+  module: string;
+  keywords: string[];
+  route: string;
+  menu_path: string;
+  spotlight: string;
+  permission: string;
+  related: string[];
+  body: string;
+  status: "published" | "draft";
+  updated: string;
+  version: number;
+  source: "global" | "org";
+  overrides_global: boolean;
+}
+
+export interface HelpAdminList {
+  workspace: {
+    id: string;
+    title: string;
+    module: string;
+    status: "published" | "draft";
+    version: number;
+    overrides_global: boolean;
+    updated_at: string;
+  }[];
+  global: { id: string; title: string; module: string; customized: boolean }[];
+  modules: string[];
+}
+
+export interface HelpRevision {
+  version: number;
+  title: string;
+  status: string;
+  body: string;
+  edited_by: string;
+  created_at: string;
+}
+
+export interface HelpUnanswered {
+  id: string;
+  question: string;
+  page: string;
+  times_asked: number;
+  last_asked_at: string;
+  status: "open" | "answered" | "dismissed";
+  article_slug: string;
+}
+
+export interface HelpReportItem {
+  id: string;
+  title: string;
+  asked: number;
+  helpful: number;
+  unhelpful: number;
+  helpful_rate: number | null;
+}
+
+export interface HelpReport {
+  days: number;
+  most_asked: HelpReportItem[];
+  lowest_rated: HelpReportItem[];
+  unanswered_open: number;
+  recent_comments: { article_id: string; question: string; rating: 1 | -1; comment: string; created_at: string }[];
 }
 
 export interface AssistantHome {
@@ -1071,7 +1448,16 @@ export interface AssistantHome {
 export interface AssistantConversation {
   id: string | null;
   title?: string;
-  turns: { position: number; question: string; answer: string; mode: AssistantMode; created_at: string }[];
+  turns: {
+    position: number;
+    question: string;
+    answer: string;
+    mode: AssistantMode;
+    created_at: string;
+    intent?: string;
+    help_article?: string;
+    turn_id?: string;
+  }[];
 }
 
 export interface AISettings {
@@ -1112,4 +1498,168 @@ export const ENTITY_LABELS: Record<SearchEntityType, { singular: string; plural:
   deal: { singular: "Deal", plural: "Deals" },
   product: { singular: "Product", plural: "Products" },
   activity: { singular: "Activity", plural: "Activities" },
+  ticket: { singular: "Ticket", plural: "Tickets" },
 };
+
+/* ------------------------------------------------------------------ module schema and generic views */
+
+export type FieldType =
+  | "text"
+  | "textarea"
+  | "email"
+  | "phone"
+  | "url"
+  | "integer"
+  | "number"
+  | "money"
+  | "percent"
+  | "date"
+  | "datetime"
+  | "boolean"
+  | "choice"
+  | "multi_choice"
+  | "lookup"
+  | "user"
+  | "tags"
+  | "stage";
+
+/** One field of a module as the signed-in member may see it (hidden fields are never listed). */
+export interface FieldDescriptor {
+  key: string;
+  label: string;
+  type: FieldType;
+  editable: boolean;
+  read_only: boolean;
+  required: boolean;
+  sortable: boolean;
+  groupable: boolean;
+  choices: string[];
+  lookup: string | null;
+  custom: boolean;
+  importable: boolean;
+  currency_field: string | null;
+}
+
+export interface ModuleSchema {
+  entity_type: EntityType;
+  label: string;
+  label_plural: string;
+  title_field: string;
+  counts_as_record: boolean;
+  default_columns: string[];
+  fields: FieldDescriptor[];
+}
+
+export type CellValue = string | number | boolean | null | NamedRef | MembershipRef | TagRef[] | (NamedRef & { kind?: string }) | string[];
+
+export interface RecordRow {
+  id: string;
+  version: number | null;
+  title: string;
+  values: Record<string, CellValue>;
+}
+
+export interface RowsResponse {
+  entity_type: EntityType;
+  offset: number;
+  limit: number;
+  total: number;
+  exact: boolean;
+  columns: FieldDescriptor[];
+  rows: RecordRow[];
+}
+
+export interface CellError {
+  code: string;
+  message: string;
+}
+
+export interface RowEditResult {
+  id: string;
+  status: "saved" | "partial" | "conflict" | "error";
+  version?: number;
+  values?: Record<string, CellValue>;
+  errors: Record<string, CellError>;
+}
+
+export interface EditsResponse {
+  entity_type: EntityType;
+  saved: number;
+  failed: number;
+  results: RowEditResult[];
+}
+
+export interface RecordGroup {
+  value: string | boolean | null;
+  label: string;
+  count: number;
+  rows: RecordRow[];
+  has_more: boolean;
+}
+
+export interface GroupsResponse {
+  entity_type: EntityType;
+  group_by: FieldDescriptor;
+  columns: FieldDescriptor[];
+  groups: RecordGroup[];
+}
+
+export interface CalendarResponse {
+  entity_type: EntityType;
+  date_field: string;
+  items: (RecordRow & { date: string })[];
+  truncated: boolean;
+}
+
+export interface ChartResponse {
+  entity_type: EntityType;
+  group_by: string;
+  measure: "count" | "sum";
+  field: string | null;
+  series: { key: string | boolean | null; label: string; value: number | string }[];
+}
+
+export type ViewKind = "list" | "kanban" | "sheet" | "calendar" | "chart";
+export type ViewVisibility = "private" | "organization" | "teams";
+
+export interface ViewConfig {
+  group_by?: string;
+  pipeline_id?: string;
+  date_field?: string;
+  include_activities?: boolean;
+  measure?: "count" | "sum";
+  field?: string;
+}
+
+export interface SavedView {
+  id: string;
+  entity_type: EntityType;
+  name: string;
+  kind: ViewKind;
+  filters: Record<string, string>;
+  sort: string;
+  columns: string[];
+  config: ViewConfig;
+  visibility: ViewVisibility;
+  team_ids: string[];
+  owner: MembershipRef;
+  is_owner: boolean;
+  is_default: boolean;
+  /** Some columns or filters use fields this member cannot see; they were left out. */
+  restricted: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedViewInput {
+  entity_type?: EntityType;
+  name?: string;
+  kind?: ViewKind;
+  filters?: Record<string, string>;
+  sort?: string;
+  columns?: string[];
+  config?: ViewConfig;
+  visibility?: ViewVisibility;
+  team_ids?: string[];
+}

@@ -45,14 +45,30 @@ def fail_stale_jobs(*, now: Any = None, limit: int = 500) -> int:
     organization out of imports and exports for good. A job a worker is processing has saved its status
     inside the task's transaction and holds that row lock, so ``skip_locked`` never touches it.
     Idempotent; touches only bookkeeping columns.
+
+    Imports of an organization whose Workeasy360 access has ended are left alone: they are waiting, not
+    lost (``run_import`` parks them and ``resume_stalled_imports`` runs them after renewal). Exports are not
+    held back by access (finishing one is class B), so a stale export fails as ever.
     """
+    from apps.accounts.workeasy360 import background
+
     now = now or timezone.now()
     cutoff = now - STALE_JOB_AFTER
     failed = 0
+    stale_filter = {"status__in": [JobStatus.PENDING, JobStatus.RUNNING], "updated_at__lt": cutoff}
+    with system_context("importexport.fail_stale_jobs"):
+        import_orgs = set(
+            ImportJob.all_objects.filter(**stale_filter)
+            .order_by()
+            .values_list("organization_id", flat=True)
+            .distinct()[:limit]
+        )
+    waiting_for_access = background.denied_organizations(import_orgs, task="importexport.fail_stale_jobs")
     with system_context("importexport.fail_stale_jobs"):
         for model in (ImportJob, ExportJob):
             stale = list(
-                model.all_objects.filter(status__in=[JobStatus.PENDING, JobStatus.RUNNING], updated_at__lt=cutoff)
+                model.all_objects.filter(**stale_filter)
+                .exclude(organization_id__in=waiting_for_access if model is ImportJob else set())
                 .select_for_update(skip_locked=True)
                 .order_by("updated_at")
                 .values_list("pk", "storage_key")[:limit]

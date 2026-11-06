@@ -13,6 +13,21 @@ class Deal(CrmRecord):
         WON = "won", "Won"
         LOST = "lost", "Lost"
 
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class LeadSource(models.TextChoices):
+        """Where the deal came from (the dashboard's Deals by Source). Blank means not recorded."""
+
+        NONE = "", "Not set"
+        WHATSAPP = "whatsapp", "WhatsApp"
+        FACEBOOK_ADS = "facebook_ads", "Facebook Ads"
+        WEBSITE = "website", "Website"
+        REFERRAL = "referral", "Referral"
+        OTHER = "other", "Other"
+
     name = models.CharField(max_length=160)
     pipeline = models.ForeignKey("pipelines.Pipeline", on_delete=models.PROTECT, related_name="deals")
     stage = models.ForeignKey("pipelines.PipelineStage", on_delete=models.PROTECT, related_name="deals")
@@ -26,6 +41,13 @@ class Deal(CrmRecord):
     currency = models.CharField(max_length=3)
     exchange_rate = models.DecimalField(max_digits=18, decimal_places=8, default=1)
     amount_base = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    # True once product lines drive the amount: it is then the sum of the line totals and cannot be set
+    # by hand (DECISIONS M2.6). Deals that had lines before Milestone 2 keep their manual amount until
+    # one of their lines changes.
+    amount_from_lines = models.BooleanField(default=False)
+    price_book = models.ForeignKey(
+        "products.PriceBook", null=True, blank=True, on_delete=models.SET_NULL, related_name="deals"
+    )
     probability = models.PositiveSmallIntegerField(default=10)
     # True when a person set the probability by hand; a stage move resets it to the stage default.
     probability_overridden = models.BooleanField(default=False)
@@ -37,6 +59,8 @@ class Deal(CrmRecord):
     last_activity_at = models.DateTimeField(null=True, blank=True)
     next_activity_at = models.DateTimeField(null=True, blank=True)
     description = models.TextField(blank=True)
+    priority = models.CharField(max_length=8, choices=Priority.choices, default=Priority.MEDIUM)
+    lead_source = models.CharField(max_length=16, choices=LeadSource.choices, blank=True, default="")
     search_vector = SearchVectorField(null=True, editable=False)
 
     class Meta:
@@ -62,6 +86,13 @@ class Deal(CrmRecord):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def weighted_amount_base(self):
+        """Value x probability (the forecast contribution), as the API reports it."""
+        from apps.deals.services import weighted_amount
+
+        return weighted_amount(self.amount_base, self.probability)
 
 
 class DealStageHistory(TenantModel):
@@ -100,6 +131,10 @@ class DealProduct(TenantModel):
     currency = models.CharField(max_length=3)
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # quantity x unit price, less the discount. Tax is charged on this.
+    subtotal = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    # subtotal + tax: what the line contributes to the deal amount.
     line_total = models.DecimalField(max_digits=18, decimal_places=2)
 
     class Meta:
@@ -121,4 +156,34 @@ class DealContact(TenantModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["deal", "contact"], name="uniq_deal_contact")]
+        ordering = ["created_at"]
+
+
+class DealConnection(TenantModel):
+    """A link between two deals, usually in different pipelines ("connected pipelines").
+
+    Shown on both deals. ``source`` is the deal the link was made from (for an automation, the deal whose
+    stage change created ``target``). The pair is unique regardless of direction (enforced in the service).
+    """
+
+    class Origin(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        AUTOMATION = "automation", "Automation"
+
+    source = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="connections_out")
+    target = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="connections_in")
+    origin = models.CharField(max_length=16, choices=Origin.choices, default=Origin.MANUAL)
+    created_by = models.ForeignKey(
+        "accounts.Membership", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["source", "target"], name="uniq_deal_connection"),
+            models.CheckConstraint(condition=~models.Q(source=models.F("target")), name="deal_connection_not_self"),
+        ]
+        indexes = [
+            models.Index(fields=["organization", "source"], name="dealconn_org_source_idx"),
+            models.Index(fields=["organization", "target"], name="dealconn_org_target_idx"),
+        ]
         ordering = ["created_at"]

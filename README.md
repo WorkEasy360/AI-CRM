@@ -25,7 +25,13 @@ Start at [`docs/00-phase0-overview.md`](docs/00-phase0-overview.md). Key documen
 - Security: [`docs/security/threat-model.md`](docs/security/threat-model.md), [`docs/security/security-architecture.md`](docs/security/security-architecture.md), gates: [`phase-1`](docs/security/gates/phase-1.md), [`phase-2`](docs/security/gates/phase-2.md)
 - Plan: [`docs/plan/development-phases.md`](docs/plan/development-phases.md), [`docs/plan/phase-1-plan.md`](docs/plan/phase-1-plan.md), [`docs/plan/phase-2-plan.md`](docs/plan/phase-2-plan.md)
 - API: [`docs/api/README.md`](docs/api/README.md)
-- Decisions: [`docs/adr/`](docs/adr/), [`docs/DECISIONS-REQUIRED.md`](docs/DECISIONS-REQUIRED.md)
+- Decisions: [`docs/adr/`](docs/adr/), [`docs/DECISIONS-REQUIRED.md`](docs/DECISIONS-REQUIRED.md), [`DECISIONS.md`](DECISIONS.md) (assumptions behind the Bigin-equivalent build)
+
+## Editions and permissions
+
+- **Editions** (Free, Express, Premier, 360) and their limits live in `backend/apps/billing/editions.py`; `apps/billing/entitlements.py` is the single EntitlementService every gated action calls. A blocked action answers 403 with an `upgrade` member, and the web app opens an upgrade prompt from it. Owners see usage under Settings → Plan & usage.
+- `BILLING_ENABLED` / `BILLING_SELF_SERVICE` (both on in dev, off by default in production until a payment provider is wired): see `.env.example` and `DECISIONS.md` M1.7.
+- **Profiles, role hierarchy and field permissions** are under Settings → Roles & permissions (`/api/v1/roles/`, `/api/v1/hierarchy-roles/`, `/api/v1/roles/{key}/field-permissions/`).
 
 ## Non-negotiables
 

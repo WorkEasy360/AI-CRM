@@ -52,8 +52,11 @@ const ADMIN = active(
   {
     "org.update": "all",
     "members.invite": "all",
+    "roles.manage": "all",
     "teams.manage": "all",
     "pipelines.manage": "all",
+    "automation.view": "all",
+    "pricebooks.manage": "all",
     "customfields.manage": "all",
     "tags.manage": "all",
     "contacts.export": "all",
@@ -77,16 +80,30 @@ function session(ctx: ActiveContext): Session {
 }
 
 describe("navigation", () => {
-  it("keeps the sidebar to the six CRM sections plus Settings and the profile", () => {
+  it("keeps the sidebar to the CRM sections plus Settings and the WorkEasy AI card", () => {
     render(<SideNav session={session(REP)} />);
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((l) => l.textContent?.trim())).toEqual(["Dashboard", "Pipeline", "Contacts", "Companies", "Activities", "Products", "Settings", expect.stringContaining("Rae Rep")]);
-    expect(within(nav).getByRole("link", { name: "Contacts" })).toHaveAttribute("aria-current", "page");
+    expect(links.map((l) => l.textContent?.trim())).toEqual([
+      "Dashboard",
+      "Pipeline",
+      "Contacts",
+      "People (Contacts)",
+      "Companies",
+      "Activities",
+      "AI Assistant",
+      "Helpdesk",
+      "Products",
+      "Settings",
+      "Ask AI Now",
+    ]);
+    expect(within(nav).getByRole("link", { name: "Ask AI Now" })).toHaveAttribute("href", "/assistant");
+    expect(within(nav).getByRole("link", { name: "People (Contacts)" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("button", { name: "Collapse Contacts" })).toHaveAttribute("aria-expanded", "true");
     for (const label of ["Organization", "Members", "Teams", "Custom fields", "Tags", "Audit log", "Reports"]) {
       expect(within(nav).queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
-    expect(PRIMARY_NAV).toHaveLength(6);
+    expect(PRIMARY_NAV).toHaveLength(7);
   });
 
   /**
@@ -107,7 +124,7 @@ describe("navigation", () => {
   });
 
   it("shows a sales representative only their personal settings pages", () => {
-    expect(visibleSettingsNav(REP).map((i) => i.label)).toEqual(["Email", "WhatsApp", "Notifications", "Security"]);
+    expect(visibleSettingsNav(REP).map((i) => i.label)).toEqual(["WhatsApp (API)", "Email", "Message Templates", "Notifications", "Security"]);
   });
 
   it("shows an administrator every settings page they can act on", () => {
@@ -115,14 +132,19 @@ describe("navigation", () => {
     expect(SETTINGS_NAV.map((i) => i.href)).toEqual([
       "/settings/general",
       "/settings/users",
+      "/settings/roles",
       "/settings/pipelines",
       "/settings/custom-fields",
-      "/settings/tags",
-      "/settings/email",
+      "/settings/automation",
+      "/settings/integrations",
       "/settings/whatsapp",
+      "/settings/email",
+      "/settings/templates",
+      "/settings/billing",
+      "/settings/price-books",
+      "/settings/tags",
       "/settings/notifications",
       "/settings/ai",
-      "/settings/integrations",
       "/settings/security",
       "/settings/data",
       "/settings/audit-log",

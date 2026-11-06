@@ -89,6 +89,13 @@ def make_team(bundle: OrgBundle, name: str = "Team A") -> Team:
         return Team.objects.create(name=name)
 
 
+def make_hierarchy_role(bundle: OrgBundle, name: str = "Regional manager"):
+    from apps.authz.models import HierarchyRole
+
+    with tenant_context(bundle.org.pk, reason="test.make_hierarchy_role"):
+        return HierarchyRole.objects.create(name=name)
+
+
 def make_invitation(bundle: OrgBundle, email: str | None = None, role_key: str = "sales_rep") -> Invitation:
     from apps.authz.actor import build_actor
 
@@ -166,8 +173,8 @@ def make_deal(
 ) -> Deal:
     from django.utils import timezone
 
-    pipeline = make_pipeline(bundle)
-    stage = stage or stage_named(pipeline, "Qualification")
+    pipeline = stage.pipeline if stage is not None else make_pipeline(bundle)
+    stage = stage or stage_named(pipeline, "Discovery")
     with _ctx(bundle, "test.make_deal"):
         extra.setdefault("name", f"Deal {uuid.uuid4().hex[:6]}")
         extra.setdefault("amount", "1000.00")
@@ -468,7 +475,39 @@ def make_api_credential(bundle: OrgBundle, **extra):
         return ApiCredential.objects.create(**extra)
 
 
+def make_price_book(bundle: OrgBundle, *, name: str | None = None, **extra):
+    from apps.products.models import PriceBook
+
+    with _ctx(bundle, "test.make_price_book"):
+        extra.setdefault("currency", bundle.org.base_currency)
+        return PriceBook.objects.create(name=name or f"Book {uuid.uuid4().hex[:6]}", **extra)
+
+
+def make_saved_view(bundle: OrgBundle, *, owner: Membership | None = None, **extra):
+    from apps.savedviews.models import SavedView
+
+    with _ctx(bundle, "test.make_saved_view"):
+        extra.setdefault("entity_type", "contact")
+        extra.setdefault("kind", "list")
+        extra.setdefault("name", f"View {uuid.uuid4().hex[:6]}")
+        # shared org-wide so the cross-tenant probe cannot pass merely because the view is private
+        extra.setdefault("visibility", "organization")
+        return SavedView.objects.create(owner=owner or bundle.owner_membership, **extra)
+
+
+def make_variant(bundle: OrgBundle, parent: Pipeline | None = None, *, name: str | None = None) -> Pipeline:
+    """A sub-pipeline of ``parent`` (the default pipeline) with a three-stage set."""
+    with _ctx(bundle, "test.make_variant"):
+        parent = parent or ensure_default_pipeline()
+        variant = Pipeline.objects.create(name=name or f"Variant {uuid.uuid4().hex[:6]}", parent=parent, position=9)
+        for i, (n, kind, p) in enumerate([("Pitch", "open", 30), ("Signed", "won", 100), ("Dropped", "lost", 0)]):
+            PipelineStage.objects.create(pipeline=variant, name=n, kind=kind, default_probability=p, position=i)
+        return Pipeline.objects.prefetch_related("stages").get(pk=variant.pk)
+
+
 # model -> callable(bundle) -> instance, used by tests/tenant_isolation/test_generated.py
+from apps.authz.models import HierarchyRole  # noqa: E402
+
 CROSS_TENANT_FACTORIES = {
     Activity: lambda bundle: make_activity(bundle),
     Notification: lambda bundle: make_notification(bundle),
@@ -484,13 +523,14 @@ CROSS_TENANT_FACTORIES = {
     Membership: lambda bundle: make_member(bundle),
     Invitation: lambda bundle: make_invitation(bundle),
     Team: lambda bundle: make_team(bundle),
+    HierarchyRole: lambda bundle: make_hierarchy_role(bundle),
     AuditEvent: lambda bundle: make_audit_event(bundle),
     Widget: lambda bundle: make_widget(bundle),
     Company: lambda bundle: make_company(bundle),
     Contact: lambda bundle: make_contact(bundle),
     Product: lambda bundle: make_product(bundle),
     Pipeline: lambda bundle: make_pipeline(bundle),
-    PipelineStage: lambda bundle: stage_named(make_pipeline(bundle), "Qualification"),
+    PipelineStage: lambda bundle: stage_named(make_pipeline(bundle), "Discovery"),
     Deal: lambda bundle: make_deal(bundle),
     CustomFieldDefinition: lambda bundle: make_custom_field(bundle),
     Tag: lambda bundle: make_tag(bundle),
@@ -506,3 +546,75 @@ CROSS_TENANT_FACTORIES = {
     WebhookSubscription: lambda bundle: make_webhook_subscription(bundle),
     ApiCredential: lambda bundle: make_api_credential(bundle),
 }
+
+
+def _register_m2_factories() -> None:
+    from apps.products.models import PriceBook
+    from apps.savedviews.models import SavedView
+
+    CROSS_TENANT_FACTORIES[PriceBook] = lambda bundle: make_price_book(bundle)
+    CROSS_TENANT_FACTORIES[SavedView] = lambda bundle: make_saved_view(bundle)
+
+
+def make_ticket(bundle: OrgBundle, *, owner: Membership | None = None, **extra):
+    from apps.helpdesk.models import Ticket
+
+    with _ctx(bundle, "test.make_ticket"):
+        extra.setdefault("subject", f"Ticket {uuid.uuid4().hex[:6]}")
+        extra.setdefault("number", (Ticket.objects.count() or 0) + 1001)
+        return Ticket.objects.create(owner=owner or bundle.owner_membership, **extra)
+
+
+def make_ticket_message(bundle: OrgBundle, ticket=None, **extra):
+    from apps.helpdesk.models import TicketMessage
+
+    ticket = ticket or make_ticket(bundle)
+    with _ctx(bundle, "test.make_ticket_message"):
+        extra.setdefault("kind", TicketMessage.Kind.NOTE)
+        extra.setdefault("body", "Checked the logs.")
+        return TicketMessage.objects.create(ticket=ticket, author=bundle.owner_membership, **extra)
+
+
+def _register_helpdesk_factories() -> None:
+    from apps.helpdesk.models import Ticket, TicketMessage
+
+    CROSS_TENANT_FACTORIES[Ticket] = lambda bundle: make_ticket(bundle)
+    CROSS_TENANT_FACTORIES[TicketMessage] = lambda bundle: make_ticket_message(bundle)
+
+
+def make_automation_rule(bundle: OrgBundle, **extra):
+    from apps.automation.models import AutomationRule
+
+    with _ctx(bundle, "test.make_automation_rule"):
+        extra.setdefault("name", f"Rule {uuid.uuid4().hex[:6]}")
+        extra.setdefault("trigger", AutomationRule.Trigger.CONTACT_CREATED)
+        extra.setdefault("action", AutomationRule.Action.NOTIFY_OWNER)
+        return AutomationRule.objects.create(**extra)
+
+
+def make_favorite(bundle: OrgBundle, **extra):
+    from apps.tagging.models import Favorite
+
+    contact = make_contact(bundle)
+    with _ctx(bundle, "test.make_favorite"):
+        return Favorite.objects.create(
+            membership=bundle.owner_membership, entity_type="contact", entity_id=contact.pk, **extra
+        )
+
+
+def _register_favorite_factories() -> None:
+    from apps.tagging.models import Favorite
+
+    CROSS_TENANT_FACTORIES[Favorite] = lambda bundle: make_favorite(bundle)
+
+
+def _register_automation_factories() -> None:
+    from apps.automation.models import AutomationRule
+
+    CROSS_TENANT_FACTORIES[AutomationRule] = lambda bundle: make_automation_rule(bundle)
+
+
+_register_m2_factories()
+_register_helpdesk_factories()
+_register_favorite_factories()
+_register_automation_factories()

@@ -6,9 +6,32 @@ export function formatMoney(amount: string | number | null | undefined, currency
   const value = typeof amount === "number" ? amount : Number(amount);
   if (Number.isNaN(value)) return String(amount);
   try {
+    if (currency === "INR") {
+      // Rupees always use Indian grouping (₹1,24,50,000) whatever the browser locale, and drop ".00".
+      return new Intl.NumberFormat("en-IN", { style: "currency", currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
+    }
     return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD", maximumFractionDigits: 2 }).format(value);
   } catch {
     return `${value.toLocaleString()} ${currency ?? ""}`.trim();
+  }
+}
+
+/** A short amount for chart axes and tight tiles: lakhs and crores for INR (₹62.8L, ₹1.2Cr), K/M otherwise. */
+export function formatCompactMoney(amount: string | number | null | undefined, currency: string | undefined): string {
+  const value = typeof amount === "number" ? amount : Number(amount ?? 0);
+  if (Number.isNaN(value)) return "—";
+  const trim = (n: number) => String(Number(n.toFixed(1)));
+  const abs = Math.abs(value);
+  if (currency === "INR") {
+    if (abs >= 1e7) return `₹${trim(value / 1e7)}Cr`;
+    if (abs >= 1e5) return `₹${trim(value / 1e5)}L`;
+    if (abs >= 1e3) return `₹${trim(value / 1e3)}K`;
+    return `₹${trim(value)}`;
+  }
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD", notation: "compact", maximumFractionDigits: 1 }).format(value);
+  } catch {
+    return trim(value);
   }
 }
 
@@ -53,9 +76,10 @@ export function formatCustomValue(definition: CustomFieldDefinition, value: Cust
 export function colorClasses(token: string | undefined): string {
   switch (token) {
     case "blue":
-      return "bg-primary-soft text-primary";
+      return "bg-[#e3eefb] text-[#1d5fa8] dark:bg-[#132a45] dark:text-[#9cc4f2]";
     case "teal":
-      return "bg-accent-soft text-accent";
+      // A fixed teal: the accent is navy now, which would collide with "blue" and "slate".
+      return "bg-[#dcf2f1] text-[#0f6b66] dark:bg-[#0d3a3a] dark:text-[#7fd6d0]";
     case "green":
       return "bg-success-soft text-success";
     case "amber":
@@ -71,12 +95,30 @@ export function colorClasses(token: string | undefined): string {
   }
 }
 
+/** The stage hue for a tinted column header (Kanban). Mixed into the surface so it works in both themes;
+ * text on it stays the regular foreground colour. */
+const STAGE_HUE: Record<string, string> = {
+  blue: "#2b7bd6",
+  teal: "#1f8a82",
+  green: "#16a34a",
+  amber: "#d97706",
+  red: "#dc2626",
+  purple: "#7c4dff",
+  pink: "#e0479e",
+};
+
+export function stageTintStyle(token: string | undefined): { backgroundColor: string } {
+  const hue = STAGE_HUE[token ?? ""] ?? "#64748b";
+  return { backgroundColor: `color-mix(in srgb, ${hue} 14%, var(--kl-surface))` };
+}
+
 export function stageDotClass(token: string | undefined): string {
   switch (token) {
     case "blue":
-      return "bg-primary";
+      // A fixed blue: primary is the brand green, which would collide with the "green" stage.
+      return "bg-[#2b7bd6]";
     case "teal":
-      return "bg-accent";
+      return "bg-[#1f8a82]";
     case "green":
       return "bg-success";
     case "amber":

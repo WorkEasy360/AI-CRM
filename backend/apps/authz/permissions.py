@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
+from apps.accounts.workeasy360 import entitlement
 from apps.authz.catalogue import validate_permission
 
 
@@ -40,6 +41,19 @@ class RequirePermissions(BasePermission):
             raise PermissionDenied(
                 detail="Multi-factor authentication is required by your organization.", code="mfa_required"
             )
+        # Workeasy360 entitlement: no tenant data once the organization's access to WorkEasy CRM has ended, and
+        # no writes while it is read-only (re-checked on Workeasy360's cadence, never per request). Asked per
+        # person where the session has a Workeasy360 identity: a removed member or seat ends their access alone.
+        write = request.method not in SAFE_METHODS and getattr(view, "action", None) not in getattr(
+            view, "entitlement_read_actions", ()
+        )
+        entitlement.require(
+            actor.organization,
+            write=write,
+            subject=actor.federated_subject,
+            # An API credential acts for the organization, not for a signed-in person: asked at organization level.
+            person_required=getattr(request, "integration_actor", None) is None,
+        )
         permission = resolve_required_permission(request, view)
         if permission is None:
             return False

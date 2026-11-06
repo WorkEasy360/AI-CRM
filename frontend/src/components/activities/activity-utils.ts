@@ -26,7 +26,7 @@ export const REMINDER_OPTIONS: { value: string; label: string }[] = [
   { value: "1440", label: "1 day before" },
 ];
 
-/** Chip / badge colour per kind: task = slate, call = teal (accent), meeting = primary. */
+/** Chip / badge colour per kind: task = slate, call = navy (accent), meeting = primary. */
 export function kindColorClasses(kind: ActivityKind): string {
   switch (kind) {
     case "call":

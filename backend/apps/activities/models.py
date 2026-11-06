@@ -81,10 +81,21 @@ class Activity(TenantModel, OwnedModel, VersionedModel):
     updated_by = models.ForeignKey(
         "accounts.Membership", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", editable=False
     )
+    # Subtasks: a task may have tasks under it (one level). They share the parent's links.
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.CASCADE, related_name="subtasks", editable=False
+    )
+    # RRULE (apps.activities.recurrence). Events expand it for the calendar; a recurring task creates its
+    # next occurrence when completed. ``recurrence_anchor`` is the series' first start (COUNT counts from
+    # it) and ``series_id`` groups a task's occurrences.
+    recurrence = models.CharField(max_length=255, blank=True)
+    recurrence_anchor = models.DateTimeField(null=True, blank=True)
+    series_id = models.UUIDField(null=True, blank=True)
     search_vector = SearchVectorField(null=True, editable=False)
 
     class Meta:
         indexes = [
+            models.Index(fields=["organization", "parent"], name="activity_org_parent_idx"),
             models.Index(fields=["organization", "owner", "status", "start_at"], name="activity_org_owner_idx"),
             models.Index(fields=["organization", "kind", "start_at"], name="activity_org_kind_start_idx"),
             models.Index(fields=["organization", "start_at"], name="activity_org_start_idx"),

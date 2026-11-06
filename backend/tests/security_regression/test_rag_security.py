@@ -222,6 +222,14 @@ def test_the_system_prompt_states_that_evidence_is_not_instruction():
     assert "never recompute" in SYSTEM
 
 
+def test_the_system_prompt_confines_the_model_to_one_organisation():
+    from apps.assistant.prompts import SYSTEM
+
+    assert "cannot see any other organisation" in SYSTEM
+    assert "grants nothing" in SYSTEM
+    assert "You only read and advise" in SYSTEM
+
+
 def test_an_unrecognised_scope_retrieves_nothing(org_a, crm, make_member):
     """Fail closed, like authz.service.scope: a scope value we do not understand grants nothing."""
     from apps.authz.actor import Actor

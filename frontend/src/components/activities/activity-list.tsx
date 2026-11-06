@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, ListTodo, Phone, Plus, Search, X } from "lucide-react";
-import { ActivityItem } from "@/components/activities/activity-item";
+import { CalendarDays, ListChecks, ListTodo, Phone, Plus, Search, X } from "lucide-react";
+import { ActivityBulkBar } from "@/components/activities/activity-bulk-bar";
+import { ActivityItem, type ActivitySelection } from "@/components/activities/activity-item";
 import { KIND_LABELS, isDone, startOfDay } from "@/components/activities/activity-utils";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -40,6 +41,7 @@ const EMPTY: Record<ActivityKind, { icon: React.ReactNode; title: string; descri
   call: { icon: <Phone />, title: "No calls here", description: "Log calls you made or schedule the next one. Outcomes and notes land on the contact's timeline." },
   meeting: { icon: <CalendarDays />, title: "No meetings here", description: "Scheduled meetings show on the calendar with attendees, location and a reminder." },
 };
+const EMPTY_ALL = { icon: <ListTodo />, title: "No activities here", description: "Tasks, calls and meetings for your contacts, companies and deals all land in this list." };
 
 type Group = "Overdue" | "Today" | "Tomorrow" | "Later" | "No date" | "Completed";
 const GROUP_ORDER: Group[] = ["Overdue", "Today", "Tomorrow", "Later", "No date", "Completed"];
@@ -59,20 +61,24 @@ function viewOf(params: ListParams): View {
   return params.view === "all" || params.view === "done" ? params.view : "mine";
 }
 
-/** One kind's list (Tasks / Meetings / Calls tab): view, search, due filter, sort, grouped rows. */
+/** One kind's list (Tasks / Meetings / Calls tab), or every kind (All): view, search, due filter, sort, grouped rows. */
 export function ActivityList({
   kind,
   params,
   setParam,
   setParams,
   canCreate,
+  canBulk = false,
   onCreate,
 }: {
-  kind: ActivityKind;
+  /** Omitted for the All tab. */
+  kind?: ActivityKind;
   params: ListParams;
   setParam: (key: string, value: string | undefined) => void;
   setParams: (patch: ListParams) => void;
   canCreate: boolean;
+  /** The actor holds `activities.bulk_update`: rows can be selected for bulk complete / reassign. */
+  canBulk?: boolean;
   onCreate: (kind: ActivityKind) => void;
 }) {
   const view = viewOf(params);
@@ -101,6 +107,28 @@ export function ActivityList({
   );
   const list = useCursorList<Activity>(crmKeys.activities(apiParams), (cursor) => listActivities(apiParams, cursor), true, { recordKey: (a) => crmKeys.activity(a.id) });
 
+  const [selecting, setSelecting] = React.useState(false);
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
+  const stopSelecting = React.useCallback(() => {
+    setSelecting(false);
+    setSelected(new Set());
+  }, []);
+  // A different list (view, filter, sort) starts a fresh selection.
+  React.useEffect(stopSelecting, [apiParams, stopSelecting]);
+  const selectionOf = (a: Activity): ActivitySelection | undefined =>
+    selecting
+      ? {
+          selected: selected.has(a.id),
+          onToggle: () =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(a.id)) next.delete(a.id);
+              else next.add(a.id);
+              return next;
+            }),
+        }
+      : undefined;
+
   const today = React.useMemo(() => startOfDay(new Date()), []);
   const grouped = React.useMemo(() => {
     const byGroup = new Map<Group, Activity[]>();
@@ -112,7 +140,9 @@ export function ActivityList({
   }, [list.items, today]);
   const grouping = sort === "start_at" || sort === "-start_at";
 
-  const label = KIND_LABELS[kind].plural.toLowerCase();
+  const label = kind ? KIND_LABELS[kind].plural.toLowerCase() : "activities";
+  const empty = kind ? EMPTY[kind] : EMPTY_ALL;
+  const createKind: ActivityKind = kind ?? "task";
   const filtered = Boolean(params.q || params.due);
 
   return (
@@ -149,7 +179,12 @@ export function ActivityList({
             <X /> Clear
           </Button>
         ) : null}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {canBulk && !selecting && list.items.length > 0 ? (
+            <Button variant="secondary" size="sm" onClick={() => setSelecting(true)}>
+              <ListChecks /> Select
+            </Button>
+          ) : null}
           <Select value={sort} onValueChange={(v) => setParam("sort", v)}>
             <SelectTrigger className="h-8 w-40" aria-label="Sort">
               <SelectValue />
@@ -165,6 +200,10 @@ export function ActivityList({
         </div>
       </div>
 
+      {canBulk && selecting ? (
+        <ActivityBulkBar selected={selected} loaded={list.items.length} onSelectAll={() => setSelected(new Set(list.items.map((a) => a.id)))} onClear={stopSelecting} />
+      ) : null}
+
       {list.isPending ? (
         <SkeletonRows rows={4} />
       ) : list.isError ? (
@@ -179,17 +218,17 @@ export function ActivityList({
         />
       ) : list.items.length === 0 ? (
         <EmptyState
-          icon={EMPTY[kind].icon}
-          title={filtered ? `No ${label} match` : view === "done" ? `No completed ${label}` : EMPTY[kind].title}
-          description={filtered ? "Try a different search or clear the filters." : view === "done" ? "Items you complete or cancel move here." : EMPTY[kind].description}
+          icon={empty.icon}
+          title={filtered ? `No ${label} match` : view === "done" ? `No completed ${label}` : empty.title}
+          description={filtered ? "Try a different search or clear the filters." : view === "done" ? "Items you complete or cancel move here." : empty.description}
           action={
             filtered ? (
               <Button variant="secondary" size="sm" onClick={() => setParams({ q: undefined, due: undefined })}>
                 Clear filters
               </Button>
             ) : canCreate && view !== "done" ? (
-              <Button size="sm" onClick={() => onCreate(kind)}>
-                <Plus /> New {KIND_LABELS[kind].singular.toLowerCase()}
+              <Button size="sm" onClick={() => onCreate(createKind)}>
+                <Plus /> New {KIND_LABELS[createKind].singular.toLowerCase()}
               </Button>
             ) : null
           }
@@ -204,7 +243,7 @@ export function ActivityList({
               <ul className="flex flex-col gap-1.5">
                 {items.map((a) => (
                   <li key={a.id}>
-                    <ActivityItem activity={a} />
+                    <ActivityItem activity={a} selection={selectionOf(a)} />
                   </li>
                 ))}
               </ul>
@@ -215,7 +254,7 @@ export function ActivityList({
         <ul className={list.isPlaceholderData ? "flex flex-col gap-1.5 opacity-60" : "flex flex-col gap-1.5"}>
           {list.items.map((a) => (
             <li key={a.id}>
-              <ActivityItem activity={a} />
+              <ActivityItem activity={a} selection={selectionOf(a)} />
             </li>
           ))}
         </ul>

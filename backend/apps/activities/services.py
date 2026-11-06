@@ -31,6 +31,9 @@ from apps.core.exceptions import DomainError
 from apps.dashboards import cache as dashboard_cache
 
 MAX_ATTENDEES = 50
+MAX_SUBTASKS = 50
+MAX_BULK_IDS = 500
+BULK_ACTIONS = ("reassign", "complete")
 MAX_DURATION_MINUTES = 24 * 60
 MAX_REMINDER_MINUTES = 30 * 24 * 60
 DEFAULT_CALL_MINUTES = 15
@@ -53,7 +56,23 @@ EDITABLE_FIELDS = (
     "contact",
     "company",
     "deal",
+    "recurrence",
 )
+
+
+def _announce(activity: Activity, change: str, *, fields: tuple[str, ...] = (), orm: bool = False) -> None:
+    """Domain event for every activity mutation (Milestone 5 workflows subscribe to these)."""
+    publish(
+        RecordChanged(
+            organization_id=activity.organization_id,
+            entity_type="activity",
+            entity_ids=(activity.pk,),
+            change=change,
+            owner_id=activity.owner_id,
+            orm_signals_fired=orm,
+            fields=fields,
+        )
+    )
 
 
 # ----------------------------------------------------------------------------- validation
@@ -147,6 +166,16 @@ def _normalise(kind: str, data: dict[str, Any], *, current: Activity | None = No
                 raise ValidationError({f: "Not applicable to a meeting."})
     else:
         raise ValidationError({"kind": "Unknown activity kind."})
+    if "recurrence" in data:
+        from apps.activities import recurrence
+
+        out["recurrence"] = recurrence.clean(data.get("recurrence"))
+    rule = out.get("recurrence", merged.get("recurrence") or "")
+    if rule:
+        if kind == Activity.Kind.CALL:
+            raise ValidationError({"recurrence": "Calls do not repeat. Schedule a recurring event or task."})
+        if out.get("start_at", start) is None:
+            raise ValidationError({"recurrence": "A repeating activity needs a start or due date."})
     reminder_source = out.get("start_at", start)
     if reminder is not None and reminder_source is not None:
         out["reminder_at"] = reminder_source - dt.timedelta(minutes=int(reminder))
@@ -244,11 +273,22 @@ def create_activity(actor: Actor, data: dict[str, Any], *, request: Any = None) 
     owner = _resolve_owner(actor, data.pop("owner", None), current=None)
     completed = bool(data.pop("completed", False))
     status = data.pop("status", None)
+    parent = data.pop("parent", None)
+    if parent is not None:
+        parent = _check_parent(actor, kind, parent)
+        for link in ("contact", "company", "deal"):
+            data.setdefault(link, getattr(parent, link))
     _check_links(actor, data)
     fields = _normalise(kind, data)
+    if fields.get("recurrence"):
+        fields["recurrence_anchor"] = fields.get("start_at")
+        if kind == Activity.Kind.TASK:
+            fields["series_id"] = uuid.uuid4()
     if kind == Activity.Kind.TASK and fields.get("start_at") is None:
         fields["start_at"] = None
-    activity = Activity(kind=kind, owner=owner, created_by=actor.membership, updated_by=actor.membership, **fields)
+    activity = Activity(
+        kind=kind, owner=owner, parent=parent, created_by=actor.membership, updated_by=actor.membership, **fields
+    )
     if status in {Activity.Status.IN_PROGRESS}:
         activity.status = status
     if completed or status == Activity.Status.COMPLETED:
@@ -258,6 +298,7 @@ def create_activity(actor: Actor, data: dict[str, Any], *, request: Any = None) 
     activity.save()
     _set_attendees(actor, activity, attendee_ids)
     _touch(activity)
+    _announce(activity, "created", orm=True)
     audit.record(
         "activities.created",
         request=request,
@@ -270,9 +311,68 @@ def create_activity(actor: Actor, data: dict[str, Any], *, request: Any = None) 
             "deal_id": str(activity.deal_id) if activity.deal_id else None,
             "contact_id": str(activity.contact_id) if activity.contact_id else None,
             "status": activity.status,
+            "parent_id": str(parent.pk) if parent else None,
+            "recurrence": activity.recurrence or None,
         },
     )
     return activity
+
+
+def _check_parent(actor: Actor, kind: str, parent: Activity) -> Activity:
+    """Subtasks: tasks under a task the actor may edit, one level deep, at most ``MAX_SUBTASKS``."""
+    if kind != Activity.Kind.TASK or parent.kind != Activity.Kind.TASK:
+        raise ValidationError({"parent_id": "Only tasks can have subtasks."})
+    if parent.parent_id is not None:
+        raise ValidationError({"parent_id": "A subtask cannot have subtasks of its own."})
+    check(actor, "activities.update", parent)
+    if Activity.objects.filter(parent=parent).count() >= MAX_SUBTASKS:
+        raise DomainError(f"At most {MAX_SUBTASKS} subtasks per task.", code="subtask_limit")
+    return parent
+
+
+def _spawn_next_occurrence(actor: Actor, done: Activity) -> Activity | None:
+    """A completed recurring task hands its rule to a new open task due at the next occurrence."""
+    from apps.activities import recurrence
+
+    if done.kind != Activity.Kind.TASK or not done.recurrence or done.start_at is None:
+        return None
+    anchor = done.recurrence_anchor or done.start_at
+    nxt = recurrence.next_after(done.recurrence, anchor, done.start_at)
+    if nxt is None:
+        return None
+    follow = Activity(
+        kind=done.kind,
+        title=done.title,
+        description=done.description,
+        priority=done.priority,
+        start_at=nxt,
+        all_day=done.all_day,
+        timezone=done.timezone,
+        reminder_minutes=done.reminder_minutes,
+        reminder_at=(nxt - dt.timedelta(minutes=done.reminder_minutes)) if done.reminder_minutes is not None else None,
+        contact_id=done.contact_id,
+        company_id=done.company_id,
+        deal_id=done.deal_id,
+        owner_id=done.owner_id,
+        recurrence=done.recurrence,
+        recurrence_anchor=anchor,
+        series_id=done.series_id or uuid.uuid4(),
+        created_by=actor.membership,
+        updated_by=actor.membership,
+    )
+    follow.save()
+    # The completed occurrence keeps its history but no longer carries the rule.
+    Activity.objects.filter(pk=done.pk).update(recurrence="")
+    done.recurrence = ""
+    _announce(follow, "created", orm=True)
+    audit.record(
+        "activities.created",
+        user=actor.user,
+        resource=follow,
+        resource_type="activity",
+        metadata={"kind": follow.kind, "title": follow.title, "recurrence_of": str(done.pk)},
+    )
+    return follow
 
 
 @transaction.atomic
@@ -293,6 +393,10 @@ def update_activity(
             changed.append("owner")
     _check_links(actor, data)
     fields = _normalise(activity.kind, data, current=activity)
+    if "recurrence" in fields and fields["recurrence"] != activity.recurrence:
+        fields["recurrence_anchor"] = fields.get("start_at", activity.start_at) if fields["recurrence"] else None
+        if fields["recurrence"] and activity.kind == Activity.Kind.TASK and activity.series_id is None:
+            fields["series_id"] = uuid.uuid4()
     for name, value in fields.items():
         if getattr(activity, name) != value:
             setattr(activity, name, value)
@@ -312,6 +416,9 @@ def update_activity(
         return activity
     activity.updated_by = actor.membership
     save_with_version(activity, expected_version, [*dict.fromkeys(changed), "updated_by"])
+    _announce(activity, "reassigned" if changed == ["owner"] else "updated", fields=tuple(sorted(set(changed))))
+    if "status" in changed and activity.status == Activity.Status.COMPLETED:
+        _spawn_next_occurrence(actor, activity)
     if "status" in changed and activity.status == Activity.Status.COMPLETED and activity.kind == "task":
         # save_with_version() is a QuerySet.update(), so the post_save receiver that normally emits
         # task.completed never sees this. Ticking a task off in the UI is exactly the event most
@@ -380,6 +487,7 @@ def delete_activity(actor: Actor, activity: Activity, *, request: Any = None) ->
     dashboard_cache.invalidate(actor.organization.pk)
     snapshot = Activity(deal_id=activity.deal_id, contact_id=activity.contact_id, company_id=activity.company_id)
     activity_id, title, kind = activity.pk, activity.title, activity.kind
+    _announce(activity, "deleted")
     activity.delete()
     _touch(snapshot)
     audit.record(
@@ -434,3 +542,110 @@ def mark_reminder_sent(activity_ids: list[uuid.UUID], *, when: dt.datetime | Non
 def require_open(activity: Activity) -> None:
     if not activity.is_open:
         raise DomainError("This activity is already closed.", code="activity_closed", status_code=409)
+
+
+# ----------------------------------------------------------------------------- bulk
+
+
+@transaction.atomic
+def bulk(
+    actor: Actor, *, ids: list[uuid.UUID], action: str, payload: dict[str, Any], request: Any = None
+) -> dict[str, Any]:
+    """Reassign or complete many activities. Refuses the whole request if any id is out of scope.
+
+    Each activity is versioned, announced and stamped like a single edit; one audit event lists every id.
+    """
+    from apps.authz.service import scope
+
+    check(actor, "activities.bulk_update")
+    if action not in BULK_ACTIONS:
+        raise ValidationError({"action": f"Allowed actions: {', '.join(BULK_ACTIONS)}."})
+    ids = list(dict.fromkeys(ids))
+    if not ids or len(ids) > MAX_BULK_IDS:
+        raise ValidationError({"ids": f"Provide 1 to {MAX_BULK_IDS} ids."})
+    rows = list(
+        scope(actor, "activities.update", Activity.objects.filter(pk__in=ids)).select_for_update().order_by("pk")
+    )
+    if len(rows) != len(ids):
+        raise DomainError(
+            f"{len(ids) - len(rows)} activit(ies) are not accessible for this action.", code="bulk_out_of_scope"
+        )
+    dashboard_cache.invalidate(actor.organization.pk)
+    affected = 0
+    metadata: dict[str, Any] = {"action": action, "count": len(rows), "ids": [str(r.pk) for r in rows]}
+    if action == "reassign":
+        owner_id = payload.get("owner_id")
+        if actor.scope_for("activities.update") != SCOPE_ALL:
+            raise PermissionDenied(detail="You cannot assign activities to other members.", code="reassign_denied")
+        owner = Membership.objects.active().filter(pk=owner_id).first() if owner_id else None
+        if owner is None:
+            raise ValidationError({"owner_id": "Unknown member."})
+        for activity in rows:
+            if activity.owner_id == owner.pk:
+                continue
+            activity.owner = owner
+            activity.updated_by = actor.membership
+            save_with_version(activity, None, ["owner", "updated_by"])
+            _announce(activity, "reassigned", fields=("owner",))
+            affected += 1
+        metadata["owner_to"] = str(owner.pk)
+    else:  # complete
+        for activity in rows:
+            if not activity.is_open:
+                continue
+            previous = Activity(
+                deal_id=activity.deal_id, contact_id=activity.contact_id, company_id=activity.company_id
+            )
+            _apply_status(activity, Activity.Status.COMPLETED)
+            activity.updated_by = actor.membership
+            save_with_version(activity, None, ["status", "completed_at", "reminder_at", "updated_by"])
+            _announce(activity, "completed" if activity.kind == Activity.Kind.TASK else "updated", fields=("status",))
+            _spawn_next_occurrence(actor, activity)
+            _touch(activity, previous)
+            affected += 1
+    audit.record(f"activities.bulk_{action}", request=request, user=actor.user, metadata=metadata)
+    return {"action": action, "requested": len(ids), "affected": affected}
+
+
+# ----------------------------------------------------------------------------- my day
+
+
+def my_day(actor: Actor, *, tz: str = "") -> dict[str, Any]:
+    """The actor's own open work for today in ``tz``: overdue, today's tasks, events and calls, and what
+    is next. Owned or attended; recurring events are expanded for today."""
+    from apps.activities import recurrence
+
+    zone = zoneinfo.ZoneInfo(_clean_timezone(tz) or "UTC")
+    now = timezone.now()
+    local_today = now.astimezone(zone).date()
+    day_start = dt.datetime.combine(local_today, dt.time.min, tzinfo=zone)
+    day_end = day_start + dt.timedelta(days=1)
+    mine = Q(owner_id=actor.membership.pk) | Q(
+        pk__in=ActivityAttendee.objects.filter(membership_id=actor.membership.pk).values("activity_id")
+    )
+    base = (
+        Activity.objects.filter(mine).select_related("owner__user", "contact", "company", "deal").defer("search_vector")
+    )
+    open_ = base.filter(status__in=OPEN_STATUSES)
+    overdue = list(open_.filter(start_at__lt=day_start).order_by("start_at")[:100])
+    today = list(open_.filter(start_at__gte=day_start, start_at__lt=day_end).order_by("start_at")[:200])
+    no_date = list(open_.filter(kind=Activity.Kind.TASK, start_at__isnull=True).order_by("-created_at")[:50])
+    # Recurring events that started before today but occur today.
+    occurrences: list[tuple[Activity, dt.datetime]] = []
+    for ev in open_.filter(kind=Activity.Kind.MEETING, start_at__lt=day_start).exclude(recurrence=""):
+        if ev.start_at is None:  # pragma: no cover - excluded by the filter, narrowed for the type checker
+            continue
+        for when in recurrence.occurrences(ev.recurrence, ev.start_at, day_start, day_end - dt.timedelta(seconds=1)):
+            occurrences.append((ev, when))
+    completed_today = base.filter(
+        status=Activity.Status.COMPLETED, completed_at__gte=day_start, completed_at__lt=day_end
+    ).count()
+    return {
+        "date": local_today.isoformat(),
+        "timezone": str(zone),
+        "overdue": overdue,
+        "today": today,
+        "recurring_today": occurrences,
+        "no_date": no_date,
+        "completed_today": completed_today,
+    }

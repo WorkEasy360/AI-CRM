@@ -4,8 +4,11 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus } from "lucide-react";
-import { PageHeader } from "@/components/page-header";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus, Star } from "lucide-react";
+import { AddContactPanel } from "@/components/crm/contacts/add-contact-panel";
+import { AllContactsTable } from "@/components/crm/contacts/all-contacts-table";
+import { ContactsHub, type AddKind, type ContactsTab } from "@/components/crm/contacts/contacts-hub";
 import { BulkBar } from "@/components/crm/bulk-bar";
 import { Dash, LastActivityCell, NextActivityCell } from "@/components/crm/contacts/activity-cells";
 import { DataTable, useSelection, type Column } from "@/components/crm/data-table";
@@ -18,14 +21,24 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { listContacts } from "@/lib/api/crm";
+import { listContacts, setFavorite } from "@/lib/api/crm";
 import type { Contact, LifecycleStage, ListParams } from "@/lib/api/crm-types";
+import { errorMessage } from "@/lib/api/problem";
+import { useToast } from "@/components/ui/toast";
 import { crmKeys } from "@/lib/crm/keys";
 import { can, canEditRecord } from "@/lib/crm/permissions";
 import { useWarmRecordForm } from "@/lib/crm/use-custom-fields";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { useSession } from "@/lib/session";
 import { useCursorList } from "@/lib/use-cursor-list";
+import { VIEW_KEYS, columnsOf, fieldMap, filterParams, useModuleSchema, viewKindOf } from "@/lib/views";
+import { ColumnPicker } from "@/components/views/column-picker";
+import { ViewBar } from "@/components/views/view-bar";
+
+const SheetView = dynamic(() => import("@/components/views/sheet-view").then((m) => m.SheetView), { ssr: false });
+const GroupBoard = dynamic(() => import("@/components/views/group-board").then((m) => m.GroupBoard), { ssr: false });
+const RecordCalendar = dynamic(() => import("@/components/views/record-calendar").then((m) => m.RecordCalendar), { ssr: false });
+const RecordChart = dynamic(() => import("@/components/views/record-chart").then((m) => m.RecordChart), { ssr: false });
 
 // The form (zod, react-hook-form, custom fields) is only needed once someone creates or edits a
 // contact, so it is imported lazily and mounted only while it is open. `useWarmRecordForm` loads it
@@ -33,7 +46,24 @@ import { useCursorList } from "@/lib/use-cursor-list";
 const importContactForm = () => import("@/components/crm/contacts/contact-form-dialog");
 const ContactFormDialog = dynamic(() => importContactForm().then((m) => m.ContactFormDialog), { ssr: false });
 
-const ALLOWED = ["q", "sort", "owner", "archived", "company", "has_company", "lifecycle", "source", "job_title", "created_from", "created_to"] as const;
+const ALLOWED = [
+  "q",
+  "sort",
+  "owner",
+  "archived",
+  "company",
+  "has_company",
+  "lifecycle",
+  "source",
+  "job_title",
+  "created_from",
+  "created_to",
+  "tab",
+  "tag",
+  ...VIEW_KEYS,
+] as const;
+/** The List view's own columns, keyed by the module schema field they show. */
+const LIST_COLUMNS = ["display_name", "company", "email", "phone", "lifecycle_stage", "owner", "last_activity_at", "next_activity_at"];
 const DEFAULTS: ListParams = { sort: "-created_at" };
 const SORT_OPTIONS: SortOption[] = [
   { value: "-created_at", label: "Newest first" },
@@ -58,12 +88,37 @@ export function ContactsPage() {
   const canDelete = can(active, "contacts.delete");
   const canBulk = can(active, "contacts.bulk_update");
 
-  const { params, setParam, setParams, clear, activeFilterCount } = useListParams(ALLOWED, DEFAULTS);
+  const { params, setParam, setParams } = useListParams(ALLOWED, DEFAULTS);
+  // All Contacts (people + companies) by default; Individuals is the full people list with its views.
+  const tab: ContactsTab = params.tag ? "tag" : params.tab === "people" ? "people" : params.tab === "favorites" ? "favorites" : "all";
+  const [adding, setAdding] = React.useState<AddKind | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const star = useMutation({
+    mutationFn: (c: Contact) => setFavorite("contact", c.id, !c.is_favorite),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["crm", "contacts"] }),
+    onError: (err) => toast({ tone: "error", title: "Could not update favourites", description: errorMessage(err) }),
+  });
   const searchParams = useSearchParams();
   const wantsNew = canCreate && searchParams?.get("new") === "1";
   const archivedView = params.archived === "true";
+  const kind = viewKindOf(params.view);
+  const apiParams = React.useMemo(() => {
+    const out = filterParams(params);
+    delete out.tab; // the page's own tab, not a list filter
+    return out;
+  }, [params]);
+  const schema = useModuleSchema("contact");
+  const visibleFields = React.useMemo(() => fieldMap(schema.data), [schema.data]);
+  const chosen = columnsOf(params);
+  // Filters only: the view keys in the URL are not filters, and "clear" keeps the view.
+  const filterCount = Object.keys(apiParams).filter((k) => !["sort", "q"].includes(k) && apiParams[k] !== DEFAULTS[k]).length;
+  const clearFilters = React.useCallback(
+    () => setParams(Object.fromEntries(Object.keys(apiParams).map((k) => [k, undefined]))),
+    [apiParams, setParams],
+  );
 
-  const list = useCursorList<Contact>(crmKeys.list("contacts", params), (cursor) => listContacts(params, cursor), true, {
+  const list = useCursorList<Contact>(crmKeys.list("contacts", apiParams), (cursor) => listContacts(apiParams, cursor), kind === "list" && tab === "people", {
     recordKey: (row) => crmKeys.record("contacts", row.id),
   });
   const selection = useSelection();
@@ -88,7 +143,7 @@ export function ContactsPage() {
   const columns = React.useMemo<Column<Contact>[]>(
     () => [
       {
-        key: "name",
+        key: "display_name",
         header: "Name",
         sortKey: "name",
         className: "min-w-40",
@@ -128,7 +183,7 @@ export function ContactsPage() {
           ),
       },
       { key: "phone", header: "Phone", className: "hidden md:table-cell whitespace-nowrap", render: (c) => c.phone || <Dash /> },
-      { key: "lifecycle", header: "Status", sortKey: "lifecycle", render: (c) => <LifecycleBadge stage={c.lifecycle_stage} /> },
+      { key: "lifecycle_stage", header: "Status", sortKey: "lifecycle", render: (c) => <LifecycleBadge stage={c.lifecycle_stage} /> },
       {
         key: "owner",
         header: "Owner",
@@ -136,14 +191,14 @@ export function ContactsPage() {
         render: (c) => c.owner?.display_name ?? <span className="text-fg-subtle">Unassigned</span>,
       },
       {
-        key: "last_activity",
+        key: "last_activity_at",
         header: "Last activity",
         sortKey: "last_activity_at",
         className: "hidden md:table-cell whitespace-nowrap",
         render: (c) => <LastActivityCell value={c.last_activity_at} />,
       },
       {
-        key: "next_activity",
+        key: "next_activity_at",
         header: "Next activity",
         sortKey: "next_activity_at",
         className: "hidden sm:table-cell max-w-48",
@@ -155,7 +210,6 @@ export function ContactsPage() {
         className: "w-10 text-right",
         render: (c) => {
           const editable = canEditRecord(active, "contacts", c.owner?.id);
-          if (!editable && !canDelete) return null;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -169,6 +223,9 @@ export function ContactsPage() {
                     <Pencil /> Edit
                   </DropdownMenuItem>
                 ) : null}
+                <DropdownMenuItem onSelect={() => star.mutate(c)}>
+                  <Star /> {c.is_favorite ? "Remove from favorites" : "Add to favorites"}
+                </DropdownMenuItem>
                 {canDelete && c.archived_at ? (
                   <DropdownMenuItem onSelect={() => restore.mutate(c.id)}>
                     <ArchiveRestore /> Restore
@@ -185,16 +242,27 @@ export function ContactsPage() {
         },
       },
     ],
-    [active, canDelete, archive, restore],
+    [active, canDelete, archive, restore, star],
+  );
+  // Hidden fields drop out of the list (the schema omits them); the column picker narrows further.
+  const shownColumns = React.useMemo(
+    () =>
+      columns.filter(
+        (c) =>
+          c.key === "actions" ||
+          c.key === "display_name" ||
+          ((!schema.data || visibleFields.has(c.key)) && (chosen.length === 0 || chosen.includes(c.key))),
+      ),
+    [columns, schema.data, visibleFields, chosen],
   );
 
-  const filtered = Boolean(params.q) || activeFilterCount > 0;
+  const filtered = Boolean(params.q) || filterCount > 0;
   const empty = filtered ? (
     <EmptyState
       title="No contacts match"
       description="Try different keywords or clear the filters."
       action={
-        <Button variant="secondary" onClick={clear}>
+        <Button variant="secondary" onClick={clearFilters}>
           Clear filters
         </Button>
       }
@@ -216,23 +284,40 @@ export function ContactsPage() {
 
   return (
     <div>
-      <PageHeader title="Contacts" />
+      <ContactsHub active={tab} tagId={params.tag} onAdd={setAdding} />
+      {adding ? <AddContactPanel kind={adding} onKindChange={setAdding} onClose={() => setAdding(null)} /> : null}
+
+      {tab !== "people" ? (
+        <AllContactsTable favorites={tab === "favorites"} tagId={params.tag} />
+      ) : (
+      <>
+      <ViewBar entity="contact" kind={kind} params={params} setParams={setParams} />
 
       <ListToolbar
         params={params}
         setParam={setParam}
         setParams={setParams}
-        clear={clear}
+        clear={clearFilters}
         sortOptions={SORT_OPTIONS}
-        activeFilterCount={activeFilterCount}
+        activeFilterCount={filterCount}
         entityLabel="contacts"
         searchPlaceholder="Search contacts…"
         actions={
-          canCreate ? (
-            <Button size="sm" onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
-              <Plus /> Contact
-            </Button>
-          ) : null
+          <>
+            {kind === "list" && schema.data ? (
+              <ColumnPicker
+                schema={schema.data}
+                available={LIST_COLUMNS}
+                columns={chosen.length ? chosen : LIST_COLUMNS.filter((k) => visibleFields.has(k))}
+                onChange={(cols) => setParam("cols", cols.join(",") || undefined)}
+              />
+            ) : null}
+            {canCreate ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>
+                <Plus /> Contact
+              </Button>
+            ) : null}
+          </>
         }
       >
         <LifecycleSelect
@@ -254,11 +339,37 @@ export function ContactsPage() {
         </Select>
       </ListToolbar>
 
-      {canBulk ? <BulkBar entity="contact" selected={selection.selected} onClear={selection.clear} archivedView={archivedView} /> : null}
+      {kind === "sheet" ? (
+        <SheetView entity="contact" filters={apiParams} columns={chosen} onColumnsChange={(cols) => setParam("cols", cols.join(",") || undefined)} />
+      ) : kind === "kanban" ? (
+        <GroupBoard entity="contact" filters={apiParams} groupBy={params.group ?? "lifecycle_stage"} onGroupByChange={(g) => setParam("group", g)} columns={chosen} />
+      ) : kind === "calendar" ? (
+        <RecordCalendar
+          entity="contact"
+          filters={apiParams}
+          dateField={params.datef ?? "next_activity_at"}
+          onDateFieldChange={(f) => setParam("datef", f)}
+          includeActivities={params.acts !== "0"}
+          onIncludeActivitiesChange={(on) => setParam("acts", on ? undefined : "0")}
+        />
+      ) : kind === "chart" ? (
+        <RecordChart
+          entity="contact"
+          filters={apiParams}
+          groupBy={params.group ?? "lifecycle_stage"}
+          measure={params.measure === "sum" ? "sum" : "count"}
+          field={params.mfield}
+          baseCurrency={active?.organization.base_currency ?? "USD"}
+          onChange={(patch) => setParams(patch)}
+        />
+      ) : null}
 
+      {kind === "list" && canBulk ? <BulkBar entity="contact" selected={selection.selected} onClear={selection.clear} archivedView={archivedView} /> : null}
+
+      {kind === "list" ? (
       <DataTable
         rows={list.items}
-        columns={columns}
+        columns={shownColumns}
         sort={params.sort}
         onSort={(s) => setParam("sort", s)}
         rowHref={(c) => `/contacts/${enc(c.id)}`}
@@ -277,6 +388,9 @@ export function ContactsPage() {
         isLoadingMore={list.isLoadingMore}
         caption="Contacts"
       />
+      ) : null}
+      </>
+      )}
 
       {formOpen ? <ContactFormDialog open contact={editing} onOpenChange={(open) => !open && closeDialog()} /> : null}
     </div>

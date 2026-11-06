@@ -114,7 +114,8 @@ class TenantMiddleware:
         it must belong to the authenticated user, be active, and its organization must be active.
         """
         from apps.accounts.models import Membership, Organization
-        from apps.authz.actor import build_actor
+        from apps.accounts.workeasy360 import entitlement
+        from apps.authz.actor import build_actor, federated_aal_from_session
 
         user = cast("User", request.user)
         raw = request.session.get(ACTIVE_MEMBERSHIP_KEY)
@@ -136,4 +137,8 @@ class TenantMiddleware:
             request.session.pop(ACTIVE_MEMBERSHIP_KEY, None)
             log.warning("tenancy.stale_membership_in_session", user_id=str(user.pk))
             return None
-        return build_actor(membership)
+        return build_actor(
+            membership,
+            federated_aal=federated_aal_from_session(request.session),
+            federated_subject=entitlement.subject_for_session(request.session, user, membership.organization),
+        )

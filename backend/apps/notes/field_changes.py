@@ -10,7 +10,7 @@ from typing import Any
 
 from apps.audit.models import AuditEvent
 from apps.authz.actor import Actor
-from apps.notes.timeline import TimelineEvent, register
+from apps.notes.timeline import TimelineEvent, Window, register
 
 IMPORTANT_FIELDS = {
     "deal": ("owner", "amount", "currency", "expected_close_date", "probability", "name", "company", "primary_contact"),
@@ -34,19 +34,28 @@ LABELS = {
 }
 
 
-@register(("contact", "company", "deal"))
-def _field_changes(actor: Actor, entity_type: str, record: Any) -> list[TimelineEvent]:
+@register(("contact", "company", "deal"), source="field_changes", label="Field changes")
+def _field_changes(actor: Actor, entity_type: str, record: Any, window: Window) -> list[TimelineEvent]:
+    from apps.authz import fields as field_rules
+
     module = {"contact": "contacts", "company": "companies", "deal": "deals"}[entity_type]
-    interesting = IMPORTANT_FIELDS[entity_type]
+    # A field the actor may not see is not named in the history either.
+    hidden = field_rules.hidden_fields(actor, entity_type)
+    interesting = tuple(f for f in IMPORTANT_FIELDS[entity_type] if f not in hidden)
     events: list[TimelineEvent] = []
-    rows = (
+    rows = window.apply(
         AuditEvent.objects.filter(
             resource_type=entity_type,
             resource_id=str(record.pk),
-            action__in=[f"{module}.updated", f"{module}.reassigned", f"{module}.archived", f"{module}.restored"],
-        )
-        .select_related("actor_user")
-        .order_by("-created_at")[:60]
+            action__in=[
+                f"{module}.updated",
+                f"{module}.reassigned",
+                f"{module}.archived",
+                f"{module}.restored",
+                "imports.rolled_back",
+            ],
+        ).select_related("actor_user"),
+        "created_at",
     )
     membership_by_user: dict[Any, Any] = {}
     for ev in rows:

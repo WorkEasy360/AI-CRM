@@ -28,7 +28,7 @@ from django.conf import settings
 from django.core.cache import cache
 
 from apps.authz.actor import Actor
-from apps.authz.catalogue import SCOPE_TEAM
+from apps.authz.catalogue import SCOPE_SUBORDINATES, SCOPE_TEAM
 
 VERSION_TTL = 30 * 24 * 3600
 
@@ -63,6 +63,8 @@ def scope_fingerprint(actor: Actor) -> str:
     parts = [actor.role_key, ",".join(grants)]
     if any(scope == SCOPE_TEAM for scope in actor.grants.values()):
         parts.append(",".join(sorted(str(m) for m in actor.team_member_ids)))
+    if any(scope == SCOPE_SUBORDINATES for scope in actor.grants.values()):
+        parts.append("sub:" + ",".join(sorted(str(m) for m in actor.subordinate_member_ids)))
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:24]
 
 

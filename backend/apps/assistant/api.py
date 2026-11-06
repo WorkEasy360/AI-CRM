@@ -14,6 +14,8 @@ from apps.core.api.viewsets import TenantAPIView
 class AskSerializer(serializers.Serializer):
     question = serializers.CharField(max_length=MAX_QUESTION_CHARS, trim_whitespace=True)
     conversation_id = serializers.UUIDField(required=False, allow_null=True)
+    # The route the user is on; only steers which help article answers "how do I add one here?".
+    page = serializers.CharField(required=False, allow_blank=True, max_length=200, default="")
 
 
 class AskKeelView(TenantAPIView):
@@ -34,6 +36,7 @@ class AskKeelView(TenantAPIView):
                 request.actor,
                 ser.validated_data["question"],
                 conversation_id=ser.validated_data.get("conversation_id"),
+                page=ser.validated_data.get("page", ""),
                 request=request._request,
             )
         )
@@ -91,6 +94,9 @@ class ConversationView(TenantAPIView):
                         "question": turn.question,
                         "answer": turn.answer,
                         "mode": turn.mode,
+                        "intent": turn.intent,
+                        "help_article": turn.help_article,
+                        "turn_id": str(turn.pk),
                         "created_at": turn.created_at,
                     }
                     for turn in history.turns

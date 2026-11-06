@@ -91,6 +91,31 @@ class User(AbstractBaseUser, PermissionsMixin):
         type(self).objects.filter(pk=self.pk).update(session_salt=self.session_salt)
 
 
+class ExternalIdentity(models.Model):
+    """A user's account at an external OpenID provider (Workeasy360), bound to one Keel user.
+
+    Global like ``User``: no organization, so no RLS. ``subject`` is the provider's stable ``sub``; the
+    pair (issuer, subject) is the identity, never the email address, which can change at the provider.
+    A Keel user has at most one identity per issuer.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="external_identities")
+    issuer = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["issuer", "subject"], name="uniq_external_identity_subject"),
+            models.UniqueConstraint(fields=["user", "issuer"], name="uniq_external_identity_user_issuer"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.issuer}#{self.subject}"
+
+
 class OrganizationManager(models.Manager["Organization"]):
     """Tenant root. Reads are limited to the bound organization; system context sees all."""
 
@@ -125,6 +150,11 @@ class OrganizationIdentityManager(models.Manager["Organization"]):
         )
 
 
+#: Date formats a workspace may choose (shown in the UI as these patterns).
+DATE_FORMATS = ("DD MMM YYYY", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD")
+DEFAULT_DATE_FORMAT = "DD MMM YYYY"
+
+
 class Organization(TimestampedModel):
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -139,6 +169,10 @@ class Organization(TimestampedModel):
     plan = models.CharField(max_length=32, default="trial")
     settings = models.JSONField(default=dict, blank=True)
     data_retention_days = models.PositiveIntegerField(default=0)  # 0 = retain until deleted
+    # The Workeasy360 organization (its ``organization_id`` claim) this organization is. Set when a
+    # Workeasy360 sign-in creates the organization, or by ``manage.py link_workeasy360_organization``.
+    # Never taken from a request body; only from a verified ID token or an operator.
+    workeasy360_organization_id = models.UUIDField(null=True, blank=True, unique=True, editable=False)
 
     objects: ClassVar[OrganizationManager] = OrganizationManager()
     identity: ClassVar[OrganizationIdentityManager] = OrganizationIdentityManager()
@@ -149,6 +183,19 @@ class Organization(TimestampedModel):
     @property
     def require_mfa(self) -> bool:
         return bool(self.settings.get("require_mfa", False))
+
+    @property
+    def crm_name(self) -> str:
+        """The product name shown in this workspace's sidebar; empty means the default."""
+        return str(self.settings.get("crm_name", ""))
+
+    @property
+    def date_format(self) -> str:
+        return str(self.settings.get("date_format", "")) or DEFAULT_DATE_FORMAT
+
+    @property
+    def logo_key(self) -> str:
+        return str(self.settings.get("logo_key", ""))
 
 
 class MembershipQuerySet(models.QuerySet["Membership"]):
@@ -192,6 +239,10 @@ class Membership(TenantModel):
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
     role = models.ForeignKey("authz.Role", on_delete=models.PROTECT, related_name="memberships")
+    # Position in the reporting hierarchy; decides what the "subordinates" scope reaches. Optional.
+    hierarchy_role = models.ForeignKey(
+        "authz.HierarchyRole", null=True, blank=True, on_delete=models.SET_NULL, related_name="memberships"
+    )
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
     invited_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     joined_at = models.DateTimeField(default=timezone.now)

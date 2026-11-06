@@ -41,15 +41,17 @@ def test_end_to_end_sales_workflow(org_a, owner_client, make_member, client_for,
         },
         format="json",
     ).json()
-    assert deal["stage"]["name"] == "Qualification" and deal["owner"]["id"] == str(rep.pk)
+    assert deal["stage"]["name"] == "Discovery" and deal["owner"]["id"] == str(rep.pk)
 
     line = repc.post(
         f"/api/v1/deals/{deal['id']}/products/add/", {"product_id": product["id"], "quantity": "2"}, format="json"
     )
-    assert line.status_code == 201 and line.json()["line_total"] == "10000.00"
+    assert line.status_code == 201 and line.json()["subtotal"] == "10000.00"
 
-    version = deal["version"]
-    for name in ["Needs analysis", "Proposal", "Negotiation", "Closed won"]:
+    # A line change recomputes the amount and bumps the deal version.
+    version = repc.get(f"/api/v1/deals/{deal['id']}/").json()["version"]
+    assert version == deal["version"] + 1
+    for name in ["Fit confirmed", "Proposal sent", "Terms agreed", "Won"]:
         resp = repc.post(
             f"/api/v1/deals/{deal['id']}/stage/", {"stage_id": stages[name]["id"], "version": version}, format="json"
         )
@@ -60,11 +62,11 @@ def test_end_to_end_sales_workflow(org_a, owner_client, make_member, client_for,
 
     history = repc.get(f"/api/v1/deals/{deal['id']}/history/").json()["results"]
     assert [h["to_stage"]["name"] for h in reversed(history)] == [
-        "Qualification",
-        "Needs analysis",
-        "Proposal",
-        "Negotiation",
-        "Closed won",
+        "Discovery",
+        "Fit confirmed",
+        "Proposal sent",
+        "Terms agreed",
+        "Won",
     ]
 
     repc.post("/api/v1/notes/", {"entity_type": "deal", "entity_id": deal["id"], "body": "Signed!"}, format="json")
@@ -79,7 +81,9 @@ def test_end_to_end_sales_workflow(org_a, owner_client, make_member, client_for,
     assert any(e["kind"] == "deal.linked" and e["data"]["status"] == "won" for e in company_timeline)
     board = owner_client.get("/api/v1/deals/board/").json()
     won_col = next(s for s in board["stages"] if s["kind"] == "won")
-    assert won_col["deal_count"] == 1 and won_col["total_amount_base"] == "10000.00"
+    assert (
+        won_col["deal_count"] == 1 and won_col["total_amount_base"] == "11800.00"
+    )  # the amount is the line total incl. 18% tax
 
     with tenant_context(org_a.org.pk):
         actions = set(AuditEvent.objects.values_list("action", flat=True))
