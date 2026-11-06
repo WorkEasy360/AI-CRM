@@ -12,12 +12,12 @@ updated: 2026-11-06
 ---
 
 ## Overview
-You can ask the assistant a question from any page. It opens in the **Ask WorkEasy** side panel so you keep your place.
+You can ask the assistant a question from any page. It opens in the **Ask WorkEasy AI** side panel so you keep your place.
 
 ## Steps
 1. On any page, click the green **Ask WorkEasy AI** button at the bottom right of the screen.
-2. The **Ask WorkEasy** panel opens on the right.
-3. Type your question in the box at the bottom (**Ask WorkEasy…**).
+2. The **Ask WorkEasy AI** panel opens on the right.
+3. Type your question in the box at the bottom, or click one of the **Help with this page** questions.
 4. Press **Enter** or click **Ask** (the arrow button).
 5. Read the answer, then ask a follow-up in **Ask another question…** if needed.
 6. Close the panel when you are done.
@@ -26,6 +26,7 @@ You can ask the assistant a question from any page. It opens in the **Ask WorkEa
 The answer appears in the panel and the page behind it stays as it was.
 
 ## Tips
-- Other ways in: the **Ask AI Now** button on the **WorkEasy AI** card at the bottom of the left sidebar opens the full **AI Assistant** page, and **Help** (**?**) → **Ask WorkEasy AI** opens the panel.
+- Other ways in: the **Ask AI Now** button on the **WorkEasy AI** card at the bottom of the left sidebar, and **Help** (**?**) → **Ask WorkEasy AI**, open the same panel.
+- Your conversation is kept when you move between pages or reload.
 - The panel and the AI Assistant page share one conversation.
 - The floating button is hidden if your role cannot use the AI Assistant.

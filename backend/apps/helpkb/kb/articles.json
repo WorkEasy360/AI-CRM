@@ -655,7 +655,66 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe badge at the top right of the AI Assistant page shows how answers are produced. **Powered by AI** means the assistant writes full answers with analysis. **Knowledge search mode** means answers are assembled from your CRM records and conversations without AI-written analysis.\n\n## Before you start\n- Full AI answers need the AI copilot permission. Owner, Admin, Sales Manager and Sales Representative have it by default; Viewer does not.\n\n## Steps\n1. Click **AI Assistant** in the left sidebar.\n2. Look at the badge at the top right of the page: **Powered by AI** or **Knowledge search mode**.\n3. In the **Ask WorkEasy** panel, the **Knowledge search mode** badge appears next to the title when it applies.\n4. Hover over the badge to read **Answers are assembled from your CRM records and conversations.**\n\n## Result\nYou know whether to expect **Analysis** in answers. In knowledge search mode you still get facts from your CRM, related records and sources.\n\n## Tips\n- The badge also shows **Knowledge search mode** when generative AI is switched off for the workspace in **Settings → AI Assistant → AI Settings**.\n- Even under **Powered by AI**, a single answer can arrive without analysis. A note under the answer then explains why, for example an hourly or monthly AI limit, or a plan without AI answers.\n\n## Troubleshooting\n- **I always see Knowledge search mode.** Ask an administrator to check your role's AI permission and the workspace AI settings.\n- **\"…The information above was retrieved directly from your CRM.\"** AI writing was not available for that answer. The facts shown are still correct; try again later.\n",
+   "body": "## Overview\nAsk WorkEasy AI to create something, such as \"Create a task to call ABC Corp\". It fills in the create form for you. Nothing is saved until you confirm.\n\n## Before you start\n- You need permission to create that kind of record (for example, a task needs permission to create activities).\n\n## Steps\n1. Click **Ask WorkEasy AI** at the bottom right of any page.\n2. Type what you want, for example \"Schedule a meeting with Dana next week\", and press **Enter**.\n3. Check the type, title, date and linked record in the answer.\n4. Click **Review and create**.\n5. Check or change the details in the form.\n6. Click the form's save button to create it.\n\n## Result\nThe record is created only when you save the form, exactly as if you had used the **Create** menu.\n\n## Tips\n- Mention when it is due and WorkEasy AI fills in the date.\n\n## Troubleshooting\n- **No Review and create button?** Your role cannot create that kind of record. The answer says so.\n",
+   "id": "assistant-create-from-chat",
+   "keywords": [
+    "create task from chat",
+    "ai create",
+    "schedule from ai",
+    "task bana do",
+    "reminder",
+    "assistant action",
+    "review and create",
+    "एआई से टास्क"
+   ],
+   "menu_path": "Ask WorkEasy AI (bottom right)",
+   "module": "AI Assistant",
+   "permission": "ai.assistant.use",
+   "question": "Can WorkEasy AI create a task for me?",
+   "related": [
+    "assistant-help-guide",
+    "activities-create-task",
+    "getting-started-create-menu"
+   ],
+   "route": "/dashboard",
+   "spotlight": "",
+   "status": "published",
+   "title": "How to Create a Task or Record by Asking WorkEasy AI",
+   "updated": "2026-11-06"
+  },
+  {
+   "body": "## Overview\nAsk WorkEasy AI how to do anything in WorkEasy360, such as \"How do I create a pipeline?\" or \"contact ko company se kaise link kare\". It answers from the WorkEasy360 help guide with the exact steps, and takes you to the right screen.\n\n## Steps\n1. Click **Ask WorkEasy AI** at the bottom right of any page.\n2. Click one of the **Help with this page** questions, or type your own question in English, Hindi or Hinglish.\n3. Press **Enter** or click **Ask**.\n4. Follow the numbered steps in the answer. The grey chips show the menu path.\n5. Click **Take me there** to open that screen. The button to start with is highlighted for a few seconds.\n6. Click a topic under **Related topics** to ask about the next step.\n7. Under **Was this helpful?**, click **Helpful** or **Not helpful**, and add a comment if you like.\n\n## Result\nYou see the steps for your task and can jump straight to the screen where you do it.\n\n## Tips\n- Ask \"How do I add one here?\" and WorkEasy AI uses the page you are on.\n- If your role cannot use a feature, the answer says so; ask your workspace admin for access.\n\n## Troubleshooting\n- **\"I couldn't find this in the WorkEasy360 help guide yet.\"** The guide has no article for it. Your question is passed to your workspace admins, who can add one.\n",
+   "id": "assistant-help-guide",
+   "keywords": [
+    "how to",
+    "help",
+    "guide",
+    "steps",
+    "instructions",
+    "take me there",
+    "kaise kare",
+    "madad",
+    "मदद",
+    "कैसे करें",
+    "help with this page"
+   ],
+   "menu_path": "Ask WorkEasy AI (bottom right)",
+   "module": "AI Assistant",
+   "permission": "ai.assistant.use",
+   "question": "How do I ask WorkEasy AI how to do something?",
+   "related": [
+    "assistant-open-anywhere",
+    "getting-started-help-center",
+    "assistant-chat"
+   ],
+   "route": "/dashboard",
+   "spotlight": "",
+   "status": "published",
+   "title": "How to Get Step-by-Step Help from WorkEasy AI",
+   "updated": "2026-11-06"
+  },
+  {
+   "body": "## Overview\nThe badge at the top right of the AI Assistant page shows how answers are produced. **Powered by AI** means the assistant writes full answers with analysis. **Knowledge search mode** means answers are assembled from your CRM records and conversations without AI-written analysis.\n\n## Before you start\n- Full AI answers need the AI copilot permission. Owner, Admin, Sales Manager and Sales Representative have it by default; Viewer does not.\n\n## Steps\n1. Click **AI Assistant** in the left sidebar.\n2. Look at the badge at the top right of the page: **Powered by AI** or **Knowledge search mode**.\n3. In the **Ask WorkEasy AI** panel, the **Knowledge search mode** badge appears next to the title when it applies.\n4. Hover over the badge to read **Answers are assembled from your CRM records and conversations.**\n\n## Result\nYou know whether to expect **Analysis** in answers. In knowledge search mode you still get facts from your CRM, related records and sources.\n\n## Tips\n- The badge also shows **Knowledge search mode** when generative AI is switched off for the workspace in **Settings → AI Assistant → AI Settings**.\n- Even under **Powered by AI**, a single answer can arrive without analysis. A note under the answer then explains why, for example an hourly or monthly AI limit, or a plan without AI answers.\n\n## Troubleshooting\n- **I always see Knowledge search mode.** Ask an administrator to check your role's AI permission and the workspace AI settings.\n- **\"…The information above was retrieved directly from your CRM.\"** AI writing was not available for that answer. The facts shown are still correct; try again later.\n",
    "id": "assistant-knowledge-search-mode",
    "keywords": [
     "knowledge search mode",
@@ -686,7 +745,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nYou can ask the assistant a question from any page. It opens in the **Ask WorkEasy** side panel so you keep your place.\n\n## Steps\n1. On any page, click the green **Ask WorkEasy AI** button at the bottom right of the screen.\n2. The **Ask WorkEasy** panel opens on the right.\n3. Type your question in the box at the bottom (**Ask WorkEasy…**).\n4. Press **Enter** or click **Ask** (the arrow button).\n5. Read the answer, then ask a follow-up in **Ask another question…** if needed.\n6. Close the panel when you are done.\n\n## Result\nThe answer appears in the panel and the page behind it stays as it was.\n\n## Tips\n- Other ways in: the **Ask AI Now** button on the **WorkEasy AI** card at the bottom of the left sidebar opens the full **AI Assistant** page, and **Help** (**?**) → **Ask WorkEasy AI** opens the panel.\n- The panel and the AI Assistant page share one conversation.\n- The floating button is hidden if your role cannot use the AI Assistant.\n",
+   "body": "## Overview\nYou can ask the assistant a question from any page. It opens in the **Ask WorkEasy AI** side panel so you keep your place.\n\n## Steps\n1. On any page, click the green **Ask WorkEasy AI** button at the bottom right of the screen.\n2. The **Ask WorkEasy AI** panel opens on the right.\n3. Type your question in the box at the bottom, or click one of the **Help with this page** questions.\n4. Press **Enter** or click **Ask** (the arrow button).\n5. Read the answer, then ask a follow-up in **Ask another question…** if needed.\n6. Close the panel when you are done.\n\n## Result\nThe answer appears in the panel and the page behind it stays as it was.\n\n## Tips\n- Other ways in: the **Ask AI Now** button on the **WorkEasy AI** card at the bottom of the left sidebar, and **Help** (**?**) → **Ask WorkEasy AI**, open the same panel.\n- Your conversation is kept when you move between pages or reload.\n- The panel and the AI Assistant page share one conversation.\n- The floating button is hidden if your role cannot use the AI Assistant.\n",
    "id": "assistant-open-anywhere",
    "keywords": [
     "ask workeasy ai",
@@ -751,7 +810,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe assistant keeps one conversation going so follow-up questions have context. You can see your latest conversations and clear the current one to start fresh.\n\n## Steps\n1. Click **AI Assistant** in the left sidebar.\n2. Find **Recent AI Actions** on the right. It lists your most recent conversations by title, with how long ago each was used.\n3. If there are more than four, click **View All** to see the rest, and **Show less** to collapse the list.\n4. To start fresh, click **Ask WorkEasy AI** (the floating button at the bottom right) to open the **Ask WorkEasy** panel.\n5. In the panel header, click **New question**.\n\n## Result\nThe current conversation is cleared, and your next question starts a new one.\n\n## Tips\n- **New question** deletes the current conversation, so it also disappears from **Recent AI Actions**.\n- Recent conversations are private to you. Other members cannot see them.\n\n## Troubleshooting\n- **I cannot reopen an old conversation.** **Recent AI Actions** is a list of titles only; past conversations cannot be reopened. Ask the question again.\n- **My conversation vanished after I reloaded the page.** The on-screen thread is not restored after a reload. The conversation still appears in **Recent AI Actions**.\n",
+   "body": "## Overview\nThe assistant keeps one conversation going so follow-up questions have context. You can see your latest conversations and clear the current one to start fresh.\n\n## Steps\n1. Click **AI Assistant** in the left sidebar.\n2. Find **Recent AI Actions** on the right. It lists your most recent conversations by title, with how long ago each was used.\n3. If there are more than four, click **View All** to see the rest, and **Show less** to collapse the list.\n4. To start fresh, click **Ask WorkEasy AI** (the floating button at the bottom right) to open the **Ask WorkEasy AI** panel.\n5. In the panel header, click **New question**.\n\n## Result\nThe current conversation is cleared, and your next question starts a new one.\n\n## Tips\n- **New question** deletes the current conversation, so it also disappears from **Recent AI Actions**.\n- Recent conversations are private to you. Other members cannot see them.\n\n## Troubleshooting\n- **I cannot reopen an old conversation.** **Recent AI Actions** is a list of titles only. Your current conversation in the **Ask WorkEasy AI** panel is kept when you reload; older ones cannot be reopened.\n- **My conversation vanished after I reloaded the page.** The on-screen thread is not restored after a reload. The conversation still appears in **Recent AI Actions**.\n",
    "id": "assistant-recent-conversations",
    "keywords": [
     "new question",
@@ -781,7 +840,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nEach answer separates real CRM figures from analysis and advice, so you always know what is a fact and what is a suggestion.\n\n## Steps\n1. Ask a question on the **AI Assistant** page or in the **Ask WorkEasy** panel.\n2. Read the first line. It is the short answer.\n3. Read **From your CRM**. These points are facts taken directly from your records.\n4. Read **Analysis**, if shown. This is the assistant's interpretation of those facts.\n5. Read **Suggested next step**, if shown. This is advice on what to do; nothing has been done for you.\n6. Look at any extra sections, such as lists of deals or figures, for the records the answer is based on.\n7. Under **Sources**, click a source that shows an arrow to open the record or conversation it came from.\n\n## Result\nYou can check every figure against the record it came from before you act.\n\n## Tips\n- Treat **Analysis** and **Suggested next step** as advice and check the facts before acting.\n- Answers only use records your role can see, so two people may get different answers to the same question.\n\n## Troubleshooting\n- **The answer has facts but no Analysis.** The assistant is in **Knowledge search mode**; see that article.\n",
+   "body": "## Overview\nEach answer separates real CRM figures from analysis and advice, so you always know what is a fact and what is a suggestion.\n\n## Steps\n1. Ask a question on the **AI Assistant** page or in the **Ask WorkEasy AI** panel.\n2. Read the first line. It is the short answer.\n3. Read **From your CRM**. These points are facts taken directly from your records.\n4. Read **Analysis**, if shown. This is the assistant's interpretation of those facts.\n5. Read **Suggested next step**, if shown. This is advice on what to do; nothing has been done for you.\n6. Look at any extra sections, such as lists of deals or figures, for the records the answer is based on.\n7. Under **Sources**, click a source that shows an arrow to open the record or conversation it came from.\n\n## Result\nYou can check every figure against the record it came from before you act.\n\n## Tips\n- Treat **Analysis** and **Suggested next step** as advice and check the facts before acting.\n- Answers only use records your role can see, so two people may get different answers to the same question.\n\n## Troubleshooting\n- **The answer has facts but no Analysis.** The assistant is in **Knowledge search mode**; see that article.\n",
    "id": "assistant-understanding-answers",
    "keywords": [
     "ai answer",
@@ -812,7 +871,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nOn the AI Assistant page you can speak your question instead of typing it. Your browser turns speech into text in the question box.\n\n## Before you start\n- Use a browser with speech recognition, such as Chrome, Edge or Safari. In other browsers the microphone button does not appear.\n- Allow microphone access when the browser asks.\n\n## Steps\n1. Click **AI Assistant** in the left sidebar.\n2. Click the microphone button (**Speak your question**) next to the question box.\n3. Say your question clearly.\n4. Stop speaking; recording ends on its own. To stop early, click the button again (**Stop voice input**).\n5. Check the text in the question box and correct it if needed.\n6. Click **Ask** (the arrow button).\n\n## Result\nYour spoken question is sent like a typed one and the answer appears in the conversation.\n\n## Tips\n- The browser listens in your browser's language setting.\n- Voice is only on the AI Assistant page, not in the side panel.\n\n## Troubleshooting\n- **No microphone button.** Your browser does not support speech recognition. Type your question instead.\n- **Nothing is typed.** Check that the browser has permission to use your microphone.\n",
+   "body": "## Overview\nOn the AI Assistant page you can speak your question instead of typing it. Your browser turns speech into text in the question box.\n\n## Before you start\n- Use a browser with speech recognition, such as Chrome, Edge or Safari. In other browsers the microphone button does not appear.\n- Allow microphone access when the browser asks.\n\n## Steps\n1. Click **AI Assistant** in the left sidebar.\n2. Click the microphone button (**Speak your question**) next to the question box.\n3. Say your question clearly.\n4. Stop speaking; recording ends on its own. To stop early, click the button again (**Stop voice input**).\n5. Check the text in the question box and correct it if needed.\n6. Click **Ask** (the arrow button).\n\n## Result\nYour spoken question is sent like a typed one and the answer appears in the conversation.\n\n## Tips\n- The browser listens in your browser's language setting.\n- The microphone is on the AI Assistant page and in the **Ask WorkEasy AI** side panel.\n\n## Troubleshooting\n- **No microphone button.** Your browser does not support speech recognition. Type your question instead.\n- **Nothing is typed.** Check that the browser has permission to use your microphone.\n",
    "id": "assistant-voice-input",
    "keywords": [
     "voice",
@@ -2663,7 +2722,36 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe **?** icon in the top bar is the **Help** menu. It gives quick ways into search, the AI assistant and Settings.\n\n## Steps\n1. Click the **?** icon (**Help**) in the top bar, between the bell and your avatar.\n2. Choose an option:\n   - **Search everything** opens global search (shortcut **Ctrl K**).\n   - **Ask WorkEasy AI** opens the assistant panel on the right.\n   - **Settings** opens the Settings home page.\n\n## Result\nThe chosen tool opens without leaving the page you are on (Settings opens its own page).\n\n## Tips\n- **Ask WorkEasy AI** only opens the panel if your role can use the AI Assistant.\n- The **Settings** item is a shortcut; **Settings** is also at the bottom of the left sidebar.\n",
+   "body": "## Overview\nThe Help Center lists every WorkEasy360 guide, grouped by module. WorkEasy AI answers from these same guides.\n\n## Steps\n1. Click the **?** icon (**Help**) in the top bar.\n2. Click **Help Center**.\n3. Type in the search box, or click a module such as **Pipeline** or **Settings** to filter.\n4. Click a guide to open it.\n5. Click **Take me there** to open the screen the guide describes.\n\n## Result\nThe guide shows the steps, what you will see when done, tips and related topics.\n\n## Tips\n- A lock next to a guide means your role does not include that feature.\n- Click **Ask WorkEasy AI about this** on a guide to ask a follow-up question.\n",
+   "id": "getting-started-help-center",
+   "keywords": [
+    "help center",
+    "help centre",
+    "guides",
+    "documentation",
+    "manual",
+    "user guide",
+    "articles",
+    "help kaha hai",
+    "सहायता केंद्र",
+    "गाइड"
+   ],
+   "menu_path": "Help (?) → Help Center",
+   "module": "Getting Started",
+   "permission": "",
+   "question": "Where can I read the help guides?",
+   "related": [
+    "getting-started-help-menu",
+    "assistant-help-guide"
+   ],
+   "route": "/help",
+   "spotlight": "",
+   "status": "published",
+   "title": "How to Use the Help Center",
+   "updated": "2026-11-06"
+  },
+  {
+   "body": "## Overview\nThe **?** icon in the top bar is the **Help** menu. It gives quick ways into search, the AI assistant and Settings.\n\n## Steps\n1. Click the **?** icon (**Help**) in the top bar, between the bell and your avatar.\n2. Choose an option:\n   - **Search everything** opens global search (shortcut **Ctrl K**).\n   - **Ask WorkEasy AI** opens the assistant panel on the right.\n   - **Help Center** opens the step-by-step guides for every feature.\n   - **Settings** opens the Settings home page.\n\n## Result\nThe chosen tool opens without leaving the page you are on (Settings opens its own page).\n\n## Tips\n- **Ask WorkEasy AI** only opens the panel if your role can use the AI Assistant.\n- The **Settings** item is a shortcut; **Settings** is also at the bottom of the left sidebar.\n",
    "id": "getting-started-help-menu",
    "keywords": [
     "help",
@@ -2787,7 +2875,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe left sidebar takes you to every part of the CRM, and the top bar holds search, the create menu, notifications, help and your account menu.\n\n## Steps\n1. Look at the left sidebar. It lists **Dashboard**, **Pipeline**, **Contacts**, **Activities**, **AI Assistant**, **Helpdesk**, **Products** and **Settings**.\n2. Click any item to open that page. The current page is highlighted.\n3. To reach people or companies, click **Contacts**, then choose **People (Contacts)** or **Companies** underneath it.\n4. To hide or show those two sub-items, click the arrow next to **Contacts** (**Collapse Contacts** / **Expand Contacts**).\n5. To return to the Dashboard from anywhere, click your workspace name and logo at the top of the sidebar.\n6. Use the top bar on the right for **Create**, **Notifications**, **Help** (the **?** icon) and the **Account menu** (your avatar).\n\n## Result\nYou can reach every page in one or two clicks. The sidebar also shows the **WorkEasy AI** card with an **Ask AI Now** button that opens the AI Assistant.\n\n## Tips\n- Press **Ctrl K** (or **⌘ K** on a Mac) to search instead of browsing.\n- If your role can use WhatsApp, a green **WhatsApp inbox** button in the top bar opens the WhatsApp tab of Activities.\n- Administrative pages are inside **Settings**, not in the sidebar.\n\n## Troubleshooting\n- **I cannot see the sidebar.** On a small screen it is hidden. Tap **Open navigation** (the menu icon at the top left) to open it.\n",
+   "body": "## Overview\nThe left sidebar takes you to every part of the CRM, and the top bar holds search, the create menu, notifications, help and your account menu.\n\n## Steps\n1. Look at the left sidebar. It lists **Dashboard**, **Pipeline**, **Contacts**, **Activities**, **AI Assistant**, **Helpdesk**, **Products** and **Settings**.\n2. Click any item to open that page. The current page is highlighted.\n3. To reach people or companies, click **Contacts**, then choose **People (Contacts)** or **Companies** underneath it.\n4. To hide or show those two sub-items, click the arrow next to **Contacts** (**Collapse Contacts** / **Expand Contacts**).\n5. To return to the Dashboard from anywhere, click your workspace name and logo at the top of the sidebar.\n6. Use the top bar on the right for **Create**, **Notifications**, **Help** (the **?** icon) and the **Account menu** (your avatar).\n\n## Result\nYou can reach every page in one or two clicks. The sidebar also shows the **WorkEasy AI** card with an **Ask AI Now** button that opens the **Ask WorkEasy AI** panel.\n\n## Tips\n- Press **Ctrl K** (or **⌘ K** on a Mac) to search instead of browsing.\n- If your role can use WhatsApp, a green **WhatsApp inbox** button in the top bar opens the WhatsApp tab of Activities.\n- Administrative pages are inside **Settings**, not in the sidebar.\n\n## Troubleshooting\n- **I cannot see the sidebar.** On a small screen it is hidden. Tap **Open navigation** (the menu icon at the top left) to open it.\n",
    "id": "getting-started-navigation",
    "keywords": [
     "navigation",
@@ -5053,6 +5141,63 @@
    "updated": "2026-11-06"
   },
   {
+   "body": "## Overview\nAdd articles about how your team works, or change a WorkEasy360 guide article for your workspace only. WorkEasy AI and the Help Center use them straight away once published.\n\n## Before you start\n- You need the **Owner** or **Admin** role.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **AI Assistant** card, click **Knowledge Base**.\n3. Click **New article**, or click **Customise** next to a guide article.\n4. Fill in **Title**, **Question it answers**, **Module** and **Page (route)**.\n5. Write the article in **Markdown**, with the exact button names in bold.\n6. Click **Preview** to check it.\n7. Set **Status** to **Published (WorkEasy AI answers from it)**.\n8. Click **Save and publish**.\n\n## Result\nThe article appears under **Your workspace's articles** and in the Help Center. A customised article replaces the guide article for your workspace only.\n\n## Tips\n- Every save keeps a version. Open the article, click **Version history** and click **Restore** to go back.\n- Deleting a customised article brings back the original guide article.\n",
+   "id": "settings-knowledge-base",
+   "keywords": [
+    "knowledge base",
+    "help articles",
+    "add article",
+    "customise guide",
+    "custom help",
+    "edit help",
+    "faq for team",
+    "article kaise banaye",
+    "ज्ञान आधार"
+   ],
+   "menu_path": "Settings → AI Assistant → Knowledge Base",
+   "module": "Settings",
+   "permission": "ai.settings.manage",
+   "question": "How do I add our own help articles for WorkEasy AI?",
+   "related": [
+    "settings-knowledge-base-unanswered",
+    "settings-ai-policy",
+    "assistant-help-guide"
+   ],
+   "route": "/settings/ai/knowledge-base",
+   "spotlight": "New article",
+   "status": "published",
+   "title": "How to Add or Customise Help Articles for Your Workspace",
+   "updated": "2026-11-06"
+  },
+  {
+   "body": "## Overview\nWhen WorkEasy AI has no guide for a question, it records the question for your admins. Members can also rate each answer. Use both to improve your help articles.\n\n## Before you start\n- You need the **Owner** or **Admin** role.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **AI Assistant** card, click **Knowledge Base**.\n3. Click the **Unanswered Questions** tab to see questions, how often they were asked and on which page.\n4. Click **Create article** next to a question to write an answer, or **Dismiss** to hide it.\n5. Click the **Feedback report** tab to see **Most asked**, **Lowest rated** and **Recent comments**.\n\n## Result\nA question you answer moves to **Answered**, and the new article is used for the same question from then on.\n\n## Tips\n- Choose **Last 7 days**, **Last 30 days** or **Last 90 days** to change the report period.\n",
+   "id": "settings-knowledge-base-unanswered",
+   "keywords": [
+    "unanswered questions",
+    "feedback report",
+    "ratings",
+    "thumbs down",
+    "most asked",
+    "lowest rated",
+    "help analytics",
+    "unanswered kaise dekhe",
+    "अनुत्तरित प्रश्न"
+   ],
+   "menu_path": "Settings → AI Assistant → Knowledge Base → Unanswered Questions",
+   "module": "Settings",
+   "permission": "ai.settings.manage",
+   "question": "How do I see what people asked that WorkEasy AI could not answer?",
+   "related": [
+    "settings-knowledge-base",
+    "assistant-help-guide"
+   ],
+   "route": "/settings/ai/knowledge-base",
+   "spotlight": "",
+   "status": "published",
+   "title": "How to Review Unanswered Questions and Answer Ratings",
+   "updated": "2026-11-06"
+  },
+  {
    "body": "## Overview\nPending invitations are listed at the top of **Users & Teams**. You can send a fresh link if the email was lost or expired, or revoke an invitation sent by mistake.\n\n## Before you start\n- Only the Owner and Admins can manage invitations.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **Workspace** card, click **Users & Teams**.\n3. Find the row with the status **Invited** or **Invite expired**.\n4. Click the **…** actions button at the end of that row.\n5. Click **Resend invitation** to send a new link, or click **Revoke invitation** to cancel it.\n6. If you chose **Revoke invitation**, click **Revoke** to confirm.\n\n## Result\n- After resending: a message says **Invitation resent**. The previous link no longer works and the 7-day expiry starts again.\n- After revoking: a message says **Invitation revoked** and the link stops working.\n\n## Tips\n- To invite the same person with a different role, revoke the invitation and send a new one.\n\n## Troubleshooting\n- **\"Please wait a minute before resending.\"** Wait a minute and try again.\n- **\"This invitation has been sent too many times.\"** Revoke it and invite the person again.\n",
    "id": "settings-manage-invitations",
    "keywords": [
@@ -5718,6 +5863,6 @@
    "updated": "2026-11-06"
   }
  ],
- "count": 186,
+ "count": 191,
  "version": 1
 }

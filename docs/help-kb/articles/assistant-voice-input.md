@@ -32,7 +32,7 @@ Your spoken question is sent like a typed one and the answer appears in the conv
 
 ## Tips
 - The browser listens in your browser's language setting.
-- Voice is only on the AI Assistant page, not in the side panel.
+- The microphone is on the AI Assistant page and in the **Ask WorkEasy AI** side panel.
 
 ## Troubleshooting
 - **No microphone button.** Your browser does not support speech recognition. Type your question instead.

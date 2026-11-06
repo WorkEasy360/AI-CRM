@@ -75,6 +75,7 @@ _PHRASES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
         (r"\bon (the )?(phone|mobile)\b|\bphone pe\b|\bmobile pe\b|\bsmall screen\b", " mobile "),
         (r"\bwhat('?s| is) the difference between\b|\bdifference between\b", " compare "),
         (r"\btake away\b|\brevoke\b|\bcut off\b", " remove "),
+        (r"\b(user )?(guides?|manuals?|documentation|docs)\b(?! me\b)|\bhelp cent(er|re)\b", " helpcenter "),
         (
             r"\b(as|into|to) (a )?(paying )?customers?\b|\bcustomer stage\b|\blifecycle\b",
             " contact customer lifecycle ",

@@ -19,6 +19,7 @@ The **?** icon in the top bar is the **Help** menu. It gives quick ways into sea
 2. Choose an option:
    - **Search everything** opens global search (shortcut **Ctrl K**).
    - **Ask WorkEasy AI** opens the assistant panel on the right.
+   - **Help Center** opens the step-by-step guides for every feature.
    - **Settings** opens the Settings home page.
 
 ## Result

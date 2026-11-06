@@ -20,7 +20,7 @@ The badge at the top right of the AI Assistant page shows how answers are produc
 ## Steps
 1. Click **AI Assistant** in the left sidebar.
 2. Look at the badge at the top right of the page: **Powered by AI** or **Knowledge search mode**.
-3. In the **Ask WorkEasy** panel, the **Knowledge search mode** badge appears next to the title when it applies.
+3. In the **Ask WorkEasy AI** panel, the **Knowledge search mode** badge appears next to the title when it applies.
 4. Hover over the badge to read **Answers are assembled from your CRM records and conversations.**
 
 ## Result

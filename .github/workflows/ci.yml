@@ -92,6 +92,19 @@ jobs:
       - working-directory: backend
         run: uv run mypy .
 
+  help-kb:
+    name: Help knowledge base (every page documented, retrieval eval)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # Standard library only: fails when a page under frontend/src/app has no help article, an article is
+      # malformed or links to a missing article or permission, or the backend bundle is stale.
+      - name: Articles cover every page and the bundle is fresh
+        run: python3 scripts/help_kb.py check
+      - name: Retrieval eval (>= 90% top-1, out-of-guide questions declined)
+        run: python3 scripts/help_kb.py eval
+
   backend-security:
     name: Backend SAST + dependency audit
     runs-on: ubuntu-latest

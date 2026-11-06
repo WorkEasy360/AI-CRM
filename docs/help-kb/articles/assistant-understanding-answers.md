@@ -15,7 +15,7 @@ updated: 2026-11-06
 Each answer separates real CRM figures from analysis and advice, so you always know what is a fact and what is a suggestion.
 
 ## Steps
-1. Ask a question on the **AI Assistant** page or in the **Ask WorkEasy** panel.
+1. Ask a question on the **AI Assistant** page or in the **Ask WorkEasy AI** panel.
 2. Read the first line. It is the short answer.
 3. Read **From your CRM**. These points are facts taken directly from your records.
 4. Read **Analysis**, if shown. This is the assistant's interpretation of those facts.

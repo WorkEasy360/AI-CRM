@@ -22,7 +22,7 @@ The left sidebar takes you to every part of the CRM, and the top bar holds searc
 6. Use the top bar on the right for **Create**, **Notifications**, **Help** (the **?** icon) and the **Account menu** (your avatar).
 
 ## Result
-You can reach every page in one or two clicks. The sidebar also shows the **WorkEasy AI** card with an **Ask AI Now** button that opens the AI Assistant.
+You can reach every page in one or two clicks. The sidebar also shows the **WorkEasy AI** card with an **Ask AI Now** button that opens the **Ask WorkEasy AI** panel.
 
 ## Tips
 - Press **Ctrl K** (or **⌘ K** on a Mac) to search instead of browsing.

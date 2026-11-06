@@ -107,6 +107,7 @@ export const SETTINGS_CARDS: readonly SettingsCard[] = [
     items: [
       { label: "AI Settings", href: "/settings/ai", icon: Sparkles },
       { label: "Usage & Limits", href: "/settings/ai#usage", icon: BarChart3, gate: "/settings/ai" },
+      { label: "Knowledge Base", href: "/settings/ai/knowledge-base", icon: BookOpen, gate: "/settings/ai" },
     ],
   },
   {

@@ -18,7 +18,7 @@ The assistant keeps one conversation going so follow-up questions have context. 
 1. Click **AI Assistant** in the left sidebar.
 2. Find **Recent AI Actions** on the right. It lists your most recent conversations by title, with how long ago each was used.
 3. If there are more than four, click **View All** to see the rest, and **Show less** to collapse the list.
-4. To start fresh, click **Ask WorkEasy AI** (the floating button at the bottom right) to open the **Ask WorkEasy** panel.
+4. To start fresh, click **Ask WorkEasy AI** (the floating button at the bottom right) to open the **Ask WorkEasy AI** panel.
 5. In the panel header, click **New question**.
 
 ## Result
@@ -29,5 +29,5 @@ The current conversation is cleared, and your next question starts a new one.
 - Recent conversations are private to you. Other members cannot see them.
 
 ## Troubleshooting
-- **I cannot reopen an old conversation.** **Recent AI Actions** is a list of titles only; past conversations cannot be reopened. Ask the question again.
+- **I cannot reopen an old conversation.** **Recent AI Actions** is a list of titles only. Your current conversation in the **Ask WorkEasy AI** panel is kept when you reload; older ones cannot be reopened.
 - **My conversation vanished after I reloaded the page.** The on-screen thread is not restored after a reload. The conversation still appears in **Recent AI Actions**.
