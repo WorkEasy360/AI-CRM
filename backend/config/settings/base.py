@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "apps.ai",
     "apps.rag",
     "apps.assistant",
+    "apps.helpkb",
     "apps.integrations",
     "apps.billing",
     "apps.helpdesk",

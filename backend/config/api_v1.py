@@ -17,6 +17,17 @@ from apps.ai.api import (
     DealSummaryView,
 )
 from apps.assistant.api import AskKeelView, AssistantHomeView, ConversationView
+from apps.helpkb.api import (
+    HelpArticleDetailView,
+    HelpArticleListView,
+    HelpFeedbackView,
+    HelpSuggestionsView,
+    KBAdminArticlesView,
+    KBAdminArticleView,
+    KBAdminRevisionsView,
+    KBReportView,
+    KBUnansweredView,
+)
 from apps.audit.api import AuditEventViewSet
 from apps.authz.api import FieldPermissionsView, HierarchyRoleViewSet, RoleDetailView, RolesView
 from apps.automation.api import AutomationRuleViewSet
@@ -168,6 +179,21 @@ urlpatterns = [
         ConversationView.as_view(),
         name="assistant-conversation",
     ),
+    # Help knowledge base: the product guide behind WorkEasy AI's "how do I" answers.
+    path("help/articles/", HelpArticleListView.as_view(), name="help-articles"),
+    path("help/articles/<slug:slug>/", HelpArticleDetailView.as_view(), name="help-article"),
+    path("help/suggestions/", HelpSuggestionsView.as_view(), name="help-suggestions"),
+    path("help/feedback/", HelpFeedbackView.as_view(), name="help-feedback"),
+    path("help/admin/articles/", KBAdminArticlesView.as_view(), name="help-admin-articles"),
+    path("help/admin/articles/<slug:slug>/", KBAdminArticleView.as_view(), name="help-admin-article"),
+    path(
+        "help/admin/articles/<slug:slug>/revisions/", KBAdminRevisionsView.as_view(), name="help-admin-revisions"
+    ),
+    path("help/admin/unanswered/", KBUnansweredView.as_view(), name="help-admin-unanswered"),
+    path(
+        "help/admin/unanswered/<uuid:question_id>/", KBUnansweredView.as_view(), name="help-admin-unanswered-detail"
+    ),
+    path("help/admin/report/", KBReportView.as_view(), name="help-admin-report"),
     path("schema/", SpectacularAPIView.as_view(permission_classes=_schema_permission), name="schema"),
     path(
         "docs/",

@@ -86,6 +86,7 @@ def record(
     model: str = "",
     flagged_input: bool = False,
     focus: tuple[str, uuid.UUID] | None = None,
+    help_article: str = "",
 ) -> ConversationTurn:
     """Append one turn and move the thread's focus to whatever this answer was about."""
     position = (conversation.turns.aggregate(latest=Max("position"))["latest"] or 0) + 1
@@ -98,6 +99,7 @@ def record(
         mode=mode[:16],
         model=model[:64],
         flagged_input=flagged_input,
+        help_article=help_article[:80],
     )
     fields = ["last_message_at", "updated_at"]
     conversation.last_message_at = timezone.now()

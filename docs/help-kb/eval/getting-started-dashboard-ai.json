@@ -1,0 +1,130 @@
+[
+ {
+  "q": "Is there a keyboard shortcut to find a customer quickly?",
+  "lang": "en",
+  "expected": "getting-started-global-search"
+ },
+ {
+  "q": "Where is the button to add a new contact from any screen?",
+  "lang": "en",
+  "expected": "getting-started-create-menu"
+ },
+ {
+  "q": "I can't remember my password, what do I do?",
+  "lang": "en",
+  "expected": "getting-started-forgot-password"
+ },
+ {
+  "q": "I got an invite email from my manager, how do I join?",
+  "lang": "en",
+  "expected": "getting-started-accept-invitation"
+ },
+ {
+  "q": "How can I switch to my other company's account?",
+  "lang": "en",
+  "expected": "getting-started-switch-workspace"
+ },
+ {
+  "q": "Can I see last month's numbers here?",
+  "lang": "en",
+  "expected": "dashboard-filter-period",
+  "page": "/dashboard"
+ },
+ {
+  "q": "How much revenue are we expected to close this quarter?",
+  "lang": "en",
+  "expected": "dashboard-forecast"
+ },
+ {
+  "q": "Why does it say knowledge search mode instead of powered by AI?",
+  "lang": "en",
+  "expected": "assistant-knowledge-search-mode",
+  "page": "/assistant"
+ },
+ {
+  "q": "How do I ask the AI which deals are at risk?",
+  "lang": "en",
+  "expected": "assistant-chat"
+ },
+ {
+  "q": "Can I talk to the assistant instead of typing?",
+  "lang": "en",
+  "expected": "assistant-voice-input",
+  "page": "/assistant"
+ },
+ {
+  "q": "how do I turn on dark mode",
+  "lang": "en",
+  "expected": "getting-started-theme"
+ },
+ {
+  "q": "where do I log out",
+  "lang": "en",
+  "expected": "getting-started-sign-out"
+ },
+ {
+  "q": "notification ka red dot kaise hataye",
+  "lang": "hinglish",
+  "expected": "getting-started-notifications"
+ },
+ {
+  "q": "dashboard pe quick actions kya karte hai",
+  "lang": "hinglish",
+  "expected": "dashboard-quick-actions",
+  "page": "/dashboard"
+ },
+ {
+  "q": "naya account kaise banaye",
+  "lang": "hinglish",
+  "expected": "getting-started-sign-up"
+ },
+ {
+  "q": "AI se naya sawal kaise shuru kare, purani chat clear karni hai",
+  "lang": "hinglish",
+  "expected": "assistant-recent-conversations"
+ },
+ {
+  "q": "login karte time 6 digit code maang raha hai",
+  "lang": "hinglish",
+  "expected": "getting-started-login-two-factor"
+ },
+ {
+  "q": "डैशबोर्ड पर विन रेट का क्या मतलब है?",
+  "lang": "hi",
+  "expected": "dashboard-overview"
+ },
+ {
+  "q": "आज मुझे कौन से काम करने हैं, कहाँ दिखेगा?",
+  "lang": "hi",
+  "expected": "dashboard-today-panel",
+  "also": [
+   "activities-my-day"
+  ]
+ },
+ {
+  "q": "एआई असिस्टेंट से सवाल कैसे पूछें?",
+  "lang": "hi",
+  "expected": "assistant-chat"
+ },
+ {
+  "q": "मेरा ईमेल वेरिफाई नहीं हुआ, लिंक कहाँ है?",
+  "lang": "hi",
+  "expected": "getting-started-verify-email"
+ },
+ {
+  "q": "What do the From your CRM and Suggested next step parts of the answer mean?",
+  "lang": "en",
+  "expected": "assistant-understanding-answers"
+ },
+ {
+  "q": "Can I get the AI to write a proposal for my biggest deal?",
+  "lang": "en",
+  "expected": "assistant-quick-actions",
+  "page": "/assistant"
+ },
+ {
+  "q": "phone pe baaki pages kaise khole",
+  "lang": "hinglish",
+  "expected": "getting-started-mobile-navigation"
+ }
+]

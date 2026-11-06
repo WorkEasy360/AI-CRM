@@ -1,0 +1,121 @@
+[
+ {
+  "q": "how can I set up a second pipeline for renewals",
+  "lang": "en",
+  "expected": "pipeline-create"
+ },
+ {
+  "q": "I need to put a deal I just got from a referral into the CRM",
+  "lang": "en",
+  "expected": "deal-create"
+ },
+ {
+  "q": "how do I add one here?",
+  "lang": "en",
+  "expected": "deal-create",
+  "page": "/pipeline"
+ },
+ {
+  "q": "where do I change the win percentage for the proposal stage",
+  "lang": "en",
+  "expected": "pipeline-edit-stage"
+ },
+ {
+  "q": "can I drag a card from one column to another",
+  "lang": "en",
+  "expected": "deal-drag-drop"
+ },
+ {
+  "q": "how do I record why we lost a customer",
+  "lang": "en",
+  "expected": "deal-mark-won-lost"
+ },
+ {
+  "q": "only my team should see the enterprise pipeline",
+  "lang": "en",
+  "expected": "pipeline-restrict-access"
+ },
+ {
+  "q": "add line items with discount to a quote",
+  "lang": "en",
+  "expected": "products-add-to-deal"
+ },
+ {
+  "q": "how much revenue is expected this quarter",
+  "lang": "en",
+  "expected": "pipeline-forecast",
+  "also": [
+   "dashboard-forecast"
+  ]
+ },
+ {
+  "q": "how do I add a new item to the catalogue?",
+  "lang": "en",
+  "expected": "products-add",
+  "page": "/products"
+ },
+ {
+  "q": "wholesale customers get a different rate, how do I set that up",
+  "lang": "en",
+  "expected": "products-price-book-create"
+ },
+ {
+  "q": "stage ka order kaise change kare",
+  "lang": "hinglish",
+  "expected": "pipeline-reorder-stages",
+  "page": "/settings/pipelines"
+ },
+ {
+  "q": "naya pipeline kaise banaye",
+  "lang": "hinglish",
+  "expected": "pipeline-create"
+ },
+ {
+  "q": "deal ko next stage mein kaise bheje",
+  "lang": "hinglish",
+  "expected": "deal-move-next-stage"
+ },
+ {
+  "q": "sirf meri deals board par kaise dikhe",
+  "lang": "hinglish",
+  "expected": "pipeline-filter-deals"
+ },
+ {
+  "q": "deal mein product kaise add kare",
+  "lang": "hinglish",
+  "expected": "products-add-to-deal"
+ },
+ {
+  "q": "deals ko excel mein download karna hai",
+  "lang": "hinglish",
+  "expected": "deal-export"
+ },
+ {
+  "q": "पाइपलाइन कैसे बनाएं",
+  "lang": "hi",
+  "expected": "pipeline-create"
+ },
+ {
+  "q": "नई डील कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "deal-create"
+ },
+ {
+  "q": "पाइपलाइन में नया स्टेज कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "pipeline-add-stage"
+ },
+ {
+  "q": "डील को हारा हुआ कैसे मार्क करें",
+  "lang": "hi",
+  "expected": "deal-mark-won-lost"
+ },
+ {
+  "q": "उत्पाद की कीमत कैसे बदलें",
+  "lang": "hi",
+  "expected": "products-edit-delete",
+  "also": [
+   "products-price-book-prices"
+  ]
+ }
+]

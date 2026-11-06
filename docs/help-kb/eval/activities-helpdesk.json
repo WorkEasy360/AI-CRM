@@ -1,0 +1,133 @@
+[
+ {
+  "q": "how do I add a to-do for tomorrow?",
+  "lang": "en",
+  "expected": "activities-create-task"
+ },
+ {
+  "q": "where do I plan a call with a lead for next Monday",
+  "lang": "en",
+  "expected": "activities-schedule-call"
+ },
+ {
+  "q": "I just spoke to a client on the phone, how do I record it?",
+  "lang": "en",
+  "expected": "activities-log-call"
+ },
+ {
+  "q": "can I get notified 1 hour before my meeting?",
+  "lang": "en",
+  "expected": "activities-set-reminder"
+ },
+ {
+  "q": "how to make a weekly team meeting that repeats every Monday",
+  "lang": "en",
+  "expected": "activities-repeat"
+ },
+ {
+  "q": "how do I move this task to next week?",
+  "lang": "en",
+  "expected": "activities-reschedule",
+  "page": "/activities"
+ },
+ {
+  "q": "show me what's due today",
+  "lang": "en",
+  "expected": "activities-my-day",
+  "also": [
+   "dashboard-today-panel"
+  ]
+ },
+ {
+  "q": "how do I mark several tasks done at once?",
+  "lang": "en",
+  "expected": "activities-bulk-actions"
+ },
+ {
+  "q": "where are the WhatsApp messages customers sent us?",
+  "lang": "en",
+  "expected": "activities-whatsapp-inbox"
+ },
+ {
+  "q": "customer raised a complaint, how do I log it?",
+  "lang": "en",
+  "expected": "helpdesk-create-ticket"
+ },
+ {
+  "q": "how do I add one here?",
+  "lang": "en",
+  "expected": "helpdesk-create-ticket",
+  "page": "/helpdesk"
+ },
+ {
+  "q": "how can I give this ticket to my colleague?",
+  "lang": "en",
+  "expected": "helpdesk-assign-ticket",
+  "page": "/helpdesk"
+ },
+ {
+  "q": "how do I write a private comment on a ticket the customer can't see?",
+  "lang": "en",
+  "expected": "helpdesk-internal-notes"
+ },
+ {
+  "q": "change how many hours an urgent ticket has before it's late",
+  "lang": "en",
+  "expected": "helpdesk-sla-overdue"
+ },
+ {
+  "q": "two tickets for the same issue, how to combine them",
+  "lang": "en",
+  "expected": "helpdesk-merge-delete"
+ },
+ {
+  "q": "naya task kaise banaye",
+  "lang": "hinglish",
+  "expected": "activities-create-task"
+ },
+ {
+  "q": "meeting ko calendar mein kaise dekhe",
+  "lang": "hinglish",
+  "expected": "activities-calendar-view"
+ },
+ {
+  "q": "customer ko whatsapp par reply kaise kare",
+  "lang": "hinglish",
+  "expected": "activities-whatsapp-reply"
+ },
+ {
+  "q": "ticket resolve kaise karte hai",
+  "lang": "hinglish",
+  "expected": "helpdesk-resolve-close"
+ },
+ {
+  "q": "follow up wale kaam kaha dikhte hai",
+  "lang": "hinglish",
+  "expected": "activities-follow-ups"
+ },
+ {
+  "q": "ticket ka jawab email se kaise bheje",
+  "lang": "hinglish",
+  "expected": "helpdesk-reply-customer"
+ },
+ {
+  "q": "मीटिंग कैसे शेड्यूल करें",
+  "lang": "hi",
+  "expected": "activities-schedule-meeting"
+ },
+ {
+  "q": "बकाया काम कैसे देखें",
+  "lang": "hi",
+  "expected": "activities-overdue"
+ },
+ {
+  "q": "नया टिकट कैसे बनाएं",
+  "lang": "hi",
+  "expected": "helpdesk-create-ticket"
+ },
+ {
+  "q": "टिकट की प्राथमिकता कैसे बदलें",
+  "lang": "hi",
+  "expected": "helpdesk-priority-category"
+ }
+]

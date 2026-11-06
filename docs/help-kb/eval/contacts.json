@@ -1,0 +1,104 @@
+[
+ {
+  "q": "how do I add a new customer to the CRM",
+  "lang": "en",
+  "expected": "contacts-add-contact"
+ },
+ {
+  "q": "how do I add one here?",
+  "lang": "en",
+  "expected": "companies-add-company",
+  "page": "/companies"
+ },
+ {
+  "q": "I accidentally deleted a contact, can I get it back?",
+  "lang": "en",
+  "expected": "contacts-archive-restore"
+ },
+ {
+  "q": "move all of Priya's contacts to Rahul",
+  "lang": "en",
+  "expected": "contacts-bulk-reassign"
+ },
+ {
+  "q": "why does this contact have a score of 45",
+  "lang": "en",
+  "expected": "contacts-lead-score"
+ },
+ {
+  "q": "it says possible duplicate, what should I do",
+  "lang": "en",
+  "expected": "contacts-duplicate-warning"
+ },
+ {
+  "q": "save my filter so I can use it tomorrow",
+  "lang": "en",
+  "expected": "contacts-saved-views",
+  "page": "/contacts"
+ },
+ {
+  "q": "mark a contact as customer instead of lead",
+  "lang": "en",
+  "expected": "contacts-lifecycle-status"
+ },
+ {
+  "q": "attach a signed contract PDF to a person",
+  "lang": "en",
+  "expected": "contacts-files"
+ },
+ {
+  "q": "can I see contacts as a kanban board",
+  "lang": "en",
+  "expected": "contacts-view-modes"
+ },
+ {
+  "q": "contact ko company se kaise link kare",
+  "lang": "hinglish",
+  "expected": "contacts-link-company"
+ },
+ {
+  "q": "customer ko whatsapp message kaise bheje",
+  "lang": "hinglish",
+  "expected": "contacts-send-whatsapp"
+ },
+ {
+  "q": "ek saath 20 contacts par VIP tag kaise lagaye",
+  "lang": "hinglish",
+  "expected": "contacts-bulk-tags"
+ },
+ {
+  "q": "contact ka phone number kaise change kare",
+  "lang": "hinglish",
+  "expected": "contacts-edit-contact"
+ },
+ {
+  "q": "नया संपर्क कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "contacts-add-contact"
+ },
+ {
+  "q": "कंपनी को कैसे हटाएं",
+  "lang": "hi",
+  "expected": "companies-archive-restore"
+ },
+ {
+  "q": "ग्राहक को ईमेल कैसे भेजें",
+  "lang": "hi",
+  "expected": "contacts-send-email"
+ },
+ {
+  "q": "संपर्क पर नोट कैसे लिखें",
+  "lang": "hi",
+  "expected": "contacts-notes"
+ },
+ {
+  "q": "where do I see support tickets raised by this person",
+  "lang": "en",
+  "expected": "contacts-tickets-tab"
+ },
+ {
+  "q": "how do I star someone so I find them fast",
+  "lang": "en",
+  "expected": "contacts-favorites"
+ }
+]

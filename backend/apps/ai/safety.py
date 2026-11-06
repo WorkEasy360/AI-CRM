@@ -44,6 +44,23 @@ def injection_score(text: str) -> int:
     return len(_INJECTION.findall(text))
 
 
+def strip_injection(text: str) -> tuple[str, bool]:
+    """Drop every line that looks like an instruction to the model. Returns the text and whether any was dropped.
+
+    For user- or workspace-authored text that is meant to reach a model as *content* (a help article an
+    admin wrote, a question): the delimiting in ``crm_block`` already stops it being obeyed, and
+    removing the line as well means it is not even read.
+    """
+    kept: list[str] = []
+    removed = False
+    for line in (text or "").splitlines():
+        if _INJECTION.search(line):
+            removed = True
+            continue
+        kept.append(line)
+    return "\n".join(kept), removed
+
+
 def escape(text: str) -> str:
     return html.escape(_CONTROL.sub("", text or ""), quote=False)
 

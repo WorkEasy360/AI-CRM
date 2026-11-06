@@ -1,0 +1,138 @@
+[
+ {
+  "q": "How do I add a dropdown field for lead source on contacts?",
+  "lang": "en",
+  "expected": "settings-custom-fields-create"
+ },
+ {
+  "q": "Can I upload my contact list from an Excel sheet?",
+  "lang": "en",
+  "expected": "settings-import-data"
+ },
+ {
+  "q": "I imported the wrong file, how do I undo it?",
+  "lang": "en",
+  "expected": "settings-import-rollback"
+ },
+ {
+  "q": "How do I download all my deals as a CSV?",
+  "lang": "en",
+  "expected": "settings-export-data",
+  "also": [
+   "deal-export"
+  ]
+ },
+ {
+  "q": "How do I hook up our WhatsApp Business number?",
+  "lang": "en",
+  "expected": "settings-whatsapp-connect"
+ },
+ {
+  "q": "Customer replies on WhatsApp are not showing up in the CRM",
+  "lang": "en",
+  "expected": "settings-whatsapp-webhook"
+ },
+ {
+  "q": "Where do I generate an API key for our accounting software?",
+  "lang": "en",
+  "expected": "settings-api-keys"
+ },
+ {
+  "q": "How do I revoke an API key that leaked?",
+  "lang": "en",
+  "expected": "settings-api-keys",
+  "page": "/settings/integrations/api-keys"
+ },
+ {
+  "q": "How can I notify our data warehouse when a deal changes stage?",
+  "lang": "en",
+  "expected": "settings-webhooks-create"
+ },
+ {
+  "q": "How do I see whether my webhook calls are failing?",
+  "lang": "en",
+  "expected": "settings-webhooks-manage",
+  "page": "/settings/integrations/webhooks"
+ },
+ {
+  "q": "How do I add one here?",
+  "lang": "en",
+  "expected": "settings-whatsapp-add-template",
+  "page": "/settings/whatsapp"
+ },
+ {
+  "q": "Stop emailing me every time a task is due",
+  "lang": "en",
+  "expected": "settings-notifications-preferences"
+ },
+ {
+  "q": "How do I connect my Outlook so I can send emails from the CRM?",
+  "lang": "en",
+  "expected": "settings-email-connect-mailbox"
+ },
+ {
+  "q": "Can I switch off AI completely for my company?",
+  "lang": "en",
+  "expected": "settings-ai-policy"
+ },
+ {
+  "q": "Create a task automatically two days after a new lead comes in",
+  "lang": "en",
+  "expected": "settings-automation-create"
+ },
+ {
+  "q": "excel se contacts kaise import kare",
+  "lang": "hinglish",
+  "expected": "settings-import-data"
+ },
+ {
+  "q": "whatsapp integration kaise add kare",
+  "lang": "hinglish",
+  "expected": "settings-whatsapp-connect"
+ },
+ {
+  "q": "api key kaise generate kare",
+  "lang": "hinglish",
+  "expected": "settings-api-keys"
+ },
+ {
+  "q": "naye lead ko apne aap whatsapp message kaise bheje",
+  "lang": "hinglish",
+  "expected": "settings-automation-whatsapp"
+ },
+ {
+  "q": "naya tag kaise banaye",
+  "lang": "hinglish",
+  "expected": "settings-tags-create"
+ },
+ {
+  "q": "email template kaise banaye",
+  "lang": "hinglish",
+  "expected": "settings-email-templates"
+ },
+ {
+  "q": "संपर्क एक्सेल फ़ाइल से कैसे आयात करें",
+  "lang": "hi",
+  "expected": "settings-import-data"
+ },
+ {
+  "q": "व्हाट्सएप को सीआरएम से कैसे जोड़ें",
+  "lang": "hi",
+  "expected": "settings-whatsapp-connect"
+ },
+ {
+  "q": "डेटा को सीएसवी में कैसे निर्यात करें",
+  "lang": "hi",
+  "expected": "settings-export-data"
+ },
+ {
+  "q": "कस्टम फ़ील्ड कैसे बनाएं",
+  "lang": "hi",
+  "expected": "settings-custom-fields-create"
+ },
+ {
+  "q": "वेबहुक कैसे बनाएं",
+  "lang": "hi",
+  "expected": "settings-webhooks-create"
+ }
+]
