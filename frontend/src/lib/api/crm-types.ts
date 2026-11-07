@@ -1342,12 +1342,20 @@ export interface HelpAnswer {
 }
 
 export interface AssistantActionProposal {
-  kind: "task" | "call" | "meeting" | "deal" | "contact" | "company" | "ticket";
+  kind: "task" | "call" | "meeting" | "deal" | "contact" | "company" | "ticket" | "pipeline";
+  /** The record's title or name ("" when the request did not say). */
   title: string;
   /** ISO date, or "". */
   due_date: string;
   links: Partial<Record<"contact" | "company" | "deal", { id: string; name: string }>>;
   permission_ok: boolean;
+  /** Everything the record needs is here: the browser creates it at once instead of opening the form. */
+  ready?: boolean;
+  /** Contacts only. */
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface HelpArticleSummary {

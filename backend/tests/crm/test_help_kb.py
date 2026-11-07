@@ -236,6 +236,47 @@ def test_action_request_reports_missing_permission(org_a, client_for, make_membe
     viewer, _ = member_client(org_a, "viewer", client_for, make_member)
     answer = ask(viewer, "Create a new deal for Acme")
     assert answer["action"]["kind"] == "deal" and answer["action"]["permission_ok"] is False
+    assert answer["action"]["ready"] is False
+
+
+@pytest.mark.parametrize(
+    ("question", "kind", "title"),
+    [
+        ("Create a pipeline called Enterprise Sales", "pipeline", "Enterprise Sales"),
+        ("create Enterprise Sales pipeline", "pipeline", "Enterprise Sales"),
+        ("pipeline bana do Retail naam ka", "pipeline", "Retail"),
+        ("Create a company Acme Corp", "company", "Acme Corp"),
+        ("Create a ticket for login page not loading", "ticket", "Login page not loading"),
+    ],
+)
+def test_action_request_names_the_record_and_is_ready(owner_client, org_a, question, kind, title):
+    from apps.pipelines.models import Pipeline
+
+    with tenant_context(org_a.org.pk, reason="test.helpkb"):
+        before = Pipeline.objects.count()
+    action = ask(owner_client, question)["action"]
+    assert (action["kind"], action["title"], action["ready"]) == (kind, title, True)
+    # Still a proposal: the browser creates it through the normal endpoint.
+    with tenant_context(org_a.org.pk, reason="test.helpkb"):
+        assert Pipeline.objects.count() == before
+
+
+def test_action_request_reads_contact_details(owner_client, org_a):
+    action = ask(owner_client, "Add a contact Rahul Sharma rahul@example.com 98765 43210")["action"]
+    assert action["kind"] == "contact" and action["ready"] is True
+    assert (action["first_name"], action["last_name"]) == ("Rahul", "Sharma")
+    assert (action["email"], action["phone"]) == ("rahul@example.com", "9876543210")
+
+
+def test_a_meeting_without_a_day_goes_to_the_form(owner_client, org_a):
+    action = ask(owner_client, "Schedule a meeting with ABC Corp")["action"]
+    assert action["kind"] == "meeting" and action["permission_ok"] is True and action["ready"] is False
+
+
+def test_pipeline_creation_needs_the_pipelines_permission(org_a, client_for, make_member):
+    rep, _ = member_client(org_a, "sales_rep", client_for, make_member)
+    action = ask(rep, "Create a pipeline called Enterprise Sales")["action"]
+    assert action["kind"] == "pipeline" and action["permission_ok"] is False and action["ready"] is False
 
 
 # --------------------------------------------------------------------------- feedback

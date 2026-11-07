@@ -19,9 +19,12 @@ import {
   SearchX,
   ThumbsDown,
   ThumbsUp,
+  Undo2,
   Wrench,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { ActionRun } from "@/components/assistant/run-action";
 import { useQuickCreate } from "@/components/shell/quick-create-provider";
 import { sendHelpFeedback } from "@/lib/api/crm";
 import type { AssistantActionProposal, HelpAnswer, HelpContent, HelpRelated } from "@/lib/api/crm-types";
@@ -331,14 +334,33 @@ const KIND_LABELS: Record<AssistantActionProposal["kind"], string> = {
   contact: "Contact",
   company: "Company",
   ticket: "Ticket",
+  pipeline: "Pipeline",
 };
 
-/** "Create a task for tomorrow": open the normal create form pre-filled. Nothing is saved until Save. */
-export function ActionProposalCard({ action, onNavigate }: { action: AssistantActionProposal; onNavigate?: () => void }) {
+/**
+ * "Create a pipeline called Enterprise": a ready request is created at once by the assistant provider
+ * (through the normal create API) and this card shows the result with Open and Undo. A request that
+ * is missing something opens the normal create form pre-filled instead; nothing is saved until Save.
+ */
+export function ActionProposalCard({
+  action,
+  run,
+  onUndo,
+  onNavigate,
+}: {
+  action: AssistantActionProposal;
+  /** Set only when the request was created in this session. */
+  run?: ActionRun;
+  onUndo?: () => Promise<void>;
+  onNavigate?: () => void;
+}) {
   const quickCreate = useQuickCreate();
+  const [undoing, setUndoing] = React.useState(false);
+  const [undoError, setUndoError] = React.useState("");
   const link = action.links.contact ?? action.links.company ?? action.links.deal;
   const review = () => {
     onNavigate?.();
+    if (action.kind === "pipeline") return;
     quickCreate.open(action.kind, {
       contact: action.links.contact ?? null,
       company: action.links.company ?? null,
@@ -347,33 +369,105 @@ export function ActionProposalCard({ action, onNavigate }: { action: AssistantAc
       start_at: action.due_date ? `${action.due_date}T09:00` : undefined,
     });
   };
+  const name = action.kind === "contact" ? [action.first_name, action.last_name].filter(Boolean).join(" ") || action.title : action.title;
   const rows: [string, string][] = [
     ["Type", KIND_LABELS[action.kind]],
-    ...(action.title ? ([["Title", action.title]] as [string, string][]) : []),
+    ...(name ? ([[action.kind === "task" || action.kind === "call" || action.kind === "meeting" || action.kind === "ticket" ? "Title" : "Name", name]] as [string, string][]) : []),
+    ...(action.email ? ([["Email", action.email]] as [string, string][]) : []),
+    ...(action.phone ? ([["Phone", action.phone]] as [string, string][]) : []),
     ...(action.due_date ? ([["When", action.due_date]] as [string, string][]) : []),
     ...(link ? ([["Linked to", link.name]] as [string, string][]) : []),
   ];
+  const undo = async () => {
+    if (!onUndo) return;
+    setUndoing(true);
+    setUndoError("");
+    try {
+      await onUndo();
+    } catch (error) {
+      setUndoError(errorMessage(error));
+    } finally {
+      setUndoing(false);
+    }
+  };
+  const reviewButton =
+    action.kind === "pipeline" ? (
+      <Button asChild size="sm" variant={run?.status === "error" ? "secondary" : "primary"} className="gap-1.5">
+        <Link href="/settings/pipelines" onClick={onNavigate}>
+          <CalendarPlus className="size-4" aria-hidden /> Open pipeline settings
+        </Link>
+      </Button>
+    ) : (
+      <Button size="sm" variant={run?.status === "error" ? "secondary" : "primary"} onClick={review} className="gap-1.5">
+        <CalendarPlus className="size-4" aria-hidden /> Review and create
+      </Button>
+    );
+
+  let footer: React.ReactNode;
+  if (!action.permission_ok) {
+    footer = (
+      <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+        <CircleAlert className="size-3.5" aria-hidden /> Your role can&apos;t create this. Ask your workspace admin.
+      </p>
+    );
+  } else if (run?.status === "running") {
+    footer = (
+      <p role="status" className="flex items-center gap-1.5 text-sm text-fg-muted">
+        <Loader2 className="size-4 animate-spin" aria-hidden /> Creating…
+      </p>
+    );
+  } else if (run?.status === "done") {
+    footer = (
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <p role="status" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-medium text-success">
+          <CircleCheck className="size-4 shrink-0" aria-hidden /> <span className="truncate">Created {KIND_LABELS[action.kind].toLowerCase()} “{run.record.name}”</span>
+        </p>
+        <Button asChild size="sm" className="gap-1.5">
+          <Link href={run.record.href} onClick={onNavigate}>
+            Open <ExternalLink className="size-3.5" aria-hidden />
+          </Link>
+        </Button>
+        {onUndo ? (
+          <Button size="sm" variant="secondary" loading={undoing} onClick={undo} className="gap-1.5">
+            <Undo2 className="size-3.5" aria-hidden /> Undo
+          </Button>
+        ) : null}
+        {undoError ? <p className="w-full text-xs text-danger">{undoError}</p> : null}
+      </div>
+    );
+  } else if (run?.status === "undone") {
+    footer = (
+      <p role="status" className="flex items-center gap-1.5 text-sm text-fg-muted">
+        <Undo2 className="size-4" aria-hidden /> Undone. “{run.record.name}” was removed.
+      </p>
+    );
+  } else if (run?.status === "error") {
+    footer = (
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <p role="alert" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-danger">
+          <CircleAlert className="size-4 shrink-0" aria-hidden /> {run.message}
+        </p>
+        {reviewButton}
+      </div>
+    );
+  } else if (action.ready) {
+    // A ready action from restored history: it already ran in an earlier session.
+    footer = null;
+  } else {
+    footer = reviewButton;
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
       <dl className="divide-y divide-border">
         {rows.map(([label, value]) => (
           <div key={label} className="grid grid-cols-[6rem_1fr] gap-3 px-4 py-2 text-sm">
             <dt className="text-fg-subtle">{label}</dt>
-            <dd className="min-w-0 text-fg">{value}</dd>
+            <dd className="min-w-0 break-words text-fg">{value}</dd>
           </div>
         ))}
       </dl>
-      <footer className="flex items-center gap-2 border-t border-border bg-bg-subtle/60 px-4 py-2.5">
-        {action.permission_ok ? (
-          <Button size="sm" onClick={review} className="gap-1.5">
-            <CalendarPlus className="size-4" aria-hidden /> Review and create
-          </Button>
-        ) : (
-          <p className="flex items-center gap-1.5 text-xs text-fg-muted">
-            <CircleAlert className="size-3.5" aria-hidden /> Your role can&apos;t create this. Ask your workspace admin.
-          </p>
-        )}
-      </footer>
+      {footer ? <footer className="flex items-center gap-2 border-t border-border bg-bg-subtle/60 px-4 py-2.5">{footer}</footer> : null}
     </div>
   );
 }

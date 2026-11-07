@@ -1,9 +1,11 @@
-"""Action requests ("create a task for tomorrow to call ABC Corp"): proposed here, confirmed by the user.
+"""Action requests ("create a task for tomorrow to call ABC Corp", "create a pipeline called Enterprise").
 
-The assistant never writes. It works out *what* the user asked for -- the kind of record, a title, a
-due date and the customer it is about -- and returns that as a proposal. The UI opens the normal
-create form pre-filled with it; nothing exists until the user presses Save there, and that save goes
-through the same API, validation, permission checks and audit trail as any other create.
+The assistant itself never writes. It works out *what* the user asked for -- the kind of record, its
+title or name, a due date, contact details and the customer it is about -- and returns that as a
+proposal. When the proposal holds everything the record needs (``ready``), the user's browser creates
+it straight away through the ordinary create endpoint, so the write goes through the same API,
+validation, permission checks, plan limits and audit trail as a manual Save, and the user can undo it
+from the answer. A proposal that is missing something opens the normal create form pre-filled instead.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from apps.assistant import crm_tools
 from apps.authz.actor import Actor
 
 KINDS: tuple[tuple[str, str], ...] = (
+    ("pipeline", r"\bpipelines?\b"),
     ("meeting", r"\bmeetings?\b|\bappointments?\b"),
     ("call", r"\bcalls?\b"),
     ("ticket", r"\btickets?\b"),
@@ -34,6 +37,7 @@ PERMISSIONS = {
     "contact": "contacts.create",
     "company": "companies.create",
     "ticket": "tickets.create",
+    "pipeline": "pipelines.manage",
 }
 LABELS = {
     "task": "task",
@@ -43,8 +47,16 @@ LABELS = {
     "contact": "contact",
     "company": "company",
     "ticket": "ticket",
+    "pipeline": "pipeline",
 }
-_KIND_WORDS = r"task|call|meeting|follow[ -]?up|reminder|deal|contact|company|ticket"
+# Kinds whose record is named by the rest of the sentence ("create a company Acme Corp").
+_NAMED = {"task", "call", "meeting", "deal", "ticket", "contact", "company", "pipeline"}
+# A call or meeting is a point in time: without a day it goes to the form so the user picks one.
+_NEEDS_DATE = {"call", "meeting"}
+# Field limits of the create endpoints, so a ready proposal is never rejected for length.
+_MAX_TITLE = {"pipeline": 80, "task": 160, "call": 160, "meeting": 160}
+
+_KIND_WORDS = r"task|call|meeting|follow[ -]?up|reminder|deal|contact|lead|company|ticket|pipeline"
 _LEAD = re.compile(
     r"^\s*(please |can you |could you |kindly )?"
     r"(create|add|schedule|book|set up|log|make|remind me( to)?|set an? reminder( to)?|new)\s+(me\s+)?"
@@ -57,7 +69,10 @@ _HINGLISH_VERB = re.compile(
     re.IGNORECASE,
 )
 _LEADING_KIND = re.compile(r"^\s*(" + _KIND_WORDS + r")s?\b\s*", re.IGNORECASE)
+_TRAILING_KIND = re.compile(r"\s*\b(" + _KIND_WORDS + r")s?\s*$", re.IGNORECASE)
 _LEADING_PREP = re.compile(r"^\s*(to|for|with|about|on|ke liye)\b\s*", re.IGNORECASE)
+_NAMED_AS = re.compile(r"^\s*(called|named|name(d)? as|with (the )?name|name)\b[\s:]*", re.IGNORECASE)
+_NAAM_KA = re.compile(r"\s*\b(naam ka|naam ki|naam se|naam)\s*$", re.IGNORECASE)
 _WHEN = (
     (r"\b(day after tomorrow|parso|parson)\b", 2),
     (r"\b(tomorrow|kal)\b", 1),
@@ -65,9 +80,12 @@ _WHEN = (
     (r"\bnext week\b|\bagle hafte\b", 7),
 )
 _FILLER = re.compile(r"\b(ke liye|ka|ki|ke|for|on|by|to)\s*$", re.IGNORECASE)
+_EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")
+_PHONE = re.compile(r"(?<![\w+])\+?\d[\d\s()-]{7,16}\d\b")
+_CONTACT_WORDS = re.compile(r"\b(with )?(e-?mail|email id|phone|mobile|number|no\.?)\b[\s:]*", re.IGNORECASE)
 
 
-_NOUN_KIND = {"follow up": "task", "follow-up": "task", "followup": "task", "reminder": "task"}
+_NOUN_KIND = {"follow up": "task", "follow-up": "task", "followup": "task", "reminder": "task", "lead": "contact"}
 
 
 def _kind(text: str) -> str:
@@ -100,31 +118,67 @@ def _title(text: str, when: str, kind: str) -> str:
     title = _LEADING_KIND.sub("", title, count=1)
     if when:
         title = re.sub(rf"\b{re.escape(when)}\b", " ", title, flags=re.IGNORECASE)
+    if kind in {"contact", "company", "pipeline", "deal"}:
+        # "create Enterprise Sales pipeline", "Acme company bana do": the kind word comes last.
+        title = _TRAILING_KIND.sub("", title)
     title = re.sub(r"\s+", " ", title).strip(" .,?!-")
     for _ in range(2):
         title = _LEADING_PREP.sub("", title).strip(" .,?!-")
+        title = _NAMED_AS.sub("", title).strip(" .,?!-\"'")
+        title = _NAAM_KA.sub("", title).strip(" .,?!-\"'")
         title = _FILLER.sub("", title).strip(" .,?!-")
     if title and kind in {"meeting", "call"} and lead and (lead.group("prep") or "").lower() == "with":
         title = f"{kind.title()} with {title}"
     return (title[:1].upper() + title[1:])[:200] if title else ""
 
 
+def _contact_details(text: str) -> tuple[str, str, str]:
+    """Email and phone in the request, and the text with them taken out (what is left is the name)."""
+    email_match = _EMAIL.search(text)
+    email = email_match.group(0) if email_match else ""
+    rest = _EMAIL.sub(" ", text)
+    phone_match = _PHONE.search(rest)
+    phone = re.sub(r"[^\d+]", "", phone_match.group(0)) if phone_match else ""
+    rest = _PHONE.sub(" ", rest)
+    rest = _CONTACT_WORDS.sub(" ", rest)
+    rest = re.sub(r"\b(and|aur)\s*$", "", re.sub(r"\s+", " ", rest).strip(" ,.-"), flags=re.IGNORECASE)
+    return email, phone, rest
+
+
+def _split_name(name: str) -> tuple[str, str]:
+    parts = name.split()
+    if not parts:
+        return "", ""
+    return parts[0][:80], " ".join(parts[1:])[:80]
+
+
 def propose(actor: Actor, parsed: Any, records: list[tuple[str, Any]]) -> dict[str, Any]:
     text = parsed.question
     kind = _kind(text)
     due, when = _due(text)
-    title = _title(text, when, kind) if kind in {"task", "call", "meeting", "deal", "ticket"} else ""
+    email = phone = ""
+    source = text
+    if kind == "contact":
+        email, phone, source = _contact_details(text)
+    title = _title(source, when, kind) if kind in _NAMED else ""
+    title = title[: _MAX_TITLE.get(kind, 200)]
     allowed = actor.has(PERMISSIONS[kind])
     links = {}
     for entity_type, record in records[:1]:
-        if entity_type in {"contact", "company", "deal"}:
+        if entity_type in {"contact", "company", "deal"} and entity_type != kind:
             links[entity_type] = {"id": str(record.pk), "name": crm_tools._title(entity_type, record)}
     label = LABELS[kind]
+    first_name, last_name = _split_name(title) if kind == "contact" else ("", "")
+    missing = not title or (kind in _NEEDS_DATE and not due)
+    ready = allowed and not missing
     if not allowed:
         headline = f"Your role can't create a {label}."
         analysis = "Ask your workspace admin for access."
+    elif ready:
+        headline = f"Creating the {label} “{title}”."
+        analysis = "Created with the same checks as the normal form. Use Undo if it isn't what you wanted."
     else:
-        headline = f"Ready to create a {label}. Review the details and click Save to confirm."
+        headline = f"Almost ready to create a {label}. Add the missing details and click Save."
         analysis = "Nothing is saved until you confirm in the form."
     return {
         "answer_type": "action",
@@ -142,5 +196,10 @@ def propose(actor: Actor, parsed: Any, records: list[tuple[str, Any]]) -> dict[s
             "due_date": due,
             "links": links,
             "permission_ok": allowed,
+            "ready": ready,
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "phone": phone,
         },
     }

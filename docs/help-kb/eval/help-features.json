@@ -3,6 +3,8 @@
  {"q": "Where can I read the user guide?", "lang": "en", "expected": "getting-started-help-center"},
  {"q": "How do I add our own help articles for my team?", "lang": "en", "expected": "settings-knowledge-base"},
  {"q": "Can WorkEasy AI create a task for me?", "lang": "en", "expected": "assistant-create-from-chat"},
+ {"q": "Can the AI create a pipeline by itself?", "lang": "en", "expected": "assistant-create-from-chat"},
+ {"q": "how do I undo something the AI created?", "lang": "en", "expected": "assistant-create-from-chat"},
  {"q": "unanswered questions kaha dikhenge", "lang": "hinglish", "expected": "settings-knowledge-base-unanswered"},
  {"q": "सहायता केंद्र कहाँ है", "lang": "hi", "expected": "getting-started-help-center"}
 ]

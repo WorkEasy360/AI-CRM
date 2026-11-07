@@ -381,6 +381,16 @@
   "expected": "assistant-create-from-chat"
  },
  {
+  "q": "Can the AI create a pipeline by itself?",
+  "lang": "en",
+  "expected": "assistant-create-from-chat"
+ },
+ {
+  "q": "how do I undo something the AI created?",
+  "lang": "en",
+  "expected": "assistant-create-from-chat"
+ },
+ {
   "q": "unanswered questions kaha dikhenge",
   "lang": "hinglish",
   "expected": "settings-knowledge-base-unanswered"
