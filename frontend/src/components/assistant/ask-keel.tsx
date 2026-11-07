@@ -16,6 +16,7 @@ import { crmKeys } from "@/lib/crm/keys";
 import { hasPermission, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { AnswerView } from "./answer-view";
+import { runAssistantAction, type ActionRun } from "./run-action";
 
 /**
  * Ask Keel: the one assistant a salesperson sees.
@@ -27,7 +28,8 @@ import { AnswerView } from "./answer-view";
  * mode" badge, never as a provider name or an error code.
  */
 
-export type Turn = { question: string; answer: AssistantAnswer | null; error?: string };
+/** `run` is set only for an action answered in this browser session, so restored history never re-runs one. */
+export type Turn = { question: string; answer: AssistantAnswer | null; error?: string; run?: ActionRun };
 
 interface AssistantContextValue {
   /** Ask a question; opens the answer panel. */
@@ -46,6 +48,8 @@ interface AssistantContextValue {
   /** The AI Assistant page shows the thread itself; while it is mounted, asking does not open the panel. */
   setInline: (inline: boolean) => void;
   recent: { id: string; title: string; last_message_at: string | null }[];
+  /** Undo a record the assistant created in this session (archives or deletes it through the API). */
+  undoAction: (answer: AssistantAnswer) => Promise<void>;
 }
 
 const AssistantContext = React.createContext<AssistantContextValue | null>(null);
@@ -103,17 +107,44 @@ export function AssistantProvider({ children, force = false }: { children: React
     else safeStorage()?.removeItem(threadKey);
   }, [conversationId, threadKey]);
 
+  const setRunFor = React.useCallback((answer: AssistantAnswer, run: ActionRun) => {
+    setTurns((previous) => previous.map((turn) => (turn.answer === answer ? { ...turn, run } : turn)));
+  }, []);
+
   const mutation = useMutation({
     mutationFn: (question: string) => askKeel({ question, conversation_id: conversationId, page: pathname }),
     onSuccess: (answer) => {
       setConversationId(answer.conversation_id);
-      setTurns((previous) => replaceLast(previous, { question: answer.question, answer }));
+      const action = answer.action;
+      const autoRun = Boolean(action?.ready && action.permission_ok);
+      setTurns((previous) => replaceLast(previous, { question: answer.question, answer, ...(autoRun ? { run: { status: "running" } as const } : {}) }));
       queryClient.invalidateQueries({ queryKey: crmKeys.assistantHome });
+      if (action && autoRun) {
+        // Runs once, here, for this answer: the turn keeps the outcome, so re-rendering never repeats it.
+        runAssistantAction(action).then(
+          (record) => {
+            setRunFor(answer, { status: "done", record });
+            void queryClient.invalidateQueries();
+          },
+          (error: unknown) => setRunFor(answer, { status: "error", message: errorMessage(error) }),
+        );
+      }
     },
     onError: (error, question) => {
       setTurns((previous) => replaceLast(previous, { question, answer: null, error: errorMessage(error) }));
     },
   });
+
+  const undoAction = React.useCallback(
+    async (answer: AssistantAnswer) => {
+      const run = turns.find((turn) => turn.answer === answer)?.run;
+      if (run?.status !== "done") return;
+      await run.record.undo();
+      setRunFor(answer, { status: "undone", record: run.record });
+      void queryClient.invalidateQueries();
+    },
+    [turns, setRunFor, queryClient],
+  );
 
   const { mutate, isPending } = mutation;
   const submit = React.useCallback(
@@ -147,8 +178,8 @@ export function AssistantProvider({ children, force = false }: { children: React
   const closePanel = React.useCallback(() => setOpen(false), []);
   const recent = React.useMemo(() => home.data?.recent ?? [], [home.data]);
   const value = React.useMemo(
-    () => ({ submit, openPanel, closePanel, available: allowed, busy: isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent }),
-    [submit, openPanel, closePanel, allowed, isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent],
+    () => ({ submit, openPanel, closePanel, available: allowed, busy: isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent, undoAction }),
+    [submit, openPanel, closePanel, allowed, isPending, suggestions, knowledgeOnly, turns, reset, setInline, recent, undoAction],
   );
 
   return (
@@ -264,26 +295,6 @@ function AskCardBody({ assistant }: { assistant: AssistantContextValue }) {
         </div>
       ) : null}
     </section>
-  );
-}
-
-/** The floating "Ask WorkEasy AI" pill in the bottom-right corner of every page. */
-export function AskFloatingButton() {
-  const assistant = useAssistant();
-  const { data: session } = useSession();
-  if (!assistant || !hasPermission(session?.active, "ai.assistant.use")) return null;
-  return (
-    <button
-      type="button"
-      onClick={assistant.openPanel}
-      className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 inline-flex items-center gap-2 rounded-full bg-chrome py-1.5 pr-3.5 pl-1.5 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:bottom-5"
-    >
-      <span className="flex size-7 items-center justify-center rounded-full bg-white/15" aria-hidden>
-        <Bot className="size-4" />
-      </span>
-      Ask WorkEasy AI
-      <Sparkles className="size-3.5 text-brand-bright" aria-hidden />
-    </button>
   );
 }
 
@@ -446,6 +457,7 @@ export function Conversation({
               {turn.answer ? (
                 <TurnAnswer
                   answer={turn.answer}
+                  run={turn.run}
                   currency={currency}
                   onAsk={onAsk}
                   onNavigate={onNavigate}
@@ -483,17 +495,20 @@ export function Conversation({
 /** Help and action answers have their own cards; everything else is the CRM answer view. */
 function TurnAnswer({
   answer,
+  run,
   currency,
   onAsk,
   onNavigate,
   feedback,
 }: {
   answer: AssistantAnswer;
+  run?: ActionRun;
   currency: string;
   onAsk: (question: string) => void;
   onNavigate?: () => void;
   feedback?: React.ReactNode;
 }) {
+  const assistant = useAssistant();
   if (answer.help) {
     // The permission note is already in the card; only show other notices (e.g. "showing the English guide").
     const notice = answer.help.article && !answer.help.article.permission_ok ? "" : answer.notice;
@@ -507,7 +522,7 @@ function TurnAnswer({
     return (
       <div className="grid gap-2">
         <p className="text-sm font-medium text-fg">{answer.headline}</p>
-        <ActionProposalCard action={answer.action} onNavigate={onNavigate} />
+        <ActionProposalCard action={answer.action} run={run} onUndo={assistant ? () => assistant.undoAction(answer) : undefined} onNavigate={onNavigate} />
         <div className="flex items-start justify-between gap-3">
           {answer.analysis ? <p className="text-xs text-fg-subtle">{answer.analysis}</p> : <span />}
           {feedback}

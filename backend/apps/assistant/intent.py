@@ -26,7 +26,7 @@ MY_DAY = "my_day"
 GENERAL_CRM_QUESTION = "general_crm_question"
 # "How do I create a pipeline?": answered from the help knowledge base (apps.helpkb), never from CRM data.
 HOW_TO = "how_to"
-# "Create a task for tomorrow": proposed, never written -- the user confirms in the normal create form.
+# "Create a task for tomorrow": proposed by the server, created by the browser through the normal create API.
 ACTION_REQUEST = "action_request"
 # "What's the weather?": politely declined.
 OUT_OF_SCOPE = "out_of_scope"
@@ -178,8 +178,9 @@ _OWN_DATA = re.compile(
 _ACTION = re.compile(
     r"^\s*(please |can you |could you |kindly )?(create|add|schedule|book|set up|log|make|remind me|set an? reminder"
     r"|new)\b"
-    r".{0,80}\b(task|call|meeting|follow[ -]?up|reminder|deal|contact|company|ticket|note)s?\b"
-    r"|\b(task|call|meeting|reminder|follow[ -]?up|deal|contact|ticket)\b.{0,60}\b(bana do|bana de|banao|bana dijiye"
+    r".{0,80}\b(task|call|meeting|follow[ -]?up|reminder|deal|contact|lead|company|ticket|note|pipeline)s?\b"
+    r"|\b(task|call|meeting|reminder|follow[ -]?up|deal|contact|lead|company|ticket|pipeline)\b.{0,60}"
+    r"\b(bana do|bana de|banao|bana dijiye"
     r"|create karo"
     r"|add karo|schedule karo|set karo|laga do|daal do|add kar do|create kar do)\b",
     re.IGNORECASE,

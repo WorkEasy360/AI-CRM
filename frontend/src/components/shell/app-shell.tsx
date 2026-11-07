@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { BookOpen, CircleHelp, Menu, MessageCircle, Search, Settings, Sparkles } from "lucide-react";
-import { AskFloatingButton, AssistantProvider, useAssistant } from "@/components/assistant/ask-keel";
+import { AssistantProvider, useAssistant } from "@/components/assistant/ask-keel";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { SideNav, Wordmark } from "@/components/shell/nav";
@@ -112,7 +112,6 @@ export function AppShell({ session, active, children }: { session: Session; acti
         </div>
 
         <MobileNav active={active} onSearch={() => setSearchOpen(true)} />
-        <AskFloatingButton />
       </div>
       </AssistantProvider>
     </QuickCreateProvider>

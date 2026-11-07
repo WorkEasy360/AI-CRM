@@ -1,35 +1,38 @@
 ---
 id: assistant-create-from-chat
-title: How to Create a Task or Record by Asking WorkEasy AI
-question: Can WorkEasy AI create a task for me?
+title: How to Create a Pipeline, Task or Record by Asking WorkEasy AI
+question: Can WorkEasy AI create a task or pipeline for me?
 module: AI Assistant
-keywords: [create task from chat, ai create, schedule from ai, task bana do, reminder, assistant action, review and create, एआई से टास्क]
+keywords: [create from chat, ai create, ai creates record, ai create pipeline, create by itself, automatically create, ai se pipeline banao, ai se task banao, assistant action, undo ai, एआई से टास्क, एआई से पाइपलाइन]
 route: /dashboard
-menu_path: Ask WorkEasy AI (bottom right)
+menu_path: Sidebar → WorkEasy AI → Ask AI Now
 permission: ai.assistant.use
-related: [assistant-help-guide, activities-create-task, getting-started-create-menu]
-updated: 2026-11-06
+related: [assistant-help-guide, assistant-open-anywhere, pipeline-create, activities-create-task, getting-started-create-menu]
+updated: 2026-11-07
 ---
 
 ## Overview
-Ask WorkEasy AI to create something, such as "Create a task to call ABC Corp". It fills in the create form for you. Nothing is saved until you confirm.
+Tell WorkEasy AI what to create, such as "Create a pipeline called Retail" or "Create a task to call ABC Corp", and it creates it for you. It can create pipelines, tasks, calls, meetings, deals, contacts, companies and tickets.
 
 ## Before you start
-- You need permission to create that kind of record (for example, a task needs permission to create activities).
+- You need permission to create that kind of record. For example, a pipeline needs permission to manage pipelines, and a task needs permission to create activities.
 
 ## Steps
-1. Click **Ask WorkEasy AI** at the bottom right of any page.
-2. Type what you want, for example "Schedule a meeting with Dana next week", and press **Enter**.
-3. Check the type, title, date and linked record in the answer.
-4. Click **Review and create**.
-5. Check or change the details in the form.
-6. Click the form's save button to create it.
+1. Click **Ask AI Now** on the **WorkEasy AI** card at the bottom of the left sidebar.
+2. Type what you want, for example "Create a pipeline called Retail", and press **Enter**.
+3. WorkEasy AI creates the record and shows what it made.
+4. Click **Open** to go to the new record.
+5. If it is not what you wanted, click **Undo**.
 
 ## Result
-The record is created only when you save the form, exactly as if you had used the **Create** menu.
+The record is created with the same checks as the normal form, and appears in its list straight away. **Undo** removes it again.
 
 ## Tips
-- Mention when it is due and WorkEasy AI fills in the date.
+- Name the record in your request, for example "Create a company Acme Corp". For a contact, add the email or phone number too.
+- Say when it is due and WorkEasy AI sets the date.
+- A new pipeline starts with the default set of stages. Change them under **Settings** → **Pipeline Stages**.
 
 ## Troubleshooting
-- **No Review and create button?** Your role cannot create that kind of record. The answer says so.
+- **It shows Review and create instead.** Something is missing, such as the name, or the day for a call or meeting. Click **Review and create**, fill in the form and save it.
+- **It says your role can't create this.** Ask your workspace admin for the permission.
+- **An error appears, such as a name that already exists.** Nothing was created. Change your request, or click **Review and create** or **Open pipeline settings** to do it by hand.
