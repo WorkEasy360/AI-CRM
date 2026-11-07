@@ -1,14 +1,14 @@
 import type { MetadataRoute } from "next";
 
 /**
- * Web app manifest, served at /manifest.webmanifest. It makes WorkEasy CRM installable and is the source the
+ * Web app manifest, served at /manifest.webmanifest. It makes WorkEasyCRM installable and is the source the
  * Android Trusted Web Activity in android/ is generated from (twa-manifest.json mirrors these values).
  * Colours match the light theme's page background (--kl-bg) and the navy chrome (--kl-chrome).
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "WorkEasy CRM",
+    name: "WorkEasyCRM",
     short_name: "WorkEasy",
     description: "Pipeline, contacts and follow-ups for sales teams.",
     start_url: "/pipeline",

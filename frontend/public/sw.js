@@ -1,5 +1,5 @@
 /*
- * WorkEasy CRM service worker: installability and an offline page, nothing else.
+ * WorkEasyCRM service worker: installability and an offline page, nothing else.
  *
  * It never stores or serves CRM data. The only requests it touches are top-level page navigations,
  * and those always go to the network: every page is rendered per request with a fresh CSP nonce, so

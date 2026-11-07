@@ -123,21 +123,21 @@ describe("LoginForm", () => {
     methods = { data: { password: true, workeasy360: true }, isError: false };
     renderForm();
     expect(screen.getByRole("heading", { name: "Already a Workeasy360 user?" })).toBeInTheDocument();
-    expect(screen.getByText("Access WorkEasy CRM using your Workeasy360 account.")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "Access WorkEasy CRM" });
+    expect(screen.getByText("Access WorkEasyCRM using your Workeasy360 account.")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Access WorkEasyCRM" });
     expect(link).toHaveAttribute("href", "/api/auth/workeasy360/start?next=%2Fcontacts");
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     const other = screen.getByRole("button", { name: "Use another sign-in method" });
     expect(other).toHaveAttribute("aria-expanded", "false");
     await userEvent.setup().click(other);
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Access WorkEasy CRM" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Access WorkEasyCRM" })).toBeInTheDocument();
   });
 
   it("shows only Workeasy360 when password sign-in is off", () => {
     methods = { data: { password: false, workeasy360: true }, isError: false };
     renderForm();
-    expect(screen.getByRole("link", { name: "Access WorkEasy CRM" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Access WorkEasyCRM" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use another sign-in method" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     expect(screen.queryByText("Forgot password?")).not.toBeInTheDocument();
@@ -166,7 +166,7 @@ describe("LoginForm", () => {
   });
 
   describe("never starts a Workeasy360 sign-in by itself (Workeasy360 integration guide 6b)", () => {
-    // The sign-in page is where a visitor lands after a refusal or a sign-out: it shows "Access WorkEasy CRM"
+    // The sign-in page is where a visitor lands after a refusal or a sign-out: it shows "Access WorkEasyCRM"
     // and waits for the click, whatever its query, with no session, no marker and no recent start.
     beforeEach(() => {
       methods = { data: { password: false, workeasy360: true }, isError: false };
@@ -186,7 +186,7 @@ describe("LoginForm", () => {
       search = new URLSearchParams(query);
       renderForm();
       expect(screen.getByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Access WorkEasy CRM" })).toHaveAttribute("href", expect.stringContaining("/api/auth/workeasy360/start"));
+      expect(screen.getByRole("link", { name: "Access WorkEasyCRM" })).toHaveAttribute("href", expect.stringContaining("/api/auth/workeasy360/start"));
       // Give any effect the chance to navigate.
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 50));

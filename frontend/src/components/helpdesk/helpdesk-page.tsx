@@ -18,7 +18,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
@@ -387,13 +386,13 @@ function useWide(): boolean {
 
 function NarrowPanel({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
   return (
-    <Sheet open={open} onOpenChange={(next) => (next ? null : onClose())}>
-      <SheetContent side="right" className="w-full max-w-md overflow-y-auto p-2">
-        <SheetTitle className="sr-only">Ticket details</SheetTitle>
-        <SheetDescription className="sr-only">The selected ticket</SheetDescription>
+    <Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
+      <DialogContent className="block max-h-[calc(100dvh-2rem)] max-w-xl overflow-y-auto p-2">
+        <DialogTitle className="sr-only">Ticket details</DialogTitle>
+        <DialogDescription className="sr-only">The selected ticket</DialogDescription>
         {children}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

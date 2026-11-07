@@ -81,6 +81,6 @@ describe("Wordmark", () => {
 
   it("falls back to WorkEasy with the CRM pill", () => {
     render(<Wordmark />);
-    expect(screen.getByRole("link", { name: "WorkEasy CRM home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "WorkEasyCRM home" })).toBeInTheDocument();
   });
 });

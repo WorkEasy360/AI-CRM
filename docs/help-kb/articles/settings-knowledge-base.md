@@ -13,7 +13,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-Add articles about how your team works, or change a WorkEasy CRM guide article for your workspace only. WorkEasy AI and the Help Center use them straight away once published.
+Add articles about how your team works, or change a WorkEasyCRM guide article for your workspace only. WorkEasy AI and the Help Center use them straight away once published.
 
 ## Before you start
 - You need the **Owner** or **Admin** role.

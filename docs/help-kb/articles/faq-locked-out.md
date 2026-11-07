@@ -23,7 +23,7 @@ You are signed in. Open **Password & 2FA** and set up your authenticator app aga
 - **Too many failed attempts.** After repeated wrong passwords, sign-in is blocked for a short while (up to about 15 minutes). Wait, then try again, or reset your password.
 - **Forgot your password.** Use **Forgot password?** on the sign-in page.
 - **Suspended or removed.** If your administrator suspended you, ask them to click **Reactivate**. If you were removed, ask them to invite you again.
-- **Workeasy360 account.** Sign in with **Access WorkEasy CRM**; password and two-step problems are solved in Workeasy360.
+- **Workeasy360 account.** Sign in with **Access WorkEasyCRM**; password and two-step problems are solved in Workeasy360.
 
 ## Troubleshooting
 - **I lost my phone and have no recovery codes.** You cannot turn off two-factor authentication yourself without signing in. Contact support.

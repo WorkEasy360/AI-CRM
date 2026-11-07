@@ -49,7 +49,7 @@ export function UserMenu({ session }: { session: Session }) {
     },
     onError: (error) => toast({ tone: "error", title: "Sign out failed", description: errorMessage(error) }),
   });
-  // "Sign out of WorkEasy CRM and Workeasy360": Keel's own session ends first (a CSRF-protected write),
+  // "Sign out of WorkEasyCRM and Workeasy360": Keel's own session ends first (a CSRF-protected write),
   // then the browser goes to Workeasy360, which asks before signing anyone out of it. Both sign-outs
   // leave the signed-out marker (logout() sets it), so neither ends in an automatic sign-in.
   const offerWorkeasy360SignOut =
@@ -131,11 +131,11 @@ export function UserMenu({ session }: { session: Session }) {
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
-          <LogOut /> {offerWorkeasy360SignOut ? "Sign out of WorkEasy CRM" : "Sign out"}
+          <LogOut /> {offerWorkeasy360SignOut ? "Sign out of WorkEasyCRM" : "Sign out"}
         </DropdownMenuItem>
         {offerWorkeasy360SignOut ? (
           <DropdownMenuItem onSelect={() => everywhereMutation.mutate()} disabled={everywhereMutation.isPending}>
-            <LogOut /> Sign out of WorkEasy CRM and Workeasy360
+            <LogOut /> Sign out of WorkEasyCRM and Workeasy360
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>

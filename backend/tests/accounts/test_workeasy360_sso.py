@@ -130,7 +130,7 @@ def test_the_marker_is_named_like_the_csrf_cookie_host_prefixed_over_https_and_p
 
 
 def test_a_successful_sign_in_clears_the_signed_out_marker_under_both_names(provider):
-    """Signing out of WorkEasy CRM leaves a session cookie that stops the frontend from starting a Workeasy360
+    """Signing out of WorkEasyCRM leaves a session cookie that stops the frontend from starting a Workeasy360
     sign-in by itself (frontend/src/lib/direct-sign-in.ts); the next successful sign-in removes it."""
     client = APIClient()
     for name in views.SIGNED_OUT_MARKER_COOKIES:

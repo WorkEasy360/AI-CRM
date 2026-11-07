@@ -233,7 +233,7 @@ def _link(user: User, claims: SignInClaims, *, issuer: str, request) -> User:
 
 def _require_active(user: User) -> None:
     if not user.is_active:
-        raise SSOError("account_disabled", "WorkEasy CRM account is deactivated")
+        raise SSOError("account_disabled", "WorkEasyCRM account is deactivated")
 
 
 # ----------------------------------------------------------------------------- organization
@@ -286,7 +286,7 @@ def _resolve_membership(user: User, organization: Organization, *, request) -> M
         existing = Membership.objects.select_related("role").filter(user=user).first()
         if existing is not None:
             if existing.status != Membership.Status.ACTIVE:
-                raise SSOError("membership_inactive", f"WorkEasy CRM membership is {existing.status}")
+                raise SSOError("membership_inactive", f"WorkEasyCRM membership is {existing.status}")
             return existing
         try:
             limits.assert_seat_available(organization)

@@ -19,7 +19,7 @@ import { FormError, FormField } from "@/components/ui/form-field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { createCompany, createDeal, updateDeal } from "@/lib/api/crm";
 import { DEAL_PRIORITIES, DEAL_SOURCES, DEAL_SOURCE_LABELS, type CustomData, type Deal, type DealInput, type DealPriority, type DealSource, type NamedRef, type Pipeline } from "@/lib/api/crm-types";
@@ -240,15 +240,15 @@ export function DealFormDialog({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[min(46rem,100%)] p-0">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="flex h-[min(52rem,calc(100dvh-2rem))] max-w-[46rem] flex-col gap-0 p-0">
           <form onSubmit={onSubmit} className="flex h-full min-h-0 flex-col" noValidate>
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-6 py-4 pr-12">
               <div className="flex flex-col gap-1">
-                <SheetTitle className="text-lg font-semibold leading-tight text-fg">{isNew ? "Create Deal" : "Edit Deal"}</SheetTitle>
-                <SheetDescription className="text-sm text-fg-muted">
+                <DialogTitle className="text-lg font-semibold leading-tight text-fg">{isNew ? "Create Deal" : "Edit Deal"}</DialogTitle>
+                <DialogDescription className="text-sm text-fg-muted">
                   {isNew ? "Add a deal to the pipeline." : "Update the deal details. Move stages from the board or the deal page."}
-                </SheetDescription>
+                </DialogDescription>
               </div>
               {allowReassign ? (
                 <div className="flex items-center gap-2">
@@ -466,8 +466,8 @@ export function DealFormDialog({
               </div>
             </div>
           </form>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={confirmDelete}

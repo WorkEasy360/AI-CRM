@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { createCompany, createContact, createTag, listTags, setRecordTags } from "@/lib/api/crm";
 import type { NamedRef, TagRef } from "@/lib/api/crm-types";
@@ -130,12 +130,12 @@ export function AddContactPanel({ kind, onKindChange, onClose, onCreated }: { ki
     ) : null;
 
   return (
-    <Sheet open onOpenChange={(open) => (open ? null : onClose())}>
-      <SheetContent side="right" className="w-[min(28rem,100%)] overflow-y-auto p-0">
+    <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[30rem] flex-col gap-0 overflow-y-auto p-0">
         <form onSubmit={submit} className="flex min-h-full flex-col" noValidate>
           <div className="flex items-center justify-between px-5 pt-5">
-            <SheetTitle className="text-lg font-bold text-fg">Add Contact</SheetTitle>
-            <SheetDescription className="sr-only">Add an individual or a company</SheetDescription>
+            <DialogTitle className="text-lg font-bold text-fg">Add Contact</DialogTitle>
+            <DialogDescription className="sr-only">Add an individual or a company</DialogDescription>
           </div>
           <div className="flex flex-1 flex-col gap-4 px-5 py-4">
             <div role="radiogroup" aria-label="Contact type" className="grid grid-cols-2 gap-2">
@@ -250,8 +250,8 @@ export function AddContactPanel({ kind, onKindChange, onClose, onCreated }: { ki
             </Button>
           </div>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -6,7 +6,7 @@ runtime; only the issuer is configured. The ID token is verified offline
 against the provider's published key set, in the seven steps the Workeasy360
 product integration guide requires (docs/workeasy360-sso.md). Each step closes
 a named attack, so none of them is optional. The same client asks the
-entitlement API whether an organization may still use WorkEasy CRM
+entitlement API whether an organization may still use WorkEasyCRM
 (``verify_entitlement``, used by ``entitlement.py``).
 
 No Django import: the module is pure protocol, which keeps it testable with a

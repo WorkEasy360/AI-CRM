@@ -12,7 +12,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-When a record changes in both WorkEasy CRM and the external system, it waits on the **Conflicts** tab for your decision. You choose which values to keep.
+When a record changes in both WorkEasyCRM and the external system, it waits on the **Conflicts** tab for your decision. You choose which values to keep.
 
 ## Before you start
 - You need the Owner or Admin role (`integrations.manage`) to resolve conflicts.

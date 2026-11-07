@@ -1,5 +1,5 @@
 /**
- * Opening WorkEasy CRM directly (docs/workeasy360-sso.md, "Opening WorkEasy CRM directly"; Workeasy360
+ * Opening WorkEasyCRM directly (docs/workeasy360-sso.md, "Opening WorkEasyCRM directly"; Workeasy360
  * integration guide 6b).
  *
  * When Workeasy360 is the only sign-in, a visitor with no session of ours who asks for a page is sent

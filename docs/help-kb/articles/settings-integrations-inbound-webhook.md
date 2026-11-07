@@ -12,7 +12,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-An inbound webhook lets the external system push contact, company and deal changes to WorkEasy CRM the moment they happen, instead of waiting for the next sync. Every request must be signed.
+An inbound webhook lets the external system push contact, company and deal changes to WorkEasyCRM the moment they happen, instead of waiting for the next sync. Every request must be signed.
 
 ## Before you start
 - You need the Owner or Admin role (`integrations.manage`).

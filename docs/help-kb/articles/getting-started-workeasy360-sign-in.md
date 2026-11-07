@@ -6,7 +6,7 @@ module: Getting Started
 keywords: [workeasy360 login, single sign-on, sso, access workeasy crm, one account, workeasy360 se login, ek account se login, सिंगल साइन-ऑन, लॉगिन]
 route: /login
 menu_path: Sign in page → Already a Workeasy360 user?
-spotlight: Access WorkEasy CRM
+spotlight: Access WorkEasyCRM
 related: [getting-started-login, getting-started-sign-out, getting-started-login-two-factor]
 updated: 2026-11-06
 ---
@@ -19,7 +19,7 @@ If you already use other Workeasy360 products, you can open the CRM with the sam
 
 ## Steps
 1. Open the **Sign in** page.
-2. In the **Already a Workeasy360 user?** box, click **Access WorkEasy CRM**.
+2. In the **Already a Workeasy360 user?** box, click **Access WorkEasyCRM**.
 3. If Workeasy360 asks, sign in there or confirm that you want to continue.
 
 ## Result
@@ -30,4 +30,4 @@ You return to the CRM signed in, on the page you were trying to open.
 - With a Workeasy360 account, your password and two-step verification are managed in Workeasy360, not in the CRM.
 
 ## Troubleshooting
-- **An error message appears on the Sign in page after returning from Workeasy360.** Read the message, then click **Access WorkEasy CRM** again. If it repeats, contact your administrator.
+- **An error message appears on the Sign in page after returning from Workeasy360.** Read the message, then click **Access WorkEasyCRM** again. If it repeats, contact your administrator.

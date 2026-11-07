@@ -179,7 +179,7 @@ function ArticlesTab({ onEdit }: { onEdit: (target: EditorTarget) => void }) {
       <section aria-labelledby="kb-guide" className="grid gap-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="kb-guide" className="text-sm font-semibold text-fg">
-            WorkEasy CRM guide <span className="font-normal text-fg-subtle">({data.global.length})</span>
+            WorkEasyCRM guide <span className="font-normal text-fg-subtle">({data.global.length})</span>
           </h2>
           <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter articles" aria-label="Filter guide articles" className="h-8 w-56" />
         </div>

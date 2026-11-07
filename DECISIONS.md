@@ -1,6 +1,6 @@
 # DECISIONS
 
-Assumptions made while building the Bigin-equivalent specification on the existing WorkEasy CRM codebase.
+Assumptions made while building the Bigin-equivalent specification on the existing WorkEasyCRM codebase.
 Earlier architecture decisions stay in `docs/adr/` (ADR-0001 … ADR-0013); this file records what the
 spec asked for, what was decided instead or in addition, and why. Newest milestone last.
 
@@ -10,7 +10,7 @@ spec asked for, what was decided instead or in addition, and why. Newest milesto
 |---|---|---|
 | G1 | **Keep the existing stack** (Django 5.2 + DRF, PostgreSQL 16 RLS, Celery + Redis, Next.js 15 + React + TypeScript, Tailwind) instead of the spec's NestJS/Prisma/Vite/BullMQ. | The product already runs in production on this stack with about 1,000 passing backend tests, RLS tenant isolation and an AWS deployment. A rewrite would throw away proven security work for no user-visible gain. The repo's `CLAUDE.md` mandates this stack. The spec's *mandates* (tenant guard + RLS, event bus, entitlement service, provider adapters, async queues, API-first + OpenAPI) are met with these equivalents: DRF + drf-spectacular (OpenAPI 3), Celery queues (DLQ via retries + sweeper tasks), `apps.core.domain_events`. |
 | G2 | **Evaluate before building.** Where a feature already exists it is kept and aligned to the spec; only gaps are built. | Per the product owner's note. |
-| G3 | **Branding:** the product stays **WorkEasy CRM** (navy `#1B3040` chrome, brand green `#4ADE80`). The top edition is named **"360"** in the UI and `edition_360` in code, not "Bigin 360". | "Bigin" is a Zoho trademark. The limits and prices match the spec exactly. |
+| G3 | **Branding:** the product stays **WorkEasyCRM** (navy `#1B3040` chrome, brand green `#4ADE80`). The top edition is named **"360"** in the UI and `edition_360` in code, not "Bigin 360". | "Bigin" is a Zoho trademark. The limits and prices match the spec exactly. |
 | G4 | **Search:** PostgreSQL full-text + trigram (ADR-0011), not OpenSearch, until a tenant's data shows it is needed. | Same results at this scale with one fewer stateful service to run and secure. |
 | G5 | **Infra:** AWS (ap-south-1) with Docker Compose for dev. Kubernetes/Helm is not adopted (ADR-0008). | The current one-instance deployment meets the budget. Helm charts can be added when horizontal scale is actually needed. |
 

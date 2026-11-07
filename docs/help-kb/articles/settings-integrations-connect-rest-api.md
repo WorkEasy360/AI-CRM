@@ -13,7 +13,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-The **Generic REST API** integration links WorkEasy CRM with any system that has a JSON REST API. After connecting, you choose which data it can see or change.
+The **Generic REST API** integration links WorkEasyCRM with any system that has a JSON REST API. After connecting, you choose which data it can see or change.
 
 ## Before you start
 - You need the Owner or Admin role (`integrations.manage`).

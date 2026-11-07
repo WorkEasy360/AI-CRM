@@ -12,7 +12,7 @@ updated: 2026-11-07
 ---
 
 ## Overview
-Ask WorkEasy AI how to do anything in WorkEasy CRM, such as "How do I create a pipeline?" or "contact ko company se kaise link kare". It answers from the WorkEasy CRM help guide with the exact steps, and takes you to the right screen.
+Ask WorkEasy AI how to do anything in WorkEasyCRM, such as "How do I create a pipeline?" or "contact ko company se kaise link kare". It answers from the WorkEasyCRM help guide with the exact steps, and takes you to the right screen.
 
 ## Steps
 1. Click **Ask AI Now** on the **WorkEasy AI** card at the bottom of the left sidebar.
@@ -31,4 +31,4 @@ You see the steps for your task and can jump straight to the screen where you do
 - If your role cannot use a feature, the answer says so; ask your workspace admin for access.
 
 ## Troubleshooting
-- **"I couldn't find this in the WorkEasy CRM help guide yet."** The guide has no article for it. Your question is passed to your workspace admins, who can add one.
+- **"I couldn't find this in the WorkEasyCRM help guide yet."** The guide has no article for it. Your question is passed to your workspace admins, who can add one.

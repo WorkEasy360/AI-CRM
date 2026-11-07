@@ -16,9 +16,9 @@ When an administrator invites you, you receive an email with a link. The link op
 ## Steps
 1. Open the invitation email and click the link.
 2. Check the page heading **Join** followed by the organization name, the invited email and your role.
-3. If you are new to WorkEasy CRM, enter your **Name**, a **Password** of at least 12 characters, and the same password in **Confirm password**.
+3. If you are new to WorkEasyCRM, enter your **Name**, a **Password** of at least 12 characters, and the same password in **Confirm password**.
 4. Click **Create account and join**.
-5. If you already have a WorkEasy CRM account, click **Sign in** instead, sign in, and then click **Accept invitation**.
+5. If you already have a WorkEasyCRM account, click **Sign in** instead, sign in, and then click **Accept invitation**.
 
 ## Result
 You enter the organization's CRM on the **Pipeline** page. If the organization requires two-factor authentication, the **Security** page opens first so you can set it up.
@@ -30,5 +30,5 @@ You enter the organization's CRM on the **Pipeline** page. If the organization r
 ## Troubleshooting
 - **"Invitation unavailable".** The invitation is invalid, already used or expired. Ask the sender for a new one.
 - **"You are signed in as … but this invitation was sent to …".** Click **Sign in with a different account** and sign in with the invited email.
-- **"… already has a WorkEasy CRM account."** Click **Sign in to accept**.
+- **"… already has a WorkEasyCRM account."** Click **Sign in to accept**.
 - **"Invitation link incomplete".** The link was cut off. Copy the full link from the email, or ask for a new invitation.

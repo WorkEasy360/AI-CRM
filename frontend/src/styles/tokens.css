@@ -1,5 +1,5 @@
 /*
- * WorkEasy CRM design tokens (codebase prefix: --kl-*).
+ * WorkEasyCRM design tokens (codebase prefix: --kl-*).
  * A light, data-dense workspace is the default. Dark is opt-in via [data-theme="dark"] (set by the
  * account menu; "System" resolves to light/dark on the client) and never inferred from the OS alone,
  * so the CRM always opens light on a fresh browser.

@@ -166,7 +166,7 @@ export function IntegrationsPage() {
           <HubCard
             icon={<KeyRound aria-hidden />}
             title="API keys"
-            description="Scoped access to the WorkEasy CRM API."
+            description="Scoped access to the WorkEasyCRM API."
             action={
               canManage ? (
                 <Button asChild size="sm" variant="secondary">
