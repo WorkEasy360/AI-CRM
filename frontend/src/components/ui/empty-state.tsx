@@ -20,7 +20,7 @@ export function EmptyState({ icon, title, description, action, className, ...pro
       {icon ? (
         <div className="flex size-12 items-center justify-center rounded-full bg-primary-soft text-primary [&_svg]:size-6">{icon}</div>
       ) : null}
-      <h3 className="text-md font-semibold text-fg">{title}</h3>
+      <h3 className="text-lg font-semibold text-fg">{title}</h3>
       {description ? <p className="max-w-md text-sm text-fg-muted">{description}</p> : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>

@@ -79,8 +79,8 @@ describe("Wordmark", () => {
     expect(link.querySelector("img")).toHaveAttribute("src", "/api/v1/organizations/current/logo/?v=abc");
   });
 
-  it("falls back to WorkEasy360 with the CRM pill", () => {
+  it("falls back to WorkEasy with the CRM pill", () => {
     render(<Wordmark />);
-    expect(screen.getByRole("link", { name: "WorkEasy360 CRM home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "WorkEasy CRM home" })).toBeInTheDocument();
   });
 });

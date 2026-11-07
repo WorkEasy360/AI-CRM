@@ -43,7 +43,7 @@ export interface StatTileProps {
 export function StatTile({ label, value, sub, hint, subTone = "default", icon, href, emphasis, size = "md", className }: StatTileProps) {
   const body = (
     <>
-      <div className="flex items-center gap-1.5 text-xs font-medium text-fg-muted [&_svg]:size-3.5 [&_svg]:text-fg-subtle">
+      <div className="flex items-center gap-1.5 text-sm font-medium text-fg-muted [&_svg]:size-3.5 [&_svg]:text-fg-subtle">
         {icon}
         <span className="truncate">{label}</span>
         {href ? <ArrowUpRight className="ml-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden /> : null}
@@ -67,15 +67,19 @@ export function StatTile({ label, value, sub, hint, subTone = "default", icon, h
   return <div className={classes}>{body}</div>;
 }
 
-/** Icon disc tints for the headline KPIs. Each icon colour is >= 3:1 on its own tint. */
+/**
+ * Icon tile tints for the headline KPIs, drawn from the design tokens only so every module's KPI row
+ * looks the same: brand green, navy, and the warning/danger status hues for figures that need
+ * attention. The tone names are kept so callers stay unchanged.
+ */
 const KPI_TONES = {
-  green: "bg-[#dcfce7] text-[#15803d]",
-  orange: "bg-[#ffedd5] text-[#c2410c]",
-  amber: "bg-[#fef3c7] text-[#b45309]",
-  blue: "bg-[#dbeafe] text-[#1d4ed8]",
-  purple: "bg-[#f3e8ff] text-[#7e22ce]",
-  pink: "bg-[#fce7f3] text-[#be185d]",
-  red: "bg-[#fee2e2] text-[#b91c1c]",
+  green: "bg-brand-soft text-brand",
+  orange: "bg-warning-soft text-warning",
+  amber: "bg-warning-soft text-warning",
+  blue: "bg-accent-soft text-accent",
+  purple: "bg-accent-soft text-accent",
+  pink: "bg-accent-soft text-accent",
+  red: "bg-danger-soft text-danger",
 } as const;
 
 export type KpiTone = keyof typeof KPI_TONES;
@@ -141,7 +145,7 @@ export function ChangeBadge({ change }: { change: KpiChange }) {
   );
 }
 
-/** A headline figure with a tinted icon disc, as on the WorkEasy360 dashboard. The tile is one link. */
+/** A headline figure with a tinted icon tile. The tile is one link. */
 export function KpiTile({
   label,
   value,
@@ -164,17 +168,17 @@ export function KpiTile({
 }) {
   const body = (
     <>
-      <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-full [&_svg]:size-5", KPI_TONES[tone])} aria-hidden>
+      <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg [&_svg]:size-5", KPI_TONES[tone])} aria-hidden>
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-xs font-medium text-fg-muted">{label}</span>
+        <span className="block truncate text-sm font-medium text-fg-muted">{label}</span>
         {value === undefined ? <Skeleton className="mt-1 h-7 w-20" /> : <span className="block truncate text-2xl font-bold tabular-nums tracking-tight text-fg">{value}</span>}
         {change && value !== undefined ? <ChangeLine change={change} note={changeNote} /> : <span className="block truncate text-xs text-fg-subtle">{sub ?? "\u00a0"}</span>}
       </span>
     </>
   );
-  const classes = "group flex min-w-0 items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 shadow-sm";
+  const classes = "group flex min-w-0 items-center gap-3.5 rounded-lg border border-border bg-surface px-4 py-4 shadow-sm";
   return href ? (
     <Link href={href} className={cn(classes, "transition-colors hover:border-border-strong focus-visible:outline-2 focus-visible:outline-ring/40")}>
       {body}
@@ -187,14 +191,14 @@ export function KpiTile({
 export function Panel({ title, subtitle, action, children, className }: { title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
     <section aria-label={title} className={cn("flex min-w-0 flex-col rounded-lg border border-border bg-surface shadow-sm", className)}>
-      <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-2.5">
+      <div className="flex items-start justify-between gap-2 border-b border-border px-5 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-fg">{title}</h2>
+          <h2 className="text-md font-semibold text-fg">{title}</h2>
           {subtitle ? <p className="truncate text-xs text-fg-subtle">{subtitle}</p> : null}
         </div>
         {action}
       </div>
-      <div className="flex-1 px-4 py-3">{children}</div>
+      <div className="flex-1 px-5 py-4">{children}</div>
     </section>
   );
 }

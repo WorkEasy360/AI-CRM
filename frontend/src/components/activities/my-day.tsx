@@ -63,7 +63,7 @@ export function MyDay({ onCreate }: { onCreate?: () => void }) {
         <EmptyState
           icon={<Sun />}
           title="Nothing planned today"
-          description="Tasks due today, today's events and calls, and anything overdue show up here."
+          description="Nothing due today or overdue."
           action={
             onCreate ? (
               <Button size="sm" onClick={onCreate}>

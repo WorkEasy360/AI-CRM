@@ -154,13 +154,13 @@ export function AddContactPanel({ kind, onKindChange, onClose, onCreated }: { ki
                   onClick={() => onKindChange(value)}
                   className={cn(
                     "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:opacity-50",
-                    kind === value ? "border-brand bg-[#f0fdf4] ring-1 ring-brand" : "border-border hover:bg-bg-subtle",
+                    kind === value ? "border-brand bg-brand-soft ring-1 ring-brand" : "border-border hover:bg-bg-subtle",
                   )}
                 >
                   <Icon className={cn("size-6 shrink-0", kind === value ? "text-brand" : "text-fg-muted")} aria-hidden />
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-fg">{label}</span>
-                    <span className="block truncate text-[11px] text-fg-muted">{hint}</span>
+                    <span className="block truncate text-[12px] text-fg-muted">{hint}</span>
                   </span>
                 </button>
               ))}
@@ -180,7 +180,7 @@ export function AddContactPanel({ kind, onKindChange, onClose, onCreated }: { ki
                   Company Name (Optional) <Info className="size-3.5 text-fg-subtle" aria-label="A person can belong to one company" />
                 </Label>
                 <RecordPicker id="ac-company" entity="company" value={company} onChange={setCompany} placeholder="Search companies…" onCreate={(value) => companyCreate.mutate(value)} createLabel="Create company" creating={companyCreate.isPending} />
-                <p className="flex items-start gap-2 rounded-md bg-[#f0fdf4] px-3 py-2 text-xs text-[#166534]">
+                <p className="flex items-start gap-2 rounded-md bg-brand-soft px-3 py-2 text-xs text-brand">
                   <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   Select an existing company or create a new one. Multiple people can be linked to the same company.
                 </p>

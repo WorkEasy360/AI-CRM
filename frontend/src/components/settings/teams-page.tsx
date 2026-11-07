@@ -87,7 +87,6 @@ export function TeamsPage() {
     <div>
       <PageHeader
         title="Users & Teams"
-        description="Group members into teams to scope what they can see and manage."
         actions={
           canManage ? (
             <Button onClick={() => setEditing("new")}>

@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 const ALL = "__all__";
 const KIND_ICON: Record<ActivityKind, React.ComponentType<{ className?: string }>> = { task: CheckCircle2, call: Phone, meeting: CalendarDays };
-const KIND_INK: Record<ActivityKind, string> = { task: "text-[#7e22ce]", call: "text-[#15803d]", meeting: "text-[#7e22ce]" };
+const KIND_INK: Record<ActivityKind, string> = { task: "text-accent", call: "text-brand", meeting: "text-accent" };
 
 export type DateRange = "any" | "today" | "week" | "month" | "custom";
 export const RANGE_LABELS: Record<DateRange, string> = { any: "Any time", today: "Today", week: "This Week", month: "This Month", custom: "Custom" };
@@ -52,11 +52,11 @@ export function rangeDates(range: DateRange, now: Date = new Date()): { from?: s
 
 /** The status a row shows: an open meeting still ahead is "Scheduled" (a label, not a stored status). */
 export function displayStatus(a: Pick<Activity, "status" | "kind" | "start_at">, now: Date = new Date()): { label: string; className: string } {
-  if (a.status === "completed") return { label: "Completed", className: "border-transparent bg-[#dcfce7] text-[#15803d]" };
+  if (a.status === "completed") return { label: "Completed", className: "border-transparent bg-brand-soft text-brand" };
   if (a.status === "cancelled") return { label: "Cancelled", className: "border-transparent bg-bg-subtle text-fg-muted" };
-  if (a.status === "in_progress") return { label: "In Progress", className: "border-transparent bg-[#dbeafe] text-[#1d4ed8]" };
-  if (a.kind === "meeting" && a.start_at && new Date(a.start_at) > now) return { label: "Scheduled", className: "border-transparent bg-[#f3e8ff] text-[#7e22ce]" };
-  return { label: "Open", className: "border-transparent bg-[#fef3c7] text-[#92400e]" };
+  if (a.status === "in_progress") return { label: "In Progress", className: "border-transparent bg-accent-soft text-accent" };
+  if (a.kind === "meeting" && a.start_at && new Date(a.start_at) > now) return { label: "Scheduled", className: "border-transparent bg-accent-soft text-accent" };
+  return { label: "Open", className: "border-transparent bg-warning-soft text-warning" };
 }
 
 /** "Today, 11:30 AM", "Tomorrow, 11:00 AM", "06 Nov, 04:00 PM"; red when the open item is due today or late. */

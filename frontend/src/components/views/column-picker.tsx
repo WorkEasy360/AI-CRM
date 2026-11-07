@@ -46,7 +46,7 @@ export function ColumnPicker({
                 <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-sm hover:bg-bg-subtle">
                   <input type="checkbox" checked={on} onChange={() => toggle(f.key)} />
                   <span className="truncate">{f.label}</span>
-                  {f.custom ? <span className="text-[10px] text-fg-subtle">custom</span> : null}
+                  {f.custom ? <span className="text-[11px] text-fg-subtle">custom</span> : null}
                 </label>
                 {on ? (
                   <span className="flex shrink-0">

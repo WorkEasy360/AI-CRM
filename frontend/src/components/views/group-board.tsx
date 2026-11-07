@@ -199,7 +199,7 @@ function GroupColumn({
     >
       <header className="flex items-center gap-2 px-2.5 pb-1.5 pt-2">
         <h3 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-fg">{group.label}</h3>
-        <span className="rounded-full bg-surface px-1.5 py-0.5 text-[12px] font-medium text-fg-muted">{group.count}</span>
+        <span className="rounded-full bg-surface px-1.5 py-0.5 text-xs font-medium text-fg-muted">{group.count}</span>
       </header>
       <ul ref={win.ref as React.RefObject<HTMLUListElement>} className="flex min-h-20 flex-1 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5" style={{ maxHeight: "calc(100vh - 260px)" }} aria-label={`${group.label} records`}>
         {win.padTop ? <li aria-hidden style={{ height: win.padTop }} /> : null}
@@ -233,7 +233,7 @@ function GroupColumn({
         {rows.length === 0 ? <li className="py-5 text-center text-xs text-fg-subtle">Empty</li> : null}
       </ul>
       {hasMore ? (
-        <button type="button" className="border-t border-border px-2.5 py-1.5 text-left text-[12px] text-primary hover:underline" onClick={onLoadMore}>
+        <button type="button" className="border-t border-border px-2.5 py-1.5 text-left text-xs text-primary hover:underline" onClick={onLoadMore}>
           Show more ({group.count - rows.length} left)
         </button>
       ) : null}

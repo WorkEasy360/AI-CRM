@@ -51,7 +51,7 @@ export function WhatsAppSettingsPage() {
 
   return (
     <div>
-      <PageHeader title="WhatsApp" description="Message customers through the WhatsApp Business Cloud API and keep the conversation on their record." />
+      <PageHeader title="WhatsApp" />
       <div className="grid gap-6">
         <ConnectionCard canManage={canManage} />
         <WebhookCard />

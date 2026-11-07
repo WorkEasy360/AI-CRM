@@ -124,7 +124,7 @@ export function ApiKeysPage() {
       {backLink}
       <PageHeader
         title="API keys"
-        description="Keys let external software use the WorkEasy CRM API with only the permissions you grant. A key can never do more than the member who created it."
+        description="A key can never do more than the member who created it."
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>
@@ -147,7 +147,7 @@ export function ApiKeysPage() {
           }
         />
       ) : keys.items.length === 0 ? (
-        <EmptyState icon={<KeyRound />} title="No API keys yet" description="Create a key for each external system so you can revoke one without affecting the others." />
+        <EmptyState icon={<KeyRound />} title="No API keys yet" description="Use one key per external system so each can be revoked on its own." />
       ) : (
         <Table>
           <TableHeader>

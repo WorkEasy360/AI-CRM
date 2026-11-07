@@ -1,31 +1,33 @@
 /*
- * Keel design tokens.
- * A light, compact, data-dense workspace is the default. Dark is opt-in via [data-theme="dark"]
- * (set by the account menu; "System" resolves to light/dark on the client) and never inferred
- * from the OS alone, so the CRM always opens light on a fresh browser.
- * Palette: the WorkEasy360 CRM preview. A forest-green sidebar (#0B3F27 to #082F1D) with white
- * text and a solid #15803D pill for the current page, a white top bar, solid green (#15803D, white
- * text at 5.0:1) action buttons, and cool greys on a #F6F8F9 canvas with white cards. The brighter
- * brand green #00BF62 is kept as a tint and indicator only: white on it is 2.4:1. Every ramp step
- * below was checked against its background for WCAG AA (4.5:1 for text), so a hue is never used at
- * a shade that cannot be read. Navy remains the accent.
+ * WorkEasy CRM design tokens (codebase prefix: --kl-*).
+ * A light, data-dense workspace is the default. Dark is opt-in via [data-theme="dark"] (set by the
+ * account menu; "System" resolves to light/dark on the client) and never inferred from the OS alone,
+ * so the CRM always opens light on a fresh browser.
+ *
+ * Palette: the WorkEasy360 Admin Dashboard. Dark navy (#102D3D) top bar and sidebar, a lighter navy
+ * band (#1D465B) with a #08B96B indicator for the current page, green primary actions, white cards
+ * with #DCE4E8 borders on a #F2F6F8 canvas, #172B3A text.
+ *
+ * Contrast: every text pairing below meets WCAG AA (4.5:1). White on the brand green #08B96B is
+ * 2.57:1, so solid buttons use --kl-brand (#067F4B, the same hue, white at 5.07:1) and #08B96B is
+ * the accent (--kl-brand-bright): indicators, highlights, progress, and text on the navy chrome,
+ * where it reads at 5.57:1. To use the exact #08B96B as the button fill, point --kl-brand at
+ * --kl-brand-bright; nothing else needs to change.
  */
 :root {
   /* Primitive scales */
-  /* Primary green, the readable "ink": 600 is the darkest step that still reads as green while
-     carrying white text at AA (5.5:1, and 5.1:1 on the canvas), so links, outlines, badges and
-     progress use 600. The site's own ink green (#008F49, --kl-brand-ink) is 4.2:1 on white: enough
-     for a focus ring, not for text. Solid buttons use --kl-brand (#15803D), see below. */
-  --kl-primary-50: #e6f9f0;
-  --kl-primary-100: #ccf2df;
-  --kl-primary-200: #99e5c0;
-  --kl-primary-300: #5fd598;
-  --kl-primary-400: #00bf62;
-  --kl-primary-500: #00b05a;
-  --kl-primary-600: #007a3d;
-  --kl-primary-700: #006632;
-  --kl-primary-800: #00522a;
-  --kl-primary-900: #003d1f;
+  /* Brand green ramp around #08B96B. 600 is the readable ink (links, badges, outlines) and the solid
+     button fill; 400 is the brand hex itself. */
+  --kl-primary-50: #e6f7ee;
+  --kl-primary-100: #ccf0dd;
+  --kl-primary-200: #99e1bc;
+  --kl-primary-300: #5fd39a;
+  --kl-primary-400: #08b96b;
+  --kl-primary-500: #079b5b;
+  --kl-primary-600: #067f4b;
+  --kl-primary-700: #05693e;
+  --kl-primary-800: #045432;
+  --kl-primary-900: #033f26;
 
   /* Success green (kept apart from primary so status colours do not move with the brand). */
   --kl-green-100: #ecfdf5;
@@ -38,48 +40,42 @@
   --kl-green-800: #047857;
   --kl-green-900: #08542a;
 
-  /* Navy: the chrome and the accent. 800 is the top bar and sub-panels, 900 the rail, 700 the
-     current-item band. */
-  --kl-navy-50: #e8eff5;
+  /* Navy: the chrome and the accent. 900 is the top bar and sidebar, 800 the raised chrome surface,
+     700 the current-item band. */
+  --kl-navy-50: #e8f0f4;
   --kl-navy-300: #8db8d6;
-  --kl-navy-700: #1e3344;
-  --kl-navy-800: #13222e;
-  --kl-navy-900: #0c1821;
+  --kl-navy-600: #2a5a72;
+  --kl-navy-700: #1d465b;
+  --kl-navy-800: #15394b;
+  --kl-navy-900: #102d3d;
+  --kl-navy-950: #0b2230;
 
-  /* Brand green fill and the text that sits on it. The WorkEasy360 CRM preview puts white text on
-     a saturated green; #15803D is the brightest green that carries white at AA (5.0:1), so solid
-     buttons use it instead of #00BF62 (white on that is 2.4:1). #00BF62 stays as the accent tint. */
-  --kl-brand: #15803d;
-  --kl-brand-hover: #166534;
+  /* Brand fill and the text that sits on it, plus the brand hex as an accent. */
+  --kl-brand: var(--kl-primary-600);
+  --kl-brand-hover: var(--kl-primary-700);
   --kl-brand-fg: #ffffff;
-  --kl-brand-bright: #00bf62;
-  --kl-brand-ink: #008f49;
-
-  /* Forest green: the sidebar. 900 is the rail, 800 the header strip and sub-panels. */
-  --kl-forest-800: #0f5132;
-  --kl-forest-900: #0b3f27;
-  --kl-forest-950: #082f1d;
+  --kl-brand-soft: var(--kl-primary-50);
+  --kl-brand-bright: var(--kl-primary-400);
+  --kl-brand-ink: var(--kl-primary-600);
 
   /* Neutrals carry a navy cast so greys sit with the chrome instead of fighting it. */
   --kl-slate-0: #ffffff;
-  --kl-slate-25: #f9fafb;
-  --kl-slate-50: #f6f8f9;
-  --kl-slate-100: #eef3f2;
-  --kl-slate-200: #e1e7eb;
-  --kl-slate-300: #d1d9e0;
-  --kl-slate-400: #8f9da8;
-  --kl-slate-500: #5f6e7a;
-  --kl-slate-600: #374151;
+  --kl-slate-25: #f8fafb;
+  --kl-slate-50: #f2f6f8;
+  --kl-slate-100: #e9eff2;
+  --kl-slate-200: #dce4e8;
+  --kl-slate-300: #c7d3d9;
+  --kl-slate-400: #8d9ba5;
+  --kl-slate-500: #5f6e79;
+  --kl-slate-600: #475a67;
   --kl-slate-700: #32404b;
   --kl-slate-800: #1e2a34;
-  --kl-slate-850: #17232d;
+  --kl-slate-850: #172b3a;
   --kl-slate-900: #101a23;
   --kl-slate-950: #081119;
 
   /* Status hues sit outside the brand: dark enough to read on white, with a light step for dark mode. */
   --kl-amber-300: #e8b055;
-  /* Amber is a hair under the site's #B45309, which is 4.48:1 on --kl-bg-subtle; red is the site's
-     danger ink #B91C1C, because its #DC2626 is 4.41:1 on the soft red that badges and alerts sit on. */
   --kl-amber-500: #b05108;
   --kl-amber-100: #fffbeb;
   --kl-red-300: #f0897c;
@@ -87,9 +83,10 @@
   --kl-red-700: #991b1b;
   --kl-red-100: #fef2f2;
 
-  /* Radius and spacing (4pt scale, compact) */
-  --kl-radius-sm: 4px;
-  --kl-radius-md: 8px;
+  /* Radius and spacing (4pt scale) */
+  --kl-radius-sm: 6px;
+  --kl-radius-md: 10px;
+  --kl-radius-lg: 14px;
   --kl-space-1: 4px;
   --kl-space-2: 8px;
   --kl-space-3: 12px;
@@ -100,22 +97,25 @@
   --kl-space-10: 40px;
   --kl-space-12: 48px;
 
-  /* Typography: system stack, 14px base. This ramp is the whole app's type scale — globals.css
-     feeds it to Tailwind, so `text-sm`/`text-md`/... resolve here rather than to Tailwind defaults. */
-  --kl-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Typography: Inter (self-hosted by next/font, see app/layout.tsx) on a 14px base. This ramp is the
+     whole app's type scale; globals.css feeds it to Tailwind, so `text-sm`/`text-md`/... resolve here.
+     3xl is the page title, xl/lg section and card headings, sm body, tables and buttons. */
+  --kl-font-sans: var(--font-inter, "Inter"), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --kl-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --kl-text-xs: 0.8125rem; /* 13px */
-  --kl-text-sm: 0.875rem; /* 14px — body */
-  --kl-text-md: 0.9375rem; /* 15px */
-  --kl-text-lg: 1.125rem; /* 18px */
-  --kl-text-xl: 1.375rem; /* 22px */
-  --kl-text-2xl: 1.5rem; /* 24px */
-  --kl-leading-xs: 1.45;
-  --kl-leading-sm: 1.5;
+  --kl-text-sm: 0.875rem; /* 14px — body, tables, buttons */
+  --kl-text-md: 0.9375rem; /* 15px — card headings */
+  --kl-text-lg: 1.125rem; /* 18px — section headings */
+  --kl-text-xl: 1.25rem; /* 20px */
+  --kl-text-2xl: 1.5rem; /* 24px — record titles, KPI values */
+  --kl-text-3xl: 1.75rem; /* 28px — page titles */
+  --kl-leading-xs: 1.5;
+  --kl-leading-sm: 1.55;
   --kl-leading-md: 1.5;
-  --kl-leading-lg: 1.45;
+  --kl-leading-lg: 1.4;
   --kl-leading-xl: 1.35;
   --kl-leading-2xl: 1.25;
+  --kl-leading-3xl: 1.2;
 
   /* Semantic: light (default) */
   --kl-bg: var(--kl-slate-50);
@@ -136,18 +136,17 @@
   --kl-accent-hover: var(--kl-navy-800);
   --kl-accent-soft: var(--kl-navy-50);
   --kl-accent-fg: #ffffff;
-  /* The site's ink green: 4.2:1 against white, above the 3:1 a focus ring needs (the brand fill is not). */
-  --kl-ring: var(--kl-brand-ink);
-  /* App chrome: the sidebar is forest green with white text and a solid green pill for the current
-     page; the top bar is a plain white surface. Components inside the sidebar read these through
+  --kl-ring: var(--kl-primary-500);
+  /* App chrome: the top bar and the sidebar are the same dark navy with white text; the current page
+     is a lighter navy band with a green indicator. Components inside the chrome read these through
      the .kl-chrome scope in globals.css rather than hard-coding colours. */
-  --kl-chrome: var(--kl-forest-800);
-  --kl-chrome-sidebar: var(--kl-forest-900);
-  --kl-chrome-sidebar-end: var(--kl-forest-950);
-  --kl-chrome-active: var(--kl-brand);
+  --kl-chrome: var(--kl-navy-900);
+  --kl-chrome-raised: var(--kl-navy-800);
+  --kl-chrome-sidebar: var(--kl-navy-900);
+  --kl-chrome-active: var(--kl-navy-700);
   --kl-chrome-indicator: var(--kl-brand-bright);
   --kl-chrome-fg: #ffffff;
-  --kl-chrome-fg-muted: #d3eadc;
+  --kl-chrome-fg-muted: #b7c7d1;
   --kl-success: var(--kl-green-800);
   --kl-success-soft: var(--kl-green-100);
   --kl-warning: var(--kl-amber-500);
@@ -156,10 +155,10 @@
   --kl-danger-hover: var(--kl-red-700);
   --kl-danger-soft: var(--kl-red-100);
   --kl-danger-fg: #ffffff;
-  --kl-shadow-sm: 0 1px 1px rgb(19 35 47 / 0.04), 0 1px 2px rgb(19 35 47 / 0.06);
-  --kl-shadow-md: 0 3px 10px rgb(19 35 47 / 0.08), 0 1px 3px rgb(19 35 47 / 0.06);
-  --kl-shadow-lg: 0 14px 36px rgb(19 35 47 / 0.16);
-  --kl-overlay: rgb(19 34 46 / 0.5);
+  --kl-shadow-sm: 0 1px 2px rgb(16 45 61 / 0.05);
+  --kl-shadow-md: 0 4px 12px rgb(16 45 61 / 0.08), 0 1px 3px rgb(16 45 61 / 0.05);
+  --kl-shadow-lg: 0 16px 40px rgb(16 45 61 / 0.16);
+  --kl-overlay: rgb(16 45 61 / 0.5);
   color-scheme: light;
 }
 
@@ -177,16 +176,18 @@
   --kl-primary: var(--kl-primary-400);
   --kl-primary-hover: var(--kl-primary-300);
   --kl-primary-soft: var(--kl-primary-900);
-  /* Near-black, not white: white on the light green used here is under 2.5:1. */
+  /* Near-black, not white: white on the light green used here is under 2.6:1. */
   --kl-primary-fg: var(--kl-slate-950);
+  --kl-brand-soft: var(--kl-primary-900);
   --kl-accent: var(--kl-navy-300);
   --kl-accent-hover: #a7cbe3;
   --kl-accent-soft: #14303f;
   --kl-accent-fg: var(--kl-slate-950);
   --kl-ring: var(--kl-primary-300);
-  --kl-chrome: #0c3a24;
-  --kl-chrome-sidebar: #082c1b;
-  --kl-chrome-sidebar-end: #061f13;
+  --kl-chrome: var(--kl-navy-950);
+  --kl-chrome-raised: #0f2a39;
+  --kl-chrome-sidebar: var(--kl-navy-950);
+  --kl-chrome-active: var(--kl-navy-800);
   --kl-success: var(--kl-green-400);
   --kl-success-soft: #0c3423;
   --kl-warning: var(--kl-amber-300);

@@ -11,7 +11,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-The Help Center lists every WorkEasy360 guide, grouped by module. WorkEasy AI answers from these same guides.
+The Help Center lists every WorkEasy CRM guide, grouped by module. WorkEasy AI answers from these same guides.
 
 ## Steps
 1. Click the **?** icon (**Help**) in the top bar.

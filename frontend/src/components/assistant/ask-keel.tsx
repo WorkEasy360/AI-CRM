@@ -169,7 +169,7 @@ export function AssistantProvider({ children, force = false }: { children: React
               <div className="min-w-0">
                 <SheetTitle className="flex items-center gap-1.5 text-sm font-semibold">
                   Ask WorkEasy AI
-                  <Sparkles className="size-3.5 text-[#facc15]" aria-hidden />
+                  <Sparkles className="size-3.5 text-brand-bright" aria-hidden />
                 </SheetTitle>
                 <p className="text-xs text-fg-subtle">Help guide and CRM assistant</p>
               </div>
@@ -282,7 +282,7 @@ export function AskFloatingButton() {
         <Bot className="size-4" />
       </span>
       Ask WorkEasy AI
-      <Sparkles className="size-3.5 text-[#facc15]" aria-hidden />
+      <Sparkles className="size-3.5 text-brand-bright" aria-hidden />
     </button>
   );
 }
@@ -430,7 +430,7 @@ export function Conversation({
         <article key={index} ref={index === turns.length - 1 ? lastRef : undefined} className="grid scroll-mt-2 gap-3">
           <div className="flex items-start justify-end gap-2">
             <p className="sr-only">You</p>
-            <p className="max-w-[85%] rounded-2xl rounded-tr-md bg-[#15803d] px-3.5 py-2 text-[13px] leading-relaxed whitespace-pre-wrap text-white shadow-sm">
+            <p className="max-w-[85%] rounded-2xl rounded-tr-md bg-brand px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap text-white shadow-sm">
               {turn.question}
             </p>
             <Avatar name={userName || "You"} size="sm" className="[&>span]:bg-chrome [&>span]:text-white" />
@@ -452,7 +452,7 @@ export function Conversation({
                   feedback={turn.answer.turn_id ? <AnswerFeedback turnId={turn.answer.turn_id} /> : null}
                 />
               ) : turn.error ? (
-                <p className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger">{turn.error}</p>
+                <p className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{turn.error}</p>
               ) : (
                 <Thinking />
               )}
@@ -506,7 +506,7 @@ function TurnAnswer({
   if (answer.action) {
     return (
       <div className="grid gap-2">
-        <p className="text-[13px] font-medium text-fg">{answer.headline}</p>
+        <p className="text-sm font-medium text-fg">{answer.headline}</p>
         <ActionProposalCard action={answer.action} onNavigate={onNavigate} />
         <div className="flex items-start justify-between gap-3">
           {answer.analysis ? <p className="text-xs text-fg-subtle">{answer.analysis}</p> : <span />}
@@ -525,10 +525,10 @@ function TurnAnswer({
 
 function Thinking() {
   return (
-    <div className="flex w-fit items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] text-fg-muted shadow-sm" role="status">
+    <div className="flex w-fit items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-fg-muted shadow-sm" role="status">
       <span className="flex gap-1" aria-hidden>
         {[0, 150, 300].map((delay) => (
-          <span key={delay} className="size-1.5 animate-bounce rounded-full bg-[#15803d]" style={{ animationDelay: `${delay}ms` }} />
+          <span key={delay} className="size-1.5 animate-bounce rounded-full bg-brand" style={{ animationDelay: `${delay}ms` }} />
         ))}
       </span>
       Finding the answer…
@@ -564,7 +564,7 @@ function PanelWelcome({
     <div className="grid gap-5">
       <div className="grid gap-1">
         <p className="text-base font-semibold text-fg">{firstName ? `Hi ${firstName}, how can I help?` : "How can I help?"}</p>
-        <p className="text-[13px] leading-relaxed text-fg-muted">
+        <p className="text-sm leading-relaxed text-fg-muted">
           Get step-by-step help with any feature, in English, Hindi or Hinglish, or ask about your customers, deals and activities.
         </p>
       </div>
@@ -574,7 +574,7 @@ function PanelWelcome({
       {suggestions.length > 0 ? (
         <QuestionList title="Ask about your CRM" icon={<Sparkles className="size-4" aria-hidden />} items={suggestions.slice(0, 3)} onAsk={onAsk} />
       ) : null}
-      <Link href="/help" onClick={onNavigate} className="flex w-fit items-center gap-1.5 text-[13px] font-medium text-[#15803d] hover:underline">
+      <Link href="/help" onClick={onNavigate} className="flex w-fit items-center gap-1.5 text-sm font-medium text-brand hover:underline">
         <BookOpen className="size-4" aria-hidden /> Browse all guides in the Help Center
       </Link>
     </div>
@@ -584,16 +584,16 @@ function PanelWelcome({
 function QuestionList({ title, icon, items, onAsk }: { title: string; icon: React.ReactNode; items: string[]; onAsk: (q: string) => void }) {
   return (
     <section aria-label={title} className="grid gap-2">
-      <p className="text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">{title}</p>
+      <p className="text-[12px] font-semibold tracking-wide text-fg-subtle uppercase">{title}</p>
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {items.map((item) => (
           <li key={item}>
             <button
               type="button"
               onClick={() => onAsk(item)}
-              className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-fg transition-colors hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-none"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-fg transition-colors hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-none"
             >
-              <span className="text-[#15803d]">{icon}</span>
+              <span className="text-brand">{icon}</span>
               <span className="min-w-0 flex-1">{item}</span>
               <ChevronRight className="size-4 shrink-0 text-fg-subtle" aria-hidden />
             </button>

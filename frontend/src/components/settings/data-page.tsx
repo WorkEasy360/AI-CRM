@@ -54,7 +54,7 @@ export function DataPage() {
 
   return (
     <div>
-      <PageHeader title="Data" description="Bring records in from CSV or Excel files and take your data with you." />
+      <PageHeader title="Data" />
       <div className="grid gap-6">
         {importable.length > 0 ? <ImportSection entities={importable} /> : null}
         {exportable.length > 0 ? <ExportSection entities={exportable} /> : null}
@@ -114,7 +114,6 @@ function ImportSection({ entities }: { entities: { key: ImportEntity; label: str
         <CardTitle className="flex items-center gap-2">
           <FileUp className="size-4 text-primary" aria-hidden /> Import from CSV or Excel
         </CardTitle>
-        <CardDescription>Upload a file, match its columns to fields, check it, then run the import in the background.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
         <div className="grid gap-1.5 sm:max-w-xs">

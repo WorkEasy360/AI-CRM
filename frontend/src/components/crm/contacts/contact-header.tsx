@@ -99,7 +99,7 @@ export function ContactProfileCard({ contact, canEdit }: { contact: Contact; can
           {initials(title)}
         </span>
         <div className="min-w-0">
-          <h1 className="break-words text-lg font-semibold leading-tight tracking-tight">{title}</h1>
+          <h1 className="break-words text-2xl font-bold leading-tight tracking-tight text-fg">{title}</h1>
           {contact.job_title || contact.company ? (
             <p className="mt-0.5 text-sm text-fg-muted">
               {contact.job_title}

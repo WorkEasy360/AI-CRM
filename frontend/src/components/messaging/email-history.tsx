@@ -115,7 +115,7 @@ export function EmailHistory({
         <EmptyState
           icon={<Mail />}
           title="No emails yet"
-          description="Emails you send from here, and replies to them, are logged on this record so the whole team sees the conversation."
+          description="Emails and replies for this record will appear here."
           action={canSend ? <Button onClick={() => openComposer(null)}>Write an email</Button> : null}
           className="py-8"
         />

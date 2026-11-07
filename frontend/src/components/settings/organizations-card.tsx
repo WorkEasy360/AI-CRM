@@ -46,12 +46,12 @@ export function OrganizationsCard() {
   });
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <CardTitle>Your organizations</CardTitle>
-            <CardDescription>Organizations you belong to. Switching changes everything you see in the CRM.</CardDescription>
+            <CardDescription>Switching changes everything you see in the CRM.</CardDescription>
           </div>
           <Button variant="secondary" size="sm" onClick={() => setCreateOpen(true)}>
             <Plus /> New organization

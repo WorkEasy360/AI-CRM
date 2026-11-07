@@ -132,11 +132,10 @@ export function ActivitiesPage() {
   const startCreate = (kind: ActivityKind, mode: "schedule" | "log" = "schedule") => setCreating({ kind, mode });
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[96rem] flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col">
       <PageHeader
         icon={CalendarCheck}
         title="Activities"
-        description="Manage your tasks, calls, meetings and follow-ups in one place."
         actions={
           canCreate ? (
             <div className="inline-flex items-center">

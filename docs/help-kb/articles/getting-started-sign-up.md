@@ -1,7 +1,7 @@
 ---
 id: getting-started-sign-up
 title: How to Create a New Account
-question: How do I sign up for WorkEasy360 CRM?
+question: How do I sign up for WorkEasy CRM?
 module: Getting Started
 keywords: [sign up, signup, register, create account, new account, get started, account kaise banaye, register kaise kare, साइन अप, खाता बनाएं]
 route: /signup

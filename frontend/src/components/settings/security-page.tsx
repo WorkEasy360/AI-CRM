@@ -12,7 +12,7 @@ import { isReauthCancelled, useReauth } from "@/components/reauth-provider";
 import { TotpQr } from "@/components/settings/totp-qr";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
@@ -43,15 +43,19 @@ export function SecurityPage() {
   // With Workeasy360 as the only sign-in a Keel password cannot be used, so it is not offered here.
   const passwordEnabled = useAuthMethods().data?.password !== false;
   return (
-    <div className="grid max-w-3xl grid-cols-1 gap-6">
-      <PageHeader title="Security" description="Password, two-factor authentication and active sessions for your account." className="mb-0" />
-      {passwordEnabled ? (
-        <ChangePasswordCard />
-      ) : (
-        <p className="text-sm text-fg-muted">You sign in with your Workeasy360 account. Change your password and two-step verification in Workeasy360.</p>
-      )}
-      <MfaCard />
-      <SessionsCard />
+    <div>
+      <PageHeader title="Security" />
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        {passwordEnabled ? (
+          <ChangePasswordCard />
+        ) : (
+          <p className="text-sm text-fg-muted">You sign in with your Workeasy360 account. Change your password and two-step verification in Workeasy360.</p>
+        )}
+        <MfaCard />
+        <div className="xl:col-span-2">
+          <SessionsCard />
+        </div>
+      </div>
     </div>
   );
 }
@@ -97,7 +101,6 @@ function ChangePasswordCard() {
           <CardTitle className="flex items-center gap-2">
             <KeyRound className="size-4 text-primary" aria-hidden /> Password
           </CardTitle>
-          <CardDescription>Choose a strong password you do not use anywhere else.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <FormError message={fieldErrors.non_field_errors} />
@@ -240,7 +243,6 @@ function MfaCard() {
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="size-4 text-primary" aria-hidden /> Two-factor authentication
             </CardTitle>
-            <CardDescription>Protect your account with a time-based code from an authenticator app.</CardDescription>
           </div>
           {authenticators.isPending ? null : totpActive ? <Badge variant="success">Enabled</Badge> : <Badge variant="warning">Not enabled</Badge>}
         </div>
@@ -302,7 +304,7 @@ function MfaCard() {
                 {setup.totp_url ? (
                   <div className="grid gap-1">
                     <Label>Setup URL</Label>
-                    <code className="break-all rounded-sm bg-bg-subtle px-2 py-1.5 font-mono text-[12px] text-fg-muted">{setup.totp_url}</code>
+                    <code className="break-all rounded-sm bg-bg-subtle px-2 py-1.5 font-mono text-xs text-fg-muted">{setup.totp_url}</code>
                   </div>
                 ) : null}
               </div>
@@ -426,7 +428,6 @@ function SessionsCard() {
             <CardTitle className="flex items-center gap-2">
               <MonitorSmartphone className="size-4 text-primary" aria-hidden /> Active sessions
             </CardTitle>
-            <CardDescription>Devices currently signed in to your account.</CardDescription>
           </div>
           {others.length > 0 ? (
             <Button variant="secondary" size="sm" onClick={() => revoke.mutate(others.map((s) => s.id))} loading={revoke.isPending}>

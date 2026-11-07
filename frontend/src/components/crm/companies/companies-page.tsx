@@ -201,7 +201,7 @@ export function CompaniesPage() {
     <EmptyState
       icon={<Building2 />}
       title="No companies yet"
-      description="Add the accounts you sell to. Their contacts and deals gather underneath."
+      description="Companies you add will appear here."
       action={
         canCreate ? (
           <Button onClick={() => setCreateOpen(true)} onPointerEnter={warmForm} onFocus={warmForm}>

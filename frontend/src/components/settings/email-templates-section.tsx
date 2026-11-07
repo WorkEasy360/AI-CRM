@@ -70,7 +70,7 @@ export function EmailTemplatesSection({ canManage }: { canManage: boolean }) {
             <CardTitle className="flex items-center gap-2">
               <FileText className="size-4 text-primary" aria-hidden /> Email templates
             </CardTitle>
-            <CardDescription>Reusable subjects and bodies with placeholders that are filled in for the contact and deal when you pick one in the composer.</CardDescription>
+            <CardDescription>Placeholders are filled in for the contact and deal.</CardDescription>
           </div>
           {canManage ? (
             <Button size="sm" onClick={() => setEditing("new")}>
@@ -224,7 +224,7 @@ export function EmailTemplateDialog({ template, onOpenChange }: { template: Emai
                   type="button"
                   title={p.description}
                   onClick={() => insertPlaceholder(p.token)}
-                  className="rounded-sm border border-border bg-bg-subtle px-1.5 py-0.5 font-mono text-[12px] text-fg hover:border-border-strong"
+                  className="rounded-sm border border-border bg-bg-subtle px-1.5 py-0.5 font-mono text-xs text-fg hover:border-border-strong"
                 >
                   {p.token}
                 </button>

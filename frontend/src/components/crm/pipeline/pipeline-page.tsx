@@ -178,7 +178,7 @@ export function PipelinePage() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <PageHeader icon={Filter} title="Pipeline – Leads & Deals" description="Track, manage and close your leads with a visual sales pipeline." className="mb-3" />
+        <PageHeader icon={Filter} title="Pipeline – Leads & Deals" className="mb-3" />
         <PipelineKpis stats={stats.data} baseCurrency={baseCurrency} />
         {summary ? (
           <p className="sr-only" aria-live="polite">

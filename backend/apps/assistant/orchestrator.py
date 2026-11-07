@@ -297,7 +297,7 @@ def _out_of_scope(actor: Actor, page: str) -> dict[str, Any]:
     return {
         "answer_type": "out_of_scope",
         "mode": MODE_RETRIEVAL,
-        "headline": "I can only help with WorkEasy360 CRM.",
+        "headline": "I can only help with WorkEasy CRM.",
         "facts": [],
         "analysis": "Ask me how to use a feature, or about your own customers, deals and activities.",
         "recommendation": "",

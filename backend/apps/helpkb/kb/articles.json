@@ -683,7 +683,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nAsk WorkEasy AI how to do anything in WorkEasy360, such as \"How do I create a pipeline?\" or \"contact ko company se kaise link kare\". It answers from the WorkEasy360 help guide with the exact steps, and takes you to the right screen.\n\n## Steps\n1. Click **Ask WorkEasy AI** at the bottom right of any page.\n2. Click one of the **Help with this page** questions, or type your own question in English, Hindi or Hinglish.\n3. Press **Enter** or click **Ask**.\n4. Follow the numbered steps in the answer. The grey chips show the menu path.\n5. Click **Take me there** to open that screen. The button to start with is highlighted for a few seconds.\n6. Click a topic under **Related topics** to ask about the next step.\n7. Under **Was this helpful?**, click **Helpful** or **Not helpful**, and add a comment if you like.\n\n## Result\nYou see the steps for your task and can jump straight to the screen where you do it.\n\n## Tips\n- Ask \"How do I add one here?\" and WorkEasy AI uses the page you are on.\n- If your role cannot use a feature, the answer says so; ask your workspace admin for access.\n\n## Troubleshooting\n- **\"I couldn't find this in the WorkEasy360 help guide yet.\"** The guide has no article for it. Your question is passed to your workspace admins, who can add one.\n",
+   "body": "## Overview\nAsk WorkEasy AI how to do anything in WorkEasy CRM, such as \"How do I create a pipeline?\" or \"contact ko company se kaise link kare\". It answers from the WorkEasy CRM help guide with the exact steps, and takes you to the right screen.\n\n## Steps\n1. Click **Ask WorkEasy AI** at the bottom right of any page.\n2. Click one of the **Help with this page** questions, or type your own question in English, Hindi or Hinglish.\n3. Press **Enter** or click **Ask**.\n4. Follow the numbered steps in the answer. The grey chips show the menu path.\n5. Click **Take me there** to open that screen. The button to start with is highlighted for a few seconds.\n6. Click a topic under **Related topics** to ask about the next step.\n7. Under **Was this helpful?**, click **Helpful** or **Not helpful**, and add a comment if you like.\n\n## Result\nYou see the steps for your task and can jump straight to the screen where you do it.\n\n## Tips\n- Ask \"How do I add one here?\" and WorkEasy AI uses the page you are on.\n- If your role cannot use a feature, the answer says so; ask your workspace admin for access.\n\n## Troubleshooting\n- **\"I couldn't find this in the WorkEasy CRM help guide yet.\"** The guide has no article for it. Your question is passed to your workspace admins, who can add one.\n",
    "id": "assistant-help-guide",
    "keywords": [
     "how to",
@@ -2722,7 +2722,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe Help Center lists every WorkEasy360 guide, grouped by module. WorkEasy AI answers from these same guides.\n\n## Steps\n1. Click the **?** icon (**Help**) in the top bar.\n2. Click **Help Center**.\n3. Type in the search box, or click a module such as **Pipeline** or **Settings** to filter.\n4. Click a guide to open it.\n5. Click **Take me there** to open the screen the guide describes.\n\n## Result\nThe guide shows the steps, what you will see when done, tips and related topics.\n\n## Tips\n- A lock next to a guide means your role does not include that feature.\n- Click **Ask WorkEasy AI about this** on a guide to ask a follow-up question.\n",
+   "body": "## Overview\nThe Help Center lists every WorkEasy CRM guide, grouped by module. WorkEasy AI answers from these same guides.\n\n## Steps\n1. Click the **?** icon (**Help**) in the top bar.\n2. Click **Help Center**.\n3. Type in the search box, or click a module such as **Pipeline** or **Settings** to filter.\n4. Click a guide to open it.\n5. Click **Take me there** to open the screen the guide describes.\n\n## Result\nThe guide shows the steps, what you will see when done, tips and related topics.\n\n## Tips\n- A lock next to a guide means your role does not include that feature.\n- Click **Ask WorkEasy AI about this** on a guide to ask a follow-up question.\n",
    "id": "getting-started-help-center",
    "keywords": [
     "help center",
@@ -2903,7 +2903,7 @@
    "route": "/dashboard",
    "spotlight": "",
    "status": "published",
-   "title": "How to Find Your Way Around WorkEasy360 CRM",
+   "title": "How to Find Your Way Around WorkEasy CRM",
    "updated": "2026-11-06"
   },
   {
@@ -3016,7 +3016,7 @@
    "menu_path": "Sign in page → Create account",
    "module": "Getting Started",
    "permission": "",
-   "question": "How do I sign up for WorkEasy360 CRM?",
+   "question": "How do I sign up for WorkEasy CRM?",
    "related": [
     "getting-started-verify-email",
     "getting-started-login",
@@ -5141,7 +5141,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nAdd articles about how your team works, or change a WorkEasy360 guide article for your workspace only. WorkEasy AI and the Help Center use them straight away once published.\n\n## Before you start\n- You need the **Owner** or **Admin** role.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **AI Assistant** card, click **Knowledge Base**.\n3. Click **New article**, or click **Customise** next to a guide article.\n4. Fill in **Title**, **Question it answers**, **Module** and **Page (route)**.\n5. Write the article in **Markdown**, with the exact button names in bold.\n6. Click **Preview** to check it.\n7. Set **Status** to **Published (WorkEasy AI answers from it)**.\n8. Click **Save and publish**.\n\n## Result\nThe article appears under **Your workspace's articles** and in the Help Center. A customised article replaces the guide article for your workspace only.\n\n## Tips\n- Every save keeps a version. Open the article, click **Version history** and click **Restore** to go back.\n- Deleting a customised article brings back the original guide article.\n",
+   "body": "## Overview\nAdd articles about how your team works, or change a WorkEasy CRM guide article for your workspace only. WorkEasy AI and the Help Center use them straight away once published.\n\n## Before you start\n- You need the **Owner** or **Admin** role.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **AI Assistant** card, click **Knowledge Base**.\n3. Click **New article**, or click **Customise** next to a guide article.\n4. Fill in **Title**, **Question it answers**, **Module** and **Page (route)**.\n5. Write the article in **Markdown**, with the exact button names in bold.\n6. Click **Preview** to check it.\n7. Set **Status** to **Published (WorkEasy AI answers from it)**.\n8. Click **Save and publish**.\n\n## Result\nThe article appears under **Your workspace's articles** and in the Help Center. A customised article replaces the guide article for your workspace only.\n\n## Tips\n- Every save keeps a version. Open the article, click **Version history** and click **Restore** to go back.\n- Deleting a customised article brings back the original guide article.\n",
    "id": "settings-knowledge-base",
    "keywords": [
     "knowledge base",
@@ -5657,7 +5657,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nYour workspace logo appears in the sidebar for everyone in the workspace. Without one, the WorkEasy360 logo is shown.\n\n## Before you start\n- Only the Owner and Admins can change the logo.\n- Use a PNG, JPEG or WebP image of at most 512 KB.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **Workspace** card, click **Organization Details**.\n3. Scroll to the **Logo** card.\n4. Click **Upload logo**.\n5. Choose the image file on your computer.\n6. If a **Confirm it's you** window appears, enter your password and click **Confirm**.\n\n## Result\nA message says **Logo updated** and the new logo appears in the sidebar.\n\n## Tips\n- To go back to the default logo, click **Remove** in the **Logo** card. A message says **Logo removed**.\n- To change the name next to the logo, edit **CRM name** in the **General** card.\n\n## Troubleshooting\n- **\"That image is too large\".** Choose an image of at most 512 KB.\n- **\"Could not change the logo\".** Check that the file really is a PNG, JPEG or WebP image; the server checks the file contents.\n",
+   "body": "## Overview\nYour workspace logo appears in the sidebar for everyone in the workspace. Without one, the WorkEasy CRM logo is shown.\n\n## Before you start\n- Only the Owner and Admins can change the logo.\n- Use a PNG, JPEG or WebP image of at most 512 KB.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **Workspace** card, click **Organization Details**.\n3. Scroll to the **Logo** card.\n4. Click **Upload logo**.\n5. Choose the image file on your computer.\n6. If a **Confirm it's you** window appears, enter your password and click **Confirm**.\n\n## Result\nA message says **Logo updated** and the new logo appears in the sidebar.\n\n## Tips\n- To go back to the default logo, click **Remove** in the **Logo** card. A message says **Logo removed**.\n- To change the name next to the logo, edit **CRM name** in the **General** card.\n\n## Troubleshooting\n- **\"That image is too large\".** Choose an image of at most 512 KB.\n- **\"Could not change the logo\".** Check that the file really is a PNG, JPEG or WebP image; the server checks the file contents.\n",
    "id": "settings-upload-logo",
    "keywords": [
     "logo",

@@ -181,7 +181,7 @@ export function CustomFieldsPage() {
     <div>
       <PageHeader
         title="Custom fields"
-        description="Add your own fields to contacts, companies, deals and products. Keys are permanent; labels and options can change."
+        description="Field keys are permanent; labels and options can change."
         actions={
           canManage ? (
             <Button onClick={() => setEditing("new")}>

@@ -68,7 +68,7 @@ export function NotificationsSettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Notifications" description="Choose what you are told about, and where. Changes are saved as you make them." />
+      <PageHeader title="Notifications" description="Changes save automatically." />
       <div className="grid gap-6">
         <Card>
           <CardHeader>
@@ -141,7 +141,7 @@ function InactivityCard({ value, onSave, saving }: { value: number; onSave: (day
     <Card>
       <CardHeader>
         <CardTitle>Deal inactivity</CardTitle>
-        <CardDescription>Warn when a deal you own has had no activity for a while. Set to 0 to turn the warning off.</CardDescription>
+        <CardDescription>Set to 0 to turn the warning off.</CardDescription>
       </CardHeader>
       <CardContent>
         <form

@@ -148,7 +148,7 @@ def test_data_questions_still_go_to_the_crm(owner_client):
 def test_out_of_scope_is_declined(owner_client):
     answer = ask(owner_client, "What's the weather in Mumbai?")
     assert answer["answer_type"] == "out_of_scope"
-    assert "WorkEasy360" in answer["headline"]
+    assert "WorkEasy CRM" in answer["headline"]
 
 
 def test_help_usage_is_tracked_under_usage_and_limits(owner_client, org_a):
@@ -194,7 +194,7 @@ def test_model_answer_without_steps_is_discarded(owner_client):
 
 def test_model_saying_not_found_is_believed(owner_client, org_a):
     FakeProvider.next_text = (
-        "I couldn't find this in the WorkEasy360 help guide yet. I've shared your question with our team."
+        "I couldn't find this in the WorkEasy CRM help guide yet. I've shared your question with our team."
     )
     answer = ask(owner_client, "How do I create a pipeline for my warehouse robots?")
     assert answer["help"]["found"] is False

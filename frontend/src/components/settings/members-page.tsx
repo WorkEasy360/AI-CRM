@@ -176,7 +176,6 @@ export function MembersPage() {
     <div>
       <PageHeader
         title="Users & Teams"
-        description="Invite people, set their role and team, and control their access."
         actions={
           canInvite ? (
             <Button onClick={() => setInviteOpen(true)}>

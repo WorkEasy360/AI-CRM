@@ -20,6 +20,18 @@ export const badgeVariants = cva(
   },
 );
 
+/**
+ * Marks a feature that is shown but not usable yet: a quiet grey pill, never a colour that reads as a
+ * status. Pair it with a disabled control (or no link) so the feature cannot be mistaken for working.
+ */
+export function UpcomingBadge({ className }: { className?: string }) {
+  return (
+    <span className={cn(badgeVariants({ variant: "neutral" }), "px-1.5 py-0 text-[12px] font-semibold uppercase tracking-wide", className)}>
+      Upcoming
+    </span>
+  );
+}
+
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
 export function Badge({ className, variant, ...props }: BadgeProps) {

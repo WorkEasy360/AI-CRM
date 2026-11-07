@@ -11,10 +11,10 @@ function plural(count: number, word: string): string {
 }
 
 /**
- * Sequential greens for the funnel, light (top of the funnel) to dark (won). The first four carry
- * dark text, the last two white: both are AA at 12px.
+ * Sequential brand greens (the #08B96B ramp in tokens.css) for the funnel, light (top of the funnel)
+ * to dark (won). The first four carry navy text (>= 5.6:1), the last two white (>= 5.0:1).
  */
-const FUNNEL_RAMP = ["#bbf7d0", "#86efac", "#4ade80", "#22c55e", "#15803d", "#14532d"] as const;
+const FUNNEL_RAMP = ["#ccf0dd", "#99e1bc", "#5fd39a", "#08b96b", "#067f4b", "#045432"] as const;
 const FUNNEL_DARK_TEXT_UNTIL = 3;
 
 /**
@@ -38,7 +38,7 @@ export function SalesFunnel({ data, currency }: { data: DashboardSummary; curren
             <li
               key={s.id}
               title={`${s.name}: ${plural(reached[i]!, "deal")} reached this stage · ${plural(s.count, "deal")} here now, ${formatMoney(s.amount, currency)}`}
-              className={cn("flex h-7 items-center justify-center rounded-[4px] px-2 text-xs font-semibold tabular-nums", step <= FUNNEL_DARK_TEXT_UNTIL ? "text-[#052e16]" : "text-white")}
+              className={cn("flex h-7 items-center justify-center rounded-[4px] px-2 text-xs font-semibold tabular-nums", step <= FUNNEL_DARK_TEXT_UNTIL ? "text-[#172b3a]" : "text-white")}
               style={{ width: `${width}%`, backgroundColor: FUNNEL_RAMP[step] }}
             >
               <span className="truncate">
@@ -136,7 +136,7 @@ export function StageDonut({ data, currency }: { data: DashboardSummary; currenc
           <text x={60} y={60} textAnchor="middle" className="fill-fg text-[22px] font-bold tabular-nums">
             {total.toLocaleString()}
           </text>
-          <text x={60} y={76} textAnchor="middle" className="fill-fg-subtle text-[11px]">
+          <text x={60} y={76} textAnchor="middle" className="fill-fg-subtle text-[12px]">
             Deals
           </text>
         </g>
@@ -199,11 +199,11 @@ export function RevenueTrend({ data, currency }: { data: DashboardSummary; curre
               <rect x={p.x - Math.max(step, 24) / 2} y={top - 10} width={Math.max(step, 24)} height={plot + 10} fill="transparent" />
               <circle cx={p.x} cy={p.y} r={4} fill="var(--kl-brand)" stroke="var(--kl-surface)" strokeWidth={2} />
               {i === peak && max > 0 ? (
-                <text x={p.x} y={p.y - 9} textAnchor={i === trend.length - 1 ? "end" : i === 0 ? "start" : "middle"} className="fill-fg text-[11px] font-medium">
+                <text x={p.x} y={p.y - 9} textAnchor={i === trend.length - 1 ? "end" : i === 0 ? "start" : "middle"} className="fill-fg text-[12px] font-medium">
                   {formatMoney(values[i] ?? 0, currency)}
                 </text>
               ) : null}
-              <text x={p.x} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[11px]">
+              <text x={p.x} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[12px]">
                 {monthLabel(t.month)}
               </text>
             </g>
@@ -264,11 +264,11 @@ export function ForecastBars({ data, currency }: { data: DashboardSummary; curre
               <rect x={x + 0.5} y={height - bottom - hOpen + 0.5} width={bar - 1} height={Math.max(0, hOpen - 1)} rx={3} className="fill-primary/10 stroke-primary" strokeWidth={1} />
               <rect x={x} y={height - bottom - hWeighted} width={bar} height={hWeighted} rx={3} className="fill-primary" />
               {hOpen > 0 ? (
-                <text x={x + bar / 2} y={height - bottom - hOpen - 5} textAnchor="middle" className="fill-fg text-[11px] font-medium">
+                <text x={x + bar / 2} y={height - bottom - hOpen - 5} textAnchor="middle" className="fill-fg text-[12px] font-medium">
                   {formatMoney(m.weighted, currency)}
                 </text>
               ) : null}
-              <text x={x + bar / 2} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[11px]">
+              <text x={x + bar / 2} y={height - 6} textAnchor="middle" className="fill-fg-subtle text-[12px]">
                 {monthLabel(m.month)}
               </text>
             </g>
@@ -303,7 +303,7 @@ export function ForecastBars({ data, currency }: { data: DashboardSummary; curre
 
 export function ChartLegend({ items }: { items: { label: string; swatch: "hollow" | "solid" | "success" }[] }) {
   return (
-    <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-fg-muted" aria-label="Legend">
+    <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-fg-muted" aria-label="Legend">
       {items.map((item) => (
         <li key={item.label} className="inline-flex items-center gap-1.5">
           <span
@@ -338,14 +338,14 @@ export function DealsByOwner({ data, currency, pipeline }: { data: DashboardSumm
               <span className="mt-1 block h-2 overflow-hidden rounded-sm bg-bg-subtle" aria-hidden>
                 <span className="block h-full rounded-sm bg-primary" style={{ width: `${(Number(o.amount || 0) / max) * 100}%` }} />
               </span>
-              <span className="mt-0.5 block text-[12px] text-fg-subtle">
+              <span className="mt-0.5 block text-xs text-fg-subtle">
                 {plural(o.count, "deal")} · {formatMoney(o.weighted, currency)} weighted
               </span>
             </Link>
           </li>
         ))}
       </ol>
-      {owners.length > rows.length ? <p className="mt-2 text-[12px] text-fg-subtle">Top {rows.length} of {owners.length} salespeople.</p> : null}
+      {owners.length > rows.length ? <p className="mt-2 text-xs text-fg-subtle">Top {rows.length} of {owners.length} salespeople.</p> : null}
     </div>
   );
 }

@@ -204,7 +204,7 @@ export function StageTrack({
 function Tile({ label, children, sub, tone, className }: { label: string; children: React.ReactNode; sub?: React.ReactNode; tone?: "danger"; className?: string }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-0.5 rounded-md border border-border bg-surface px-3 py-2", tone === "danger" && "border-danger/40 bg-danger-soft/40", className)}>
-      <dt className="truncate text-[12px] font-medium uppercase tracking-wide text-fg-subtle">{label}</dt>
+      <dt className="truncate text-xs font-medium uppercase tracking-wide text-fg-subtle">{label}</dt>
       <dd className={cn("min-w-0 text-sm font-semibold leading-tight text-fg", tone === "danger" && "text-danger")}>{children}</dd>
       {sub ? <div className="min-w-0 truncate text-xs text-fg-muted">{sub}</div> : null}
     </div>
@@ -271,7 +271,7 @@ export function DealMetrics({
       <Tile label="Probability" sub={stageDefault !== undefined ? `Stage default ${stageDefault}%` : "Stage default"}>
         <span className="tabular-nums">{deal.probability}%</span>
         {deal.probability_overridden ? (
-          <span className="ml-1.5 rounded-sm border border-border-strong px-1 text-[11px] font-medium uppercase tracking-wide text-fg-muted" title="Set by hand; the stage default no longer applies.">
+          <span className="ml-1.5 rounded-sm border border-border-strong px-1 text-[12px] font-medium uppercase tracking-wide text-fg-muted" title="Set by hand; the stage default no longer applies.">
             manual
           </span>
         ) : null}

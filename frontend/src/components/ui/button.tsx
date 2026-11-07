@@ -7,20 +7,21 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm font-medium transition-colors select-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm font-medium transition-colors select-none disabled:pointer-events-none disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-brand text-brand-fg hover:bg-brand-hover shadow-sm",
-        accent: "bg-accent text-accent-fg hover:bg-accent-hover shadow-sm",
-        secondary: "bg-surface text-fg border border-border-strong hover:bg-bg-subtle shadow-sm",
-        ghost: "text-fg-muted hover:bg-bg-subtle hover:text-fg",
-        danger: "bg-danger text-danger-fg hover:bg-danger-hover shadow-sm",
-        "danger-ghost": "text-danger hover:bg-danger-soft",
-        link: "text-primary underline-offset-4 hover:underline h-auto px-0",
+        // Filled actions turn neutral grey when disabled; the quiet variants simply fade.
+        primary: "bg-brand text-brand-fg font-semibold hover:bg-brand-hover active:bg-brand-hover shadow-sm disabled:bg-bg-subtle disabled:text-fg-subtle disabled:shadow-none",
+        accent: "bg-accent text-accent-fg hover:bg-accent-hover shadow-sm disabled:bg-bg-subtle disabled:text-fg-subtle disabled:shadow-none",
+        secondary: "bg-surface text-fg border border-border-strong hover:bg-bg-subtle hover:border-fg-subtle/40 shadow-sm disabled:text-fg-subtle disabled:shadow-none disabled:opacity-70",
+        ghost: "text-fg-muted hover:bg-bg-subtle hover:text-fg disabled:opacity-50",
+        danger: "bg-danger text-danger-fg font-semibold hover:bg-danger-hover shadow-sm disabled:bg-bg-subtle disabled:text-fg-subtle disabled:shadow-none",
+        "danger-ghost": "text-danger hover:bg-danger-soft disabled:opacity-50",
+        link: "text-primary underline-offset-4 hover:underline h-auto px-0 disabled:opacity-50",
       },
       size: {
-        sm: "h-8 px-3 text-xs [&_svg]:size-3.5",
+        sm: "h-8 px-3 text-sm [&_svg]:size-4",
         md: "h-9 px-4 text-sm [&_svg]:size-4",
         lg: "h-11 px-5 text-md [&_svg]:size-4",
         icon: "size-9 [&_svg]:size-4",

@@ -1,5 +1,5 @@
 /*
- * Keel CRM service worker: installability and an offline page, nothing else.
+ * WorkEasy CRM service worker: installability and an offline page, nothing else.
  *
  * It never stores or serves CRM data. The only requests it touches are top-level page navigations,
  * and those always go to the network: every page is rendered per request with a fresh CSP nonce, so
@@ -14,7 +14,8 @@
  * self.registration.unregister(). Browsers re-check this script on every navigation
  * (registered with updateViaCache "none"), so it takes effect on the next visit.
  */
-const CACHE = "keel-offline-v1";
+// Bump the version whenever offline.html changes so installed workers re-cache it.
+const CACHE = "keel-offline-v2";
 const OFFLINE_URL = "/offline.html";
 const BACKEND_PREFIXES = ["/api/", "/_allauth/", "/health/", "/ready/"];
 

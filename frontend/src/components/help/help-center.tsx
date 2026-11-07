@@ -41,11 +41,10 @@ export function HelpCenterPage() {
   }, [results, data]);
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-4">
+    <div className="grid w-full gap-4">
       <PageHeader
         icon={BookOpen}
         title="Help Center"
-        description="Step-by-step guides for every part of WorkEasy360."
         actions={
           assistant?.available ? (
             <Button variant="secondary" size="sm" onClick={() => assistant.openPanel()} className="gap-1.5">
@@ -77,7 +76,7 @@ export function HelpCenterPage() {
             onClick={() => setModule(m)}
             className={cn(
               "rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              module === m ? "border-[#15803d] bg-[#15803d] text-white" : "border-border text-fg-muted hover:bg-bg-subtle hover:text-fg",
+              module === m ? "border-brand bg-brand text-white" : "border-border text-fg-muted hover:bg-bg-subtle hover:text-fg",
             )}
           >
             {m || "All topics"}
@@ -145,7 +144,7 @@ export function HelpArticlePage({ id }: { id: string }) {
         <article className="grid gap-4 rounded-xl border border-border bg-surface p-5">
           <header className="grid gap-2">
             <p className="text-xs font-medium text-fg-subtle">{data.article.module}</p>
-            <h1 className="text-xl font-bold tracking-tight text-fg">{data.article.title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-fg">{data.article.title}</h1>
             <p className="text-sm leading-relaxed text-fg-muted">
               <Inline text={data.content.overview} />
             </p>

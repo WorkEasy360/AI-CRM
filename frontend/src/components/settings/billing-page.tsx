@@ -4,7 +4,7 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CreditCard, Info, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import { Badge, UpcomingBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
 } from "@/lib/api/billing";
 import { errorMessage } from "@/lib/api/problem";
 import { hasPermission, useSession } from "@/lib/session";
+import { UPCOMING_ADDONS, UPCOMING_FEATURES, UPCOMING_METRICS } from "@/lib/upcoming";
 import { cn, formatDate } from "@/lib/utils";
 
 const KEY_LIMITS = ["users", "records", "pipelines", "automation_rules", "custom_fields", "ai_credits"] as const;
@@ -110,16 +111,16 @@ export function BillingPage() {
   const selfService = Boolean(sub?.self_service && canBill);
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Plan & usage" description="Your plan, what you're using against its limits, and how to raise them." />
+    <div className="space-y-6">
+      <PageHeader title="Plan & usage" />
 
       {sub ? <CurrentPlan sub={sub} /> : null}
 
       <section aria-labelledby="usage-heading">
-        <h2 id="usage-heading" className="mb-2 text-sm font-semibold text-fg">
+        <h2 id="usage-heading" className="mb-3 text-lg font-semibold text-fg">
           Usage
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {usage.data?.metrics.map((m) => (
             <UsageMeter key={m.key} metric={m} definition={m.key === "records" ? usage.data?.record_definition : undefined} />
           ))}
@@ -128,7 +129,7 @@ export function BillingPage() {
 
       <section aria-labelledby="plans-heading">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 id="plans-heading" className="text-sm font-semibold text-fg">
+          <h2 id="plans-heading" className="text-lg font-semibold text-fg">
             Plans
           </h2>
           <div role="radiogroup" aria-label="Billing cycle" className="inline-flex rounded-sm border border-border p-0.5">
@@ -140,7 +141,7 @@ export function BillingPage() {
                 aria-checked={cycle === c}
                 onClick={() => setCycle(c)}
                 className={cn(
-                  "rounded-sm px-3 py-1 text-xs font-medium",
+                  "rounded-sm px-3 py-1 text-sm font-medium",
                   cycle === c ? "bg-brand text-brand-fg" : "text-fg-muted hover:text-fg",
                 )}
               >
@@ -173,15 +174,19 @@ export function BillingPage() {
       <Card>
         <CardHeader>
           <CardTitle>Add-ons</CardTitle>
-          <CardDescription>Raise one limit without changing plan. Available on paid plans; limits rise immediately.</CardDescription>
+          <CardDescription>Available on paid plans; limits rise immediately.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="grid gap-2 lg:grid-cols-2">
           {catalog.data?.addons.map((a) => {
             const active = (addons.data?.results ?? []).filter((p) => p.addon === a.key && p.status === "active");
+            const upcoming = UPCOMING_ADDONS.has(a.key);
             return (
-              <div key={a.key} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border px-3 py-2">
+              <div key={a.key} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border px-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-fg">{a.label}</p>
+                  <p className={cn("flex items-center gap-2 text-sm font-medium", upcoming ? "text-fg-muted" : "text-fg")}>
+                    {a.label}
+                    {upcoming ? <UpcomingBadge /> : null}
+                  </p>
                   <p className="text-xs text-fg-muted">
                     {price(a.price_cents)} {a.recurring ? "/ month" : "one-off"}
                     {active.length ? ` · ${active.reduce((n, p) => n + p.quantity, 0)} active` : ""}
@@ -193,7 +198,7 @@ export function BillingPage() {
                       Remove one
                     </Button>
                   ) : null}
-                  <Button size="sm" variant="secondary" disabled={!selfService} loading={buyMutation.isPending} onClick={() => buyMutation.mutate(a.key)}>
+                  <Button size="sm" variant="secondary" disabled={!selfService || upcoming} loading={buyMutation.isPending} onClick={() => buyMutation.mutate(a.key)}>
                     Add
                   </Button>
                 </div>
@@ -268,10 +273,20 @@ function moduleLabel(module: string): string {
 }
 
 function UsageMeter({ metric, definition }: { metric: UsageMetric; definition?: string }) {
+  if (UPCOMING_METRICS.has(metric.key)) {
+    // Nothing counts this yet, so there is no figure to show.
+    return (
+      <div className="rounded-sm border border-dashed border-border-strong bg-surface p-3">
+        <p className="flex items-center justify-between gap-2 text-sm font-medium text-fg-muted">
+          {metric.label} <UpcomingBadge />
+        </p>
+      </div>
+    );
+  }
   const pct = metric.limit ? Math.min(100, Math.round((metric.used / metric.limit) * 100)) : metric.limit === null ? 0 : 100;
   const period = metric.period === "monthly" ? " this month" : metric.period === "daily" ? " today" : "";
   return (
-    <div className="rounded-sm border border-border bg-surface p-3">
+    <div className="rounded-sm border border-border bg-surface p-3 shadow-sm">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-sm font-medium text-fg">{metric.label}</p>
         <p className="text-xs text-fg-muted">
@@ -346,7 +361,7 @@ function PlanCard({
         </p>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-3">
-        <ul className="space-y-1 text-xs text-fg-muted">
+        <ul className="space-y-1 text-sm text-fg-muted">
           {KEY_LIMITS.map((k) => (
             <li key={k} className="flex justify-between gap-2">
               <span>{k === "custom_fields" ? "Custom fields / module" : k.replace("_", " ").replace(/^\w/, (c) => c.toUpperCase())}</span>
@@ -355,12 +370,18 @@ function PlanCard({
           ))}
         </ul>
         {highlights.length ? (
-          <ul className="space-y-1 text-xs text-fg">
-            {highlights.map((f) => (
-              <li key={f} className="flex items-center gap-1.5">
-                <Check className="size-3.5 text-primary" aria-hidden /> {featureLabel.get(f) ?? f}
-              </li>
-            ))}
+          <ul className="space-y-1.5 text-sm text-fg">
+            {highlights.map((f) =>
+              UPCOMING_FEATURES.has(f) ? (
+                <li key={f} className="flex items-center gap-1.5 text-fg-muted">
+                  <Check className="size-3.5 text-fg-subtle/60" aria-hidden /> {featureLabel.get(f) ?? f} <UpcomingBadge />
+                </li>
+              ) : (
+                <li key={f} className="flex items-center gap-1.5">
+                  <Check className="size-3.5 text-primary" aria-hidden /> {featureLabel.get(f) ?? f}
+                </li>
+              ),
+            )}
           </ul>
         ) : null}
         <div className="mt-auto space-y-2">

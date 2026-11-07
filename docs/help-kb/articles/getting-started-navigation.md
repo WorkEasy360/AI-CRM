@@ -1,6 +1,6 @@
 ---
 id: getting-started-navigation
-title: How to Find Your Way Around WorkEasy360 CRM
+title: How to Find Your Way Around WorkEasy CRM
 question: How do I move between pages in the CRM?
 module: Getting Started
 keywords: [navigation, sidebar, menu, left menu, top bar, find page, where is, menu kahan hai, page kaise khole, नेविगेशन, मेनू]

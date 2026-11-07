@@ -33,6 +33,7 @@
   --color-brand: var(--kl-brand);
   --color-brand-hover: var(--kl-brand-hover);
   --color-brand-fg: var(--kl-brand-fg);
+  --color-brand-soft: var(--kl-brand-soft);
   --color-accent: var(--kl-accent);
   --color-accent-hover: var(--kl-accent-hover);
   --color-accent-soft: var(--kl-accent-soft);
@@ -48,6 +49,7 @@
   --color-danger-fg: var(--kl-danger-fg);
   --color-overlay: var(--kl-overlay);
   --color-chrome: var(--kl-chrome);
+  --color-chrome-raised: var(--kl-chrome-raised);
   --color-chrome-sidebar: var(--kl-chrome-sidebar);
   --color-chrome-active: var(--kl-chrome-active);
   --color-chrome-indicator: var(--kl-chrome-indicator);
@@ -55,7 +57,7 @@
 
   --radius-sm: var(--kl-radius-sm);
   --radius-md: var(--kl-radius-md);
-  --radius-lg: 14px;
+  --radius-lg: var(--kl-radius-lg);
 
   --shadow-sm: var(--kl-shadow-sm);
   --shadow-md: var(--kl-shadow-md);
@@ -78,6 +80,8 @@
   --text-xl--line-height: var(--kl-leading-xl);
   --text-2xl: var(--kl-text-2xl);
   --text-2xl--line-height: var(--kl-leading-2xl);
+  --text-3xl: var(--kl-text-3xl);
+  --text-3xl--line-height: var(--kl-leading-3xl);
 }
 
 @layer base {
@@ -87,6 +91,7 @@
   html {
     font-family: var(--kl-font-sans);
     -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
     text-rendering: optimizeLegibility;
   }
   body {
@@ -104,13 +109,13 @@
   }
 }
 
-/* The sidebar rail: forest green, a shade deeper toward the bottom. */
+/* The sidebar rail: the same flat dark navy as the top bar. */
 .kl-sidebar {
-  background: linear-gradient(180deg, var(--kl-chrome-sidebar) 0%, var(--kl-chrome-sidebar-end) 100%);
+  background: var(--kl-chrome-sidebar);
 }
 
 /*
- * The green app chrome (sidebar and sub-panels). Re-pointing the neutral tokens here lets the same
+ * The navy app chrome (top bar, sidebar and sub-panels). Re-pointing the neutral tokens here lets the same
  * ghost buttons, search field and nav links used everywhere else read light-on-navy without
  * per-component colour overrides. Menus and dialogs opened from the chrome portal to <body>, so
  * they keep the normal surface colours. Brand/danger are left alone: the green "New" button and
@@ -122,7 +127,7 @@
   --kl-fg-subtle: var(--kl-chrome-fg-muted);
   --kl-bg: rgb(255 255 255 / 0.08);
   --kl-bg-subtle: rgb(255 255 255 / 0.1);
-  --kl-surface: var(--kl-chrome);
+  --kl-surface: var(--kl-chrome-raised);
   --kl-border: rgb(255 255 255 / 0.1);
   --kl-border-strong: rgb(255 255 255 / 0.18);
   --kl-ring: var(--kl-brand-bright);
@@ -196,7 +201,7 @@
   z-index: 60;
   pointer-events: none;
   border-radius: 10px;
-  box-shadow: 0 0 0 3px #15803d, 0 0 0 9999px rgb(0 0 0 / 0.18);
+  box-shadow: 0 0 0 3px var(--kl-brand), 0 0 0 9999px rgb(0 0 0 / 0.18);
   animation: kl-spotlight-pulse 1.2s ease-in-out infinite;
   transition: top 0.1s, left 0.1s, width 0.1s, height 0.1s;
 }
@@ -206,15 +211,15 @@
   left: 0;
   white-space: nowrap;
   border-radius: 6px;
-  background: #15803d;
+  background: var(--kl-brand);
   padding: 2px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
 }
 @keyframes kl-spotlight-pulse {
   50% {
-    box-shadow: 0 0 0 6px #15803d, 0 0 0 9999px rgb(0 0 0 / 0.18);
+    box-shadow: 0 0 0 6px var(--kl-brand), 0 0 0 9999px rgb(0 0 0 / 0.18);
   }
 }
 @media (prefers-reduced-motion: reduce) {

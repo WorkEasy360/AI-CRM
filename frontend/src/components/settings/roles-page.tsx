@@ -467,7 +467,6 @@ function HierarchyTab() {
       <Card>
         <CardHeader>
           <CardTitle>People</CardTitle>
-          <CardDescription>Place each person in the hierarchy.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-1">
           {members.items.map((m) => {
@@ -528,7 +527,7 @@ function FieldsTab() {
     <Card>
       <CardHeader>
         <CardTitle>Field permissions</CardTitle>
-        <CardDescription>Hide a field from a profile, or let it see but not change it. The Owner always has full access.</CardDescription>
+        <CardDescription>The Owner always has full access.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-2">

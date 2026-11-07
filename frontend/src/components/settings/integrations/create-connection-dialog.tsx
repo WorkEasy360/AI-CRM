@@ -368,7 +368,7 @@ export function CreateConnectionDialog({ open, onOpenChange }: { open: boolean; 
               <details open={advancedOpen} onToggle={(e) => setAdvancedOpen(e.currentTarget.open)} className="rounded-sm border border-border">
                 <summary className="cursor-pointer select-none px-4 py-2.5 text-sm font-medium">Advanced</summary>
                 <div className="grid gap-4 border-t border-border p-4">
-                  <p className="text-xs text-fg-subtle">Only change these if the API does not follow common conventions. Leave blank to use the defaults.</p>
+                  <p className="text-xs text-fg-subtle">Leave blank to use the defaults.</p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <TextField form={form} name="health_path" label="Health check path" placeholder="/me" serverError={serverErrors.health_path} />
                     {authType === "api_key" ? (

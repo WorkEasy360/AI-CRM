@@ -475,7 +475,7 @@ export function SheetView({
             {columns.map((c, i) => (
               <div key={c.key} role="columnheader" className="flex shrink-0 items-center gap-1 border-r border-border px-2 py-2" style={{ width: widths[i] }} title={c.read_only ? "Read only for you" : undefined}>
                 <span className="truncate">{c.label}</span>
-                {!canEditInline(c) ? <span className="text-[10px] font-normal text-fg-subtle">{c.read_only ? "read only" : "locked"}</span> : null}
+                {!canEditInline(c) ? <span className="text-[11px] font-normal text-fg-subtle">{c.read_only ? "read only" : "locked"}</span> : null}
               </div>
             ))}
           </div>

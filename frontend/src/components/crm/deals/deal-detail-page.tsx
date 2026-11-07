@@ -173,14 +173,14 @@ export function DealDetailPage({ id }: { id: string }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h1 className="truncate text-xl font-semibold tracking-tight">{record.name}</h1>
+              <h1 className="truncate text-2xl font-bold tracking-tight text-fg">{record.name}</h1>
               <span className="text-lg font-semibold tabular-nums text-fg-muted">· {formatMoney(record.amount, record.currency)}</span>
               {archived ? <Badge variant="warning">Deleted</Badge> : null}
               <StatusBadge status={record.status} />
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
               <span className="inline-flex items-center gap-1.5">
-                {record.owner ? <Avatar name={record.owner.display_name} size="sm" className="size-5 text-[10px]" /> : null}
+                {record.owner ? <Avatar name={record.owner.display_name} size="sm" className="size-5 text-[11px]" /> : null}
                 {record.owner ? record.owner.display_name : "Unassigned"}
               </span>
               <span>{record.pipeline.name}</span>

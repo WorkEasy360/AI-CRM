@@ -147,7 +147,7 @@ export function RecordCalendar({
           const outside = d.getMonth() !== month.getMonth();
           return (
             <div key={key} role="gridcell" className={cn("min-h-24 border-b border-r border-border p-1", outside && "bg-bg-subtle/60 text-fg-subtle")}>
-              <div className={cn("mb-0.5 text-right text-[11px]", key === today && "font-semibold text-primary")}>{d.getDate()}</div>
+              <div className={cn("mb-0.5 text-right text-[12px]", key === today && "font-semibold text-primary")}>{d.getDate()}</div>
               <ul className="flex flex-col gap-0.5">
                 {entry?.records.slice(0, 4).map((r) => (
                   <li key={r.id}>

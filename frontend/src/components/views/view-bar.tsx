@@ -117,8 +117,8 @@ export function ViewBar({
               </span>
               <span className="ml-2 flex shrink-0 items-center gap-1">
                 {v.is_default ? <Star className="size-3 fill-current text-warning" aria-label="Your default" /> : null}
-                <span className="text-[11px] text-fg-subtle">{VIEW_LABELS[v.kind]}</span>
-                {v.visibility !== "private" ? <Badge className="px-1 py-0 text-[10px]">Shared</Badge> : null}
+                <span className="text-[12px] text-fg-subtle">{VIEW_LABELS[v.kind]}</span>
+                {v.visibility !== "private" ? <Badge className="px-1 py-0 text-[11px]">Shared</Badge> : null}
               </span>
             </DropdownMenuItem>
           ))}

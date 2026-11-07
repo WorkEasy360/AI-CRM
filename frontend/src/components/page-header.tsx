@@ -11,17 +11,19 @@ export function PageHeader({
   title: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
-  /** The module's icon, drawn large in brand green beside the title (the WorkEasy360 page header). */
+  /** The module's icon, on a soft brand tile beside the title (module pages; settings pages omit it). */
   icon?: React.ComponentType<{ className?: string }>;
   className?: string;
 }) {
   if (Icon) {
     return (
-      <div className={cn("mb-4 flex flex-wrap items-center justify-between gap-3", className)}>
-        <div className="flex min-w-0 items-center gap-3">
-          <Icon className="size-10 shrink-0 text-brand" aria-hidden />
+      <div className={cn("mb-5 flex flex-wrap items-center justify-between gap-3", className)}>
+        <div className="flex min-w-0 items-center gap-3.5">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand" aria-hidden>
+            <Icon className="size-6" />
+          </span>
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-fg">{title}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-fg">{title}</h1>
             {description ? <Text className="mt-0.5 text-sm text-fg-muted">{description}</Text> : null}
           </div>
         </div>
@@ -30,12 +32,12 @@ export function PageHeader({
     );
   }
   return (
-    <div className={cn("mb-3 flex flex-wrap items-center justify-between gap-2", className)}>
+    <div className={cn("mb-5 flex flex-wrap items-center justify-between gap-3", className)}>
       <div className="min-w-0">
-        <h1 className="text-lg font-semibold tracking-tight text-fg">{title}</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-fg">{title}</h1>
         {description ? (
           // Descriptions may be arbitrary nodes (chips, skeletons); <p> cannot hold block children.
-          <Text className="mt-0.5 text-xs text-fg-muted">{description}</Text>
+          <Text className="mt-1 text-sm text-fg-muted">{description}</Text>
         ) : null}
       </div>
       {actions ? <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}

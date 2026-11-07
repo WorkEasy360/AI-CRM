@@ -42,7 +42,7 @@ export function AISettingsPage() {
 
   return (
     <div>
-      <PageHeader title="AI assistant" description="Usage, limits and how the assistant is allowed to help." />
+      <PageHeader title="AI assistant" />
       {usage.isPending ? (
         <SkeletonRows rows={4} />
       ) : usage.isError ? (
@@ -129,7 +129,6 @@ function ByFeature({ rows }: { rows: AIUsage["by_feature"] }) {
     <Card>
       <CardHeader>
         <CardTitle>By feature</CardTitle>
-        <CardDescription>Which assistants your team uses most.</CardDescription>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
@@ -273,7 +272,6 @@ function PolicyCard({ settings }: { settings: AISettings }) {
     <Card>
       <CardHeader>
         <CardTitle>AI policy</CardTitle>
-        <CardDescription>What this workspace allows the assistant to do.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
         <div className="flex items-start justify-between gap-4">
@@ -340,7 +338,7 @@ function KnowledgeCard({ knowledge }: { knowledge: AISettings["knowledge"] }) {
         <CardTitle className="flex items-center gap-2">
           <Database className="size-4 text-primary" aria-hidden /> Knowledge search
         </CardTitle>
-        <CardDescription>Notes, emails, WhatsApp messages and meeting write-ups Ask WorkEasy can search.</CardDescription>
+        <CardDescription>Notes, emails, WhatsApp messages and meeting write-ups WorkEasy AI can search.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">

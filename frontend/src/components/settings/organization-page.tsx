@@ -105,9 +105,11 @@ export function OrganizationPage() {
   }, [loaded?.timezone, timezones]);
 
   return (
-    <div className="max-w-2xl">
-      <PageHeader title="General Settings" description="Manage your CRM basics and business details." />
+    <div>
+      <PageHeader title="General Settings" />
 
+      {/* The form takes the wide column; the logo and organization cards sit beside it on large screens. */}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       {org.isPending && !loaded ? (
         <SkeletonRows rows={4} />
       ) : (
@@ -151,7 +153,7 @@ export function OrganizationPage() {
                   {(field) => <Input {...field} disabled={!canUpdate} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
                 </FormField>
                 <FormField control={form.control} name="crm_name" label="CRM name" serverError={fieldErrors.crm_name} description="Shown at the top of the sidebar.">
-                  {(field) => <Input {...field} disabled={!canUpdate} value={field.value} placeholder="WorkEasy360" maxLength={60} onChange={(e) => field.onChange(e.target.value)} />}
+                  {(field) => <Input {...field} disabled={!canUpdate} value={field.value} placeholder="WorkEasy CRM" maxLength={60} onChange={(e) => field.onChange(e.target.value)} />}
                 </FormField>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -233,8 +235,11 @@ export function OrganizationPage() {
           </Card>
         </form>
       )}
-      {loaded ? <LogoCard org={loaded} canUpdate={canUpdate} /> : null}
-      <OrganizationsCard />
+      <div className="grid gap-5">
+        {loaded ? <LogoCard org={loaded} canUpdate={canUpdate} /> : null}
+        <OrganizationsCard />
+      </div>
+      </div>
     </div>
   );
 }
@@ -259,10 +264,10 @@ function LogoCard({ org, canUpdate }: { org: Organization; canUpdate: boolean })
   const remove = useMutation({ mutationFn: () => runSensitive(() => removeOrganizationLogo()), onSuccess: () => done("Logo removed"), onError: fail });
 
   return (
-    <Card className="mt-4">
+    <Card>
       <CardHeader>
         <CardTitle>Logo</CardTitle>
-        <CardDescription>Shown in the sidebar for everyone in this workspace. PNG, JPEG or WebP, up to 512 KB.</CardDescription>
+        <CardDescription>PNG, JPEG or WebP, up to 512 KB.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-4">
         <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface">

@@ -80,7 +80,6 @@ export function KnowledgeBasePage() {
       </Link>
       <PageHeader
         title="Knowledge Base"
-        description="The guide WorkEasy AI answers “how do I…” questions from. Add your own articles or adapt the guide for your team."
         actions={
           <Button size="sm" className="gap-1.5" onClick={() => setEditing({ mode: "new" })}>
             <Plus className="size-4" aria-hidden /> New article
@@ -155,7 +154,7 @@ function ArticlesTab({ onEdit }: { onEdit: (target: EditorTarget) => void }) {
                 <TableRow key={article.id}>
                   <TableCell>
                     <span className="font-medium text-fg">{article.title}</span>
-                    {article.overrides_global ? <span className="ml-2 rounded-full bg-bg-subtle px-1.5 text-[11px] text-fg-muted">Replaces guide article</span> : null}
+                    {article.overrides_global ? <span className="ml-2 rounded-full bg-bg-subtle px-1.5 text-[12px] text-fg-muted">Replaces guide article</span> : null}
                   </TableCell>
                   <TableCell>{article.module}</TableCell>
                   <TableCell>
@@ -180,7 +179,7 @@ function ArticlesTab({ onEdit }: { onEdit: (target: EditorTarget) => void }) {
       <section aria-labelledby="kb-guide" className="grid gap-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="kb-guide" className="text-sm font-semibold text-fg">
-            WorkEasy360 guide <span className="font-normal text-fg-subtle">({data.global.length})</span>
+            WorkEasy CRM guide <span className="font-normal text-fg-subtle">({data.global.length})</span>
           </h2>
           <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter articles" aria-label="Filter guide articles" className="h-8 w-56" />
         </div>
@@ -228,7 +227,7 @@ function ArticlesTab({ onEdit }: { onEdit: (target: EditorTarget) => void }) {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", status === "published" ? "bg-[#dcfce7] text-[#15803d]" : "bg-bg-subtle text-fg-muted")}>
+    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", status === "published" ? "bg-brand-soft text-brand" : "bg-bg-subtle text-fg-muted")}>
       {status === "published" ? "Published" : "Draft"}
     </span>
   );
@@ -424,7 +423,7 @@ function ArticleEditor({ target, onClose }: { target: EditorTarget; onClose: () 
                   role="tab"
                   aria-selected={tab === name}
                   onClick={() => setTab(name)}
-                  className={cn("-mb-px border-b-2 px-3 py-1.5 text-sm", tab === name ? "border-[#15803d] font-medium text-fg" : "border-transparent text-fg-muted hover:text-fg")}
+                  className={cn("-mb-px border-b-2 px-3 py-1.5 text-sm", tab === name ? "border-brand font-medium text-fg" : "border-transparent text-fg-muted hover:text-fg")}
                 >
                   {name === "write" ? "Markdown" : name === "preview" ? "Preview" : "Version history"}
                 </button>
@@ -526,7 +525,7 @@ function UnansweredTab({ onCreate }: { onCreate: (question: HelpUnanswered) => v
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-fg-muted">Questions members asked that the guide had no article for. Turn the common ones into articles.</p>
+        <p className="text-sm text-fg-muted">Questions the guide had no article for.</p>
         <Select value={status} onValueChange={(value) => setStatus(value as HelpUnanswered["status"])}>
           <SelectTrigger className="h-8 w-40" aria-label="Show questions">
             <SelectValue />
@@ -630,7 +629,7 @@ function ReportTab() {
             {data.recent_comments.map((c, index) => (
               <li key={index} className="rounded-md border border-border px-3 py-2 text-sm">
                 <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
-                  {c.rating === 1 ? <ThumbsUp className="size-3.5 text-[#15803d]" aria-label="Helpful" /> : <ThumbsDown className="size-3.5 text-danger" aria-label="Not helpful" />}
+                  {c.rating === 1 ? <ThumbsUp className="size-3.5 text-brand" aria-label="Helpful" /> : <ThumbsDown className="size-3.5 text-danger" aria-label="Not helpful" />}
                   {c.article_id || "No article"} · {formatDateTime(c.created_at)}
                 </p>
                 <p className="mt-1 text-fg-muted">“{c.question}”</p>

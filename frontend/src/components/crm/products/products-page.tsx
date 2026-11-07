@@ -157,7 +157,7 @@ export function ProductsPage() {
     <EmptyState
       icon={<Package />}
       title="Track what you sell."
-      description="Add your products and services with their prices, so deals can carry line items and totals."
+      description="Products you add will appear here."
       className="py-16"
       action={
         <div className="flex flex-wrap items-center justify-center gap-2">

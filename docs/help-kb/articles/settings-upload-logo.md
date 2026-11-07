@@ -13,7 +13,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-Your workspace logo appears in the sidebar for everyone in the workspace. Without one, the WorkEasy360 logo is shown.
+Your workspace logo appears in the sidebar for everyone in the workspace. Without one, the WorkEasy CRM logo is shown.
 
 ## Before you start
 - Only the Owner and Admins can change the logo.
