@@ -21,7 +21,7 @@ SECRET_KEY_FALLBACKS = env.list("SECRET_KEY_FALLBACKS", default=[])
 DEBUG = False
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 FRONTEND_ORIGIN = env("FRONTEND_ORIGIN", default="http://localhost:4000")
-SITE_NAME = "WorkEasy CRM"
+SITE_NAME = "WorkEasyCRM"
 
 # ----------------------------------------------------------------------------- apps / middleware
 INSTALLED_APPS = [
@@ -281,7 +281,7 @@ ACCOUNT_PASSWORD_MIN_LENGTH = 12
 PASSWORD_RESET_TIMEOUT = 3600
 ACCOUNT_LOGIN_BY_CODE_ENABLED = False
 ACCOUNT_SESSION_REMEMBER = None
-ACCOUNT_EMAIL_SUBJECT_PREFIX = "[WorkEasy CRM] "
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[WorkEasyCRM] "
 ACCOUNT_RATE_LIMITS = {
     "change_password": "5/m/user",  # nosec B105 - rate limit, not a secret
     "manage_email": "10/m/user",
@@ -314,7 +314,7 @@ HEADLESS_FRONTEND_URLS = {
 }
 
 # ----------------------------------------------------------------------------- Workeasy360 sign-in
-# Workeasy360 is the identity provider for WorkEasy CRM (docs/workeasy360-sso.md, ADR-0013): an OpenID
+# Workeasy360 is the identity provider for WorkEasyCRM (docs/workeasy360-sso.md, ADR-0013): an OpenID
 # Connect authorization code flow with PKCE and private_key_jwt client authentication. Only the issuer
 # is configured; every endpoint comes from its discovery document. Sign-in is offered when the issuer,
 # client id, redirect URI, key id and private key are all set (apps.accounts.workeasy360.config).
@@ -343,7 +343,7 @@ WORKEASY360_DEFAULT_ROLE = env("WORKEASY360_DEFAULT_ROLE", default="sales_rep")
 # self-service organization creation are refused. On by default (and in production, which refuses to
 # start unless Workeasy360 sign-in is configured); config.settings.dev and test turn it off.
 WORKEASY360_SSO_ONLY = env.bool("WORKEASY360_SSO_ONLY", default=True)
-# Where Workeasy360 returns the browser after "sign out of WorkEasy CRM and Workeasy360" (RP-initiated
+# Where Workeasy360 returns the browser after "sign out of WorkEasyCRM and Workeasy360" (RP-initiated
 # logout). Must be registered for this client in Workeasy360 exactly (its post-logout URIs), e.g.
 # https://crm.workeasy360.com/login. Empty: only Keel's own sign-out is offered.
 WORKEASY360_POST_LOGOUT_REDIRECT_URI = env("WORKEASY360_POST_LOGOUT_REDIRECT_URI", default="")
@@ -393,7 +393,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "WorkEasy CRM API",
+    "TITLE": "WorkEasyCRM API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,

@@ -13,7 +13,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-A webhook makes WorkEasy CRM send a signed HTTPS request to your endpoint the moment selected events happen, such as a new contact or a deal changing stage.
+A webhook makes WorkEasyCRM send a signed HTTPS request to your endpoint the moment selected events happen, such as a new contact or a deal changing stage.
 
 ## Before you start
 - You need the Owner or Admin role (`webhooks.manage`).

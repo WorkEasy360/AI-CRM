@@ -13,7 +13,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-API keys let external software use the WorkEasy CRM API with only the permissions you grant. A key can never do more than the member who created it.
+API keys let external software use the WorkEasyCRM API with only the permissions you grant. A key can never do more than the member who created it.
 
 ## Before you start
 - You need the Owner or Admin role (`integrations.manage`).

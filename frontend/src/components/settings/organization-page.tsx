@@ -153,7 +153,7 @@ export function OrganizationPage() {
                   {(field) => <Input {...field} disabled={!canUpdate} value={field.value} onChange={(e) => field.onChange(e.target.value)} />}
                 </FormField>
                 <FormField control={form.control} name="crm_name" label="CRM name" serverError={fieldErrors.crm_name} description="Shown at the top of the sidebar.">
-                  {(field) => <Input {...field} disabled={!canUpdate} value={field.value} placeholder="WorkEasy CRM" maxLength={60} onChange={(e) => field.onChange(e.target.value)} />}
+                  {(field) => <Input {...field} disabled={!canUpdate} value={field.value} placeholder="WorkEasyCRM" maxLength={60} onChange={(e) => field.onChange(e.target.value)} />}
                 </FormField>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">

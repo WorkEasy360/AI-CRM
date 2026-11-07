@@ -10,11 +10,11 @@
 | Account menu / profile | /settings/security | Top bar → Account menu → Profile & security | — | — | Shows name, email, organization · role; Profile & security; Settings | getting-started-profile |
 | Theme | (all app pages) | Account menu → Theme | — | Light / Dark / System | Switch theme (stored in browser) | getting-started-theme |
 | Switch organization | (all app pages) | Account menu → Organization | — | — | Pick organization (only with >1 active membership); lands on /pipeline | getting-started-switch-workspace |
-| Sign out | (all app pages) | Account menu → Sign out | — | — | Sign out; or Sign out of WorkEasy CRM / Sign out of WorkEasy CRM and Workeasy360 (Workeasy360 sessions) | getting-started-sign-out |
+| Sign out | (all app pages) | Account menu → Sign out | — | — | Sign out; or Sign out of WorkEasyCRM / Sign out of WorkEasyCRM and Workeasy360 (Workeasy360 sessions) | getting-started-sign-out |
 | Mobile bottom bar | (all app pages, < lg) | Bottom bar | search.use for Search; create perms for New | — | Pipeline, Contacts, Activities, Search, New (Task, Call, Contact, Deal) | getting-started-mobile-navigation |
 | Sign in (password) | /login | Sign in | — | Email*, Password* | Sign in, Forgot password?, Create account, Use another sign-in method | getting-started-login |
 | Sign in 2FA step | /login | Sign in → Two-factor authentication | — | Authentication code* (TOTP or recovery code) | Verify, Use a different account | getting-started-login-two-factor |
-| Workeasy360 sign-in | /login | Sign in → Already a Workeasy360 user? | — | — | Access WorkEasy CRM | getting-started-workeasy360-sign-in |
+| Workeasy360 sign-in | /login | Sign in → Already a Workeasy360 user? | — | — | Access WorkEasyCRM | getting-started-workeasy360-sign-in |
 | Sign up | /signup | Sign in → Create account | — | Name*, Email*, Password* (min 12) | Create account → Check your email | getting-started-sign-up |
 | Verify email | /verify-email/[key] | Email link | — | — | Open your CRM / Sign in; Go to sign in on failure | getting-started-verify-email |
 | Forgot / reset password | /forgot-password, /reset-password/[key] | Sign in → Forgot password? | — | Email*; New password* (min 12), Confirm new password* | Send reset link, Update password, Sign in | getting-started-forgot-password |

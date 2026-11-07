@@ -38,7 +38,7 @@ export interface Organization {
   plan: string;
   status: string;
   require_mfa: boolean;
-  /** Product name for this workspace's sidebar; empty means "WorkEasy CRM". */
+  /** Product name for this workspace's sidebar; empty means "WorkEasyCRM". */
   crm_name?: string;
   date_format?: string;
   /** Same-origin URL of the workspace logo, or null. */

@@ -344,7 +344,7 @@ function ConnectionActions({ connection }: { connection: ConnectionDetail }) {
         open={confirmDisconnect}
         onOpenChange={setConfirmDisconnect}
         title={`Disconnect ${connection.name}?`}
-        description="WorkEasy CRM stops syncing and delivering data, revokes access where the provider supports it, and deletes the stored credentials and inbound webhook secret. CRM data, including records that were synced, is kept."
+        description="WorkEasyCRM stops syncing and delivering data, revokes access where the provider supports it, and deletes the stored credentials and inbound webhook secret. CRM data, including records that were synced, is kept."
         confirmLabel="Disconnect"
         destructive
         loading={disconnect.isPending}

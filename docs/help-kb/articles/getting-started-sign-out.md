@@ -23,8 +23,8 @@ Your session ends and the **Sign in** page opens.
 
 ## Tips
 - If you signed in with a Workeasy360 account, the menu shows two options instead:
-  - **Sign out of WorkEasy CRM** ends only your CRM session.
-  - **Sign out of WorkEasy CRM and Workeasy360** also takes you to Workeasy360, which asks before signing you out there.
+  - **Sign out of WorkEasyCRM** ends only your CRM session.
+  - **Sign out of WorkEasyCRM and Workeasy360** also takes you to Workeasy360, which asks before signing you out there.
 - To sign out other devices, use **Active sessions** on the **Profile & security** page.
 
 ## Troubleshooting

@@ -75,7 +75,7 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
     return () => setUnauthenticatedHandler(null);
   }, [queryClient]);
 
-  // Workeasy360 says the organization's access to WorkEasy CRM has ended (its entitlement re-check, enforced
+  // Workeasy360 says the organization's access to WorkEasyCRM has ended (its entitlement re-check, enforced
   // by the API). Any call can discover it; one explanation replaces the CRM instead of an error on every
   // page. The session itself is fine, so signing out stays possible.
   // The same screen explains "sign in with Workeasy360" (a session that never came from it, in a deployment
@@ -92,8 +92,8 @@ export function AuthGate({ children, fallback }: { children: (session: Session) 
           error.type === PROBLEM_TYPES.signInRequired
             ? "Sign in with Workeasy360"
             : error.type === PROBLEM_TYPES.accessUnverified
-              ? "WorkEasy CRM can't confirm your access"
-              : "WorkEasy CRM access has ended",
+              ? "WorkEasyCRM can't confirm your access"
+              : "WorkEasyCRM access has ended",
         message: error.message,
         signInRequired: error.type === PROBLEM_TYPES.signInRequired,
       }),

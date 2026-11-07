@@ -91,7 +91,7 @@ describe("HelpAnswerCard", () => {
   });
 
   it("shows the not-found message and suggestions", () => {
-    wrap(<HelpAnswerCard help={{ ...help, found: false, article: null, content: null, summary: "I couldn't find this in the WorkEasy CRM help guide yet." }} />);
+    wrap(<HelpAnswerCard help={{ ...help, found: false, article: null, content: null, summary: "I couldn't find this in the WorkEasyCRM help guide yet." }} />);
     expect(screen.getByText(/couldn't find this/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "You might be looking for" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Take me there/ })).not.toBeInTheDocument();

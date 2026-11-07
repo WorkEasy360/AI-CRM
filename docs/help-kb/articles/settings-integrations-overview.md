@@ -12,7 +12,7 @@ updated: 2026-11-06
 ---
 
 ## Overview
-The Integrations page lists what is already connected to WorkEasy CRM and what you can connect, and lets you decide exactly which data each system can see or change.
+The Integrations page lists what is already connected to WorkEasyCRM and what you can connect, and lets you decide exactly which data each system can see or change.
 
 ## Before you start
 - You need the Owner or Admin role (`integrations.view`; changing integrations needs `integrations.manage`).

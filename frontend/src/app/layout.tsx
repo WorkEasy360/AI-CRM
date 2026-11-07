@@ -8,9 +8,9 @@ import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-regis
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: { default: "WorkEasy CRM", template: "%s · WorkEasy CRM" },
-  description: "WorkEasy CRM: sales pipeline, contacts, activities, helpdesk and WorkEasy AI in one workspace.",
-  applicationName: "WorkEasy CRM",
+  title: { default: "WorkEasyCRM", template: "%s · WorkEasyCRM" },
+  description: "WorkEasyCRM: sales pipeline, contacts, activities, helpdesk and WorkEasy AI in one workspace.",
+  applicationName: "WorkEasyCRM",
   robots: { index: false, follow: false },
   // The manifest link itself comes from app/manifest.ts.
   icons: {

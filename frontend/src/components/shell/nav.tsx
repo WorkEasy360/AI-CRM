@@ -294,10 +294,11 @@ export function BrandLogo({ size = 24, className }: { size?: number; className?:
   return <Image src="/brand/logo.png" alt="" aria-hidden width={size} height={size} unoptimized priority className={cn("shrink-0", className)} />;
 }
 
-/** Sidebar brand: the workspace's logo and CRM name from General settings, else the WorkEasy CRM mark. */
+/** Sidebar brand: the workspace's logo and CRM name from General settings, else the WorkEasyCRM mark. */
 export function Wordmark({ className, organization }: { className?: string; organization?: Pick<Organization, "crm_name" | "logo_url" | "name"> | null }) {
-  const name = organization?.crm_name?.trim() || "WorkEasy";
-  const pill = !/\bcrm$/i.test(name);
+  const custom = organization?.crm_name?.trim();
+  const name = custom || "WorkEasyCRM";
+  const pill = Boolean(custom) && !/\bcrm$/i.test(name);
   return (
     <Link href="/dashboard" className={cn("flex min-w-0 items-center gap-2 font-semibold text-fg", className)} aria-label={`${name}${pill ? " CRM" : ""} home`}>
       {organization?.logo_url ? (
@@ -306,7 +307,9 @@ export function Wordmark({ className, organization }: { className?: string; orga
       ) : (
         <BrandLogo size={28} />
       )}
-      <span className="truncate text-base tracking-tight">{name}</span>
+      <span className="truncate text-base tracking-tight">
+        {custom ? name : <>WorkEasy<span className="text-chrome-indicator">CRM</span></>}
+      </span>
       {pill ? <span className="rounded-sm bg-chrome-indicator px-1.5 py-px text-[12px] font-bold leading-4 text-chrome">CRM</span> : null}
     </Link>
   );

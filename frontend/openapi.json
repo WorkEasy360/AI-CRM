@@ -1,7 +1,7 @@
 {
     "openapi": "3.0.3",
     "info": {
-        "title": "WorkEasy CRM API",
+        "title": "WorkEasyCRM API",
         "version": "1.0.0"
     },
     "paths": {

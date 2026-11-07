@@ -336,7 +336,7 @@ function MfaCard() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-fg-muted">
               {session?.active?.mfa_required
-                ? "Your organization requires two-factor authentication. Set it up to continue using WorkEasy CRM."
+                ? "Your organization requires two-factor authentication. Set it up to continue using WorkEasyCRM."
                 : "Add an authenticator app such as Aegis, 1Password or Google Authenticator."}
             </p>
             <Button onClick={() => beginSetup.mutate()} loading={beginSetup.isPending}>

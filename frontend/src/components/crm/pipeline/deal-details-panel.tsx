@@ -13,7 +13,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { dealLines, getDeal, listRecordActivities, updateDeal } from "@/lib/api/crm";
@@ -29,19 +29,19 @@ type Tab = "activities" | "notes" | "files";
 const NO_SOURCE = "__none__";
 
 /**
- * The board's right-hand Deal Details: stage, the key facts edited in place, the deal's activities,
+ * The board's Deal Details pop-up: stage, the key facts edited in place, the deal's activities,
  * notes and files, quick actions and "Move to Next Stage". Every write goes through the deal APIs,
  * which re-check permissions and the version; the full deal page stays one click away.
  */
 export function DealDetailsPanel({ dealId, stages, onClose }: { dealId: string | null; stages: StageTarget[]; onClose: () => void }) {
   return (
-    <Sheet open={Boolean(dealId)} onOpenChange={(open) => (open ? null : onClose())}>
-      <SheetContent side="right" className="w-[min(26rem,100%)] overflow-y-auto p-0">
-        <SheetTitle className="sr-only">Deal Details</SheetTitle>
-        <SheetDescription className="sr-only">The selected deal</SheetDescription>
+    <Dialog open={Boolean(dealId)} onOpenChange={(open) => (open ? null : onClose())}>
+      <DialogContent className="block max-h-[calc(100dvh-2rem)] max-w-[32rem] overflow-y-auto p-0">
+        <DialogTitle className="sr-only">Deal Details</DialogTitle>
+        <DialogDescription className="sr-only">The selected deal</DialogDescription>
         {dealId ? <DealDetails dealId={dealId} stages={stages} /> : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

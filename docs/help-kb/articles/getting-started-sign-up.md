@@ -1,7 +1,7 @@
 ---
 id: getting-started-sign-up
 title: How to Create a New Account
-question: How do I sign up for WorkEasy CRM?
+question: How do I sign up for WorkEasyCRM?
 module: Getting Started
 keywords: [sign up, signup, register, create account, new account, get started, account kaise banaye, register kaise kare, साइन अप, खाता बनाएं]
 route: /signup
@@ -33,5 +33,5 @@ After you verify your email, your workspace is created for you, with you as its 
 - Already have an account? Click **Sign in** at the bottom of the form.
 
 ## Troubleshooting
-- **The sign-up page sends me back to Sign in.** Accounts on this installation come from Workeasy360, so sign-up is closed. Use **Access WorkEasy CRM** on the Sign in page instead.
+- **The sign-up page sends me back to Sign in.** Accounts on this installation come from Workeasy360, so sign-up is closed. Use **Access WorkEasyCRM** on the Sign in page instead.
 - **"Could not create your account."** Read the message under the field it mentions, for example an email that is already registered.

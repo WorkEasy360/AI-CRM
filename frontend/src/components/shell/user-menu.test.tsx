@@ -75,9 +75,9 @@ describe("UserMenu sign-outs leave the signed-out marker", () => {
     clearSignedOutMarker();
   });
 
-  it("'Sign out of WorkEasy CRM' ends WorkEasy CRM's session, leaves the marker and goes to the sign-in page", async () => {
+  it("'Sign out of WorkEasyCRM' ends WorkEasyCRM's session, leaves the marker and goes to the sign-in page", async () => {
     renderMenu();
-    await choose("Sign out of WorkEasy CRM");
+    await choose("Sign out of WorkEasyCRM");
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
     expect(requestMock).toHaveBeenCalledWith("/_allauth/browser/v1/auth/session", { method: "DELETE" });
     expect(hasSignedOutMarker()).toBe(true);
@@ -85,9 +85,9 @@ describe("UserMenu sign-outs leave the signed-out marker", () => {
     expect(replaceLocation).not.toHaveBeenCalled();
   });
 
-  it("'Sign out of WorkEasy CRM and Workeasy360' leaves the marker too, then goes on to Workeasy360", async () => {
+  it("'Sign out of WorkEasyCRM and Workeasy360' leaves the marker too, then goes on to Workeasy360", async () => {
     renderMenu();
-    await choose("Sign out of WorkEasy CRM and Workeasy360");
+    await choose("Sign out of WorkEasyCRM and Workeasy360");
     await waitFor(() => expect(navigateExternal).toHaveBeenCalledWith("/api/auth/workeasy360/logout"));
     expect(requestMock).toHaveBeenCalledWith("/_allauth/browser/v1/auth/session", { method: "DELETE" });
     expect(hasSignedOutMarker()).toBe(true);
@@ -97,7 +97,7 @@ describe("UserMenu sign-outs leave the signed-out marker", () => {
   it("a sign-out the server clearly refused leaves no marker (the person is still signed in) and goes nowhere", async () => {
     requestMock.mockResolvedValue({ status: 403, ok: false, json: { status: 403 }, headers: new Headers() });
     renderMenu();
-    await choose("Sign out of WorkEasy CRM");
+    await choose("Sign out of WorkEasyCRM");
     expect(await screen.findByText("Sign out failed")).toBeInTheDocument();
     expect(hasSignedOutMarker()).toBe(false);
     expect(replace).not.toHaveBeenCalled();
@@ -107,7 +107,7 @@ describe("UserMenu sign-outs leave the signed-out marker", () => {
   it("a sign-out whose outcome is unclear keeps the marker (the session may be gone) and goes nowhere", async () => {
     requestMock.mockRejectedValue(new TypeError("network down"));
     renderMenu();
-    await choose("Sign out of WorkEasy CRM");
+    await choose("Sign out of WorkEasyCRM");
     expect(await screen.findByText("Sign out failed")).toBeInTheDocument();
     expect(hasSignedOutMarker()).toBe(true);
     expect(replace).not.toHaveBeenCalled();

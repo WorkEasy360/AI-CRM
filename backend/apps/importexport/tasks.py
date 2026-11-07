@@ -30,7 +30,7 @@ EXPORT_TIME_LIMIT = 1800
 # also the sweeper's marker: ``resume_stalled_imports`` picks those jobs up again once the organization is
 # allowed, clearing the marker in the same UPDATE that claims the job.
 WAITING_FOR_ACCESS_MESSAGE = (
-    "Paused: your organization's WorkEasy CRM access has ended. It continues once access is renewed."
+    "Paused: your organization's WorkEasyCRM access has ended. It continues once access is renewed."
 )
 
 # Jobs resumed per sweep. Bounded so one bad deploy cannot make the sweeper itself the outage.

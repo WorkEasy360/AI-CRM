@@ -29,7 +29,7 @@ function DeveloperNote() {
         <li>
           Event types: <span className="font-mono">contact.upsert</span>, <span className="font-mono">company.upsert</span>, <span className="font-mono">deal.upsert</span>.
         </li>
-        <li>Sign the exact raw request body; the timestamp must be within 5 minutes of the current time. Reuse the same event ID when retrying so WorkEasy CRM applies the event only once.</li>
+        <li>Sign the exact raw request body; the timestamp must be within 5 minutes of the current time. Reuse the same event ID when retrying so WorkEasyCRM applies the event only once.</li>
         <li>Only data shared as External → CRM or Two-way is applied, and only through the fields you mapped.</li>
       </ul>
     </div>
@@ -56,7 +56,7 @@ export function InboundWebhookPanel({ connection, canManage }: { connection: Con
       // Hand the values to transient state; the mutation result itself stays empty so no cache ever holds them.
       setReveal({
         title: "Inbound webhook enabled",
-        description: "Give the URL and signing secret to the system that will send data to WorkEasy CRM.",
+        description: "Give the URL and signing secret to the system that will send data to WorkEasyCRM.",
         items: [
           { label: "Webhook URL", value: url },
           { label: "Signing secret", value: secret },
@@ -110,7 +110,7 @@ export function InboundWebhookPanel({ connection, canManage }: { connection: Con
           <p className="text-sm text-fg-muted">
             {disconnected
               ? "Reconnect this integration before enabling the inbound webhook."
-              : "WorkEasy CRM creates a private URL and a signing secret for this connection. Requests without a valid signature are rejected. The secret is shown only once."}
+              : "WorkEasyCRM creates a private URL and a signing secret for this connection. Requests without a valid signature are rejected. The secret is shown only once."}
           </p>
         )}
         <DeveloperNote />
