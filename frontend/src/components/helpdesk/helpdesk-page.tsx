@@ -143,7 +143,7 @@ export function HelpdeskPage() {
 
       <div className={cn("grid gap-4", panel && wide && "grid-cols-[minmax(0,1fr)_25rem]")}>
         <div className="min-w-0">
-          <section aria-label="Ticket summary" className={cn("grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3", panel && wide ? "2xl:grid-cols-6" : "xl:grid-cols-6")}>
+          <section aria-label="Ticket summary" className={cn("grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3", panel && wide ? "2xl:grid-cols-6" : "xl:grid-cols-6")}>
             <KpiTile tone="green" icon={<TicketIcon />} label="Total Tickets" value={s?.total.toLocaleString()} change={s ? percentChange(s.created, s.previous.created, versus) : null} changeNote="new" />
             <KpiTile tone="blue" icon={<Headset />} label="Open" value={s?.open.toLocaleString()} sub="Waiting for a reply" href="/helpdesk?tab=open" />
             <KpiTile tone="orange" icon={<Clock3 />} label="In Progress" value={s?.in_progress.toLocaleString()} sub="Being worked on" href="/helpdesk?tab=in_progress" />
@@ -387,7 +387,7 @@ function useWide(): boolean {
 function NarrowPanel({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
-      <DialogContent className="block max-h-[calc(100dvh-2rem)] max-w-xl overflow-y-auto p-2">
+      <DialogContent className="block max-h-[calc(100dvh-2rem)] max-w-xl overflow-y-auto p-2 sm:p-2">
         <DialogTitle className="sr-only">Ticket details</DialogTitle>
         <DialogDescription className="sr-only">The selected ticket</DialogDescription>
         {children}

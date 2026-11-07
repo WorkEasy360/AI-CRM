@@ -171,7 +171,7 @@ export function ActivityFormDialog({ open, onOpenChange, kind: fixedKind, activi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
         <form onSubmit={onSubmit} className="grid gap-5" noValidate>
           <DialogHeader>
             <DialogTitle>{copy.title}</DialogTitle>

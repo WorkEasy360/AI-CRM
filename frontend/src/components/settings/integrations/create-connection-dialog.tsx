@@ -251,7 +251,7 @@ export function CreateConnectionDialog({ open, onOpenChange }: { open: boolean; 
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
         {created ? (
           <div className="grid gap-4">
             <DialogHeader>

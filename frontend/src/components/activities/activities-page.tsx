@@ -76,7 +76,7 @@ function ActivityKpis({ summary }: { summary: ActivitySummary | undefined }) {
   const change = (key: "all" | "task" | "call" | "meeting") => (created ? percentChange(created.current[key], created.previous[key], versus) : null);
   const value = (key: "all" | "task" | "call" | "meeting") => (summary ? (summary.totals?.[key] ?? 0).toLocaleString() : undefined);
   return (
-    <section aria-label="Activity summary" className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
+    <section aria-label="Activity summary" className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
       <KpiTile tone="green" icon={<CheckSquare />} label="Total Activities" value={value("all")} change={change("all")} changeNote="" sub="All activities" />
       <KpiTile tone="blue" icon={<ListTodo />} label="Tasks" value={value("task")} change={change("task")} changeNote="" sub={summary ? `${summary.open_tasks} open` : undefined} />
       <KpiTile tone="orange" icon={<Phone />} label="Calls" value={value("call")} change={change("call")} changeNote="" sub={summary ? `${summary.calls_week} this week` : undefined} />
@@ -168,8 +168,8 @@ export function ActivitiesPage() {
           ) : null
         }
       />
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
-      <div className="flex min-h-0 min-w-0 flex-col gap-4">
+      <div className="grid gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_21rem]">
+      <div className="flex min-w-0 flex-col gap-4 xl:min-h-0">
       <ActivityKpis summary={summary.data} />
       <Tabs value={tab} onValueChange={(v) => showTab(v as Tab)} className="flex min-h-0 flex-1 flex-col">
         <TabsList aria-label="Activity views" className="h-auto w-fit max-w-full flex-wrap gap-1 rounded-xl border border-border bg-surface p-1 shadow-sm">

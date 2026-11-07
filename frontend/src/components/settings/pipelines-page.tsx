@@ -145,7 +145,7 @@ export function PipelinesPage() {
           action={canManage ? <Button onClick={() => setEditing({ create: true })}>Create a pipeline</Button> : null}
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <div className="grid gap-6 2xl:grid-cols-[18rem_minmax(0,1fr)]">
           <ul className="flex flex-col gap-2" aria-label="Pipelines">
             {orderFamilies(list).map((p) => {
               const isSelected = selected?.id === p.id;

@@ -33,7 +33,8 @@ export const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-md border border-border bg-surface-raised p-6 text-fg shadow-lg animate-pop-in",
+          // Centred on every screen; never taller or wider than the viewport, so long forms scroll inside the pop-up.
+          "fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-md border border-border bg-surface-raised p-4 text-fg shadow-lg animate-pop-in sm:max-h-[calc(100dvh-3rem)] sm:p-6",
           className,
         )}
         {...props}

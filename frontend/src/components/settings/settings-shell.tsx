@@ -43,7 +43,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex w-full gap-6">
-      <nav aria-label="Settings" className="hidden w-60 shrink-0 lg:block">
+      <nav aria-label="Settings" className="hidden w-60 shrink-0 xl:block">
         {/* Sticky inside the scrolling <main>, so the section list stays put on long pages. */}
         <div className="sticky top-0 flex max-h-[calc(100dvh-7.5rem)] flex-col overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-sm">
           <Link href="/pipeline" className="mb-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-2 text-sm font-medium text-fg-muted hover:bg-bg-subtle hover:text-fg">
@@ -80,7 +80,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
       </nav>
 
       <div className="min-w-0 flex-1">
-        <div className="mb-4 flex items-center gap-2 lg:hidden">
+        <div className="mb-4 flex items-center gap-2 xl:hidden">
           <Link href="/pipeline" className="inline-flex items-center gap-1.5 text-sm font-medium text-fg-muted hover:text-fg">
             <ArrowLeft className="size-4" aria-hidden /> CRM
           </Link>

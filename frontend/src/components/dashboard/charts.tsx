@@ -48,27 +48,30 @@ export function SalesFunnel({ data, currency }: { data: DashboardSummary; curren
           );
         })}
       </ol>
-      <table className="sr-only">
-        <caption>Sales pipeline funnel</caption>
-        <thead>
-          <tr>
-            <th>Stage</th>
-            <th>Deals reached</th>
-            <th>Deals in stage</th>
-            <th>Amount in stage</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stages.map((s, i) => (
-            <tr key={s.id}>
-              <td>{s.name}</td>
-              <td>{reached[i]}</td>
-              <td>{s.count}</td>
-              <td>{formatMoney(s.amount, currency)}</td>
+      {/* A table ignores width:1px, so the sr-only box has to be a wrapper or it widens the page. */}
+      <div className="sr-only">
+        <table>
+          <caption>Sales pipeline funnel</caption>
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th>Deals reached</th>
+              <th>Deals in stage</th>
+              <th>Amount in stage</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {stages.map((s, i) => (
+              <tr key={s.id}>
+                <td>{s.name}</td>
+                <td>{reached[i]}</td>
+                <td>{s.count}</td>
+                <td>{formatMoney(s.amount, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -210,25 +213,28 @@ export function RevenueTrend({ data, currency }: { data: DashboardSummary; curre
           );
         })}
       </svg>
-      <table className="sr-only">
-        <caption>Revenue by month</caption>
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Won deals</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {trend.map((t) => (
-            <tr key={t.month}>
-              <td>{t.month}</td>
-              <td>{t.count}</td>
-              <td>{formatMoney(t.amount, currency)}</td>
+      {/* A table ignores width:1px, so the sr-only box has to be a wrapper or it widens the page. */}
+      <div className="sr-only">
+        <table>
+          <caption>Revenue by month</caption>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Won deals</th>
+              <th>Amount</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {trend.map((t) => (
+              <tr key={t.month}>
+                <td>{t.month}</td>
+                <td>{t.count}</td>
+                <td>{formatMoney(t.amount, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -276,27 +282,30 @@ export function ForecastBars({ data, currency }: { data: DashboardSummary; curre
         })}
       </svg>
       <ChartLegend items={[{ label: "Open value", swatch: "hollow" }, { label: "Weighted", swatch: "solid" }]} />
-      <table className="sr-only">
-        <caption>Forecast by expected close month</caption>
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Open deals</th>
-            <th>Open value</th>
-            <th>Weighted</th>
-          </tr>
-        </thead>
-        <tbody>
-          {months.map((m) => (
-            <tr key={m.month}>
-              <td>{m.month}</td>
-              <td>{m.count}</td>
-              <td>{formatMoney(m.amount, currency)}</td>
-              <td>{formatMoney(m.weighted, currency)}</td>
+      {/* A table ignores width:1px, so the sr-only box has to be a wrapper or it widens the page. */}
+      <div className="sr-only">
+        <table>
+          <caption>Forecast by expected close month</caption>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Open deals</th>
+              <th>Open value</th>
+              <th>Weighted</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {months.map((m) => (
+              <tr key={m.month}>
+                <td>{m.month}</td>
+                <td>{m.count}</td>
+                <td>{formatMoney(m.amount, currency)}</td>
+                <td>{formatMoney(m.weighted, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

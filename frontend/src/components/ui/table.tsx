@@ -25,9 +25,9 @@ export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTable
 }
 
 export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th scope="col" className={cn("h-10 whitespace-nowrap px-4 font-semibold", className)} {...props} />;
+  return <th scope="col" className={cn("h-10 whitespace-nowrap px-3 font-semibold xl:px-4", className)} {...props} />;
 }
 
 export function TableCell({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-2.5 align-middle", className)} {...props} />;
+  return <td className={cn("px-3 py-2.5 align-middle xl:px-4", className)} {...props} />;
 }

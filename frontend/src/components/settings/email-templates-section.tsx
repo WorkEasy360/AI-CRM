@@ -192,7 +192,7 @@ export function EmailTemplateDialog({ template, onOpenChange }: { template: Emai
 
   return (
     <Dialog open={template !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
         <form
           onSubmit={form.handleSubmit((values) => {
             setFieldErrors({});

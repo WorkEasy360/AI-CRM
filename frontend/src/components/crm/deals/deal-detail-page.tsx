@@ -323,7 +323,7 @@ export function DealDetailPage({ id }: { id: string }) {
         </aside>
         <Tabs defaultValue="overview" className="min-w-0">
           <div className="-mx-1 overflow-x-auto px-1 pb-0.5">
-            <TabsList className="w-max">
+            <TabsList className="max-sm:w-max">
               {tabs.map((t) => (
                 <TabsTrigger key={t.value} value={t.value}>
                   {t.label}

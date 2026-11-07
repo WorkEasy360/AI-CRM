@@ -19,11 +19,11 @@ export function PageHeader({
     return (
       <div className={cn("mb-5 flex flex-wrap items-center justify-between gap-3", className)}>
         <div className="flex min-w-0 items-center gap-3.5">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand" aria-hidden>
-            <Icon className="size-6" />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand sm:size-12" aria-hidden>
+            <Icon className="size-5 sm:size-6" />
           </span>
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold tracking-tight text-fg">{title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight break-words text-fg sm:text-3xl">{title}</h1>
             {description ? <Text className="mt-0.5 text-sm text-fg-muted">{description}</Text> : null}
           </div>
         </div>
@@ -34,7 +34,7 @@ export function PageHeader({
   return (
     <div className={cn("mb-5 flex flex-wrap items-center justify-between gap-3", className)}>
       <div className="min-w-0">
-        <h1 className="text-3xl font-bold tracking-tight text-fg">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight break-words text-fg sm:text-3xl">{title}</h1>
         {description ? (
           // Descriptions may be arbitrary nodes (chips, skeletons); <p> cannot hold block children.
           <Text className="mt-1 text-sm text-fg-muted">{description}</Text>

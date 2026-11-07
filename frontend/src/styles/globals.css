@@ -107,6 +107,27 @@
   ::selection {
     background: var(--kl-primary-soft);
   }
+  /* Responsive safety net. A bare `grid` stack gets one implicit `auto` column, which grows to the
+     widest unbreakable child (a truncated title, a table) and pushes the page past the screen.
+     Shrinkable implicit columns keep every stack inside the viewport; explicit grid-cols-* and
+     auto-cols-* utilities still win because utilities sit above this layer. */
+  :where(.grid) {
+    grid-auto-columns: minmax(0, 1fr);
+  }
+  img,
+  video {
+    max-width: 100%;
+  }
+}
+
+/* Phones (iOS Safari) zoom the page into any field whose text is under 16px. Unlayered on purpose so
+   it outranks the text-sm utility on inputs, and only below the sm breakpoint. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* The sidebar rail: the same flat dark navy as the top bar. */
@@ -225,5 +246,32 @@
 @media (prefers-reduced-motion: reduce) {
   .kl-spotlight {
     animation: none;
+  }
+}
+
+/* A row that scrolls sideways on narrow screens instead of pushing the page wider (tab strips,
+   view switchers, chip rows). The scrollbar stays hidden; touch, trackpad and keyboard still scroll. */
+@utility scroll-x {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* When a table is wider than the screen, keep each row's actions menu (its last column) pinned to the
+   right edge so it is reachable without scrolling sideways. Only tables whose last cells hold a menu. */
+@media (max-width: 1279px) {
+  table:has(> tbody > tr > td:last-child [aria-haspopup="menu"]) > :is(thead, tbody) > tr > :last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background-color: var(--kl-surface);
+    box-shadow: -10px 0 10px -10px rgb(15 23 42 / 0.25);
+  }
+  table:has(> tbody > tr > td:last-child [aria-haspopup="menu"]) > thead > tr > :last-child {
+    background-color: var(--kl-surface-sunken);
   }
 }

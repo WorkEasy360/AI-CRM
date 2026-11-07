@@ -420,7 +420,7 @@ function PipelineKpis({ stats, baseCurrency }: { stats: import("@/lib/api/pipeli
   const money = (v: string | null | undefined) => (v === null ? "—" : v === undefined ? undefined : formatMoney(v, baseCurrency));
   const cycle: KpiChange | null = stats ? withLowerIsBetter(percentChange(stats.current.avg_cycle_days, stats.previous.avg_cycle_days, versus)) : null;
   return (
-    <section aria-label="Pipeline summary" className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+    <section aria-label="Pipeline summary" className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
       <KpiTile tone="green" icon={<BarChart3 />} label="Total Deals" value={stats?.total_deals.toLocaleString()} change={stats ? percentChange(stats.current.created, stats.previous.created, versus) : null} changeNote="new" />
       <KpiTile tone="blue" icon={<IndianRupee />} label="Pipeline Value" value={money(stats?.pipeline_value)} sub={stats ? `${stats.open_deals.toLocaleString()} open deals` : undefined} />
       <KpiTile tone="orange" icon={<Trophy />} label="Expected Revenue" value={money(stats?.expected_revenue)} sub="Weighted by probability" />

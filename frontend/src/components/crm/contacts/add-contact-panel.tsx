@@ -131,7 +131,7 @@ export function AddContactPanel({ kind, onKindChange, onClose, onCreated }: { ki
 
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[30rem] flex-col gap-0 overflow-y-auto p-0">
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[30rem] flex-col gap-0 overflow-y-auto p-0 sm:p-0">
         <form onSubmit={submit} className="flex min-h-full flex-col" noValidate>
           <div className="flex items-center justify-between px-5 pt-5">
             <DialogTitle className="text-lg font-bold text-fg">Add Contact</DialogTitle>

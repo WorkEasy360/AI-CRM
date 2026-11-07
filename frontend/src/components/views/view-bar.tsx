@@ -87,13 +87,15 @@ export function ViewBar({
             type="button"
             onClick={() => setParams({ view: k === defaultKind ? undefined : k })}
             aria-pressed={kind === k}
+            title={VIEW_LABELS[k]}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs font-medium transition-colors [&_svg]:size-3.5",
+              "inline-flex h-7 min-w-8 items-center justify-center gap-1.5 rounded-sm px-2 text-xs font-medium transition-colors [&_svg]:size-3.5",
               kind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
             )}
           >
             {KIND_ICONS[k]}
-            {VIEW_LABELS[k]}
+            {/* Icons only on phones so the five views fit; the label stays the accessible name. */}
+            <span className="sr-only sm:not-sr-only">{VIEW_LABELS[k]}</span>
           </button>
         ))}
       </div>

@@ -258,7 +258,7 @@ export function GlobalSearch({ active, open, onOpenChange }: { active: ActiveCon
       ) : null}
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent hideClose className="top-[10%] max-w-xl translate-y-0 gap-0 overflow-hidden p-0 sm:top-[15%]">
+        <DialogContent hideClose className="top-[10%] max-w-xl translate-y-0 gap-0 overflow-hidden p-0 sm:top-[15%] sm:p-0">
           <DialogTitle className="sr-only">Search</DialogTitle>
           <DialogDescription className="sr-only">Search contacts, companies, deals, activities and products. Use the arrow keys to move and Enter to open.</DialogDescription>
           <div className="flex items-center gap-2 border-b border-border px-3">

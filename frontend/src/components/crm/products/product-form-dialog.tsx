@@ -188,7 +188,7 @@ export function ProductFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <form onSubmit={onSubmit} className="grid gap-5" noValidate>
           <DialogHeader>
             <DialogTitle>{existing ? "Edit product" : "New product"}</DialogTitle>

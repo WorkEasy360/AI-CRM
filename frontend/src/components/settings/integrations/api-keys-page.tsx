@@ -316,7 +316,7 @@ export function CreateApiKeyDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto">
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
           <DialogHeader>
             <DialogTitle>Create API key</DialogTitle>
