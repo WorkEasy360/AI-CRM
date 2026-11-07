@@ -168,17 +168,18 @@ export function KpiTile({
 }) {
   const body = (
     <>
-      <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg [&_svg]:size-5", KPI_TONES[tone])} aria-hidden>
+      <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-11 [&_svg]:size-4.5 sm:[&_svg]:size-5", KPI_TONES[tone])} aria-hidden>
         {icon}
       </span>
-      <span className="min-w-0">
+      <span className="w-full min-w-0">
         <span className="block truncate text-sm font-medium text-fg-muted">{label}</span>
-        {value === undefined ? <Skeleton className="mt-1 h-7 w-20" /> : <span className="block truncate text-2xl font-bold tabular-nums tracking-tight text-fg">{value}</span>}
+        {value === undefined ? <Skeleton className="mt-1 h-7 w-20" /> : <span className="block truncate text-[0.9375rem] font-bold tabular-nums tracking-tight text-fg @[10rem]:text-lg @[12rem]:text-xl @[18rem]:text-2xl" title={value}>{value}</span>}
         {change && value !== undefined ? <ChangeLine change={change} note={changeNote} /> : <span className="block truncate text-xs text-fg-subtle">{sub ?? "\u00a0"}</span>}
       </span>
     </>
   );
-  const classes = "group flex min-w-0 items-center gap-3.5 rounded-lg border border-border bg-surface px-4 py-4 shadow-sm";
+  // Phones: icon above the figure so two tiles fit side by side; from sm up: icon beside it.
+  const classes = "group @container flex min-w-0 flex-col items-start gap-2 rounded-lg border border-border bg-surface px-2.5 py-3 shadow-sm sm:flex-row sm:items-center sm:gap-3.5 sm:px-4 sm:py-4";
   return href ? (
     <Link href={href} className={cn(classes, "transition-colors hover:border-border-strong focus-visible:outline-2 focus-visible:outline-ring/40")}>
       {body}

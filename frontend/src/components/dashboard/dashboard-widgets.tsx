@@ -128,25 +128,28 @@ export function RevenueBars({ data, currency }: { data: DashboardSummary; curren
           <circle key={trend[i]!.month} cx={x(i)} cy={y(v)} r={4} fill="var(--kl-surface)" stroke="var(--kl-brand)" strokeWidth={2} />
         ))}
       </svg>
-      <table className="sr-only">
-        <caption>Won revenue by month</caption>
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Won deals</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {trend.map((t) => (
-            <tr key={t.month}>
-              <td>{t.month}</td>
-              <td>{t.count}</td>
-              <td>{formatMoney(t.amount, currency)}</td>
+      {/* A table ignores width:1px, so the sr-only box has to be a wrapper or it widens the page. */}
+      <div className="sr-only">
+        <table>
+          <caption>Won revenue by month</caption>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Won deals</th>
+              <th>Amount</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {trend.map((t) => (
+              <tr key={t.month}>
+                <td>{t.month}</td>
+                <td>{t.count}</td>
+                <td>{formatMoney(t.amount, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -172,8 +175,8 @@ export function SourceDonut({ data }: { data: DashboardSummary }) {
   const gap = slices.filter((s) => s.count > 0).length > 1 ? 2 : 0;
   let offset = 0;
   return (
-    <div className="flex items-center gap-4">
-      <svg viewBox="0 0 120 120" className="size-32 shrink-0 -rotate-90" role="img" aria-label={`Deals by source: ${total} in total`}>
+    <div className="flex items-center gap-3 sm:gap-4">
+      <svg viewBox="0 0 120 120" className="size-24 shrink-0 -rotate-90 sm:size-32" role="img" aria-label={`Deals by source: ${total} in total`}>
         <circle cx={60} cy={60} r={radius} fill="none" strokeWidth={18} className="stroke-bg-subtle" />
         {total > 0
           ? slices.map((s) => {
@@ -202,8 +205,8 @@ export function SourceDonut({ data }: { data: DashboardSummary }) {
         {slices.map((s) => (
           <li key={s.key || "none"} className="flex items-center gap-2">
             <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} aria-hidden />
-            <span className="truncate text-fg">{s.label}</span>
-            <span className="ml-auto tabular-nums text-fg-muted">
+            <span className="min-w-0 truncate text-fg">{s.label}</span>
+            <span className="ml-auto shrink-0 whitespace-nowrap tabular-nums text-fg-muted">
               {s.count.toLocaleString()} ({total ? Math.round((100 * s.count) / total) : 0}%)
             </span>
           </li>

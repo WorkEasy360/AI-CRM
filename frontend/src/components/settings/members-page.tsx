@@ -211,7 +211,7 @@ export function MembersPage() {
               <TableHead>Status</TableHead>
               <TableHead className="hidden xl:table-cell">MFA</TableHead>
               <TableHead className="hidden md:table-cell">Last login</TableHead>
-              <TableHead className="hidden xl:table-cell">Joined</TableHead>
+              <TableHead className="hidden 2xl:table-cell">Joined</TableHead>
               <TableHead className="w-12">
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -241,7 +241,7 @@ export function MembersPage() {
                 </TableCell>
                 <TableCell className="hidden text-fg-subtle xl:table-cell">—</TableCell>
                 <TableCell className="hidden text-fg-subtle md:table-cell">—</TableCell>
-                <TableCell className="hidden text-fg-muted xl:table-cell">Expires {formatDate(inv.expires_at)}</TableCell>
+                <TableCell className="hidden text-fg-muted 2xl:table-cell">Expires {formatDate(inv.expires_at)}</TableCell>
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -301,7 +301,7 @@ export function MembersPage() {
                     )}
                   </TableCell>
                   <TableCell className="hidden text-fg-muted md:table-cell">{m.last_login ? formatDateTime(m.last_login) : "Never"}</TableCell>
-                  <TableCell className="hidden text-fg-muted xl:table-cell">{formatDate(m.joined_at)}</TableCell>
+                  <TableCell className="hidden text-fg-muted 2xl:table-cell">{formatDate(m.joined_at)}</TableCell>
                   <TableCell>
                     {actions.length ? (
                       <DropdownMenu>

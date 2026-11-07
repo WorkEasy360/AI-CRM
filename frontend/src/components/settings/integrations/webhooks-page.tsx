@@ -362,7 +362,7 @@ export function CreateWebhookDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto">
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
           <DialogHeader>
             <DialogTitle>Add webhook</DialogTitle>
@@ -434,7 +434,7 @@ function WebhookDeliveriesDialog({ webhook, onClose }: { webhook: WebhookSubscri
   });
   return (
     <Dialog open={webhook !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Deliveries{webhook ? ` · ${webhook.name}` : ""}</DialogTitle>
           <DialogDescription>The latest 50 events sent to this endpoint. Temporary failures are retried automatically.</DialogDescription>

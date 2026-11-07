@@ -54,31 +54,34 @@ export function ForecastSeriesChart({ series, currency }: { series: Forecast["se
         })}
       </svg>
       <ChartLegend items={[{ label: "Pipeline (open value)", swatch: "hollow" }, { label: "Weighted", swatch: "solid" }, { label: "Won", swatch: "success" }]} />
-      <table className="sr-only">
-        <caption>Forecast by month</caption>
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Open deals</th>
-            <th>Pipeline</th>
-            <th>Weighted</th>
-            <th>Won deals</th>
-            <th>Won</th>
-          </tr>
-        </thead>
-        <tbody>
-          {series.map((m) => (
-            <tr key={m.month}>
-              <td>{m.month}</td>
-              <td>{m.open_count}</td>
-              <td>{formatMoney(m.pipeline, currency)}</td>
-              <td>{formatMoney(m.weighted, currency)}</td>
-              <td>{m.won_count}</td>
-              <td>{formatMoney(m.won, currency)}</td>
+      {/* A table ignores width:1px, so the sr-only box has to be a wrapper or it widens the page. */}
+      <div className="sr-only">
+        <table>
+          <caption>Forecast by month</caption>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Open deals</th>
+              <th>Pipeline</th>
+              <th>Weighted</th>
+              <th>Won deals</th>
+              <th>Won</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {series.map((m) => (
+              <tr key={m.month}>
+                <td>{m.month}</td>
+                <td>{m.open_count}</td>
+                <td>{formatMoney(m.pipeline, currency)}</td>
+                <td>{formatMoney(m.weighted, currency)}</td>
+                <td>{m.won_count}</td>
+                <td>{formatMoney(m.won, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

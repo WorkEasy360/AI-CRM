@@ -41,7 +41,7 @@ export function ContactKpis({ stats }: { stats: ContactStats | undefined }) {
   const people = stats?.total ?? 0;
   const value = (n: number | undefined) => (stats ? (n ?? 0).toLocaleString() : undefined);
   return (
-    <section aria-label="Contact summary" className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+    <section aria-label="Contact summary" className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
       <KpiTile tone="green" icon={<Users />} label="Total Contacts" value={value(people + (c?.total ?? 0))} change={stats ? percentChange((stats.created ?? 0) + (c?.created ?? 0), (stats.created_previous ?? 0) + (c?.created_previous ?? 0), versus) : null} changeNote="" />
       <KpiTile tone="blue" icon={<UserRound />} label="Individuals" value={value(people)} change={stats ? percentChange(stats.created, stats.created_previous, versus) : null} changeNote="" href="/contacts?tab=people" />
       <KpiTile tone="green" icon={<Building2 />} label="Companies" value={stats ? (c ? c.total.toLocaleString() : "—") : undefined} change={c ? percentChange(c.created, c.created_previous, versus) : null} changeNote="" sub={stats && !c ? "No access" : undefined} href="/companies" />

@@ -241,7 +241,7 @@ export function DealFormDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex h-[min(52rem,calc(100dvh-2rem))] max-w-[46rem] flex-col gap-0 p-0">
+        <DialogContent className="flex h-[min(52rem,calc(100dvh-2rem))] max-w-[46rem] flex-col gap-0 overflow-hidden p-0 sm:p-0">
           <form onSubmit={onSubmit} className="flex h-full min-h-0 flex-col" noValidate>
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-6 py-4 pr-12">
               <div className="flex flex-col gap-1">

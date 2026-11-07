@@ -157,7 +157,7 @@ export function DashboardPage() {
       ) : (
         <div className={cn("grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]", summary.isFetching && "opacity-80")} aria-busy={summary.isFetching || undefined}>
           <div className="grid min-w-0 gap-4">
-            <section aria-label="Key figures" className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5">
+            <section aria-label="Key figures" className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 2xl:grid-cols-5">
               <KpiTile tone="green" icon={<Users />} label="Total Contacts" value={data ? fmtCount(totals?.contacts?.count) : undefined} change={growthChange(totals?.contacts, versus)} changeNote="" sub={totals?.contacts === null ? "No access" : undefined} href="/contacts" />
               <KpiTile tone="blue" icon={<Building2 />} label="Companies" value={data ? fmtCount(totals?.companies?.count) : undefined} change={growthChange(totals?.companies, versus)} changeNote="" sub={totals?.companies === null ? "No access" : undefined} href="/companies" />
               <KpiTile tone="purple" icon={<Layers />} label="Total Deals" value={data ? fmtCount(totals?.deals?.count) : undefined} change={growthChange(totals?.deals, versus)} changeNote="" sub={totals?.deals === null ? "No access" : undefined} href={`/pipeline${pipeline ? `?pipeline=${encodeURIComponent(pipeline)}` : ""}`} />

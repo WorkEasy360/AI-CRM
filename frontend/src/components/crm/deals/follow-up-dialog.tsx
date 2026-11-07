@@ -82,7 +82,7 @@ export function FollowUpDialog({ open, onOpenChange, deal, contact }: { open: bo
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
           <div className="grid gap-4">
             <DialogHeader>
               <DialogTitle>Generate follow-up</DialogTitle>

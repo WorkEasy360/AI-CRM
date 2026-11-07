@@ -36,7 +36,7 @@ const NO_SOURCE = "__none__";
 export function DealDetailsPanel({ dealId, stages, onClose }: { dealId: string | null; stages: StageTarget[]; onClose: () => void }) {
   return (
     <Dialog open={Boolean(dealId)} onOpenChange={(open) => (open ? null : onClose())}>
-      <DialogContent className="block max-h-[calc(100dvh-2rem)] max-w-[32rem] overflow-y-auto p-0">
+      <DialogContent className="block max-h-[calc(100dvh-2rem)] max-w-[32rem] overflow-y-auto p-0 sm:p-0">
         <DialogTitle className="sr-only">Deal Details</DialogTitle>
         <DialogDescription className="sr-only">The selected deal</DialogDescription>
         {dealId ? <DealDetails dealId={dealId} stages={stages} /> : null}
