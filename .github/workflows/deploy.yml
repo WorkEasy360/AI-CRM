@@ -60,6 +60,9 @@ jobs:
           load: true
           tags: ${{ env.IMAGE_REPO }}-api:${{ env.DEPLOY_SHA }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          # Always rebuild the runtime stage so its apt/apk security upgrade is fresh, not a cached layer
+          # from before a fix shipped; dependency/build stages stay cached.
+          no-cache-filters: runtime
           cache-from: type=gha,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
           cache-to: type=gha,mode=max,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
 
@@ -71,6 +74,9 @@ jobs:
           load: true
           tags: ${{ env.IMAGE_REPO }}-web:${{ env.DEPLOY_SHA }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          # Always rebuild the runtime stage so its apt/apk security upgrade is fresh, not a cached layer
+          # from before a fix shipped; dependency/build stages stay cached.
+          no-cache-filters: runtime
           cache-from: type=gha,scope=web-${{ vars.KEEL_ARCH || 'arm64' }}
           cache-to: type=gha,mode=max,scope=web-${{ vars.KEEL_ARCH || 'arm64' }}
 
