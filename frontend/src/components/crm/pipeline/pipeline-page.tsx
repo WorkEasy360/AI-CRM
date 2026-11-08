@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, CalendarRange, CornerDownRight, Filter, IndianRupee, KanbanSquare, LayoutGrid, LineChart, List, Lock, Plus, Search, Settings2, Target, Trophy, X } from "lucide-react";
+import { BarChart3, CalendarRange, CornerDownRight, Filter, IndianRupee, KanbanSquare, LayoutGrid, LineChart, List, Lock, Plus, Search, Settings2, SlidersHorizontal, Target, Trophy, X } from "lucide-react";
 import { DealsList } from "@/components/crm/pipeline/deals-list";
 import { DealDetailsPanel } from "@/components/crm/pipeline/deal-details-panel";
 import { KanbanBoard, type BoardSort } from "@/components/crm/pipeline/kanban-board";
@@ -172,12 +172,16 @@ export function PipelinePage() {
   const showPanel = pipelineList.length > 1 || canManagePipelines;
 
   return (
-    <div className="flex h-full min-h-0 gap-4">
+    // Desktop locks the page to the viewport so the board fills what is left and columns scroll inside.
+    // Below lg the page flows instead: on phones the header, KPIs and filters alone are taller than the
+    // screen, and a locked column squeezed the board to 0px. Flowing, the page scrolls and the board keeps
+    // its natural height (sideways scroll only).
+    <div className="flex gap-4 lg:h-full lg:min-h-0">
       {showPanel && pipelines.isSuccess ? (
         <PipelinePanel pipelines={pipelineList} selectedId={pipelineId} onSelect={selectPipeline} canManage={canManagePipelines} />
       ) : null}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
         <PageHeader icon={Filter} title="Pipeline – Leads & Deals" className="mb-3" />
         <PipelineKpis stats={stats.data} baseCurrency={baseCurrency} />
         {summary ? (
@@ -188,7 +192,7 @@ export function PipelinePage() {
         ) : null}
 
         <div className="mb-3 mt-4 flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label="Pipeline views" className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-surface p-1 shadow-sm">
+          <div role="tablist" aria-label="Pipeline views" className="scroll-x flex items-center gap-1 rounded-xl border border-border bg-surface p-1 shadow-sm sm:flex-wrap">
             {(
               [
                 ["kanban", "Kanban View", LayoutGrid],
@@ -203,10 +207,18 @@ export function PipelinePage() {
                 role="tab"
                 aria-selected={pageTab === value}
                 onClick={() => selectTab(value)}
-                className={cn("inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors", pageTab === value ? "bg-brand text-brand-fg shadow-sm" : "text-fg hover:bg-bg-subtle")}
+                className={cn("inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors sm:px-3.5", pageTab === value ? "bg-brand text-brand-fg shadow-sm" : "text-fg hover:bg-bg-subtle")}
               >
-                <Icon className="size-4" aria-hidden />
-                {label}
+                <Icon className="size-4 max-sm:hidden" aria-hidden />
+                {/* "Kanban View" reads as "Kanban" on phones; the full name stays for assistive tech. */}
+                {label.endsWith(" View") ? (
+                  <span>
+                    {label.slice(0, -5)}
+                    <span className="max-sm:sr-only"> View</span>
+                  </span>
+                ) : (
+                  label
+                )}
               </button>
             ))}
           </div>
@@ -420,7 +432,7 @@ function PipelineKpis({ stats, baseCurrency }: { stats: import("@/lib/api/pipeli
   const money = (v: string | null | undefined) => (v === null ? "—" : v === undefined ? undefined : formatMoney(v, baseCurrency));
   const cycle: KpiChange | null = stats ? withLowerIsBetter(percentChange(stats.current.avg_cycle_days, stats.previous.avg_cycle_days, versus)) : null;
   return (
-    <section aria-label="Pipeline summary" className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <section aria-label="Pipeline summary" className="grid grid-flow-col auto-cols-[10rem] gap-2.5 scroll-x pb-0.5 sm:grid-flow-row sm:grid-cols-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
       <KpiTile tone="green" icon={<BarChart3 />} label="Total Deals" value={stats?.total_deals.toLocaleString()} change={stats ? percentChange(stats.current.created, stats.previous.created, versus) : null} changeNote="new" />
       <KpiTile tone="blue" icon={<IndianRupee />} label="Pipeline Value" value={money(stats?.pipeline_value)} sub={stats ? `${stats.open_deals.toLocaleString()} open deals` : undefined} />
       <KpiTile tone="orange" icon={<Trophy />} label="Expected Revenue" value={money(stats?.expected_revenue)} sub="Weighted by probability" />
@@ -502,6 +514,10 @@ function BoardFilters({
   }, [params.q]);
 
   const hasFilters = Boolean(params.q || params.owner || params.status || params.sort || params.lead_source || params.product);
+  // Phones show search and the pipeline picker; the other filters sit behind one toggle so the board starts on screen.
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const moreId = React.useId();
+  const moreActive = [params.owner, params.lead_source, params.product, hideStatus ? undefined : params.status, params.sort].filter(Boolean).length;
 
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -510,6 +526,10 @@ function BoardFilters({
         <Input aria-label="Search deals" placeholder="Search deals…" value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9 pl-8" maxLength={200} />
       </div>
       {pipelineSelect}
+      <Button variant="secondary" className="h-9 sm:hidden" aria-expanded={moreOpen} aria-controls={moreId} onClick={() => setMoreOpen((o) => !o)}>
+        <SlidersHorizontal /> Filters{moreActive ? ` (${moreActive})` : ""}
+      </Button>
+      <div id={moreId} className={cn("contents", !moreOpen && "max-sm:hidden")}>
       <OwnerFilter value={params.owner} onChange={(v) => setParam("owner", v)} />
       <Select value={params.lead_source ?? ALL} onValueChange={(v) => setParam("lead_source", v === ALL ? undefined : v)}>
         <SelectTrigger className="h-9 w-36" aria-label="Source filter">
@@ -550,6 +570,7 @@ function BoardFilters({
           ))}
         </SelectContent>
       </Select>
+      </div>
       {hasFilters ? (
         <Button variant="ghost" size="sm" onClick={onClear} className="text-fg-muted">
           <X /> Clear
