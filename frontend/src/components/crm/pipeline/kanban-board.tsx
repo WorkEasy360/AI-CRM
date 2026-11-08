@@ -183,7 +183,9 @@ export function KanbanBoard({
   }
 
   return (
-    <div className={cn("-mx-1 min-h-0 flex-1 overflow-x-auto pb-2 transition-opacity", isFetching && "opacity-80")} aria-busy={isFetching || undefined}>
+    // Desktop: fills the locked page height (never below 18rem) and columns scroll inside. Phones and tablets:
+    // natural height, so the page scrolls down and only the board scrolls sideways, snapping to stages.
+    <div className={cn("-mx-1 snap-x snap-proximity overflow-x-auto overscroll-x-contain pb-2 transition-opacity lg:min-h-72 lg:flex-1 lg:snap-none", isFetching && "opacity-80")} aria-busy={isFetching || undefined}>
       <ol className="flex h-full min-w-max items-stretch gap-2.5 px-1" aria-label="Pipeline stages">
         {stages.map((stage) => {
           const isOver = overStage === stage.id && dragging !== null;
@@ -200,7 +202,7 @@ export function KanbanBoard({
             <li
               key={stage.id}
               className={cn(
-                "flex w-64 shrink-0 flex-col rounded-md border bg-surface-sunken transition-colors",
+                "flex w-[min(16rem,calc(100vw-5rem))] shrink-0 snap-start scroll-ml-1 flex-col rounded-md border bg-surface-sunken transition-colors",
                 isOver ? "border-primary bg-primary-soft/40" : "border-border",
               )}
               onDragOver={(e) => {
