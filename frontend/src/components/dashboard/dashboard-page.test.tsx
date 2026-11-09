@@ -201,12 +201,19 @@ describe("DashboardPage", () => {
   it("opens on this month and the member's own records", async () => {
     vi.mocked(getDashboard).mockResolvedValue(summary);
     renderDashboard();
-    expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Welcome, Owner" })).toBeInTheDocument();
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     expect(getDashboard).toHaveBeenCalledWith(month, undefined, 6, "me");
     expect(screen.getByRole("combobox", { name: "Period" })).toHaveTextContent("This Month");
     expect(screen.getByRole("combobox", { name: "Records" })).toHaveTextContent("My Records");
+  });
+
+  it("greets someone with no name by the part of their email before the @", async () => {
+    vi.mocked(getSession).mockResolvedValue({ ...session, user: { ...session.user, display_name: session.user.email } });
+    vi.mocked(getDashboard).mockResolvedValue(summary);
+    renderDashboard();
+    expect(await screen.findByRole("heading", { level: 1, name: "Welcome, owner" })).toBeInTheDocument();
   });
 
   it("renders the five KPI tiles, each opening its records, with the change against the previous period", async () => {

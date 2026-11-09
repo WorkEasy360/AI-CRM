@@ -117,7 +117,7 @@ test("the dashboard's figures open their records and a ticked task completes", a
   expect(task.status).toBe(201);
 
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Welcome/, level: 1 })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Records" })).toHaveText(/My Records/);
   const kpis = page.getByRole("region", { name: "Key figures" });
   await expect(kpis.getByRole("link", { name: /Total Leads/ })).toHaveAttribute("href", "/contacts");
