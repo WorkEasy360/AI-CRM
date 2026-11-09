@@ -13,6 +13,8 @@ class DashboardQuerySerializer(serializers.Serializer):
     period = serializers.CharField(max_length=8, required=False, default=service.DEFAULT_PERIOD)
     pipeline = serializers.UUIDField(required=False, allow_null=True)
     months = serializers.ChoiceField(choices=list(service.TREND_CHOICES), required=False, default=service.TREND_MONTHS)
+    # "me" narrows every figure to records the member owns, inside what they could already see.
+    owner = serializers.ChoiceField(choices=["all", "me"], required=False, default="all")
 
     def validate_period(self, value: str) -> str:
         if not service.is_period(value):
@@ -34,5 +36,6 @@ class DashboardSummaryView(TenantAPIView):
             period=ser.validated_data["period"],
             pipeline_id=ser.validated_data.get("pipeline"),
             trend_months=int(ser.validated_data["months"]),
+            mine=ser.validated_data["owner"] == "me",
         )
         return Response(data)

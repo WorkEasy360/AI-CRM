@@ -12,6 +12,8 @@ ALLOWED_WITHOUT_ORG = {
     "session": IsAuthenticatedUser,
     "session-switch": IsAuthenticatedUser,
     "session-bootstrap": IsAuthenticatedUser,
+    # Remember me: changes only the caller's own session cookie lifetime, within the configured maximum.
+    "session-persistence": IsAuthenticatedUser,
     "organization-create": IsAuthenticatedUser,
 }
 ALLOWED_SCHEMA_ROUTES = {"schema", "docs"}

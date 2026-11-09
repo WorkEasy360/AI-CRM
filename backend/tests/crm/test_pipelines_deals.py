@@ -346,7 +346,7 @@ def test_board_card_carries_only_what_the_card_draws(org_a, crm, owner_client):
 
     Two things are being held in place. Payload: a board renders up to 300 cards, so a field added
     here is paid for 300 times - ``description`` alone is 5000 characters per deal. Disclosure: the
-    card shows a contact's name, so the board ships a name and not the contact's email or phone.
+    card shows a name and offers Call and WhatsApp, so the board ships those and not the contact's email.
     """
     pipeline = crm.make_pipeline(org_a)
     contact = crm.make_contact(org_a, email="buyer@example.com", phone="+15550001111")
@@ -368,13 +368,50 @@ def test_board_card_carries_only_what_the_card_draws(org_a, crm, owner_client):
         "probability_overridden",
         "expected_close_date",
         "status",
+        "closed_at",
         "priority",
+        "next_activity_at",
         "next_activity_title",
         "risk_level",
         "version",
     }
-    assert set(card["primary_contact"]) == {"id", "name"}
-    assert "buyer@example.com" not in str(card) and "+15550001111" not in str(card)
+    assert set(card["primary_contact"]) == {"id", "name", "phone", "whatsapp_opt_in"}
+    assert card["primary_contact"]["phone"] == "+15550001111"
+    assert "buyer@example.com" not in str(card)
+
+
+def test_board_card_withholds_the_phone_outside_the_contact_scope(org_a, crm, make_member, client_for):
+    """A deal the rep may see can link a contact they may not: the card must not leak its phone."""
+    pipeline = crm.make_pipeline(org_a)
+    rep = make_member(org_a, "sales_rep")
+    theirs = crm.make_contact(org_a, owner=rep, phone="+15550002222")
+    other = crm.make_contact(org_a, phone="+15550003333")
+    crm.make_deal(org_a, owner=rep, contact=theirs, name="Mine")
+    crm.make_deal(org_a, owner=rep, contact=other, name="Someone else's contact")
+
+    board = client_for(rep.user, rep).get(f"/api/v1/deals/board/?pipeline={pipeline.pk}").json()
+    cards = {d["name"]: d for s in board["stages"] for d in s["deals"]}
+    assert cards["Mine"]["primary_contact"]["phone"] == "+15550002222"
+    assert cards["Someone else's contact"]["primary_contact"]["phone"] is None
+    assert cards["Someone else's contact"]["primary_contact"]["whatsapp_opt_in"] is None
+    assert "+15550003333" not in str(board)
+
+
+def test_board_card_withholds_a_phone_hidden_by_a_field_rule(org_a, crm, make_member, client_for):
+    from apps.authz.models import FieldPermission
+    from apps.core.tenancy.context import tenant_context
+
+    pipeline = crm.make_pipeline(org_a)
+    rep = make_member(org_a, "sales_rep")
+    with tenant_context(org_a.org.pk):
+        FieldPermission.objects.create(
+            organization_id=org_a.org.pk, role_id=rep.role_id, entity_type="contact", field="phone", access="hidden"
+        )
+    contact = crm.make_contact(org_a, owner=rep, phone="+15550004444")
+    crm.make_deal(org_a, owner=rep, contact=contact)
+
+    board = client_for(rep.user, rep).get(f"/api/v1/deals/board/?pipeline={pipeline.pk}").json()
+    assert "+15550004444" not in str(board)
 
 
 def test_board_query_count_does_not_grow_with_the_number_of_deals(org_a, crm, owner_client):

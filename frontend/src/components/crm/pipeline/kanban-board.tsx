@@ -2,13 +2,16 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, CalendarClock, CalendarDays, CheckCircle2, GripVertical, Move, MoreHorizontal, Pencil, Plus, User } from "lucide-react";
-import { isPastClose, weightedTotal } from "@/components/crm/deals/deal-helpers";
+import { Building2, CalendarDays, CheckCircle2, MoreHorizontal, Pencil, Plus, Settings2, User, XCircle } from "lucide-react";
+import { CallLink, WhatsAppButton } from "@/components/crm/contact-actions";
+import { weightedTotal } from "@/components/crm/deals/deal-helpers";
 import { useMoveStage, type StageTarget } from "@/components/crm/deals/move-stage-dialog";
 import { RiskBadge } from "@/components/crm/risk-badge";
+import { useQuickCreate } from "@/components/shell/quick-create-provider";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -16,22 +19,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { getBoardStage, updateDeal } from "@/lib/api/crm";
-import type { Board, BoardStage, DealCard, DealPriority, ListParams } from "@/lib/api/crm-types";
+import type { Board, BoardStage, DealCard, ListParams } from "@/lib/api/crm-types";
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { useWindowedList } from "@/lib/use-windowed-list";
-import { formatMoney, stageDotClass, stageTintStyle } from "@/lib/crm/format";
-import { cn, formatDate } from "@/lib/utils";
+import { defaultFollowUpTime, dueLabel, DUE_TONE_CLASS, formatDayMonth } from "@/lib/crm/due-date";
+import { formatMoney, stageHue, stageTintStyle } from "@/lib/crm/format";
+import { cn } from "@/lib/utils";
+
+const WhatsAppDialog = dynamic(() => import("@/components/messaging/whatsapp-dialog").then((m) => m.WhatsAppDialog), { ssr: false });
 
 const DRAG_MIME = "application/x-keel-deal";
 /** Typical card height (with its gap) for windowing a column; cards vary a little around it. */
-const CARD_HEIGHT = 112;
+const CARD_HEIGHT = 172;
 const PAGE = 200;
-
-const PRIORITY_BADGE: Record<DealPriority, { label: string; variant: BadgeProps["variant"] }> = {
-  high: { label: "High", variant: "danger" },
-  medium: { label: "Medium", variant: "warning" },
-  low: { label: "Low", variant: "success" },
-};
 
 /** Client-side ordering inside each column; "recent" keeps the server order (most recently moved first). */
 export type BoardSort = "recent" | "amount" | "close" | "name";
@@ -75,6 +75,9 @@ export function KanbanBoard({
   baseCurrency,
   canMove = true,
   showRisk = true,
+  canWhatsApp = true,
+  canFollowUp = true,
+  canManageStages = false,
   isFetching,
   sort = "recent",
   filters = {},
@@ -93,6 +96,12 @@ export function KanbanBoard({
   canMove?: boolean;
   /** Whether the actor holds `ai.scores.view`; hides the risk dot otherwise. */
   showRisk?: boolean;
+  /** Whether the actor holds `whatsapp.send`; the API re-checks. */
+  canWhatsApp?: boolean;
+  /** Whether the actor holds `activities.create`; the API re-checks. */
+  canFollowUp?: boolean;
+  /** Whether the actor holds `pipelines.manage`: offers "Edit stages" on the columns. */
+  canManageStages?: boolean;
   isFetching?: boolean;
   sort?: BoardSort;
 }) {
@@ -102,6 +111,9 @@ export function KanbanBoard({
   const [more, setMore] = React.useState<Record<string, boolean>>({});
   const [loadingMore, setLoadingMore] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<DealCard | null>(null);
+  // One composer for the whole board, loaded when first asked for, rather than one per card.
+  const [messaging, setMessaging] = React.useState<DealCard | null>(null);
+  const { open: openCreate } = useQuickCreate();
   const { toast } = useToast();
   React.useEffect(() => {
     setExtra({});
@@ -185,8 +197,8 @@ export function KanbanBoard({
   return (
     // Desktop: fills the locked page height (never below 18rem) and columns scroll inside. Phones and tablets:
     // natural height, so the page scrolls down and only the board scrolls sideways, snapping to stages.
-    <div className={cn("-mx-1 snap-x snap-proximity overflow-x-auto overscroll-x-contain pb-2 transition-opacity lg:min-h-72 lg:flex-1 lg:snap-none", isFetching && "opacity-80")} aria-busy={isFetching || undefined}>
-      <ol className="flex h-full min-w-max items-stretch gap-2.5 px-1" aria-label="Pipeline stages">
+    <div className={cn("relative -mx-1 snap-x snap-proximity overflow-x-auto overscroll-x-contain pb-2 transition-opacity lg:min-h-72 lg:flex-1 lg:snap-none", isFetching && "opacity-80")} aria-busy={isFetching || undefined}>
+      <ol className="flex h-full w-max min-w-full items-stretch gap-3 px-1" aria-label="Pipeline stages">
         {stages.map((stage) => {
           const isOver = overStage === stage.id && dragging !== null;
           // Server-computed over every deal in the column (null when amounts are hidden from the member).
@@ -202,8 +214,9 @@ export function KanbanBoard({
             <li
               key={stage.id}
               className={cn(
-                "flex w-[min(16rem,calc(100vw-5rem))] shrink-0 snap-start scroll-ml-1 flex-col rounded-md border bg-surface-sunken transition-colors",
-                isOver ? "border-primary bg-primary-soft/40" : "border-border",
+                // Phones show one stage and a peek of the next; desktop shares the width between the stages.
+                "flex w-[min(17rem,calc(100vw-4rem))] shrink-0 snap-start scroll-ml-1 flex-col rounded-lg transition-colors lg:w-[12.75rem] lg:grow",
+                isOver && "bg-primary-soft/40 ring-2 ring-primary",
               )}
               onDragOver={(e) => {
                 if (!canMove || !dragging) return;
@@ -223,18 +236,25 @@ export function KanbanBoard({
               }}
               data-testid={`column-${stage.id}`}
             >
-              <span className={cn("-mx-px -mt-px h-[3px] shrink-0 rounded-t-md", stageDotClass(stage.color_token))} aria-hidden />
-              <header className="px-2.5 pb-1.5 pt-2" style={stageTintStyle(stage.color_token)}>
+              <header className="rounded-lg px-3 pb-2 pt-2.5" style={stageTintStyle(stage.color_token)}>
                 <div className="flex min-w-0 items-center justify-between gap-1">
-                  <h3 className="min-w-0 truncate text-base font-bold text-fg" title={stage.name}>
+                  <h3 className="min-w-0 truncate text-md font-bold text-fg" title={stage.name}>
                     {stage.name}
                   </h3>
-                  <span className={cn("shrink-0 rounded-md px-1.5 py-px text-xs font-bold text-white", stageDotClass(stage.color_token))} aria-label={`${stage.deal_count} deals`}>
-                    {stage.deal_count}
-                  </span>
+                  <ColumnMenu stage={stage} weighted={weighted === null ? null : formatMoney(weighted, baseCurrency)} onAddDeal={onAddDeal} canManageStages={canManageStages} />
                 </div>
-                {stage.total_amount_base !== null ? <p className="mt-0.5 text-base font-bold tabular-nums text-fg">{formatMoney(stage.total_amount_base, baseCurrency)}</p> : null}
-                {weighted !== null ? <p className="text-xs tabular-nums text-fg-subtle">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
+                <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-sm font-medium tabular-nums text-fg-muted">
+                  <span aria-label={`${stage.deal_count} deals`}>
+                    {stage.deal_count} {stage.deal_count === 1 ? "Deal" : "Deals"}
+                  </span>
+                  {stage.total_amount_base !== null ? (
+                    <>
+                      <span aria-hidden>•</span>
+                      <span className="min-w-0 truncate">{formatMoney(stage.total_amount_base, baseCurrency)}</span>
+                    </>
+                  ) : null}
+                </p>
+                {weighted !== null ? <p className="sr-only">Weighted {formatMoney(weighted, baseCurrency)}</p> : null}
               </header>
               <ColumnCards
                 stage={stage}
@@ -245,6 +265,18 @@ export function KanbanBoard({
                     stages={targets}
                     canMove={canMove}
                     showRisk={showRisk}
+                    canWhatsApp={canWhatsApp}
+                    canFollowUp={canFollowUp}
+                    onWhatsApp={() => setMessaging(deal)}
+                    onFollowUp={() =>
+                      openCreate("task", {
+                        deal: { id: deal.id, name: deal.name },
+                        contact: deal.primary_contact ? { id: deal.primary_contact.id, name: deal.primary_contact.name } : null,
+                        company: deal.company,
+                        title: `Follow up: ${deal.name}`,
+                        start_at: defaultFollowUpTime(),
+                      })
+                    }
                     dragging={dragging === deal.id}
                     busy={move.pendingDealId === deal.id}
                     onDragStart={(e) => {
@@ -273,27 +305,25 @@ export function KanbanBoard({
                   {loadingMore === stage.id ? "Loading…" : `Show ${Math.min(PAGE, Math.max(stage.deal_count - stage.deals.length, 1))} more`}
                 </button>
               ) : null}
-              {onAddDeal ? (
-                <button
-                  type="button"
-                  onClick={() => onAddDeal(stage)}
-                  className="flex items-center justify-center gap-1.5 border-t border-border px-2.5 py-2 text-sm font-medium text-fg hover:bg-bg-subtle"
-                  aria-label={`Add deal to ${stage.name}`}
-                >
-                  <Plus className="size-4" aria-hidden /> Add Deal
-                </button>
-              ) : null}
             </li>
           );
         })}
       </ol>
-      {canMove ? (
-        <p className="mx-1 mt-3 flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand/50 bg-brand-soft py-3 text-sm font-medium text-fg dark:bg-transparent">
-          <Move className="size-4 text-brand" aria-hidden /> Drag &amp; Drop deals between stages
-        </p>
-      ) : null}
       {move.dialog}
       {editing ? <QuickEditDialog deal={editing} onClose={() => setEditing(null)} /> : null}
+      {messaging?.primary_contact?.phone ? (
+        <WhatsAppDialog
+          open
+          onOpenChange={(open) => !open && setMessaging(null)}
+          deal={{ id: messaging.id, name: messaging.name }}
+          contact={{
+            id: messaging.primary_contact.id,
+            name: messaging.primary_contact.name,
+            phone: messaging.primary_contact.phone,
+            whatsapp_opt_in: Boolean(messaging.primary_contact.whatsapp_opt_in),
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -316,7 +346,7 @@ function ColumnCards({ stage, render }: { stage: BoardStage; render: (deal: Deal
   return (
     <ul
       ref={win.ref as React.RefObject<HTMLUListElement>}
-      className="flex min-h-20 flex-1 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5"
+      className="mt-2 flex min-h-20 flex-1 flex-col gap-2 overflow-y-auto pb-1"
       aria-label={`${stage.name} deals`}
     >
       {win.padTop ? <li aria-hidden style={{ height: win.padTop, flexShrink: 0 }} /> : null}
@@ -395,11 +425,52 @@ function QuickEditDialog({ deal, onClose }: { deal: DealCard; onClose: () => voi
   );
 }
 
+/** A column's options: its weighted forecast, adding a deal straight into it, and the stage setup. */
+function ColumnMenu({
+  stage,
+  weighted,
+  onAddDeal,
+  canManageStages,
+}: {
+  stage: BoardStage;
+  weighted: string | null;
+  onAddDeal?: (stage: BoardStage) => void;
+  canManageStages: boolean;
+}) {
+  if (!weighted && !onAddDeal && !canManageStages) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" className="-mr-1.5 size-8 shrink-0 max-lg:size-11" aria-label={`${stage.name} options`}>
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {weighted ? <DropdownMenuLabel>Weighted {weighted}</DropdownMenuLabel> : null}
+        {onAddDeal ? (
+          <DropdownMenuItem onSelect={() => onAddDeal(stage)}>
+            <Plus /> Add Deal
+          </DropdownMenuItem>
+        ) : null}
+        {canManageStages ? (
+          <DropdownMenuItem asChild>
+            <Link href="/settings/pipelines">
+              <Settings2 /> Edit stages
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function DealCard({
   deal,
   stages,
   canMove,
   showRisk,
+  canWhatsApp,
+  canFollowUp,
   dragging,
   busy,
   onDragStart,
@@ -407,61 +478,55 @@ function DealCard({
   onMove,
   onEdit,
   onOpen,
+  onWhatsApp,
+  onFollowUp,
 }: {
   deal: DealCard;
   onOpen?: () => void;
   stages: StageTarget[];
   canMove: boolean;
   showRisk: boolean;
+  canWhatsApp: boolean;
+  canFollowUp: boolean;
   dragging: boolean;
   busy: boolean;
   onDragStart: (e: React.DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
   onMove: (stage: StageTarget) => void;
   onEdit: () => void;
+  onWhatsApp: () => void;
+  onFollowUp: () => void;
 }) {
-  const who = deal.company?.name || deal.primary_contact?.name || "";
+  const person = deal.primary_contact?.name || deal.company?.name || "";
   const open = deal.status === "open";
-  const overdue = isPastClose(deal);
+  const phone = deal.primary_contact?.phone;
+  const due = open && deal.next_activity_at ? dueLabel(deal.next_activity_at) : null;
   return (
     <li
-      className={cn(
-        "group rounded-sm border border-border bg-surface px-2.5 py-2 shadow-sm transition-opacity",
-        canMove && "cursor-grab active:cursor-grabbing",
-        (dragging || busy) && "opacity-50",
-        deal.status === "won" && "border-l-2 border-l-success",
-        deal.status === "lost" && "border-l-2 border-l-danger",
-      )}
+      className={cn("rounded-lg border border-border bg-surface p-3 shadow-sm transition-opacity", canMove && "cursor-grab active:cursor-grabbing", (dragging || busy) && "opacity-50")}
       draggable={canMove && !busy}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       aria-busy={busy || undefined}
       data-testid={`deal-card-${deal.id}`}
     >
-      <div className="flex items-start gap-1">
-        {canMove ? <GripVertical className="mt-0.5 size-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" aria-hidden /> : null}
-        {deal.status === "won" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-label="Won" /> : null}
+      <div className="flex items-start gap-1.5">
+        <Building2 className="mt-0.5 size-4 shrink-0" style={{ color: stageHue(deal.stage.color_token) }} aria-hidden />
         <div className="min-w-0 flex-1">
           {onOpen ? (
-            <button type="button" onClick={onOpen} className="block w-full truncate text-left text-sm font-semibold text-fg hover:text-primary hover:underline" draggable={false}>
+            <button type="button" onClick={onOpen} className="block w-full truncate text-left text-sm font-semibold text-fg hover:text-primary hover:underline" draggable={false} title={deal.company?.name ? `${deal.name} (${deal.company.name})` : deal.name}>
               {deal.name}
             </button>
           ) : (
-            <Link prefetch={false} href={`/deals/${encodeURIComponent(deal.id)}`} className="block truncate text-sm font-medium text-fg hover:text-primary hover:underline" draggable={false}>
+            <Link prefetch={false} href={`/deals/${encodeURIComponent(deal.id)}`} className="block truncate text-sm font-semibold text-fg hover:text-primary hover:underline" draggable={false}>
               {deal.name}
             </Link>
           )}
-          {who ? (
-            <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-fg-muted">
-              {deal.company ? <Building2 className="size-3 shrink-0" aria-hidden /> : <User className="size-3 shrink-0" aria-hidden />}
-              <span className="truncate">{who}</span>
-            </p>
-          ) : null}
         </div>
         {canMove ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1 size-7 shrink-0" aria-label={`Move ${deal.name} to another stage`} disabled={busy}>
+              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1 size-7 shrink-0 max-lg:size-11" aria-label={`Move ${deal.name} to another stage`} disabled={busy}>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
@@ -483,31 +548,60 @@ function DealCard({
           </DropdownMenu>
         ) : null}
       </div>
-      <div className="mt-1.5 flex items-center justify-between gap-2">
-        <span className="flex items-baseline gap-1 truncate">
-          <span className="text-sm font-bold tabular-nums">{formatMoney(deal.amount, deal.currency)}</span>
-          <span className="text-xs tabular-nums text-fg-muted" title={deal.probability_overridden ? "Probability set by hand" : "Probability"}>
-            {deal.probability}%
-          </span>
-        </span>
-        {deal.priority && deal.status === "open" ? <Badge variant={PRIORITY_BADGE[deal.priority].variant}>{PRIORITY_BADGE[deal.priority].label}</Badge> : null}
-      </div>
+
       <div className="mt-1 flex items-center justify-between gap-2">
-        {deal.owner ? (
-          <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-fg-muted" title={deal.owner.display_name}>
-            <Avatar name={deal.owner.display_name} size="sm" className="size-5 text-[11px]" aria-label={`Owner: ${deal.owner.display_name}`} />
-            <span className="truncate">{deal.owner.display_name.split(" ")[0]}</span>
-          </span>
-        ) : (
-          <span />
-        )}
-        {deal.expected_close_date ? (
-          <span className={cn("inline-flex shrink-0 items-center gap-1 text-xs", overdue ? "text-danger" : "text-fg-subtle")} title={overdue ? "Past the expected close date" : "Expected close"}>
-            <CalendarDays className="size-3" aria-hidden />
-            <time dateTime={deal.expected_close_date}>{formatDate(deal.expected_close_date)}</time>
-          </span>
-        ) : null}
+        <span className="min-w-0 truncate text-md font-bold tabular-nums text-fg" title={`${deal.probability}% probability${deal.probability_overridden ? ", set by hand" : ""}`}>
+          {formatMoney(deal.amount, deal.currency)}
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {deal.status === "won" ? (
+            <Badge variant="success">
+              <CheckCircle2 className="size-3" aria-hidden /> Won
+            </Badge>
+          ) : deal.status === "lost" ? (
+            <Badge variant="danger">
+              <XCircle className="size-3" aria-hidden /> Lost
+            </Badge>
+          ) : (
+            <>
+              {deal.priority === "high" ? <Badge variant="danger">High</Badge> : null}
+              {showRisk ? <RiskBadge compact level={deal.risk_level} /> : null}
+            </>
+          )}
+        </span>
       </div>
+
+      <div className="mt-1.5 flex min-h-5 items-center gap-1.5 text-xs text-fg-muted">
+        {person ? (
+          <>
+            {deal.primary_contact ? <User className="size-3.5 shrink-0" aria-hidden /> : <Building2 className="size-3.5 shrink-0" aria-hidden />}
+            <span className="min-w-0 flex-1 truncate">{person}</span>
+          </>
+        ) : (
+          <span className="flex-1" />
+        )}
+        {deal.owner ? <Avatar name={deal.owner.display_name} size="sm" className="size-5 shrink-0 text-[11px]" title={`Owner: ${deal.owner.display_name}`} aria-label={`Owner: ${deal.owner.display_name}`} /> : null}
+      </div>
+
+      <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-fg-muted">
+        <CalendarDays className="size-3.5 shrink-0" aria-hidden />
+        {!open && deal.closed_at ? (
+          <span className="truncate">
+            Closed: <time dateTime={deal.closed_at}>{formatDayMonth(deal.closed_at)}</time>
+          </span>
+        ) : due && deal.next_activity_at ? (
+          <span className="min-w-0 truncate" title={deal.next_activity_title || undefined}>
+            Follow-up:{" "}
+            <time dateTime={deal.next_activity_at} className={cn("rounded-sm px-1 font-medium", due.tone !== "later" && DUE_TONE_CLASS[due.tone])}>
+              {due.text}
+            </time>
+            {deal.next_activity_title ? <span className="sr-only"> {deal.next_activity_title}</span> : null}
+          </span>
+        ) : open ? (
+          <span className="truncate text-danger">No next step</span>
+        ) : null}
+      </p>
+
       {deal.extra?.length ? (
         <dl className="mt-1 flex flex-col gap-0.5 text-xs">
           {deal.extra.map((e) => {
@@ -521,21 +615,21 @@ function DealCard({
           })}
         </dl>
       ) : null}
-      <div className="mt-1 flex items-center justify-between gap-2">
-        {deal.next_activity_title ? (
-          <span className="inline-flex min-w-0 items-center gap-1 text-xs text-fg-muted" title={`Next: ${deal.next_activity_title}`}>
-            <CalendarClock className="size-3 shrink-0" aria-hidden />
-            <span className="truncate">{deal.next_activity_title}</span>
-          </span>
-        ) : open ? (
-          <span className="inline-flex items-center gap-1 text-xs text-danger/80">
-            <CalendarClock className="size-3 shrink-0" aria-hidden />
-            No next step
-          </span>
-        ) : (
-          <span />
-        )}
-        <span className="flex shrink-0 items-center gap-1.5">{showRisk && open ? <RiskBadge compact level={deal.risk_level} /> : null}</span>
+
+      <div className="mt-2.5 flex items-center gap-1.5">
+        <CallLink phone={phone} name={person || deal.name} />
+        {canWhatsApp ? <WhatsAppButton phone={phone} name={person || deal.name} onClick={onWhatsApp} /> : null}
+        {open && canFollowUp ? (
+          <button
+            type="button"
+            onClick={onFollowUp}
+            className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-border-strong bg-surface px-1.5 text-xs font-medium text-fg transition-colors hover:border-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-ring lg:h-8"
+            aria-label={`Add a follow-up for ${deal.name}`}
+          >
+            <CalendarDays className="size-3.5 shrink-0" aria-hidden />
+            <span className="whitespace-nowrap">Follow-up</span>
+          </button>
+        ) : null}
       </div>
     </li>
   );

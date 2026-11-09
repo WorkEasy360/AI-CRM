@@ -20,6 +20,7 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -158,8 +159,11 @@ class DealCardSerializer(serializers.Serializer):
     - ``pipeline`` - a board is one pipeline; the reference was 5% of the payload and repeated 300x.
     - ``description``/``custom_data``/``tags`` - never on a card, and ``description`` is up to 5000
       characters per deal, so it is the field most able to make a board payload explode.
-    - the contact's ``email``/``phone``/``whatsapp_opt_in`` - unrendered, and dropping them stops a
-      board disclosing contact details the card never shows (two scope checks per card as well).
+    - the contact's ``email`` - unrendered, so a board does not disclose it.
+
+    The contact's ``phone`` and ``whatsapp_opt_in`` are here because the card's Call and WhatsApp buttons
+    use them. They are ``null`` unless the actor's ``contacts.view`` scope covers that contact and the
+    field is not hidden from their role, so a card discloses no more than the contact record would.
     """
 
     id = serializers.UUIDField(read_only=True)
@@ -177,6 +181,8 @@ class DealCardSerializer(serializers.Serializer):
     expected_close_date = serializers.DateField(read_only=True)
     status = serializers.CharField(read_only=True)
     priority = serializers.CharField(read_only=True)
+    closed_at = serializers.DateTimeField(read_only=True)
+    next_activity_at = serializers.DateTimeField(read_only=True)
     next_activity_title = serializers.CharField(read_only=True, default="")
     risk_level = serializers.SerializerMethodField()
     version = serializers.IntegerField(read_only=True)
@@ -194,10 +200,22 @@ class DealCardSerializer(serializers.Serializer):
             ]
         return data
 
-    def get_primary_contact(self, obj: Deal) -> dict[str, str] | None:
-        """Name only: the card shows a name, so the board ships a name."""
+    def get_primary_contact(self, obj: Deal) -> dict[str, Any] | None:
+        """Name, plus the phone details the card's buttons need when the actor may see them."""
+        from apps.authz import fields as field_rules
+
         contact = obj.primary_contact
-        return None if contact is None else {"id": str(contact.pk), "name": contact.display_name}
+        if contact is None:
+            return None
+        actor = self.context.get("actor")
+        visible = actor is not None and actor.covers_owner("contacts.view", contact.owner_id)
+        hidden = field_rules.hidden_fields(actor, "contact") if visible else frozenset()
+        return {
+            "id": str(contact.pk),
+            "name": contact.display_name,
+            "phone": contact.phone if visible and "phone" not in hidden else None,
+            "whatsapp_opt_in": contact.whatsapp_opt_in if visible and "whatsapp_opt_in" not in hidden else None,
+        }
 
     def get_weighted_amount_base(self, obj: Deal) -> str:
         return str(services.weighted_amount(obj.amount_base, obj.probability))
@@ -417,6 +435,22 @@ def _deals_with_product(qs, key: str, raw: Any):
     return qs.filter(pk__in=DealProduct.objects.filter(product_id=product_id).values("deal_id"))
 
 
+def _closed_in_period(qs, key: str, raw: Any):
+    """``?closed_period=2026-11`` (or 7d, 30d, 90d, 365d): won and lost deals closed in that period.
+
+    Open deals always stay: they are live work, whenever they were created. ``all`` turns the filter off.
+    """
+    from apps.dashboards import service as dashboards
+
+    value = str(raw).strip()
+    if value == "all":
+        return qs
+    if not dashboards.is_period(value):
+        raise serializers.ValidationError({key: "Choose all, 7d, 30d, 90d, 365d or a month like 2026-11."})
+    since, until, _before = dashboards.bounds(value, timezone.now())
+    return qs.filter(Q(status=Deal.Status.OPEN) | Q(closed_at__gte=since, closed_at__lt=until))
+
+
 FILTERS = FilterSet(
     filters={
         "owner": Filter("owner", "owner_id"),
@@ -448,7 +482,7 @@ FILTERS = FilterSet(
     default_sort="-created_at",
     search_fields=("name", "company__name", "primary_contact__first_name", "primary_contact__last_name"),
     custom_field_entity="deal",
-    extra={"product": _deals_with_product},
+    extra={"product": _deals_with_product, "closed_period": _closed_in_period},
 )
 
 # Cards per column on the first load; a column pages through ``board/stage`` for the rest and the client
@@ -601,6 +635,7 @@ class DealViewSet(CrmViewSet):
                 "probability_overridden",
                 "expected_close_date",
                 "status",
+                "closed_at",
                 "priority",
                 "stage_id",
                 "company_id",

@@ -185,3 +185,75 @@ def test_new_widgets_stay_inside_the_scope(org_a, org_b, make_member, client_for
     assert [row["source"] for row in data["deals_by_source"]] == ["referral"]
     assert data["totals"]["deals"]["count"] == 1
     assert data["top_team"] == []
+
+
+def test_leads_figures_count_the_funnel_by_lifecycle_stage(org_a, owner_client, crm):
+    crm.make_contact(org_a, lifecycle_stage="lead")
+    crm.make_contact(org_a, lifecycle_stage="qualified")
+    crm.make_contact(org_a, lifecycle_stage="customer")
+    old = crm.make_contact(org_a, lifecycle_stage="prospect")
+    with tenant_context(org_a.org.pk):
+        type(old).objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=60))
+
+    leads = owner_client.get("/api/v1/dashboard/?period=30d").json()["leads"]
+    assert leads["total"] == 4 and leads["active"] == 3
+    assert leads["previous_total"] == 1 and leads["previous_active"] == 1
+    assert {row["status"]: row["count"] for row in leads["by_status"]} == {
+        "lead": 1,
+        "prospect": 1,
+        "qualified": 1,
+        "customer": 1,
+        "inactive": 0,
+    }
+
+
+def test_leads_previous_counts_use_the_stage_at_that_time(org_a, owner_client, crm):
+    """A contact that became a customer during the period was still an active lead when it began."""
+    from apps.lifecycle.models import LifecycleHistory
+
+    contact = crm.make_contact(org_a, lifecycle_stage="customer")
+    now = timezone.now()
+    with tenant_context(org_a.org.pk):
+        type(contact).objects.filter(pk=contact.pk).update(created_at=now - timedelta(days=60))
+        LifecycleHistory.objects.create(
+            organization_id=org_a.org.pk,
+            entity_type="contact",
+            entity_id=contact.pk,
+            from_stage="qualified",
+            to_stage="customer",
+            changed_at=now - timedelta(days=5),
+        )
+    leads = owner_client.get("/api/v1/dashboard/?period=30d").json()["leads"]
+    assert leads["active"] == 0 and leads["previous_active"] == 1
+
+
+def test_owner_me_narrows_every_figure_to_the_members_own_records(org_a, owner_client, make_member, crm):
+    colleague = make_member(org_a, "sales_rep")
+    _seed(crm, org_a, owner=colleague)  # four deals and two contacts that belong to someone else
+    crm.make_contact(org_a)  # the factory's default owner is the signed-in owner
+    crm.make_deal(org_a, amount="40.00", amount_base="40.00")
+
+    everything = owner_client.get("/api/v1/dashboard/?owner=all").json()
+    assert everything["owner"] == "all" and everything["totals"]["deals"]["count"] == 5
+    own = owner_client.get("/api/v1/dashboard/?owner=me").json()
+    assert own["owner"] == "me"
+    assert own["totals"]["deals"]["count"] == 1 and own["totals"]["contacts"]["count"] == 1
+    assert own["open_pipeline"] == {"count": 1, "amount": "40.00"}
+    assert own["leads"]["total"] == 1
+    assert owner_client.get("/api/v1/dashboard/?owner=someone").status_code == 400
+
+
+def test_owner_me_never_widens_a_members_scope(org_a, make_member, client_for, crm):
+    rep = make_member(org_a, "sales_rep")
+    crm.make_deal(org_a, owner=rep, amount="40.00", amount_base="40.00")
+    crm.make_deal(org_a, amount="9000.00", amount_base="9000.00")
+    data = client_for(rep.user, rep).get("/api/v1/dashboard/?owner=me").json()
+    assert data["totals"]["deals"]["count"] == 1 and data["open_pipeline"]["amount"] == "40.00"
+
+
+def test_owner_filter_does_not_share_a_cache_entry(org_a, owner_client, make_member, crm, settings):
+    settings.DASHBOARD_CACHE_SECONDS = 60
+    colleague = make_member(org_a, "sales_rep")
+    crm.make_deal(org_a, owner=colleague, amount="9000.00", amount_base="9000.00")
+    assert owner_client.get("/api/v1/dashboard/?owner=all").json()["totals"]["deals"]["count"] == 1
+    assert owner_client.get("/api/v1/dashboard/?owner=me").json()["totals"]["deals"]["count"] == 0

@@ -9,18 +9,19 @@ menu_path: Dashboard → Period
 spotlight: Period
 permission: dashboards.view
 related: [dashboard-overview, dashboard-forecast, dashboard-more-insights]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
-The Dashboard shows the current month by default. You can switch to an earlier month or a rolling range, focus on one pipeline, and change how many months the revenue chart covers.
+The Dashboard shows the current month and your own records by default. You can switch to an earlier month or a rolling range, see all records, focus on one pipeline, and change how many months the revenue chart covers.
 
 ## Steps
 1. Click **Dashboard** in the left sidebar.
-2. At the top right, open the **Period** menu (it shows the current month, for example "Nov 2026").
+2. At the top right, open the **Period** menu (it shows **This Month** by default).
 3. Choose one of the last 12 months, or **Last 7 days**, **Last 30 days**, **Last 90 days** or **Last 12 months**.
-4. If your workspace has more than one pipeline, open the **Pipeline** menu next to it and choose a pipeline, or **All pipelines**.
-5. To change the chart range, open the menu on the **Revenue Trend** panel and choose **Last 3 Months**, **Last 6 Months** or **Last 12 Months**.
+4. Open the records menu next to it and choose **My Records** or **All Records**.
+5. If your workspace has more than one pipeline, open the **Pipeline** menu on the **Sales Pipeline (Deals)** panel and choose a pipeline.
+6. To change the chart range, click **More insights** and open the menu on the **Revenue Trend** panel and choose **Last 3 Months**, **Last 6 Months** or **Last 12 Months**.
 
 ## Result
 The widgets reload for your choice. Panel subtitles such as **Logged**, **New deals** and **Won** show the selected period.
@@ -30,4 +31,4 @@ The widgets reload for your choice. Panel subtitles such as **Logged**, **New de
 - The **Revenue Trend** range is separate from the period selector.
 
 ## Troubleshooting
-- **I do not see a Pipeline menu.** It only appears when the workspace has more than one pipeline.
+- **I do not see a Pipeline menu.** It sits on the **Sales Pipeline (Deals)** panel and only appears when the workspace has more than one pipeline.

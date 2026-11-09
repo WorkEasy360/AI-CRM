@@ -17,6 +17,13 @@ export interface PipelineStats {
   open_deals: number;
   pipeline_value: string | null;
   expected_revenue: string | null;
+  /** Over the deals as filtered: `closed_period` narrows these to deals closed in that period. */
+  won_deals: number;
+  lost_deals: number;
+  won_amount: string | null;
+  lost_amount: string | null;
+  /** Won as a percentage of won + lost; null when nothing closed. */
+  conversion_rate: number | null;
   current: Window;
   previous: Window;
 }

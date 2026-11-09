@@ -44,8 +44,11 @@ export const switchOrganization = (membership_id: string) =>
  */
 export const bootstrapSession = () => api.post<Session>("/api/v1/session/bootstrap/");
 
-export const getDashboard = (period: DashboardPeriod | string, pipeline?: string, months?: number) =>
-  api.get<DashboardSummary>("/api/v1/dashboard/", { period, pipeline, months });
+/** "Remember me": whether this session outlives the browser. The server allows only its own two lifetimes. */
+export const setSessionPersistence = (remember: boolean) => api.post<{ remember: boolean }>("/api/v1/session/persistence/", { remember });
+
+export const getDashboard = (period: DashboardPeriod | string, pipeline?: string, months?: number, owner?: "me" | "all") =>
+  api.get<DashboardSummary>("/api/v1/dashboard/", { period, pipeline, months, owner });
 
 export const createOrganization = (input: CreateOrganizationInput) =>
   api.post<CreateOrganizationResponse>("/api/v1/organizations/", input);

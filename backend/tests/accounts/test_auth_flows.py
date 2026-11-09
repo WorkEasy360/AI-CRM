@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from django.conf import settings
 from django.core import mail
 from django.test import override_settings
 from rest_framework.test import APIClient
@@ -204,3 +205,19 @@ def test_idle_session_timeout(make_org, client_for, settings):
     resp = client.get("/api/v1/session/")
     assert resp.status_code == 401
     assert resp.json()["type"] == "session_expired"
+
+
+def test_session_persistence_only_chooses_between_the_allowed_lifetimes(owner_client, anon_client):
+    forget = owner_client.post("/api/v1/session/persistence/", {"remember": False}, format="json")
+    assert forget.status_code == 200
+    # A browser-session cookie: no max-age, so it ends when the browser closes.
+    assert forget.cookies["keel_session"]["max-age"] == ""
+    assert owner_client.get("/api/v1/session/").status_code == 200
+
+    remember = owner_client.post("/api/v1/session/persistence/", {"remember": True}, format="json")
+    assert remember.status_code == 200
+    assert remember.cookies["keel_session"]["max-age"] == settings.SESSION_COOKIE_AGE
+
+    assert owner_client.post("/api/v1/session/persistence/", {"remember": "maybe"}, format="json").status_code == 400
+    assert owner_client.post("/api/v1/session/persistence/", {}, format="json").status_code == 400
+    assert anon_client.post("/api/v1/session/persistence/", {"remember": True}, format="json").status_code in (401, 403)

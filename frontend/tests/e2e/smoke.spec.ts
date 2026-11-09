@@ -17,10 +17,10 @@ test("login page hydrates under the production CSP (no blocked scripts)", async 
     if (message.type() === "error" && /Content Security Policy/.test(message.text())) blocked.push(message.text().slice(0, 160));
   });
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "CRM Login" })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Log In to CRM" })).toBeVisible();
   // Typing proves React hydrated: a prerendered, script-less page would not keep the value in state.
   await page.getByLabel("Email").fill("smoke@example.com");
   await expect(page.getByLabel("Email")).toHaveValue("smoke@example.com");

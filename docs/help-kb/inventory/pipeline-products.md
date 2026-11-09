@@ -13,18 +13,18 @@
 | Pipeline access | /settings/pipelines | same | pipelines.manage | Restrict to teams or roles switch, Teams, Roles | Save access | pipeline-restrict-access |
 | Card layout | /settings/pipelines | same | pipelines.manage | up to 8 deal fields | Save layout | pipeline-card-layout |
 | Switch pipeline | /pipeline | Pipeline | deals.view | Pipeline drop-down; Pipelines column (xl screens); Sub-pipelines chips | select | pipeline-switch |
-| Kanban view | /pipeline | Pipeline → Kanban View | deals.view | Sort (Recently moved, Amount high–low, Closing soonest, Name A–Z) | Show N more, KPI tiles | pipeline-kanban-view |
-| List view | /pipeline?view=list | Pipeline → List View | deals.view | View (All/My/Archived deals), Search, Filters (Status, Stage), Sort | Load more, row → deal page | pipeline-list-view |
+| Kanban view | /pipeline | Pipeline → Kanban | deals.view | Sort (Recently moved, Amount high–low, Closing soonest, Name A–Z) | Show N more, KPI tiles | pipeline-kanban-view |
+| List view | /pipeline?view=list | Pipeline → List | deals.view | View (All/My/Archived deals), Search, Filters (Status, Stage), Sort | Load more, row → deal page | pipeline-list-view |
 | Forecast | /pipeline?tab=forecast | Pipeline → Forecast | reports.view | Period (This month/This quarter/Custom + From/To), Pipeline, Group by (Stage/Salesperson/Team/Pipeline) | tiles, By month, breakdown | pipeline-forecast |
 | Analytics | /pipeline?tab=analytics | Pipeline → Analytics | deals.view | Pipeline, Search, Owner, Source, Product filters | Conversion by stage, Win / loss, Deals by source, Owner performance | pipeline-analytics |
 | Sheet / Calendar / Chart views | /pipeline?view=sheet (calendar, chart) | Pipeline → view switcher | deals.view (deals.update to edit cells) | Columns; Place by; Measure / Group by | Save N rows, Discard, Show table | pipeline-more-views |
-| Filters | /pipeline | Pipeline → Kanban View | deals.view | Search deals…, All Owners/My deals, All Sources, All Products, Any status | Clear | pipeline-filter-deals |
+| Filters | /pipeline | Pipeline → Kanban | deals.view | Search deals…, All Owners/My deals, All Sources, All Products, Any status | Clear | pipeline-filter-deals |
 | Saved views | /pipeline | Pipeline → Saved views | deals.view (views.share to share) | Name*, Who can use it (Only me/Everyone/Selected teams), Open with this view by default | Save as new view…, Save changes, Delete view, default | pipeline-saved-views |
 | Create deal | /pipeline (also ?new=1) | Pipeline → Add Deal | deals.create | Deal name*, Currency* (prefilled), Company, Primary contact, Amount, Rate to (foreign currency), Expected close, Priority, Source, Description, Owner (deals.reassign), custom fields | Create deal, Create company, Create contact | deal-create |
-| Add deal from column | /pipeline | Pipeline → Kanban View | deals.create | same form | column Add Deal | deal-add-from-column |
+| Add deal from column | /pipeline | Pipeline → Kanban | deals.create | same form | column Add Deal | deal-add-from-column |
 | Deal details panel / page | /pipeline → /deals/[id] | Pipeline → card name → Open full deal | deals.view | Deal Value, Expected Close, Owner, Source, Product (inline) | tabs Overview, Timeline, Contacts, Products, Connected, Activities, Communication, AI Insights, Notes, Files | deal-open-details |
 | Edit deal | /deals/[id] | Deal page → Edit | deals.update | same as create (amount read-only if from lines) | Save changes; card ⋯ → Edit details… (Name, Amount, Expected close) | deal-edit |
-| Move stage / drag & drop | /pipeline | Pipeline → Kanban View | deals.change_stage | Lost reason (optional, 255) for lost stages | drag, card ⋯ → Move to…, deal page Move to…, stage track | deal-drag-drop |
+| Move stage / drag & drop | /pipeline | Pipeline → Kanban | deals.change_stage | Lost reason (optional, 255) for lost stages | drag, card ⋯ → Move to…, deal page Move to…, stage track | deal-drag-drop |
 | Move to Next Stage | /pipeline | Deal Details panel | deals.change_stage | none | Move to Next Stage (skips lost stages) | deal-move-next-stage |
 | Won / lost | /deals/[id] | Deal page stage track | deals.change_stage | Lost reason (optional) | Win, Lose → Mark as lost | deal-mark-won-lost |
 | Notes / files | /pipeline, /deals/[id] | Deal Details → Notes / Files | notes.create, files.upload | note text (plain); file ≤ 10 MB | Add note, Choose a file | deal-notes-files |

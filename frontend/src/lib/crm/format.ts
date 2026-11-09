@@ -107,8 +107,13 @@ const STAGE_HUE: Record<string, string> = {
   pink: "#e0479e",
 };
 
+/** The stage's own hue, for a small mark beside a card's name. */
+export function stageHue(token: string | undefined): string {
+  return STAGE_HUE[token ?? ""] ?? "#64748b";
+}
+
 export function stageTintStyle(token: string | undefined): { backgroundColor: string } {
-  const hue = STAGE_HUE[token ?? ""] ?? "#64748b";
+  const hue = stageHue(token);
   return { backgroundColor: `color-mix(in srgb, ${hue} 14%, var(--kl-surface))` };
 }
 

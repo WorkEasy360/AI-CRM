@@ -120,12 +120,12 @@ const CHANGE_ICON = { up: ArrowUpRight, down: ArrowDownRight, flat: Minus } as c
 function ChangeLine({ change, note }: { change: KpiChange; note: string }) {
   const Icon = CHANGE_ICON[change.direction];
   return (
-    <span className="flex min-w-0 items-center gap-1 text-xs">
+    <span className="flex min-w-0 flex-wrap items-center gap-x-1 text-xs">
       <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-semibold tabular-nums", (change.lowerIsBetter ? INVERSE_TONE : CHANGE_TONE)[change.direction])} aria-hidden>
         <Icon className="size-3.5" />
         {change.text}
       </span>
-      <span className="truncate text-fg-subtle" aria-hidden>
+      <span className="text-fg-subtle" aria-hidden>
         {note}
       </span>
       <span className="sr-only">{change.description}</span>
@@ -189,13 +189,20 @@ export function KpiTile({
   );
 }
 
-export function Panel({ title, subtitle, action, children, className }: { title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
+export function Panel({ title, subtitle, icon, action, children, className }: { title: string; subtitle?: string; icon?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
     <section aria-label={title} className={cn("flex min-w-0 flex-col rounded-lg border border-border bg-surface shadow-sm", className)}>
-      <div className="flex items-start justify-between gap-2 border-b border-border px-5 py-3">
-        <div className="min-w-0">
-          <h2 className="text-md font-semibold text-fg">{title}</h2>
-          {subtitle ? <p className="truncate text-xs text-fg-subtle">{subtitle}</p> : null}
+      <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {icon ? (
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand [&_svg]:size-4" aria-hidden>
+              {icon}
+            </span>
+          ) : null}
+          <div className="min-w-0">
+            <h2 className="text-md font-semibold text-fg">{title}</h2>
+            {subtitle ? <p className="truncate text-xs text-fg-subtle">{subtitle}</p> : null}
+          </div>
         </div>
         {action}
       </div>

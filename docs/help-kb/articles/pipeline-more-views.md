@@ -5,11 +5,11 @@ question: How do I edit many deals at once like a spreadsheet?
 module: Pipeline
 keywords: [sheet view, spreadsheet, bulk edit, calendar view, chart view, deals chart, close date calendar, excel jaisa, ek saath edit kaise kare, शीट, कैलेंडर, चार्ट]
 route: /pipeline
-menu_path: Pipeline → Kanban View
+menu_path: Pipeline → Kanban
 spotlight: Sheet
 permission: deals.view
 related: [pipeline-saved-views, pipeline-list-view, pipeline-kanban-view]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
@@ -20,7 +20,7 @@ Besides Kanban and List, deals can be shown as a **Sheet** (edit cells like a sp
 
 ## Steps
 1. Click **Pipeline** in the left sidebar.
-2. In the small view switcher above the board, click **Sheet**, **Calendar** or **Chart**.
+2. Click **Filters**, then in the small view switcher click **Sheet**, **Calendar** or **Chart**.
 3. In **Sheet**: click a cell and type, or copy, paste and fill down (Ctrl+D). Click **Columns** to add, remove or reorder columns.
 4. In **Sheet**: click **Save … rows** to save your edits, or **Discard** to undo them.
 5. In **Calendar**: use **Previous month** and **Next month**, and choose the date field in **Place by** (expected close by default).

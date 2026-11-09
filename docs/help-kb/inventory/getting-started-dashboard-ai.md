@@ -12,12 +12,12 @@
 | Switch organization | (all app pages) | Account menu → Organization | — | — | Pick organization (only with >1 active membership); lands on /pipeline | getting-started-switch-workspace |
 | Sign out | (all app pages) | Account menu → Sign out | — | — | Sign out; or Sign out of WorkEasyCRM / Sign out of WorkEasyCRM and Workeasy360 (Workeasy360 sessions) | getting-started-sign-out |
 | Mobile bottom bar | (all app pages, < lg) | Bottom bar | search.use for Search; create perms for New | — | Pipeline, Contacts, Activities, Search, New (Task, Call, Contact, Deal) | getting-started-mobile-navigation |
-| Sign in (password) | /login | Sign in | — | Email*, Password* | Sign in, Forgot password?, Create account, Use another sign-in method | getting-started-login |
-| Sign in 2FA step | /login | Sign in → Two-factor authentication | — | Authentication code* (TOTP or recovery code) | Verify, Use a different account | getting-started-login-two-factor |
-| Workeasy360 sign-in | /login | Sign in → Already a Workeasy360 user? | — | — | Access WorkEasyCRM | getting-started-workeasy360-sign-in |
-| Sign up | /signup | Sign in → Create account | — | Name*, Email*, Password* (min 12) | Create account → Check your email | getting-started-sign-up |
+| Sign in (password) | /login | CRM Login | — | Email Address*, Password*, Remember me | Log In to CRM, Forgot Password?, Create CRM Account | getting-started-login |
+| Sign in 2FA step | /login | CRM Login → Two-factor authentication | — | Authentication code* (TOTP or recovery code) | Verify, Use a different account | getting-started-login-two-factor |
+| Workeasy360 sign-in | /login | CRM Login → Already a Workeasy360 user? | — | — | Access WorkEasyCRM | getting-started-workeasy360-sign-in |
+| Sign up | /signup | CRM Login → Create CRM Account | — | Name*, Email*, Password* (min 12) | Create account → Check your email | getting-started-sign-up |
 | Verify email | /verify-email/[key] | Email link | — | — | Open your CRM / Sign in; Go to sign in on failure | getting-started-verify-email |
-| Forgot / reset password | /forgot-password, /reset-password/[key] | Sign in → Forgot password? | — | Email*; New password* (min 12), Confirm new password* | Send reset link, Update password, Sign in | getting-started-forgot-password |
+| Forgot / reset password | /forgot-password, /reset-password/[key] | CRM Login → Forgot Password? | — | Email*; New password* (min 12), Confirm new password* | Send reset link, Update password, Sign in | getting-started-forgot-password |
 | Accept invitation | /invitations/accept?token= | Email link | — | New user: Name*, Password*, Confirm password* (email fixed) | Create account and join; Accept invitation (signed in); Sign in with a different account; Sign in to accept | getting-started-accept-invitation |
 
 ### Not in product
@@ -29,7 +29,7 @@
 
 | Feature | Route | Menu path | Permission | Fields (required*/optional) | Main actions | Article |
 |---|---|---|---|---|---|---|
-| Dashboard widgets | /dashboard | Dashboard | dashboards.view (widget data scoped by each record permission) | — | KPI tiles Total Contacts, Companies, Total Deals, Expected Revenue, Win Rate; Sales Pipeline Overview; Revenue Trend; Key Business Summary; Deals by Source; Top Performing Team; Recent Activities | dashboard-overview |
+| Dashboard widgets | /dashboard | Dashboard | dashboards.view (widget data scoped by each record permission) | — | KPI tiles Total Leads, Active Leads, Open Deals, Won Deals, Conversion Rate; Sales Pipeline (Deals); Leads by Status; Quick Actions; Today's Follow-ups; Pending Tasks; Recent Activities; More insights | dashboard-overview |
 | Period / pipeline / trend range | /dashboard?period=&pipeline=&months= | Dashboard → Period | dashboards.view | Period (last 12 months, Last 7 days, Last 30 days, Last 90 days, Last 12 months); Pipeline (if >1); Revenue trend range (Last 3/6/12 Months) | Filter, URL-shareable | dashboard-filter-period |
 | Quick Actions | /dashboard | Dashboard → Quick Actions | per tile: contacts.create, deals.create, activities.create, whatsapp.view, email.view, automation.view, deals.view | — | Add Contact, Add Deal, Add Task, Schedule Meeting, Send WhatsApp, Send Email, Create Automation, View Reports | dashboard-quick-actions |
 | WorkEasy AI Insights | /dashboard | Dashboard → WorkEasy AI Insights | dashboards.view | — | Follow-ups due today, deals close to winning (≥60%, ≤30 days), win rate change, deals without next step, tickets past SLA; Ask WorkEasy AI → /assistant | dashboard-ai-insights |

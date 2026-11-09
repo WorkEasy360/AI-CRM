@@ -154,6 +154,8 @@ export interface DashboardActivities {
   /** Open work right now. */
   tasks_due: number;
   tasks_overdue: number;
+  /** Open tasks, whatever their due date. */
+  tasks_open?: number;
   meetings_upcoming: number;
   calls_upcoming: number;
   /** Every open activity past its time, and those due in the next 7 days or today. */
@@ -184,6 +186,16 @@ export type DashboardInsight =
   | { key: "win_rate_change"; points: number; current: number }
   | { key: "deals_without_next_step"; count: number }
   | { key: "tickets_overdue"; count: number };
+
+/** Everyone in the sales funnel (contacts), at the end of the period and at its start. */
+export interface DashboardLeads {
+  total: number;
+  previous_total: number;
+  /** Still being worked: lead, prospect or qualified. */
+  active: number;
+  previous_active: number;
+  by_status: { status: string; label: string; count: number }[];
+}
 
 export interface DashboardLeadConversion {
   created: number;
@@ -217,6 +229,8 @@ export interface DashboardSummary {
   /** Null when the member lacks the module's view permission. */
   activities: DashboardActivities | null;
   contacts_created: number | null;
+  /** Null when the member cannot view contacts. */
+  leads?: DashboardLeads | null;
   lead_conversion: DashboardLeadConversion | null;
   deals_won: DashboardMoney | null;
   deals_lost: DashboardMoney | null;
@@ -236,7 +250,7 @@ export interface DashboardSummary {
   /** Deals created in the period. */
   deals_created?: number | null;
   /** The same-length period just before ``since``, for "vs previous" changes. */
-  previous?: { since: string; deals_created: number; deals_won: DashboardMoney; win_rate: number | null } | null;
+  previous?: { since: string; deals_created: number; deals_won: DashboardMoney; open_amount?: string; win_rate: number | null } | null;
   totals?: { contacts: DashboardGrowth | null; companies: DashboardGrowth | null; deals: DashboardGrowth | null };
   tickets?: { open: number; overdue: number; created: number; created_previous: number } | null;
   /** Deals created in the period by lead source ("" = not recorded). */

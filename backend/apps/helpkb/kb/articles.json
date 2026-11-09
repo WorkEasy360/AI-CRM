@@ -313,7 +313,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\n**My Day** lists everything on your plate today: overdue items, today's tasks, events and calls, and tasks without a date. **Today's Schedule** on the right shows today's timed items as a timeline.\n\n## Before you start\n- You need `activities.view` (all built-in roles). My Day shows only your own activities.\n\n## Steps\n1. Click **Activities** in the left sidebar.\n2. Click the **My Day** tab.\n3. Review the sections: **Overdue**, **Tasks**, **Events**, **Calls** and **No date**.\n4. Tick the checkbox on a row to mark it as done.\n5. Use the **⋯** actions button on a row to **Edit** it or add a subtask.\n\n## Result\nThe header shows today's date and how many items you have **completed today**. Finished items leave the open sections.\n\n## Tips\n- The **Today's Schedule** card on the right side of the Activities page is always visible. Click an item there to open it.\n- If nothing is planned, click **New task** in the empty My Day view to add one.\n- The dashboard's **Today's Agenda** panel links here with **View all**.\n\n## Troubleshooting\n- **\"Could not load your day\"** Click **Try again**.\n- **\"Nothing scheduled for today.\"** in Today's Schedule means no item today has a time. Undated tasks show only in **My Day**.\n",
+   "body": "## Overview\n**My Day** lists everything on your plate today: overdue items, today's tasks, events and calls, and tasks without a date. **Today's Schedule** on the right shows today's timed items as a timeline.\n\n## Before you start\n- You need `activities.view` (all built-in roles). My Day shows only your own activities.\n\n## Steps\n1. Click **Activities** in the left sidebar.\n2. Click the **My Day** tab.\n3. Review the sections: **Overdue**, **Tasks**, **Events**, **Calls** and **No date**.\n4. Tick the checkbox on a row to mark it as done.\n5. Use the **⋯** actions button on a row to **Edit** it or add a subtask.\n\n## Result\nThe header shows today's date and how many items you have **completed today**. Finished items leave the open sections.\n\n## Tips\n- The **Today's Schedule** card on the right side of the Activities page is always visible. Click an item there to open it.\n- If nothing is planned, click **New task** in the empty My Day view to add one.\n- The dashboard's **Today's Follow-ups** panel links here with **View All**.\n\n## Troubleshooting\n- **\"Could not load your day\"** Click **Try again**.\n- **\"Nothing scheduled for today.\"** in Today's Schedule means no item today has a time. Undated tasks show only in **My Day**.\n",
    "id": "activities-my-day",
    "keywords": [
     "my day",
@@ -341,7 +341,7 @@
    "spotlight": "My Day",
    "status": "published",
    "title": "How to Plan Your Day with My Day and Today's Schedule",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nAn activity is overdue when it is still open and its due or start time has passed. Overdue items are shown in red.\n\n## Before you start\n- You need `activities.view` (all built-in roles).\n\n## Steps\n1. Click **Activities** in the left sidebar.\n2. Look at the **Overdue** card on the right side of the page. The number in brackets counts the overdue activities you can see.\n3. Click an item in the card to open it, or click **View All** in the card.\n4. In the list, open each item's **⋮** actions menu.\n5. Click **Mark complete** if it is done, or **Reschedule** to give it a new date.\n\n## Result\nCompleted or rescheduled items leave the overdue list, and the **Overdue** count goes down.\n\n## Tips\n- **My Day** has an **Overdue** section at the top.\n- In the grouped list (click **Grouped list**), open the **Due** filter and choose **Overdue**. Rows are also grouped under an **Overdue** heading.\n- The **Upcoming** card works the same way for the next seven days.\n",
@@ -1743,7 +1743,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe **WorkEasy AI Insights** card on the right of the Dashboard lists the few things that need your attention now. Each line is counted from CRM records you can see.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Find the **WorkEasy AI Insights** card on the right, under **Upcoming & Overdue**.\n3. Read the insights. They can include:\n   - follow-ups due today,\n   - deals close to winning (60% probability or more, closing within 30 days),\n   - a change in your win rate,\n   - open deals with no next step planned,\n   - support tickets past their SLA.\n4. Click an insight to open the list behind it.\n5. To ask a question, click **Ask WorkEasy AI** at the bottom of the card.\n\n## Result\nYou open the exact records to act on, or the AI Assistant page.\n\n## Tips\n- Insights only appear when there is something to act on.\n\n## Troubleshooting\n- **\"All caught up: nothing needs your attention right now.\"** There is nothing to flag for this period. Try another period in the **Period** menu.\n",
+   "body": "## Overview\nThe **WorkEasy AI Insights** card under **More insights** on the Dashboard lists the few things that need your attention now. Each line is counted from CRM records you can see.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Click **More insights** at the bottom and find the **WorkEasy AI Insights** card, next to **Upcoming & Overdue**.\n3. Read the insights. They can include:\n   - follow-ups due today,\n   - deals close to winning (60% probability or more, closing within 30 days),\n   - a change in your win rate,\n   - open deals with no next step planned,\n   - support tickets past their SLA.\n4. Click an insight to open the list behind it.\n5. To ask a question, click **Ask WorkEasy AI** at the bottom of the card.\n\n## Result\nYou open the exact records to act on, or the AI Assistant page.\n\n## Tips\n- Insights only appear when there is something to act on.\n\n## Troubleshooting\n- **\"All caught up: nothing needs your attention right now.\"** There is nothing to flag for this period. Try another period in the **Period** menu.\n",
    "id": "dashboard-ai-insights",
    "keywords": [
     "ai insights",
@@ -1771,10 +1771,10 @@
    "spotlight": "",
    "status": "published",
    "title": "How to Use WorkEasy AI Insights on the Dashboard",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
-   "body": "## Overview\nThe Dashboard shows the current month by default. You can switch to an earlier month or a rolling range, focus on one pipeline, and change how many months the revenue chart covers.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. At the top right, open the **Period** menu (it shows the current month, for example \"Nov 2026\").\n3. Choose one of the last 12 months, or **Last 7 days**, **Last 30 days**, **Last 90 days** or **Last 12 months**.\n4. If your workspace has more than one pipeline, open the **Pipeline** menu next to it and choose a pipeline, or **All pipelines**.\n5. To change the chart range, open the menu on the **Revenue Trend** panel and choose **Last 3 Months**, **Last 6 Months** or **Last 12 Months**.\n\n## Result\nThe widgets reload for your choice. Panel subtitles such as **Logged**, **New deals** and **Won** show the selected period.\n\n## Tips\n- Your choices are kept in the page address, so you can bookmark or share the filtered view.\n- The **Revenue Trend** range is separate from the period selector.\n\n## Troubleshooting\n- **I do not see a Pipeline menu.** It only appears when the workspace has more than one pipeline.\n",
+   "body": "## Overview\nThe Dashboard shows the current month and your own records by default. You can switch to an earlier month or a rolling range, see all records, focus on one pipeline, and change how many months the revenue chart covers.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. At the top right, open the **Period** menu (it shows **This Month** by default).\n3. Choose one of the last 12 months, or **Last 7 days**, **Last 30 days**, **Last 90 days** or **Last 12 months**.\n4. Open the records menu next to it and choose **My Records** or **All Records**.\n5. If your workspace has more than one pipeline, open the **Pipeline** menu on the **Sales Pipeline (Deals)** panel and choose a pipeline.\n6. To change the chart range, click **More insights** and open the menu on the **Revenue Trend** panel and choose **Last 3 Months**, **Last 6 Months** or **Last 12 Months**.\n\n## Result\nThe widgets reload for your choice. Panel subtitles such as **Logged**, **New deals** and **Won** show the selected period.\n\n## Tips\n- Your choices are kept in the page address, so you can bookmark or share the filtered view.\n- The **Revenue Trend** range is separate from the period selector.\n\n## Troubleshooting\n- **I do not see a Pipeline menu.** It sits on the **Sales Pipeline (Deals)** panel and only appears when the workspace has more than one pipeline.\n",
    "id": "dashboard-filter-period",
    "keywords": [
     "month selector",
@@ -1802,7 +1802,7 @@
    "spotlight": "Period",
    "status": "published",
    "title": "How to Change the Dashboard Month or Pipeline",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nThe Forecast shows open deals by expected close date, weighted by their probability. It is arithmetic on today's pipeline, not a prediction.\n\n## Before you start\n- Your role needs the Reports permission. Owner, Admin, Sales Manager and Viewer see all deals; a Sales Representative sees team deals.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Click the **Forecast** tab next to **Overview**.\n3. In **Period**, choose **This month**, **This quarter** or **Custom**. For **Custom**, pick the **From** and **To** dates.\n4. If you have several pipelines, choose one in **Pipeline**.\n5. In **Group by**, choose **Stage**, **Salesperson**, **Team** or **Pipeline**.\n6. Read the tiles: **Pipeline value**, **Weighted**, **Committed** (deals at 75% probability or more), **Won so far** and **Expected revenue** (weighted plus won).\n7. Review the **By month** chart and the breakdown table below it. Click a row to open those deals.\n\n## Result\nYou see how much revenue is likely in the period and where it comes from.\n\n## Tips\n- Click **Review close dates** to fix open deals that have no close date or are overdue; they make the forecast less accurate.\n- The same view is the **Forecast** tab on the Pipeline page.\n\n## Troubleshooting\n- **\"Forecast is not available for your role\".** Ask an administrator for the Reports permission.\n- **\"Choose a date range\".** Pick both dates for a custom period.\n",
@@ -1837,7 +1837,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nBelow the main widgets, a collapsed **More insights** section holds detailed sales tiles and charts.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Scroll to the bottom and click **More insights**.\n3. Read the sales tiles: **Pipeline value**, **Weighted pipeline**, **Won revenue**, **Deals won** and **Deals lost**.\n4. Read the activity tiles: **Tasks due**, **Meetings**, **Calls**, **Lead conversion** and **Average deal size**.\n5. Review the charts: **Sales Funnel**, **Deal Stage**, **Forecast** and **Deals by owner**, then **Top companies**.\n6. Click a tile to open the matching list, or **Details** on the **Forecast** chart to open the Forecast page.\n\n## Result\nYou see the full detail behind the headline numbers, filtered by the same period and pipeline as the rest of the Dashboard.\n\n## Tips\n- **Pipeline value** and **Weighted pipeline** show the pipeline right now; won and lost figures follow the selected period.\n- Click **More insights** again to collapse the section.\n",
+   "body": "## Overview\nBelow the main widgets, a collapsed **More insights** section holds revenue, team and source charts, plus detailed tiles.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Scroll to the bottom and click **More insights**.\n3. Read **Sales Pipeline Overview**, **Revenue Trend**, **Key Business Summary**, **Deals by Source**, **Top Performing Team**, **Upcoming & Overdue** and **WorkEasy AI Insights**.\n4. Read the sales tiles: **Weighted pipeline**, **Won revenue**, **Deals won**, **Deals lost**, **Total deals** and **Companies**.\n5. Read the activity tiles: **Tasks due**, **Meetings**, **Calls**, **Lead conversion** and **Average deal size**.\n6. Review the charts: **Sales Funnel**, **Deal Stage**, **Forecast** and **Deals by owner**, then **Top companies**.\n7. Click a tile to open the matching list, or **Details** on the **Forecast** chart to open the Forecast page.\n\n## Result\nYou see the full detail behind the headline numbers, filtered by the same period and pipeline as the rest of the Dashboard.\n\n## Tips\n- **Weighted pipeline** shows the pipeline right now; won and lost figures follow the selected period.\n- Click **More insights** again to collapse the section.\n",
    "id": "dashboard-more-insights",
    "keywords": [
     "more insights",
@@ -1867,20 +1867,24 @@
    "spotlight": "More insights",
    "status": "published",
    "title": "How to See More Dashboard Charts",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
-   "body": "## Overview\nThe Dashboard is a one-page summary of your sales: key numbers at the top, pipeline and revenue charts, team results, and today's work on the right.\n\n## Before you start\n- All roles can open the Dashboard. Figures only count records your role can see; a Sales Representative sees team figures.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Read the five tiles at the top: **Total Contacts**, **Companies**, **Total Deals**, **Expected Revenue** (weighted open pipeline) and **Win Rate**. The arrow badge shows the change since the start of the selected period.\n3. In **Sales Pipeline Overview**, read the number and value of deals in each stage. Click a stage to open those deals.\n4. In **Revenue Trend**, read won revenue by month.\n5. In **Key Business Summary**, check activities logged (**Total Activities**, **Tasks**, **Calls**, **Meetings**) and **Open Tickets**.\n6. In **Deals by Source**, see where new deals came from.\n7. In **Top Performing Team**, see won deals and revenue per **Team Member**.\n8. Use **Recent Activities** and **View all** to open the latest activities.\n\n## Result\nYou can see how sales are going at a glance. Most tiles and rows are links to the matching list.\n\n## Tips\n- Click **More insights** at the bottom for extra tiles and charts.\n- Click **Expected Revenue** to open the Forecast.\n\n## Troubleshooting\n- **\"Your role does not include access to this data.\"** Your role lacks the permission for that widget. Ask an administrator.\n- **\"Could not load the dashboard\".** Click **Retry**.\n",
+   "body": "## Overview\nThe Dashboard is a one-page summary of your sales: key numbers at the top, your pipeline and leads, quick actions, and today's work.\n\n## Before you start\n- All roles can open the Dashboard. Figures only count records your role can see.\n- It opens on **My Records**. Choose **All Records** at the top right to see everything your role allows.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Read the five tiles at the top: **Total Leads**, **Active Leads** (lead, prospect or qualified), **Open Deals**, **Won Deals** and **Conversion Rate** (won ÷ won + lost). The arrow shows the change against the previous period.\n3. In **Sales Pipeline (Deals)**, read the number of deals in each stage. Click a bar to open those deals.\n4. In **Leads by Status**, see your contacts by lifecycle status. Click a row to open that list.\n5. Use **Today's Follow-ups**, **Pending Tasks** and **Recent Activities** to act on today's work.\n6. Click **More insights** for revenue, team and source charts.\n\n## Result\nYou can see how sales are going at a glance. Every tile, bar and row links to the matching list.\n\n## Tips\n- Total Leads and Active Leads count your contacts, so a customer still counts in Total Leads.\n- A dash (—) means no figure is available, for example no deals closed yet in the period; 0 is a real count.\n\n## Troubleshooting\n- **\"Your role does not include access to this data.\"** Your role lacks the permission for that widget. Ask an administrator.\n- **\"Could not load the dashboard\".** Click **Retry**.\n- **The numbers look low.** You may be on **My Records**. Choose **All Records**.\n",
    "id": "dashboard-overview",
    "keywords": [
     "dashboard",
     "home",
     "overview",
     "kpi",
-    "total contacts",
+    "total leads",
+    "active leads",
+    "open deals",
+    "won deals",
+    "conversion rate",
     "win rate",
-    "expected revenue",
-    "sales pipeline overview",
+    "sales pipeline",
+    "leads by status",
     "revenue trend",
     "dashboard kaise padhe",
     "report dekhe",
@@ -1901,10 +1905,10 @@
    "spotlight": "",
    "status": "published",
    "title": "How to Read the Dashboard",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
-   "body": "## Overview\nThe **Quick Actions** panel on the Dashboard gives one-click shortcuts to the things you do most often.\n\n## Before you start\n- Each tile only appears if your role allows that action. For example, Viewers do not see **Add Contact**.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Scroll to the **Quick Actions** panel next to **Recent Activities**.\n3. Click a tile:\n   - **Add Contact**, **Add Deal**, **Add Task** or **Schedule Meeting** open the create form on this page.\n   - **Send WhatsApp** opens the WhatsApp tab of Activities.\n   - **Send Email** opens the Emails tab of Activities.\n   - **Create Automation** opens **Settings → Automation**.\n   - **View Reports** opens the Pipeline **Analytics** tab.\n4. Complete and save the form, or continue on the page that opened.\n\n## Result\nThe record is created, or you land on the right page to finish the task.\n\n## Tips\n- The same create forms are available from **Create** in the top bar on every page.\n\n## Troubleshooting\n- **\"Your role does not include access to this data.\"** shows instead of tiles. Your role has none of these permissions. Ask an administrator.\n",
+   "body": "## Overview\nThe **Quick Actions** panel on the Dashboard gives one-tap shortcuts to the things you do most often.\n\n## Before you start\n- Each action only appears if your role allows it. For example, Viewers do not see **Add Lead**.\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Find the **Quick Actions** panel next to **Leads by Status**.\n3. Click **Add Lead**, **Add Task**, **Schedule Follow-up** or **Add Deal** to open the create form on this page.\n4. Complete and save the form.\n5. For more shortcuts, click **More insights** and use **More Actions**: **Add Contact**, **Add Deal**, **Add Task**, **Schedule Meeting**, **Send WhatsApp**, **Send Email**, **Create Automation** and **View Reports**.\n\n## Result\nThe record is created, or you land on the right page to finish the task.\n\n## Tips\n- **Add Lead** creates a contact with the status Lead.\n- The same create forms are available from **Create** in the top bar on every page.\n\n## Troubleshooting\n- **\"Your role does not include access to this data.\"** shows instead of actions. Your role has none of these permissions. Ask an administrator.\n",
    "id": "dashboard-quick-actions",
    "keywords": [
     "quick actions",
@@ -1936,10 +1940,10 @@
    "spotlight": "",
    "status": "published",
    "title": "How to Use Quick Actions on the Dashboard",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
-   "body": "## Overview\nThe right column of the Dashboard shows your day: today's scheduled activities and a count of overdue and upcoming work.\n\n## Before you start\n- Your role needs access to Activities. Without it, these panels say **Your role does not include access to this data.**\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Look at **Today's Agenda** on the right. It lists up to five of today's timed tasks, calls and meetings, with the start time; the heading shows the total in brackets.\n3. Click an item to open it on the Activities page.\n4. Click **View all** to see your full day in Activities.\n5. Below it, read **Upcoming & Overdue**: **Overdue Activities**, **Activities Due This Week** and **Deals Closing This Week**.\n6. Click a line to open the matching filtered list.\n\n## Result\nYou know what is due now and what has slipped, and can open each item in one click.\n\n## Tips\n- Only activities with a start time appear in **Today's Agenda**.\n\n## Troubleshooting\n- **\"Nothing scheduled for today.\"** You have no timed activities today. Use **Add Task** or **Schedule Meeting** in **Quick Actions** to plan one.\n- **\"Your agenda is unavailable right now.\"** Reload the page.\n",
+   "body": "## Overview\nThe bottom row of the Dashboard shows your day: today's scheduled follow-ups, your open tasks and what happened recently.\n\n## Before you start\n- Your role needs access to Activities. Without it, these panels say **Your role does not include access to this data.**\n\n## Steps\n1. Click **Dashboard** in the left sidebar.\n2. Look at **Today's Follow-ups**. It lists up to five of today's timed tasks, calls and meetings; **View All** shows the total in brackets.\n3. Use a row's buttons: the phone calls the contact, the message icon opens WhatsApp, and the tick marks it done.\n4. In **Pending Tasks**, tick a task to complete it. The label shows **Overdue**, **Today**, **Tomorrow** or the date.\n5. Click any item to open it on the Activities page.\n6. For counts of overdue and upcoming work, click **More insights** and read **Upcoming & Overdue**.\n\n## Result\nYou know what is due now and what has slipped, and can act on each item in one click.\n\n## Tips\n- Only activities with a start time appear in **Today's Follow-ups**, and they are always your own.\n- **Pending Tasks** follows **My Records** or **All Records**.\n\n## Troubleshooting\n- **\"Nothing scheduled for today.\"** You have no timed activities today. Use **Schedule Follow-up** in **Quick Actions** to plan one.\n- **\"Your follow-ups are unavailable right now.\"** Reload the page.\n",
    "id": "dashboard-today-panel",
    "keywords": [
     "todays agenda",
@@ -1954,7 +1958,7 @@
     "आज का एजेंडा",
     "बकाया"
    ],
-   "menu_path": "Dashboard → Today's Agenda",
+   "menu_path": "Dashboard → Today's Follow-ups",
    "module": "Dashboard",
    "permission": "dashboards.view",
    "question": "Where do I see what I have to do today?",
@@ -1966,8 +1970,8 @@
    "route": "/dashboard",
    "spotlight": "",
    "status": "published",
-   "title": "How to Check Today's Agenda and Overdue Work",
-   "updated": "2026-11-06"
+   "title": "How to Check Today's Follow-ups and Pending Tasks",
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nActivities are the calls, tasks and meetings linked to a deal. Keeping a next activity on every open deal stops it from stalling; cards without one show **No next step**.\n\n## Before you start\n- You need `activities.create`. Owner, Admin, Sales Manager and Sales Representative have it.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click the deal's name on its card to open the **Deal Details** panel.\n3. Under the tabs, click a quick action: **Call** to log a call, **Task** or **Meeting** to schedule one.\n4. Fill in the activity form and save it.\n\n## Result\nThe activity is linked to the deal and appears on the panel's **Activities** tab, newest first. Completed ones show a green check. The card shows the next activity instead of **No next step**.\n\n## Tips\n- On the full deal page, the **Activities** tab switches between **Open** and **Completed** activities and has **Task**, **Call** and **Meeting** buttons.\n- The quick actions also include **Email**, **WhatsApp** and **Note** when your role and the contact allow them.\n\n## Troubleshooting\n- **No quick action buttons.** Your role cannot create activities (for example, Viewer).\n",
@@ -2002,7 +2006,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nNew deals normally start in the first open stage. If a deal is already further along, add it straight into the right column from the Kanban board.\n\n## Before you start\n- You need `deals.create` (Owner, Admin, Sales Manager or Sales Representative).\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban View** is selected and the right pipeline is shown.\n3. Scroll to the column of the stage you want.\n4. Click **Add Deal** at the bottom of that column.\n5. Fill in the **Create Deal** form, at least the **Deal name**.\n6. Click **Create deal**.\n\n## Result\n\"Deal created\" appears and the card shows in the column you started from, with that stage's probability.\n\n## Tips\n- Each column's button reads \"Add deal to\" followed by the stage name for screen readers.\n\n## Troubleshooting\n- **No Add Deal button under the columns.** Your role cannot create deals (for example, Viewer).\n",
+   "body": "## Overview\nNew deals normally start in the first open stage. If a deal is already further along, add it straight into the right column from the Kanban board.\n\n## Before you start\n- You need `deals.create` (Owner, Admin, Sales Manager or Sales Representative).\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban** view is selected and the right pipeline is shown.\n3. Scroll to the column of the stage you want.\n4. Click **⋯** at the top of that column, then **Add Deal**.\n5. Fill in the **Create Deal** form, at least the **Deal name**.\n6. Click **Create deal**.\n\n## Result\n\"Deal created\" appears and the card shows in the column you started from, with that stage's probability.\n\n## Tips\n- **Add Deal** at the top of the page also creates a deal, starting in the first open stage.\n\n## Troubleshooting\n- **No Add Deal in the column's menu.** Your role cannot create deals (for example, Viewer).\n",
    "id": "deal-add-from-column",
    "keywords": [
     "add deal to stage",
@@ -2015,7 +2019,7 @@
     "stage mein deal kaise daale",
     "स्टेज में डील"
    ],
-   "menu_path": "Pipeline → Kanban View",
+   "menu_path": "Pipeline → Kanban",
    "module": "Pipeline",
    "permission": "deals.create",
    "question": "How do I add a deal straight into a specific stage?",
@@ -2028,7 +2032,7 @@
    "spotlight": "",
    "status": "published",
    "title": "How to Add a Deal Directly into a Stage",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nA deal is a sales opportunity you track through a pipeline, from first contact to won or lost.\n\n## Before you start\n- You need `deals.create`. Owner, Admin, Sales Manager and Sales Representative have it; Viewer does not.\n- At least one pipeline must exist.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. If you have several pipelines, select the pipeline the deal belongs to.\n3. Click **Add Deal** at the right of the view tabs.\n4. Type the **Deal name**.\n5. In **Company**, type to search, or click **Create company** to add a new one.\n6. In **Primary contact**, type to search, or click **Create contact** to add a new person.\n7. Enter the **Amount** and check the **Currency**.\n8. Set **Expected close**, **Priority** and **Source** if you know them.\n9. Optionally add a **Description** and fill in **Additional Information**.\n10. Click **Create deal**.\n\n## Result\n\"Deal created\" appears and the deal shows as a card in the first open stage of the selected pipeline. Its probability follows that stage.\n\n## Tips\n- If you can assign deals to others, choose the **Owner** at the top of the panel.\n- Products are added on the deal after it is saved, on its **Products** tab.\n- If you use another currency, a **Rate to** field asks for the exchange rate to your base currency.\n- You can also start a deal from **Create** in the top bar, or from the **Deal** quick action on a contact or company.\n\n## Troubleshooting\n- **Add Deal is greyed out.** No pipeline exists yet. Ask a Sales Manager or Admin to create one.\n- **\"Deal name is required.\"** Enter a name before saving.\n",
@@ -2065,7 +2069,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nDeleting a deal removes it from the board and every list. Nothing is erased: the deal is kept as an archived record. If the deal was simply lost, mark it as lost instead so it counts in your win/loss figures.\n\n## Before you start\n- You need `deals.delete`. A Sales Representative can delete only their own deals; Sales Manager, Admin and Owner can delete any deal.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click the deal's name on its card, then click **Open full deal**.\n3. Click **Delete** at the top right of the deal page.\n4. Click **Delete** in the confirmation dialog.\n\n## Result\nThe deal disappears from the board and lists, and its page shows a **Deleted** badge.\n\n## Tips\n- You can also delete from the **Edit Deal** panel: click **Delete** at the bottom left, then **Delete deal**.\n- To find deleted deals, open **List View** and choose **Archived deals** in the first drop-down.\n\n## Troubleshooting\n- **No Delete button.** You can delete only deals your role allows, and a deal that is already deleted shows no Delete button.\n",
+   "body": "## Overview\nDeleting a deal removes it from the board and every list. Nothing is erased: the deal is kept as an archived record. If the deal was simply lost, mark it as lost instead so it counts in your win/loss figures.\n\n## Before you start\n- You need `deals.delete`. A Sales Representative can delete only their own deals; Sales Manager, Admin and Owner can delete any deal.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click the deal's name on its card, then click **Open full deal**.\n3. Click **Delete** at the top right of the deal page.\n4. Click **Delete** in the confirmation dialog.\n\n## Result\nThe deal disappears from the board and lists, and its page shows a **Deleted** badge.\n\n## Tips\n- You can also delete from the **Edit Deal** panel: click **Delete** at the bottom left, then **Delete deal**.\n- To find deleted deals, open **List** view and choose **Archived deals** in the first drop-down.\n\n## Troubleshooting\n- **No Delete button.** You can delete only deals your role allows, and a deal that is already deleted shows no Delete button.\n",
    "id": "deal-delete",
    "keywords": [
     "delete deal",
@@ -2094,7 +2098,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nMoving a deal between stages records its progress and updates its probability to the new stage's value. On the board you can drag the card or use its menu.\n\n## Before you start\n- You need `deals.change_stage`. A Sales Representative can move only their own deals; Sales Manager, Admin and Owner can move any deal.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban View** is selected.\n3. Press and hold a deal card.\n4. Drag it onto the column of the new stage and release it.\n\n## Result\nThe card moves to the new column at once, and the column counts and totals update. If the new stage is a Lost stage, a **Mark as lost?** dialog asks for an optional reason first.\n\n## Tips\n- Without dragging: click the **⋯** button on the card and pick a stage under **Move to…**. Won and Lost stages are marked on the right.\n- On the full deal page, use **Move to…** at the top, or click a stage name on the stage track.\n- Moving a closed deal back to an open stage reopens it.\n\n## Troubleshooting\n- **\"Someone else changed this deal.\"** The board was refreshed with the latest version. Try the move again.\n- **\"Not allowed\".** You cannot change the stage of this deal, usually because it belongs to someone else.\n- **Cards cannot be dragged.** Your role does not include changing stages.\n",
+   "body": "## Overview\nMoving a deal between stages records its progress and updates its probability to the new stage's value. On the board you can drag the card or use its menu.\n\n## Before you start\n- You need `deals.change_stage`. A Sales Representative can move only their own deals; Sales Manager, Admin and Owner can move any deal.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban** view is selected.\n3. Press and hold a deal card.\n4. Drag it onto the column of the new stage and release it.\n\n## Result\nThe card moves to the new column at once, and the column counts and totals update. If the new stage is a Lost stage, a **Mark as lost?** dialog asks for an optional reason first.\n\n## Tips\n- Without dragging: click the **⋯** button on the card and pick a stage under **Move to…**. Won and Lost stages are marked on the right.\n- On the full deal page, use **Move to…** at the top, or click a stage name on the stage track.\n- Moving a closed deal back to an open stage reopens it.\n\n## Troubleshooting\n- **\"Someone else changed this deal.\"** The board was refreshed with the latest version. Try the move again.\n- **\"Not allowed\".** You cannot change the stage of this deal, usually because it belongs to someone else.\n- **Cards cannot be dragged.** Your role does not include changing stages.\n",
    "id": "deal-drag-drop",
    "keywords": [
     "move deal",
@@ -2110,7 +2114,7 @@
     "स्टेज बदलें",
     "डील आगे"
    ],
-   "menu_path": "Pipeline → Kanban View",
+   "menu_path": "Pipeline → Kanban",
    "module": "Pipeline",
    "permission": "deals.change_stage",
    "question": "How do I move a deal to the next stage on the board?",
@@ -2141,7 +2145,7 @@
     "डील बदलें",
     "संपादित"
    ],
-   "menu_path": "Pipeline → Kanban View",
+   "menu_path": "Pipeline → Kanban",
    "module": "Pipeline",
    "permission": "deals.update",
    "question": "How do I change the amount or details of a deal?",
@@ -2222,7 +2226,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe **Deal Details** panel has a **Move to Next Stage** button that moves an open deal one stage forward in one click.\n\n## Before you start\n- You need `deals.change_stage` for the deal. A Sales Representative can move only their own deals.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. On the **Kanban View**, click the deal's name on its card.\n3. In the **Deal Details** panel, click **Move to Next Stage** at the bottom.\n\n## Result\nThe deal moves to the next stage to the right, and its stage label and probability update.\n\n## Tips\n- Lost stages are skipped. From the last open stage, the next stage is the Won stage, so the button marks the deal as won.\n- To jump to any stage, use the **Stage** drop-down at the top of the panel.\n- The button is shown only for open deals.\n",
+   "body": "## Overview\nThe **Deal Details** panel has a **Move to Next Stage** button that moves an open deal one stage forward in one click.\n\n## Before you start\n- You need `deals.change_stage` for the deal. A Sales Representative can move only their own deals.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. On the **Kanban** view, click the deal's name on its card.\n3. In the **Deal Details** panel, click **Move to Next Stage** at the bottom.\n\n## Result\nThe deal moves to the next stage to the right, and its stage label and probability update.\n\n## Tips\n- Lost stages are skipped. From the last open stage, the next stage is the Won stage, so the button marks the deal as won.\n- To jump to any stage, use the **Stage** drop-down at the top of the panel.\n- The button is shown only for open deals.\n",
    "id": "deal-move-next-stage",
    "keywords": [
     "move to next stage",
@@ -2235,7 +2239,7 @@
     "next stage button",
     "अगला चरण"
    ],
-   "menu_path": "Pipeline → Kanban View → Deal Details",
+   "menu_path": "Pipeline → Kanban → Deal Details",
    "module": "Pipeline",
    "permission": "deals.change_stage",
    "question": "Is there a button to move a deal to the next stage?",
@@ -2282,7 +2286,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nEvery deal has a quick **Deal Details** panel on the board and a full deal page with tabs for everything linked to it.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. On the **Kanban View**, click the deal's name on its card.\n3. Review the **Deal Details** panel: stage, **Deal Value**, **Expected Close**, **Owner**, **Source** and **Product**, plus the **Activities**, **Notes** and **Files** tabs.\n4. Click **Open full deal** at the bottom of the panel for the full page.\n\n## Result\nThe full deal page shows the amount, status, owner and close date at the top, a clickable stage track, metric tiles (**Value**, **Stage**, **Probability**, **Expected close**, **AI score**, **Risk**) and tabs: **Overview**, **Timeline**, **Contacts**, **Products**, **Connected**, **Activities**, **Notes** and **Files**. Some tabs, such as **Communication** and **AI Insights**, appear only if your role allows them.\n\n## Tips\n- In the **List View**, clicking a row opens the full deal page directly.\n- Click **Back to pipeline** at the top of the deal page to return to the board.\n- The left column of the deal page shows the related contact and company, tags, description and key dates.\n\n## Troubleshooting\n- **The deal cannot be found.** It may have been deleted, or it is outside what your role can see.\n",
+   "body": "## Overview\nEvery deal has a quick **Deal Details** panel on the board and a full deal page with tabs for everything linked to it.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. On the **Kanban** view, click the deal's name on its card.\n3. Review the **Deal Details** panel: stage, **Deal Value**, **Expected Close**, **Owner**, **Source** and **Product**, plus the **Activities**, **Notes** and **Files** tabs.\n4. Click **Open full deal** at the bottom of the panel for the full page.\n\n## Result\nThe full deal page shows the amount, status, owner and close date at the top, a clickable stage track, metric tiles (**Value**, **Stage**, **Probability**, **Expected close**, **AI score**, **Risk**) and tabs: **Overview**, **Timeline**, **Contacts**, **Products**, **Connected**, **Activities**, **Notes** and **Files**. Some tabs, such as **Communication** and **AI Insights**, appear only if your role allows them.\n\n## Tips\n- In the **List** view, clicking a row opens the full deal page directly.\n- Click **Back to pipeline** at the top of the deal page to return to the board.\n- The left column of the deal page shows the related contact and company, tags, description and key dates.\n\n## Troubleshooting\n- **The deal cannot be found.** It may have been deleted, or it is outside what your role can see.\n",
    "id": "deal-open-details",
    "keywords": [
     "open deal",
@@ -2296,7 +2300,7 @@
     "डील विवरण",
     "डील खोलें"
    ],
-   "menu_path": "Pipeline → Kanban View",
+   "menu_path": "Pipeline → Kanban",
    "module": "Pipeline",
    "permission": "deals.view",
    "question": "How do I open a deal to see all its details?",
@@ -2454,7 +2458,7 @@
     "लॉगिन नहीं हो रहा",
     "खाता बंद"
    ],
-   "menu_path": "Sign in",
+   "menu_path": "CRM Login",
    "module": "FAQ",
    "permission": "",
    "question": "What do I do if I'm locked out of my account?",
@@ -2468,7 +2472,7 @@
    "spotlight": "",
    "status": "published",
    "title": "I Can't Sign In or I'm Locked Out",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nWorkEasy runs in your web browser on computers, tablets and phones. On small screens the layout adapts: the sidebar opens from a menu button, and settings pages use a drop-down instead of a side menu.\n\n## Steps\n1. On your phone, open your WorkEasy address in an up-to-date browser and sign in.\n\n## Result\nYou see the same workspace, data and permissions as on your computer.\n\n## Tips\n- On a phone, a bar at the bottom of the screen has **Pipeline**, **Contacts**, **Activities**, **Search** and **New**. Tap **Open navigation** (the menu button at the top left) for the full sidebar.\n- Your browser can install WorkEasy as an app: use its \"Install app\" or \"Add to Home screen\" option. It then opens full screen from your home screen, starting on the pipeline.\n- Use a current version of your browser with cookies and JavaScript turned on.\n\n## Troubleshooting\n- **\"You're offline\".** WorkEasy needs an internet connection to load your pipeline and records. Nothing is stored on the device. Reconnect and reload the page.\n- **I can't find WorkEasy in the app store.** Use the browser install option above instead.\n",
@@ -2663,7 +2667,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nIf you cannot remember your password, request a reset link by email and choose a new password.\n\n## Steps\n1. On the **Sign in** page, click **Forgot password?**.\n2. On **Reset your password**, enter your **Email**.\n3. Click **Send reset link**.\n4. Open the reset email and click the link.\n5. On **Choose a new password**, enter a **New password** of at least 12 characters.\n6. Enter the same password in **Confirm new password**.\n7. Click **Update password**.\n8. On **Password updated**, click **Sign in** and sign in with the new password.\n\n## Result\nYour password is changed and you can sign in with it.\n\n## Tips\n- For security, the confirmation always says **If an account exists for this email, password reset instructions have been sent.**, even when the email is not registered.\n- Already signed in? Change your password from **Account menu → Profile & security** instead.\n\n## Troubleshooting\n- **\"This reset link is invalid or has expired.\"** Request a new link with **Forgot password?**.\n- **\"Passwords do not match.\"** Type the same password in both fields.\n- **The page sends me back to Sign in.** You sign in with Workeasy360, so passwords are reset in Workeasy360.\n",
+   "body": "## Overview\nIf you cannot remember your password, request a reset link by email and choose a new password.\n\n## Steps\n1. On the **CRM Login** page, click **Forgot Password?**.\n2. On **Reset your password**, enter your **Email**.\n3. Click **Send reset link**.\n4. Open the reset email and click the link.\n5. On **Choose a new password**, enter a **New password** of at least 12 characters.\n6. Enter the same password in **Confirm new password**.\n7. Click **Update password**.\n8. On **Password updated**, click **Sign in** and sign in with the new password.\n\n## Result\nYour password is changed and you can sign in with it.\n\n## Tips\n- For security, the confirmation always says **If an account exists for this email, password reset instructions have been sent.**, even when the email is not registered.\n- Already signed in? Change your password from **Account menu → Profile & security** instead.\n\n## Troubleshooting\n- **\"This reset link is invalid or has expired.\"** Request a new link with **Forgot password?**.\n- **\"Passwords do not match.\"** Type the same password in both fields.\n- **The page sends me back to Sign in.** You sign in with Workeasy360, so passwords are reset in Workeasy360.\n",
    "id": "getting-started-forgot-password",
    "keywords": [
     "forgot password",
@@ -2677,7 +2681,7 @@
     "पासवर्ड रीसेट",
     "can't remember password"
    ],
-   "menu_path": "Sign in page → Forgot password?",
+   "menu_path": "CRM Login page → Forgot Password?",
    "module": "Getting Started",
    "permission": "",
    "question": "I forgot my password. How do I reset it?",
@@ -2690,7 +2694,7 @@
    "spotlight": "Send reset link",
    "status": "published",
    "title": "How to Reset a Forgotten Password",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nGlobal search finds contacts, companies, deals, activities, tickets and products from any page, so you do not have to open each list.\n\n## Before you start\n- Your role needs the search permission. Owner, Admin, Sales Manager, Sales Representative and Viewer all have it by default.\n- Results only include records your role is allowed to see.\n\n## Steps\n1. Click the search box in the top bar (**Search anything… (contacts, companies, deals, activities, tickets)**), or press **Ctrl K** (**⌘ K** on a Mac).\n2. Type at least 2 characters, for example part of a name, company or email.\n3. Wait a moment for results. They are grouped under headings such as **Contacts**, **Companies**, **Deals**, **Activities**, **Tickets** and **Products**.\n4. Use the **↑** and **↓** keys to move, or point with the mouse.\n5. Press **Enter** or click a result to open it.\n\n## Result\nThe record opens. Activities open on the Activities page and tickets open in the Helpdesk.\n\n## Tips\n- Press **Esc** to close search.\n- You can also open search from the **Help** menu (**?**) → **Search everything**.\n- On a phone, tap **Search** in the bottom bar.\n\n## Troubleshooting\n- **\"No results for …\"** Check the spelling or try fewer words. The record may also belong to someone outside your visibility.\n- **\"Too many searches in a short time.\"** Wait a few seconds and try again.\n- **\"You don't have permission to search.\"** Ask an administrator to add the search permission to your role.\n",
@@ -2787,7 +2791,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nSign in with the email and password you used when you created your account or accepted an invitation.\n\n## Before you start\n- You need a verified account. If you have not verified your email yet, open the link in the verification email first.\n- If the page shows **Already a Workeasy360 user?**, your installation also offers Workeasy360 sign-in. Click **Use another sign-in method** to show the password form.\n\n## Steps\n1. Open the **Sign in** page.\n2. Enter your **Email**.\n3. Enter your **Password**.\n4. Click **Sign in**.\n5. If asked for an **Authentication code**, enter the code from your authenticator app and click **Verify**.\n\n## Result\nThe CRM opens on the **Pipeline** page, or on the page you were trying to open before you signed in.\n\n## Tips\n- Forgot your password? Click **Forgot password?** under the password field.\n- No account yet? Click **Create account** at the bottom of the form.\n\n## Troubleshooting\n- **\"Verify your email\" appears.** Your account exists but the email is not verified. Open the verification link we sent you, click **Back to sign in**, and sign in again.\n- **\"Sign-in is not available right now. Contact your administrator.\"** Password sign-in is turned off for this installation. Ask your administrator how to sign in.\n- **Sign-in failed.** Check that Caps Lock is off and the email is spelled correctly, or reset your password.\n",
+   "body": "## Overview\nLog in with the email and password you used when you created your account or accepted an invitation.\n\n## Before you start\n- You need a verified account. If you have not verified your email yet, open the link in the verification email first.\n- If the page also shows **Already a Workeasy360 user?**, your installation offers Workeasy360 sign-in as well. Either way of signing in works.\n\n## Steps\n1. Open the **CRM Login** page.\n2. Enter your **Email Address**.\n3. Enter your **Password**. Click the eye icon if you want to check what you typed.\n4. On your own device, tick **Remember me** to stay signed in after closing the browser.\n5. Click **Log In to CRM**.\n6. If asked for an **Authentication code**, enter the code from your authenticator app and click **Verify**.\n\n## Result\nThe CRM opens on the **Pipeline** page, or on the page you were trying to open before you logged in.\n\n## Tips\n- Without **Remember me**, you are signed out when the browser closes. Leave it off on a shared computer.\n- Even with **Remember me**, you are asked to log in again after long inactivity.\n- Forgot your password? Click **Forgot Password?** beside **Remember me**.\n- No account yet? Click **Create CRM Account** under the **Log In to CRM** button.\n\n## Troubleshooting\n- **\"Verify your email\" appears.** Your account exists but the email is not verified. Open the verification link we sent you, click **Back to sign in**, and log in again.\n- **\"Sign-in is not available right now. Contact your administrator.\"** Password sign-in is turned off for this installation. Ask your administrator how to sign in.\n- **Sign-in failed.** Check that Caps Lock is off and the email is spelled correctly, or reset your password.\n",
    "id": "getting-started-login",
    "keywords": [
     "login",
@@ -2802,7 +2806,7 @@
     "लॉगिन",
     "साइन इन"
    ],
-   "menu_path": "Sign in page",
+   "menu_path": "CRM Login page",
    "module": "Getting Started",
    "permission": "",
    "question": "How do I log in to the CRM?",
@@ -2813,13 +2817,13 @@
     "getting-started-sign-up"
    ],
    "route": "/login",
-   "spotlight": "Sign in",
+   "spotlight": "Log In to CRM",
    "status": "published",
    "title": "How to Sign In with Your Email and Password",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
-   "body": "## Overview\nIf two-factor authentication is on for your account, the CRM asks for a 6-digit code after your password. This keeps your account safe even if someone learns your password.\n\n## Before you start\n- Keep your authenticator app, or your saved recovery codes, at hand.\n\n## Steps\n1. Enter your **Email** and **Password** and click **Sign in**.\n2. On the **Two-factor authentication** screen, open your authenticator app.\n3. Type the current 6-digit code into **Authentication code**. You can type one of your recovery codes instead.\n4. Click **Verify**.\n\n## Result\nYou are signed in and the CRM opens.\n\n## Tips\n- Authenticator codes change every few seconds. If a code is about to expire, wait for the next one.\n- To sign in as someone else, click **Use a different account**.\n\n## Troubleshooting\n- **\"That code was not accepted.\"** Check that your phone's clock is set automatically, then try a fresh code.\n- **I lost my phone.** Use a recovery code. If you have none left, ask an administrator for help.\n- **A banner says your organization requires two-factor authentication.** Click **Set it up now** in the banner to open the Security page and turn it on.\n",
+   "body": "## Overview\nIf two-factor authentication is on for your account, the CRM asks for a 6-digit code after your password. This keeps your account safe even if someone learns your password.\n\n## Before you start\n- Keep your authenticator app, or your saved recovery codes, at hand.\n\n## Steps\n1. Enter your **Email Address** and **Password** and click **Log In to CRM**.\n2. On the **Two-factor authentication** screen, open your authenticator app.\n3. Type the current 6-digit code into **Authentication code**. You can type one of your recovery codes instead.\n4. Click **Verify**.\n\n## Result\nYou are signed in and the CRM opens.\n\n## Tips\n- Authenticator codes change every few seconds. If a code is about to expire, wait for the next one.\n- To sign in as someone else, click **Use a different account**.\n\n## Troubleshooting\n- **\"That code was not accepted.\"** Check that your phone's clock is set automatically, then try a fresh code.\n- **I lost my phone.** Use a recovery code. If you have none left, ask an administrator for help.\n- **A banner says your organization requires two-factor authentication.** Click **Set it up now** in the banner to open the Security page and turn it on.\n",
    "id": "getting-started-login-two-factor",
    "keywords": [
     "two-factor",
@@ -2834,7 +2838,7 @@
     "दो-चरणीय सत्यापन",
     "कोड"
    ],
-   "menu_path": "Sign in page → Two-factor authentication",
+   "menu_path": "CRM Login page → Two-factor authentication",
    "module": "Getting Started",
    "permission": "",
    "question": "What do I enter when the login asks for an authentication code?",
@@ -2847,7 +2851,7 @@
    "spotlight": "Verify",
    "status": "published",
    "title": "How to Sign In with a Two-Factor Code",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nOn phones and small tablets the CRM shows a bottom bar with the pages you use most, and the full sidebar moves into a slide-out menu.\n\n## Steps\n1. Use the bottom bar to jump to **Pipeline**, **Contacts** or **Activities**.\n2. Tap **Search** to find any record.\n3. Tap **New**, then choose **Task**, **Call**, **Contact** or **Deal** under **Create** to add a record.\n4. For every other page (Dashboard, AI Assistant, Helpdesk, Products, Settings), tap **Open navigation** (the menu icon at the top left).\n5. Tap the page you want. The menu closes automatically.\n\n## Result\nYou can work with the full CRM on a small screen, with your most common tasks one tap away.\n\n## Tips\n- The **Ask WorkEasy AI** button floats just above the bottom bar, so the assistant is always within reach.\n- The bottom bar only shows **Search** and **New** if your role can search and create records.\n",
@@ -3005,7 +3009,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nCreate an account to start your own CRM workspace. You only need your name, email and a password; there is no separate company setup step.\n\n## Before you start\n- If a colleague invited you to an existing workspace, use the invitation link in your email instead. Signing up here creates a new, separate workspace.\n\n## Steps\n1. On the **Sign in** page, click **Create account** (next to **New here?**).\n2. Enter your **Name**.\n3. Enter your **Email**.\n4. Enter a **Password** of at least 12 characters. Avoid common passwords and your name or email.\n5. Click **Create account**.\n6. On the **Check your email** screen, note the address the verification link was sent to.\n7. Open that email and click the verification link.\n\n## Result\nAfter you verify your email, your workspace is created for you, with you as its Owner and a ready-to-use pipeline.\n\n## Tips\n- Already have an account? Click **Sign in** at the bottom of the form.\n\n## Troubleshooting\n- **The sign-up page sends me back to Sign in.** Accounts on this installation come from Workeasy360, so sign-up is closed. Use **Access WorkEasyCRM** on the Sign in page instead.\n- **\"Could not create your account.\"** Read the message under the field it mentions, for example an email that is already registered.\n",
+   "body": "## Overview\nCreate an account to start your own CRM workspace. You only need your name, email and a password; there is no separate company setup step.\n\n## Before you start\n- If a colleague invited you to an existing workspace, use the invitation link in your email instead. Signing up here creates a new, separate workspace.\n\n## Steps\n1. On the **CRM Login** page, click **Create CRM Account**.\n2. Enter your **Name**.\n3. Enter your **Email**.\n4. Enter a **Password** of at least 12 characters. Avoid common passwords and your name or email.\n5. Click **Create account**.\n6. On the **Check your email** screen, note the address the verification link was sent to.\n7. Open that email and click the verification link.\n\n## Result\nAfter you verify your email, your workspace is created for you, with you as its Owner and a ready-to-use pipeline.\n\n## Tips\n- Already have an account? Click **Sign in** at the bottom of the form.\n\n## Troubleshooting\n- **The sign-up page sends me back to Sign in.** Accounts on this installation come from Workeasy360, so sign-up is closed. Use **Access WorkEasyCRM** on the CRM Login page instead.\n- **\"Could not create your account.\"** Read the message under the field it mentions, for example an email that is already registered.\n",
    "id": "getting-started-sign-up",
    "keywords": [
     "sign up",
@@ -3019,7 +3023,7 @@
     "साइन अप",
     "खाता बनाएं"
    ],
-   "menu_path": "Sign in page → Create account",
+   "menu_path": "CRM Login page → Create CRM Account",
    "module": "Getting Started",
    "permission": "",
    "question": "How do I sign up for WorkEasyCRM?",
@@ -3033,7 +3037,7 @@
    "spotlight": "Create account",
    "status": "published",
    "title": "How to Create a New Account",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nIf you are a member of more than one organization, you can move between them from the Account menu. Each organization's data is kept completely separate.\n\n## Before you start\n- The **Organization** section only appears when you have more than one active membership, for example after accepting an invitation from a second company.\n\n## Steps\n1. Click your avatar at the right end of the top bar to open the **Account menu**.\n2. Find the **Organization** section. The workspace you are in now is selected.\n3. Click the name of the organization you want to open.\n\n## Result\nThe CRM reloads in the chosen organization and opens the **Pipeline** page. The top of the Account menu now shows that organization and your role in it.\n\n## Tips\n- Your role can differ between organizations, so menus and buttons may change after you switch.\n- You can also switch from **Settings → Workspace → Organization Details**: in the **Your organizations** card, click **Open** next to an organization. The same card has **New organization** to create another workspace.\n\n## Troubleshooting\n- **I do not see an Organization section.** You belong to only one organization, or your other membership is not active yet.\n- **\"Could not switch organization.\"** Try again. If it keeps failing, your membership may have been disabled; contact that organization's administrator.\n",
@@ -3122,7 +3126,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nIf you already use other Workeasy360 products, you can open the CRM with the same Workeasy360 account instead of a separate CRM password.\n\n## Before you start\n- This option only appears when Workeasy360 sign-in is enabled for your installation. You then see the **Already a Workeasy360 user?** box on the **Sign in** page.\n\n## Steps\n1. Open the **Sign in** page.\n2. In the **Already a Workeasy360 user?** box, click **Access WorkEasyCRM**.\n3. If Workeasy360 asks, sign in there or confirm that you want to continue.\n\n## Result\nYou return to the CRM signed in, on the page you were trying to open.\n\n## Tips\n- To use a CRM password instead, click **Use another sign-in method** and fill in the email and password form.\n- With a Workeasy360 account, your password and two-step verification are managed in Workeasy360, not in the CRM.\n\n## Troubleshooting\n- **An error message appears on the Sign in page after returning from Workeasy360.** Read the message, then click **Access WorkEasyCRM** again. If it repeats, contact your administrator.\n",
+   "body": "## Overview\nIf you already use other Workeasy360 products, you can open the CRM with the same Workeasy360 account instead of a separate CRM password.\n\n## Before you start\n- This option only appears when Workeasy360 sign-in is enabled for your installation. You then see the **Already a Workeasy360 user?** box on the **CRM Login** page.\n\n## Steps\n1. Open the **CRM Login** page.\n2. In the **Already a Workeasy360 user?** box, click **Access WorkEasyCRM**.\n3. If Workeasy360 asks, sign in there or confirm that you want to continue.\n\n## Result\nYou return to the CRM signed in, on the page you were trying to open.\n\n## Tips\n- To use a CRM password instead, fill in the email and password form on the same page.\n- With a Workeasy360 account, your password and two-step verification are managed in Workeasy360, not in the CRM.\n\n## Troubleshooting\n- **An error message appears on the CRM Login page after returning from Workeasy360.** Read the message, then click **Access WorkEasyCRM** again. If it repeats, contact your administrator.\n",
    "id": "getting-started-workeasy360-sign-in",
    "keywords": [
     "workeasy360 login",
@@ -3135,7 +3139,7 @@
     "सिंगल साइन-ऑन",
     "लॉगिन"
    ],
-   "menu_path": "Sign in page → Already a Workeasy360 user?",
+   "menu_path": "CRM Login page → Already a Workeasy360 user?",
    "module": "Getting Started",
    "permission": "",
    "question": "How do I log in using my Workeasy360 account?",
@@ -3148,7 +3152,7 @@
    "spotlight": "Access WorkEasyCRM",
    "status": "published",
    "title": "How to Sign In with Your Workeasy360 Account",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nEvery ticket has one agent in **Assigned To**. A new ticket is assigned to the person who created it. Reassign it to move it to another agent's queue.\n\n## Before you start\n- You need `tickets.update` with access to all tickets to assign them to someone else. Owner, Admin and Sales Manager can do this. A Sales Representative can work on their own tickets but cannot hand them to another member.\n\n## Steps\n1. Click **Helpdesk** in the left sidebar.\n2. Click the ticket's ID or subject in the list.\n3. In the **Ticket Details** panel, click **More**.\n4. Click **Reassign**.\n5. Choose the agent in **Assign to**.\n6. Click **Reassign**.\n\n## Result\n**Assigned To** shows the new agent, and the ticket appears in their queue straight away. The change is recorded in the ticket's **Activity** tab.\n\n## Tips\n- Use the **All Agents** filter, or choose **Me**, to see who has which tickets.\n- The **Assigned To** column in the list shows **Unassigned** when no agent is set.\n\n## Troubleshooting\n- **\"You cannot assign records to other members.\"** Your role can only keep tickets on yourself. Ask a Sales Manager or Admin to reassign it.\n",
@@ -3543,7 +3547,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nA pipeline is the ordered set of stages your deals move through. Create a separate pipeline for each sales process, for example new business, renewals or partnerships.\n\n## Before you start\n- You need the manage-pipelines permission (`pipelines.manage`). The Owner, Admin and Sales Manager roles have it.\n- Your plan sets how many team pipelines you can have.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **CRM Configuration** card, click **Pipelines & Stages**.\n3. Click **New pipeline** at the top right.\n4. Type a name in **Pipeline name** (for example \"Renewals\").\n5. In **Stages from**, choose a template. The text under it lists the stages it creates.\n6. Click **Create pipeline**.\n\n## Result\nA \"Pipeline created\" message appears and the new pipeline is selected in the list on the left. Its stages appear in the table on the right, ready to edit. The first pipeline in a workspace becomes the default automatically.\n\n## Tips\n- Every template comes with a won stage and a lost stage. You can rename, add, reorder or archive stages afterwards.\n- On the **Pipeline** page (wide screens) you can also click **Add pipeline** at the bottom of the **Pipelines** column. It opens this same settings page.\n\n## Troubleshooting\n- **\"A pipeline with this name already exists.\"** Pipeline names must be unique. Choose another name.\n- **The pipeline limit is reached.** Archive a pipeline you no longer use, or check your plan under **Settings → Billing & Subscription**. Sub-pipelines do not count towards the limit.\n",
+   "body": "## Overview\nA pipeline is the ordered set of stages your deals move through. Create a separate pipeline for each sales process, for example new business, renewals or partnerships.\n\n## Before you start\n- You need the manage-pipelines permission (`pipelines.manage`). The Owner, Admin and Sales Manager roles have it.\n- Your plan sets how many team pipelines you can have.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **CRM Configuration** card, click **Pipelines & Stages**.\n3. Click **New pipeline** at the top right.\n4. Type a name in **Pipeline name** (for example \"Renewals\").\n5. In **Stages from**, choose a template. The text under it lists the stages it creates.\n6. Click **Create pipeline**.\n\n## Result\nA \"Pipeline created\" message appears and the new pipeline is selected in the list on the left. Its stages appear in the table on the right, ready to edit. The first pipeline in a workspace becomes the default automatically.\n\n## Tips\n- Every template comes with a won stage and a lost stage. You can rename, add, reorder or archive stages afterwards.\n- With more than one pipeline, the **Pipeline** page (wide screens) also offers **Add pipeline** at the bottom of the **Pipelines** column. It opens this same settings page.\n\n## Troubleshooting\n- **\"A pipeline with this name already exists.\"** Pipeline names must be unique. Choose another name.\n- **The pipeline limit is reached.** Archive a pipeline you no longer use, or check your plan under **Settings → Billing & Subscription**. Sub-pipelines do not count towards the limit.\n",
    "id": "pipeline-create",
    "keywords": [
     "pipeline",
@@ -3573,7 +3577,7 @@
    "spotlight": "New pipeline",
    "status": "published",
    "title": "How to Create a New Pipeline",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nThe default pipeline is the one the **Pipeline** page opens with and the one new deals go to when no other pipeline is selected. Exactly one pipeline is the default.\n\n## Before you start\n- You need `pipelines.manage` (Owner, Admin or Sales Manager).\n- Sub-pipelines cannot be the default.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **CRM Configuration** card, click **Pipelines & Stages**.\n3. In the list on the left, click the **⋯** button next to the pipeline you want.\n4. Click **Make default**.\n\n## Result\nA \"Default pipeline updated\" message appears and the **Default** badge moves to that pipeline. The **Pipeline** page now opens on it.\n\n## Tips\n- **Make default** is not shown for the pipeline that is already the default.\n- To retire the current default pipeline, first make another one the default, then archive the old one.\n",
@@ -3666,7 +3670,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe filter row above the Kanban board narrows the cards to the deals you care about. The summary tiles and the Analytics tab follow the same search, owner, source and product filters.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban View** is selected.\n3. Type part of a deal name in **Search deals…**.\n4. Open the owner filter (**All Owners**) and choose **My deals** or a team member.\n5. Open the source filter (**All Sources**) and choose **WhatsApp**, **Facebook Ads**, **Website**, **Referral** or **Other**.\n6. Open the product filter (**All Products**) and choose a product.\n7. Open the status filter (**Any status**) and choose **Open**, **Won** or **Lost**.\n\n## Result\nOnly matching deals stay on the board. Column counts and totals update to match.\n\n## Tips\n- Click **Clear** to remove all filters at once.\n- Filters are kept in the page address, so a bookmarked link reopens the same filtered board.\n- Save a combination you use often as a saved view.\n- The product filter appears only if your role can see products.\n\n## Troubleshooting\n- **The board looks empty.** A filter is probably still on. Click **Clear**.\n",
+   "body": "## Overview\nThe filters above the Kanban board narrow the cards to the deals you care about. The summary tiles and the Analytics tab follow the same search, owner, source and product filters.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban** view is selected.\n3. Open the owner filter (**All Owners**) at the top of the page and choose **My deals** or a team member.\n4. Click **Filters** to show the other filters, then type part of a deal name in **Search deals…**.\n5. Open the source filter (**All Sources**) and choose **WhatsApp**, **Facebook Ads**, **Website**, **Referral** or **Other**.\n6. Open the product filter (**All Products**) and choose a product.\n7. Open the status filter (**Any status**) and choose **Open**, **Won** or **Lost**.\n\n## Result\nOnly matching deals stay on the board. Column counts and totals update to match.\n\n## Tips\n- Click **Clear** to remove all filters at once.\n- The period menu next to it (**This Month**) decides which won and lost deals appear. Open deals are not affected.\n- Filters are kept in the page address, so a bookmarked link reopens the same filtered board.\n- Save a combination you use often as a saved view.\n- The product filter appears only if your role can see products.\n\n## Troubleshooting\n- **The board looks empty.** A filter is probably still on. Click **Clear**.\n",
    "id": "pipeline-filter-deals",
    "keywords": [
     "filter deals",
@@ -3685,7 +3689,7 @@
     "only my deals",
     "mine"
    ],
-   "menu_path": "Pipeline → Kanban View",
+   "menu_path": "Pipeline → Kanban",
    "module": "Pipeline",
    "permission": "deals.view",
    "question": "How do I filter the pipeline to show only my deals?",
@@ -3699,10 +3703,10 @@
    "spotlight": "Search deals…",
    "status": "published",
    "title": "How to Search and Filter Deals on the Pipeline",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
-   "body": "## Overview\nThe Forecast tab adds up open deals by their expected close date, weighted by probability (value × probability). It is arithmetic on today's pipeline, not a prediction.\n\n## Before you start\n- You need the Reports permission (`reports.view`). All standard roles have it; a Sales Representative sees team figures.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click **Forecast** in the view tabs.\n3. Choose the **Period**: **This month**, **This quarter** or **Custom**. For **Custom**, set the **From** and **To** dates.\n4. If you have several pipelines, choose one or keep **All pipelines**.\n5. In **Group by**, choose **Stage**, **Salesperson**, **Team** or **Pipeline**.\n\n## Result\nTiles show **Pipeline value**, **Weighted**, **Committed** (deals at or above the committed probability), **Won so far** and **Expected revenue** (weighted plus won). The **By month** panel and the breakdown table show the same figures per month and per group.\n\n## Tips\n- Click the **Pipeline value** or **Won so far** tile to open the matching deals in the List View.\n- Deals without an expected close date are not in the forecast. Set a date on each open deal.\n\n## Troubleshooting\n- **\"Forecast is not available for your role\".** Ask an administrator for the Reports permission.\n- **\"Choose a date range\".** With **Custom**, both dates are required.\n",
+   "body": "## Overview\nThe Forecast tab adds up open deals by their expected close date, weighted by probability (value × probability). It is arithmetic on today's pipeline, not a prediction.\n\n## Before you start\n- You need the Reports permission (`reports.view`). All standard roles have it; a Sales Representative sees team figures.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click **Forecast** in the view tabs.\n3. Choose the **Period**: **This month**, **This quarter** or **Custom**. For **Custom**, set the **From** and **To** dates.\n4. If you have several pipelines, choose one or keep **All pipelines**.\n5. In **Group by**, choose **Stage**, **Salesperson**, **Team** or **Pipeline**.\n\n## Result\nTiles show **Pipeline value**, **Weighted**, **Committed** (deals at or above the committed probability), **Won so far** and **Expected revenue** (weighted plus won). The **By month** panel and the breakdown table show the same figures per month and per group.\n\n## Tips\n- Click the **Pipeline value** or **Won so far** tile to open the matching deals in the List view.\n- Deals without an expected close date are not in the forecast. Set a date on each open deal.\n\n## Troubleshooting\n- **\"Forecast is not available for your role\".** Ask an administrator for the Reports permission.\n- **\"Choose a date range\".** With **Custom**, both dates are required.\n",
    "id": "pipeline-forecast",
    "keywords": [
     "forecast",
@@ -3734,7 +3738,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nThe Kanban view shows the selected pipeline as columns, one per stage, with a card for each deal. It is the default view of the **Pipeline** page.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click **Kanban View** in the view tabs.\n3. Read each column header: the stage name, the number of deals, the total amount and, for open stages, the **Weighted** amount.\n4. Read a card: deal name, company or contact, amount, probability, priority, owner, expected close date and the next activity.\n5. Click a deal name to open the **Deal Details** panel.\n\n## Result\nYou see where every deal stands and what each stage is worth.\n\n## Tips\n- A card with **No next step** has no scheduled activity. Plan one so the deal does not stall.\n- A red close date means the expected close date has passed.\n- Columns load up to 200 cards at first. Click **Show … more** at the bottom of a column to load the rest.\n- Use the **Sort** drop-down to order cards by **Recently moved**, **Amount high–low**, **Closing soonest** or **Name A–Z**.\n- The five tiles above the tabs show **Total Deals**, **Pipeline Value**, **Expected Revenue**, **Win Rate** and **Avg. Deal Cycle**, compared with the previous 30 days.\n\n## Troubleshooting\n- **\"This pipeline has no active stages yet.\"** Add stages under **Settings → CRM Configuration → Pipelines & Stages**.\n",
+   "body": "## Overview\nThe Kanban view shows the selected pipeline as columns, one per stage, with a card for each deal. It is the default view of the **Pipeline** page.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click **Kanban** in the view tabs.\n3. Read each column header: the stage name, the number of deals and the total amount. Click **⋯** on a column to see the **Weighted** amount of an open stage.\n4. Read a card: deal name, amount, contact (or company), owner, and the next follow-up date. Closed deals show **Won** or **Lost** and the date they closed.\n5. Use the card's buttons: the phone calls the contact, the message icon opens WhatsApp, and **Follow-up** schedules a task for the deal.\n6. Click a deal name to open the **Deal Details** panel.\n\n## Result\nYou see where every deal stands and what each stage is worth.\n\n## Tips\n- A card with **No next step** has no scheduled activity. Plan one so the deal does not stall.\n- A follow-up date in red has already passed. Call and WhatsApp are greyed out when the contact has no phone number you can see.\n- Won and lost deals follow the period menu (**This Month** by default). Open deals always stay on the board. Choose **All Time** to see every closed deal.\n- Columns load up to 200 cards at first. Click **Show … more** at the bottom of a column to load the rest.\n- Click **Filters**, then use the **Sort** drop-down to order cards by **Recently moved**, **Amount high–low**, **Closing soonest** or **Name A–Z**.\n- The summary above the board shows **Open Pipeline Value**, **Total Deals**, **Open Deals**, **Won Deals**, **Lost Deals** and **Conversion Rate** (won ÷ won + lost) for the selected period. **Expected Revenue**, **Win Rate** and **Avg. Deal Cycle** are on the **Analytics** tab.\n\n## Troubleshooting\n- **\"This pipeline has no active stages yet.\"** Add stages under **Settings → CRM Configuration → Pipelines & Stages**.\n",
    "id": "pipeline-kanban-view",
    "keywords": [
     "kanban",
@@ -3750,7 +3754,7 @@
     "कानबन",
     "बोर्ड"
    ],
-   "menu_path": "Pipeline → Kanban View",
+   "menu_path": "Pipeline → Kanban",
    "module": "Pipeline",
    "permission": "deals.view",
    "question": "How does the Kanban board work?",
@@ -3761,13 +3765,13 @@
     "pipeline-card-layout"
    ],
    "route": "/pipeline",
-   "spotlight": "Kanban View",
+   "spotlight": "Kanban",
    "status": "published",
    "title": "How to Use the Kanban View of the Pipeline",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
-   "body": "## Overview\nThe List View shows the deals of the selected pipeline as a sortable table. It is useful for scanning many deals, sorting by amount or close date, and finding archived deals.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click **List View** in the view tabs.\n3. Use the first drop-down to choose **All deals**, **My deals** or **Archived deals**.\n4. Type in **Search deals…** to find a deal by name.\n5. Pick an order in the **Sort** drop-down, for example **Closing soonest** or **Amount high–low**. You can also click a sortable column header.\n6. Click a row to open the deal.\n\n## Result\nThe table lists **Deal name**, **Stage**, **Company**, **Amount**, **Probability**, **Weighted**, **Expected close**, **Next activity**, **Owner** and **Status** (some columns appear only on wider screens). Clicking a row opens the full deal page.\n\n## Tips\n- Click **Filters** to filter by status (**Open**, **Won**, **Lost**) or by stage.\n- When there are more deals than fit on one page, click **Load more** at the bottom of the table.\n- The List View shows the pipeline selected on the **Kanban View**. To change pipeline, switch it there first.\n\n## Troubleshooting\n- **\"No deals match these filters\".** Click **Clear filters**.\n",
+   "body": "## Overview\nThe List view shows the deals of the selected pipeline as a sortable table. It is useful for scanning many deals, sorting by amount or close date, and finding archived deals.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click **List** in the view tabs.\n3. Use the first drop-down to choose **All deals**, **My deals** or **Archived deals**.\n4. Type in **Search deals…** to find a deal by name.\n5. Pick an order in the **Sort** drop-down, for example **Closing soonest** or **Amount high–low**. You can also click a sortable column header.\n6. Click a row to open the deal.\n\n## Result\nThe table lists **Deal name**, **Stage**, **Company**, **Amount**, **Probability**, **Weighted**, **Expected close**, **Next activity**, **Owner** and **Status** (some columns appear only on wider screens). Clicking a row opens the full deal page.\n\n## Tips\n- Click **Filters** to filter by status (**Open**, **Won**, **Lost**) or by stage.\n- When there are more deals than fit on one page, click **Load more** at the bottom of the table.\n- The List view shows the pipeline selected on the **Kanban** view. To change pipeline, switch it there first.\n\n## Troubleshooting\n- **\"No deals match these filters\".** Click **Clear filters**.\n",
    "id": "pipeline-list-view",
    "keywords": [
     "list view",
@@ -3782,7 +3786,7 @@
     "सूची",
     "डील सूची"
    ],
-   "menu_path": "Pipeline → List View",
+   "menu_path": "Pipeline → List",
    "module": "Pipeline",
    "permission": "deals.view",
    "question": "How do I view my deals in a table instead of the board?",
@@ -3793,13 +3797,13 @@
     "deal-open-details"
    ],
    "route": "/pipeline?view=list",
-   "spotlight": "List View",
+   "spotlight": "List",
    "status": "published",
    "title": "How to See Deals as a List",
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nBesides Kanban and List, deals can be shown as a **Sheet** (edit cells like a spreadsheet), a **Calendar** (deals placed on a date) or a **Chart** (deals grouped and counted or summed).\n\n## Before you start\n- To change cells in the Sheet you need permission to edit those deals (`deals.update`).\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. In the small view switcher above the board, click **Sheet**, **Calendar** or **Chart**.\n3. In **Sheet**: click a cell and type, or copy, paste and fill down (Ctrl+D). Click **Columns** to add, remove or reorder columns.\n4. In **Sheet**: click **Save … rows** to save your edits, or **Discard** to undo them.\n5. In **Calendar**: use **Previous month** and **Next month**, and choose the date field in **Place by** (expected close by default).\n6. In **Chart**: choose **Count records** or **Sum of a field**, then choose the field to group by. Click **Show table** to see the numbers.\n\n## Result\nThe deals of the selected pipeline appear in the chosen view. Sheet edits are saved together when you click save.\n\n## Tips\n- In **Calendar**, the **My events, tasks and calls** switch shows your own activities next to the deals.\n- Save a view you use often with **Saved views**.\n\n## Troubleshooting\n- **A cell is marked and not saved.** You may only view that field, or someone else changed the deal first. Hover the cell to see why.\n",
+   "body": "## Overview\nBesides Kanban and List, deals can be shown as a **Sheet** (edit cells like a spreadsheet), a **Calendar** (deals placed on a date) or a **Chart** (deals grouped and counted or summed).\n\n## Before you start\n- To change cells in the Sheet you need permission to edit those deals (`deals.update`).\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Click **Filters**, then in the small view switcher click **Sheet**, **Calendar** or **Chart**.\n3. In **Sheet**: click a cell and type, or copy, paste and fill down (Ctrl+D). Click **Columns** to add, remove or reorder columns.\n4. In **Sheet**: click **Save … rows** to save your edits, or **Discard** to undo them.\n5. In **Calendar**: use **Previous month** and **Next month**, and choose the date field in **Place by** (expected close by default).\n6. In **Chart**: choose **Count records** or **Sum of a field**, then choose the field to group by. Click **Show table** to see the numbers.\n\n## Result\nThe deals of the selected pipeline appear in the chosen view. Sheet edits are saved together when you click save.\n\n## Tips\n- In **Calendar**, the **My events, tasks and calls** switch shows your own activities next to the deals.\n- Save a view you use often with **Saved views**.\n\n## Troubleshooting\n- **A cell is marked and not saved.** You may only view that field, or someone else changed the deal first. Hover the cell to see why.\n",
    "id": "pipeline-more-views",
    "keywords": [
     "sheet view",
@@ -3815,7 +3819,7 @@
     "कैलेंडर",
     "चार्ट"
    ],
-   "menu_path": "Pipeline → Kanban View",
+   "menu_path": "Pipeline → Kanban",
    "module": "Pipeline",
    "permission": "deals.view",
    "question": "How do I edit many deals at once like a spreadsheet?",
@@ -3828,7 +3832,7 @@
    "spotlight": "Sheet",
    "status": "published",
    "title": "How to Use the Sheet, Calendar and Chart Views for Deals",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nThe order of stages in settings is the order of the columns on the Kanban board, from left to right. Change it whenever your process changes.\n\n## Before you start\n- You need `pipelines.manage` (Owner, Admin or Sales Manager).\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **CRM Configuration** card, click **Pipelines & Stages**.\n3. In the list on the left, click the pipeline.\n4. Drag a stage row by its handle to a new position, or click the up arrow (**Move … up**) or down arrow (**Move … down**) on the row.\n\n## Result\nThe new order saves immediately, as the hint above the table says (\"Changes save immediately\"). The board columns follow the new order.\n\n## Tips\n- The up arrow is disabled on the first row and the down arrow on the last row.\n- You cannot drag rows while a stage is being edited. Save or cancel the edit first.\n\n## Troubleshooting\n- **\"Could not reorder stages\".** The table returns to the saved order. Reload the page and try again.\n",
@@ -3894,7 +3898,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nA saved view stores the current filters, columns, sort and view settings under a name, so you can reopen them in one click. You can keep it private or share it.\n\n## Before you start\n- Anyone can save private views. Sharing with others needs `views.share` (Owner, Admin or Sales Manager).\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Set up the filters, sort and view (Kanban, List, Sheet and so on) you want.\n3. Click **Saved views** above the board.\n4. Click **Save as new view…**.\n5. Type a **Name**.\n6. If shown, choose **Who can use it**: **Only me**, **Everyone** or **Selected teams** (then tick the teams).\n7. Optionally turn on **Open with this view by default**.\n8. Click **Save view**.\n\n## Result\n\"Saved\" followed by the view name appears, and the **Saved views** button now shows the view's name. The view is listed in the **Saved views** menu.\n\n## Tips\n- To update a view you own, change the filters, open **Saved views** and click **Save changes to** the view.\n- Use **Delete view** in the same menu to remove a view you own.\n- **Stop opening with this view** removes it as your default.\n\n## Troubleshooting\n- **\"Some of this view's fields are not available to you.\"** The view uses fields your role cannot see; those parts are left out.\n",
+   "body": "## Overview\nA saved view stores the current filters, columns, sort and view settings under a name, so you can reopen them in one click. You can keep it private or share it.\n\n## Before you start\n- Anyone can save private views. Sharing with others needs `views.share` (Owner, Admin or Sales Manager).\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Set up the filters, sort and view (Kanban, List, Sheet and so on) you want.\n3. Click **Filters**, then click **Saved views**.\n4. Click **Save as new view…**.\n5. Type a **Name**.\n6. If shown, choose **Who can use it**: **Only me**, **Everyone** or **Selected teams** (then tick the teams).\n7. Optionally turn on **Open with this view by default**.\n8. Click **Save view**.\n\n## Result\n\"Saved\" followed by the view name appears, and the **Saved views** button now shows the view's name. The view is listed in the **Saved views** menu.\n\n## Tips\n- To update a view you own, change the filters, open **Saved views** and click **Save changes to** the view.\n- Use **Delete view** in the same menu to remove a view you own.\n- **Stop opening with this view** removes it as your default.\n\n## Troubleshooting\n- **\"Some of this view's fields are not available to you.\"** The view uses fields your role cannot see; those parts are left out.\n",
    "id": "pipeline-saved-views",
    "keywords": [
     "saved views",
@@ -3909,7 +3913,7 @@
     "सहेजा गया व्यू",
     "दृश्य"
    ],
-   "menu_path": "Pipeline → Kanban View → Saved views",
+   "menu_path": "Pipeline → Kanban → Saved views",
    "module": "Pipeline",
    "permission": "deals.view",
    "question": "How do I save my filters as a view?",
@@ -3922,7 +3926,7 @@
    "spotlight": "Saved views",
    "status": "published",
    "title": "How to Save and Share a Pipeline View",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nA sub-pipeline is a variant of a team pipeline with its own stages. It shares the parent's access rules and card layout, and does not count towards your plan's pipeline limit. Use it when one team sells in slightly different ways, for example online and field sales.\n\n## Before you start\n- You need `pipelines.manage` (Owner, Admin or Sales Manager).\n- A pipeline can have up to 10 sub-pipelines. A sub-pipeline cannot have sub-pipelines of its own.\n\n## Steps\n1. Click **Settings** in the left sidebar.\n2. In the **CRM Configuration** card, click **Pipelines & Stages**.\n3. In the list on the left, click the **⋯** button next to the parent pipeline.\n4. Click **Add sub-pipeline**.\n5. Type a **Pipeline name**.\n6. Choose a template in **Stages from**.\n7. Click **Create pipeline**.\n\n## Result\nThe sub-pipeline appears indented under its parent. On the **Pipeline** board, buttons for the parent and its sub-pipelines appear above the columns so you can switch between them.\n\n## Tips\n- A sub-pipeline cannot be made the default pipeline.\n- To change who sees it, change the access of the parent pipeline.\n",
@@ -3954,7 +3958,7 @@
    "updated": "2026-11-06"
   },
   {
-   "body": "## Overview\nWhen your workspace has more than one pipeline, the **Pipeline** page shows one pipeline at a time. It opens on the default pipeline, and you can switch at any time.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban View** is selected.\n3. Open the **Pipeline** drop-down in the filter row (next to **Search deals…**).\n4. Choose the pipeline you want.\n\n## Result\nThe board, the summary tiles (**Total Deals**, **Pipeline Value** and so on) and the **List View** now show that pipeline's deals.\n\n## Tips\n- On wide screens a **Pipelines** column on the left lists every pipeline. Click a name to switch. A lock icon marks restricted pipelines.\n- If the pipeline has sub-pipelines, small buttons above the board switch between the parent and its sub-pipelines.\n- The selected pipeline is kept in the page address, so you can bookmark or share the link.\n\n## Troubleshooting\n- **A pipeline is missing from the list.** It may be restricted to other teams or roles, or archived. Ask a Sales Manager or Admin.\n",
+   "body": "## Overview\nWhen your workspace has more than one pipeline, the **Pipeline** page shows one pipeline at a time. It opens on the default pipeline, and you can switch at any time.\n\n## Steps\n1. Click **Pipeline** in the left sidebar.\n2. Make sure **Kanban** view is selected.\n3. Click **Filters**, then open the **Pipeline** drop-down (next to **Search deals…**).\n4. Choose the pipeline you want.\n\n## Result\nThe board, the summary (**Total Deals**, **Open Pipeline Value** and so on) and the **List** view now show that pipeline's deals.\n\n## Tips\n- On wide screens a **Pipelines** column on the left lists every pipeline. Click a name to switch. A lock icon marks restricted pipelines.\n- If the pipeline has sub-pipelines, small buttons above the board switch between the parent and its sub-pipelines.\n- The selected pipeline is kept in the page address, so you can bookmark or share the link.\n\n## Troubleshooting\n- **A pipeline is missing from the list.** It may be restricted to other teams or roles, or archived. Ask a Sales Manager or Admin.\n",
    "id": "pipeline-switch",
    "keywords": [
     "switch pipeline",
@@ -3981,7 +3985,7 @@
    "spotlight": "",
    "status": "published",
    "title": "How to Switch Between Pipelines",
-   "updated": "2026-11-06"
+   "updated": "2026-11-09"
   },
   {
    "body": "## Overview\nProducts are the items and services you sell, with their price and tax. Once a product exists, it can be added to deals as a line item.\n\n## Before you start\n- You need `products.create`. Owner and Admin have it; Sales Manager, Sales Representative and Viewer can only view products.\n\n## Steps\n1. Click **Products** in the left sidebar.\n2. Click **Product** (with the plus icon) at the right of the toolbar. On an empty catalogue, click **Add product**.\n3. Type the product **Name**.\n4. Optionally type a **SKU**. It must be unique within your organisation.\n5. Choose the **Status**: **Active** or **Inactive**.\n6. Enter the **Unit price** and check the **Currency**.\n7. Optionally enter **Tax rate (%)** and a **Tax label** such as GST or VAT.\n8. Leave the **Stock** switch on if the item can be sold now.\n9. Optionally add a **Description**.\n10. Click **Create product**.\n\n## Result\n\"Product created\" appears and the product is listed on the **Products** page.\n\n## Tips\n- Prices are per unit, before tax. An empty unit price is saved as 0.\n- Only **Active** products can be picked on a deal.\n- To add many products at once, use **Import products** on the empty page, or **Settings → Security & Data → Import & Export Data**.\n\n## Troubleshooting\n- **An error on SKU.** Another product already uses that SKU. Use a different one.\n- **No Product button.** Your role cannot create products. Ask an Admin.\n",

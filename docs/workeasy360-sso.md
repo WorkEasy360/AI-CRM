@@ -189,7 +189,7 @@ automatically, after asking ("Ask me each time", the default), or by preferring 
 Nothing about that choice lives in Keel; what it means here:
 
 * **The sign-in page** asks "Already a Workeasy360 user?" with **Access WorkEasyCRM**. When password sign-in
-  is also on, Keel's own form sits behind **Use another sign-in method**. The sign-in page itself **never
+  is also on, Keel's own form sits on the same page, above it. The sign-in page itself **never
   starts a Workeasy360 sign-in by itself**, whatever its query (including `?sso_error=` after a refusal); only
   a visit to a page that needs a signed-in person does, and only when Workeasy360 is the only sign-in (see
   "Opening WorkEasyCRM directly" below).

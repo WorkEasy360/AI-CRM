@@ -5,7 +5,7 @@ question: How do I change the amount or details of a deal?
 module: Pipeline
 keywords: [edit deal, update deal, change amount, change close date, deal value, deal owner, modify deal, deal edit kaise kare, amount badle, डील बदलें, संपादित]
 route: /pipeline
-menu_path: Pipeline → Kanban View
+menu_path: Pipeline → Kanban
 permission: deals.update
 related: [deal-open-details, deal-create, deal-delete, deal-drag-drop]
 updated: 2026-11-06

@@ -8,15 +8,15 @@ route: /dashboard
 menu_path: Dashboard → WorkEasy AI Insights
 permission: dashboards.view
 related: [dashboard-overview, assistant-chat, assistant-weekly-summary]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
-The **WorkEasy AI Insights** card on the right of the Dashboard lists the few things that need your attention now. Each line is counted from CRM records you can see.
+The **WorkEasy AI Insights** card under **More insights** on the Dashboard lists the few things that need your attention now. Each line is counted from CRM records you can see.
 
 ## Steps
 1. Click **Dashboard** in the left sidebar.
-2. Find the **WorkEasy AI Insights** card on the right, under **Upcoming & Overdue**.
+2. Click **More insights** at the bottom and find the **WorkEasy AI Insights** card, next to **Upcoming & Overdue**.
 3. Read the insights. They can include:
    - follow-ups due today,
    - deals close to winning (60% probability or more, closing within 30 days),

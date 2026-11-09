@@ -9,7 +9,7 @@ menu_path: Settings → CRM Configuration → Pipelines & Stages
 spotlight: New pipeline
 permission: pipelines.manage
 related: [pipeline-add-stage, pipeline-default, pipeline-sub-pipeline, deal-create]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
@@ -32,7 +32,7 @@ A "Pipeline created" message appears and the new pipeline is selected in the lis
 
 ## Tips
 - Every template comes with a won stage and a lost stage. You can rename, add, reorder or archive stages afterwards.
-- On the **Pipeline** page (wide screens) you can also click **Add pipeline** at the bottom of the **Pipelines** column. It opens this same settings page.
+- With more than one pipeline, the **Pipeline** page (wide screens) also offers **Add pipeline** at the bottom of the **Pipelines** column. It opens this same settings page.
 
 ## Troubleshooting
 - **"A pipeline with this name already exists."** Pipeline names must be unique. Choose another name.

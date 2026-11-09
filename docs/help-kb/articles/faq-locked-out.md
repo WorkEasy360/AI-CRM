@@ -5,9 +5,9 @@ question: What do I do if I'm locked out of my account?
 module: FAQ
 keywords: [locked out, cannot sign in, lost phone, lost authenticator, too many attempts, account suspended, login problem, login nahi ho raha, account lock ho gaya, लॉगिन नहीं हो रहा, खाता बंद]
 route: /login
-menu_path: Sign in
+menu_path: CRM Login
 related: [getting-started-forgot-password, settings-recovery-codes, settings-suspend-user, settings-enable-2fa]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview

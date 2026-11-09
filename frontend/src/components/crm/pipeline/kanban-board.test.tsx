@@ -134,16 +134,69 @@ describe("KanbanBoard", () => {
     expect(within(card).getByRole("link", { name: "Acme renewal" })).toHaveAttribute("href", "/deals/d1");
     expect(within(card).getByText("Acme")).toBeInTheDocument();
     expect(within(card).getByText("$1,500.00")).toBeInTheDocument();
-    expect(within(card).getByText("20%")).toBeInTheDocument();
+    expect(within(card).getByTitle("20% probability")).toBeInTheDocument();
     expect(within(card).getByText("No next step")).toBeInTheDocument();
     expect(within(card).getByRole("img", { name: "Low risk" })).toBeInTheDocument();
     expect(within(card).getByLabelText("Owner: Ada Lovelace")).toBeInTheDocument();
     expect(card).toHaveAttribute("draggable", "true");
 
     const other = screen.getByTestId("deal-card-d2");
-    expect(within(other).getByText("60%")).toBeInTheDocument();
+    expect(within(other).getByTitle("60% probability")).toBeInTheDocument();
     expect(within(other).getByText("Call about pricing")).toBeInTheDocument();
     expect(within(other).getByRole("img", { name: "High risk" })).toBeInTheDocument();
+  });
+
+  it("offers Call, WhatsApp and Follow-up on an open deal with a phone number", async () => {
+    const withPhone: Board = {
+      ...board,
+      stages: board.stages.map((s) =>
+        s.id === "s1" ? { ...s, deals: [deal({ id: "d9", name: "Phone deal", stage: qualified, primary_contact: { id: "c9", name: "Rahul Mehta", email: "", phone: "+91 98765-43210", whatsapp_opt_in: true } })] } : s,
+      ),
+    };
+    renderBoard({ board: withPhone });
+    const card = screen.getByTestId("deal-card-d9");
+    expect(within(card).getByText("Rahul Mehta")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "Call Rahul Mehta" })).toHaveAttribute("href", "tel:+919876543210");
+    expect(within(card).getByRole("button", { name: "WhatsApp Rahul Mehta" })).toBeEnabled();
+    expect(within(card).getByRole("button", { name: "Add a follow-up for Phone deal" })).toBeEnabled();
+  });
+
+  it("switches Call and WhatsApp off when no number is available, without hiding them", () => {
+    renderBoard();
+    const card = screen.getByTestId("deal-card-d1");
+    expect(within(card).getByRole("button", { name: "Call Acme: no phone number" })).toBeDisabled();
+    expect(within(card).getByRole("button", { name: "WhatsApp Acme: no phone number" })).toBeDisabled();
+  });
+
+  it("hides WhatsApp and Follow-up from members without those permissions", () => {
+    renderBoard({ canWhatsApp: false, canFollowUp: false });
+    const card = screen.getByTestId("deal-card-d1");
+    expect(within(card).queryByRole("button", { name: /WhatsApp/ })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /follow-up/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the outcome and closing date on closed deals, with no follow-up to plan", () => {
+    const won = { id: "s3", name: "Won", kind: "won", color_token: "green" } as const;
+    const closed: Board = {
+      ...board,
+      stages: board.stages.map((s) => (s.id === "s3" ? { ...s, deals: [deal({ id: "d7", name: "Closed deal", stage: won, status: "won", closed_at: "2026-11-05T10:00:00Z" })] } : s)),
+    };
+    renderBoard({ board: closed });
+    const card = screen.getByTestId("deal-card-d7");
+    expect(within(card).getByText("Won")).toBeInTheDocument();
+    expect(within(card).getByText(/^Closed:/)).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /follow-up/ })).not.toBeInTheDocument();
+    expect(within(card).queryByText("No next step")).not.toBeInTheDocument();
+  });
+
+  it("adds a deal to a stage and shows its weighted total from the column menu", async () => {
+    const user = userEvent.setup();
+    const onAddDeal = vi.fn();
+    renderBoard({ onAddDeal });
+    await user.click(screen.getByRole("button", { name: "Qualified options" }));
+    expect(await screen.findAllByText("Weighted $1,800.00")).toHaveLength(2); // the menu, and the column's screen-reader line
+    await user.click(screen.getByRole("menuitem", { name: "Add Deal" }));
+    expect(onAddDeal).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }));
   });
 
   it("keeps the server's weighted total on a truncated column, offers the rest, and hides the risk dot without ai.scores.view", () => {
