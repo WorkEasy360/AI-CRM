@@ -12,7 +12,8 @@ Two rules:
 
 The stored history is the *question and answer text*, never the retrieved CRM context. Evidence is
 re-retrieved for every question under the caller's current permissions, so a conversation started
-when someone could see a deal stops being able to quote it the moment they cannot.
+when someone could see a deal stops being able to quote it the moment they cannot. A turn's action
+card follows the same rule: see ``actions.for_storage``.
 """
 
 from __future__ import annotations
@@ -87,6 +88,7 @@ def record(
     flagged_input: bool = False,
     focus: tuple[str, uuid.UUID] | None = None,
     help_article: str = "",
+    action: dict[str, Any] | None = None,
 ) -> ConversationTurn:
     """Append one turn and move the thread's focus to whatever this answer was about."""
     position = (conversation.turns.aggregate(latest=Max("position"))["latest"] or 0) + 1
@@ -100,6 +102,7 @@ def record(
         model=model[:64],
         flagged_input=flagged_input,
         help_article=help_article[:80],
+        action=action or {},
     )
     fields = ["last_message_at", "updated_at"]
     conversation.last_message_at = timezone.now()
