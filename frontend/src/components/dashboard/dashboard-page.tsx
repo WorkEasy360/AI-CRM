@@ -106,12 +106,14 @@ export function DashboardPage() {
   const openHref = `/pipeline?view=list&status=open${ownerQs}${pipelineQs}`;
   const noLeads = leads === null ? "No access" : undefined;
   const noDeals = data && data.open_pipeline === null ? "No access" : undefined;
+  // Someone without a name set has their email as display_name; greet them by the part before the @.
+  const userName = (session?.user.display_name || session?.user.email || "").split("@")[0]!.trim();
 
   return (
     <div className="w-full">
       <PageHeader
         icon={Gauge}
-        title="Dashboard"
+        title={userName ? `Welcome, ${userName}` : "Welcome"}
         description="Your CRM overview, today's work, sales pipeline and key performance."
         actions={
           <>
