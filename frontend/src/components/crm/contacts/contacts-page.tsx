@@ -7,6 +7,8 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArchiveRestore, Archive, Contact as ContactIcon, MoreHorizontal, Pencil, Plus, Star } from "lucide-react";
 import { AddContactPanel } from "@/components/crm/contacts/add-contact-panel";
+import { PhoneLeads } from "@/components/crm/contacts/phone-leads";
+import { useIsPhone } from "@/lib/use-is-phone";
 import { AllContactsTable } from "@/components/crm/contacts/all-contacts-table";
 import { ContactsHub, type AddKind, type ContactsTab } from "@/components/crm/contacts/contacts-hub";
 import { BulkBar } from "@/components/crm/bulk-bar";
@@ -89,6 +91,7 @@ export function ContactsPage() {
   const canBulk = can(active, "contacts.bulk_update");
 
   const { params, setParam, setParams } = useListParams(ALLOWED, DEFAULTS);
+  const phone = useIsPhone();
   // All Contacts (people + companies) by default; Individuals is the full people list with its views.
   const tab: ContactsTab = params.tag ? "tag" : params.tab === "people" ? "people" : params.tab === "favorites" ? "favorites" : "all";
   const [adding, setAdding] = React.useState<AddKind | null>(null);
@@ -281,6 +284,16 @@ export function ContactsPage() {
       }
     />
   );
+
+  // Phones open on the focused Leads list; the filter button leads to the full list with its views.
+  if (phone && tab === "all" && !params.view && !params.archived) {
+    return (
+      <>
+        <PhoneLeads params={params} setParam={setParam} />
+        {formOpen ? <ContactFormDialog open contact={editing} onOpenChange={(open) => !open && closeDialog()} /> : null}
+      </>
+    );
+  }
 
   return (
     <div>

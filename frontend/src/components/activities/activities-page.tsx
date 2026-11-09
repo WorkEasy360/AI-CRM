@@ -12,6 +12,8 @@ import { KIND_LABELS } from "@/components/activities/activity-utils";
 import { Calendar } from "@/components/activities/calendar";
 import { MessageLog } from "@/components/activities/message-log";
 import { MyDay } from "@/components/activities/my-day";
+import { PhoneTasks } from "@/components/activities/phone-tasks";
+import { useIsPhone } from "@/lib/use-is-phone";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -97,6 +99,7 @@ export function ActivitiesPage() {
   const canEmail = can(session?.active, "email.view");
   const visibleTabs = TABS.filter((t) => (t === "whatsapp" ? canWhatsApp : t === "emails" ? canEmail : true));
   const { params, setParam, setParams } = useListParams(URL_KEYS);
+  const phone = useIsPhone();
   const tab = tabOf(params.tab);
   const { toast } = useToast();
   const [creating, setCreating] = React.useState<Creating | null>(null);
@@ -130,6 +133,17 @@ export function ActivitiesPage() {
   const showTab = (next: Tab, patch: Record<string, string | undefined> = {}) =>
     setParams({ tab: next === DEFAULT_TAB ? undefined : next, view: undefined, q: undefined, due: undefined, sort: undefined, ...patch });
   const startCreate = (kind: ActivityKind, mode: "schedule" | "log" = "schedule") => setCreating({ kind, mode });
+
+  // Phones open on the member's own tasks; a link to a tab or a filtered list still gets the full page.
+  if (phone && !params.tab && !params.due && !params.view && !params.q) {
+    return (
+      <>
+        <PhoneTasks />
+        {creating ? <ActivityFormDialog open onOpenChange={(open) => !open && setCreating(null)} kind={creating.kind} mode={creating.mode} defaults={creating.start_at ? { start_at: creating.start_at } : undefined} /> : null}
+        {editing ? <ActivityFormDialog open onOpenChange={(open) => !open && setEditing(null)} activity={editing} /> : null}
+      </>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">

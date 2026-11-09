@@ -2,34 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, Contact, KanbanSquare, Plus, Search } from "lucide-react";
-import { permittedQuickAddItems } from "@/components/shell/quick-add";
-import { useQuickCreate, type QuickCreateKind } from "@/components/shell/quick-create-provider";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { ActiveContext } from "@/lib/api/types";
-import { hasPermission } from "@/lib/session";
+import { CalendarCheck, House, KanbanSquare, Menu, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
+  { href: "/dashboard", label: "Home", icon: House },
+  { href: "/contacts", label: "Leads", icon: Users },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-  { href: "/contacts", label: "Contacts", icon: Contact },
-  { href: "/activities", label: "Activities", icon: CalendarCheck },
+  { href: "/activities", label: "Tasks", icon: CalendarCheck },
 ] as const;
 
-/** What the mobile "New" tab offers, in order: the quick wins on the road. */
-export const MOBILE_NEW_KINDS: readonly QuickCreateKind[] = ["task", "call", "contact", "deal"];
-
-const TAB_CLASS = "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium leading-none";
+const TAB_CLASS = "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 text-xs font-medium leading-none";
 
 /**
- * Bottom tab bar for phones and small tablets (hidden from `lg`). The sheet in the header keeps
- * the full navigation; this bar keeps the five things a rep reaches for one thumb away.
+ * Bottom tab bar for phones and small tablets (hidden from `lg`): the four screens a rep lives in,
+ * and "More" for the full navigation drawer.
  */
-export function MobileNav({ active, onSearch }: { active: ActiveContext; onSearch: () => void }) {
+export function MobileNav({ onMore }: { onMore: () => void }) {
   const pathname = usePathname();
-  const { open } = useQuickCreate();
-  const canSearch = hasPermission(active, "search.use");
-  const createItems = permittedQuickAddItems(active, MOBILE_NEW_KINDS);
 
   return (
     <nav
@@ -47,7 +37,7 @@ export function MobileNav({ active, onSearch }: { active: ActiveContext; onSearc
                 // tab tap from committing a loading skeleton and paying React's ~300 ms fallback throttle.
                 prefetch
                 aria-current={current ? "page" : undefined}
-                className={cn(TAB_CLASS, current ? "text-primary" : "text-fg-muted hover:text-fg")}
+                className={cn(TAB_CLASS, current ? "font-semibold text-primary" : "text-fg-muted hover:text-fg")}
               >
                 <tab.icon className="size-5" aria-hidden />
                 <span className="truncate">{tab.label}</span>
@@ -55,37 +45,12 @@ export function MobileNav({ active, onSearch }: { active: ActiveContext; onSearc
             </li>
           );
         })}
-        {canSearch ? (
-          <li className="flex min-w-0 flex-1">
-            <button type="button" onClick={onSearch} className={cn(TAB_CLASS, "text-fg-muted hover:text-fg")} aria-label="Search">
-              <Search className="size-5" aria-hidden />
-              <span>Search</span>
-            </button>
-          </li>
-        ) : null}
-        {createItems.length > 0 ? (
-          <li className="flex min-w-0 flex-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" className={cn(TAB_CLASS, "text-primary")} aria-label="New record">
-                  <span className="flex size-6 items-center justify-center rounded-full bg-brand text-brand-fg">
-                    <Plus className="size-4" aria-hidden />
-                  </span>
-                  <span>New</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="top" className="w-44">
-                <DropdownMenuLabel>Create</DropdownMenuLabel>
-                {createItems.map((item) => (
-                  <DropdownMenuItem key={item.kind} onSelect={() => open(item.kind)}>
-                    <item.icon />
-                    {item.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </li>
-        ) : null}
+        <li className="flex min-w-0 flex-1">
+          <button type="button" onClick={onMore} className={cn(TAB_CLASS, "text-fg-muted hover:text-fg")}>
+            <Menu className="size-5" aria-hidden />
+            <span>More</span>
+          </button>
+        </li>
       </ul>
     </nav>
   );

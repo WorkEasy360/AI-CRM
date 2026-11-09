@@ -214,8 +214,9 @@ export function KanbanBoard({
             <li
               key={stage.id}
               className={cn(
-                // Phones show one stage and a peek of the next; desktop shares the width between the stages.
-                "flex w-[min(17rem,calc(100vw-4rem))] shrink-0 snap-start scroll-ml-1 flex-col rounded-lg transition-colors lg:w-[12.75rem] lg:grow",
+                // Phones show two stages side by side, tablets one and a peek of the next, and desktop shares
+                // the width between the stages.
+                "flex w-[min(17rem,calc(100vw-4rem))] shrink-0 snap-start scroll-ml-1 flex-col rounded-lg transition-colors max-md:w-[calc(50vw-1.375rem)] lg:w-[12.75rem] lg:grow",
                 isOver && "bg-primary-soft/40 ring-2 ring-primary",
               )}
               onDragOver={(e) => {
@@ -240,17 +241,18 @@ export function KanbanBoard({
                 <div className="flex min-w-0 items-center justify-between gap-1">
                   <h3 className="min-w-0 truncate text-md font-bold text-fg" title={stage.name}>
                     {stage.name}
+                    <span aria-hidden className="font-medium md:hidden"> ({stage.deal_count})</span>
                   </h3>
                   <ColumnMenu stage={stage} weighted={weighted === null ? null : formatMoney(weighted, baseCurrency)} onAddDeal={onAddDeal} canManageStages={canManageStages} />
                 </div>
                 <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-sm font-medium tabular-nums text-fg-muted">
-                  <span aria-label={`${stage.deal_count} deals`}>
+                  <span aria-label={`${stage.deal_count} deals`} className="max-md:sr-only">
                     {stage.deal_count} {stage.deal_count === 1 ? "Deal" : "Deals"}
                   </span>
                   {stage.total_amount_base !== null ? (
                     <>
-                      <span aria-hidden>•</span>
-                      <span className="min-w-0 truncate">{formatMoney(stage.total_amount_base, baseCurrency)}</span>
+                      <span aria-hidden className="max-md:hidden">•</span>
+                      <span className="min-w-0 truncate max-md:font-bold max-md:text-fg">{formatMoney(stage.total_amount_base, baseCurrency)}</span>
                     </>
                   ) : null}
                 </p>
@@ -526,7 +528,7 @@ function DealCard({
         {canMove ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1 size-7 shrink-0 max-lg:size-11" aria-label={`Move ${deal.name} to another stage`} disabled={busy}>
+              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1 size-7 shrink-0 max-lg:size-11 max-md:-mr-2 max-md:size-8" aria-label={`Move ${deal.name} to another stage`} disabled={busy}>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
@@ -534,6 +536,12 @@ function DealCard({
               <DropdownMenuItem onSelect={onEdit}>
                 <Pencil /> Edit details…
               </DropdownMenuItem>
+              {open && canFollowUp ? (
+                // The card's Follow-up button has no room on a phone, so it moves here.
+                <DropdownMenuItem onSelect={onFollowUp} className="md:hidden">
+                  <CalendarDays /> Add follow-up
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Move to…</DropdownMenuLabel>
               {stages
@@ -580,7 +588,7 @@ function DealCard({
         ) : (
           <span className="flex-1" />
         )}
-        {deal.owner ? <Avatar name={deal.owner.display_name} size="sm" className="size-5 shrink-0 text-[11px]" title={`Owner: ${deal.owner.display_name}`} aria-label={`Owner: ${deal.owner.display_name}`} /> : null}
+        {deal.owner ? <Avatar name={deal.owner.display_name} size="sm" className="size-5 shrink-0 text-[11px] max-md:hidden" title={`Owner: ${deal.owner.display_name}`} aria-label={`Owner: ${deal.owner.display_name}`} /> : null}
       </div>
 
       <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-fg-muted">
@@ -623,7 +631,10 @@ function DealCard({
           <button
             type="button"
             onClick={onFollowUp}
-            className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-border-strong bg-surface px-1.5 text-xs font-medium text-fg transition-colors hover:border-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-ring lg:h-8"
+            className={cn(
+              "inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-border-strong bg-surface px-1.5 text-xs font-medium text-fg transition-colors hover:border-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-ring lg:h-8",
+              canMove && "max-md:hidden",
+            )}
             aria-label={`Add a follow-up for ${deal.name}`}
           >
             <CalendarDays className="size-3.5 shrink-0" aria-hidden />

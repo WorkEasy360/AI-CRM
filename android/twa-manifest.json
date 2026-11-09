@@ -1,50 +1,50 @@
 {
   "packageId": "com.workeasy360.keelcrm",
-  "host": "3-110-142-102.sslip.io",
-  "name": "Keel CRM",
-  "launcherName": "Keel",
+  "host": "crm.workeasy360.com",
+  "name": "WorkEasy360 CRM",
+  "launcherName": "WorkEasy360 CRM",
   "display": "standalone",
-  "themeColor": "#F5F9FD",
-  "themeColorDark": "#F5F9FD",
+  "themeColor": "#0A3A2C",
+  "themeColorDark": "#0A3A2C",
   "navigationColor": "#FFFFFF",
   "navigationColorDark": "#FFFFFF",
-  "navigationDividerColor": "#DDE7F2",
-  "navigationDividerColorDark": "#DDE7F2",
-  "backgroundColor": "#F5F9FD",
+  "navigationDividerColor": "#E5E9EC",
+  "navigationDividerColorDark": "#E5E9EC",
+  "backgroundColor": "#0A3A2C",
   "enableNotifications": false,
-  "startUrl": "/pipeline",
-  "iconUrl": "https://3-110-142-102.sslip.io/icons/icon-512.png",
-  "maskableIconUrl": "https://3-110-142-102.sslip.io/icons/maskable-512.png",
-  "monochromeIconUrl": "https://3-110-142-102.sslip.io/icons/monochrome-512.png",
+  "startUrl": "/dashboard",
+  "iconUrl": "https://crm.workeasy360.com/icons/icon-512.png",
+  "maskableIconUrl": "https://crm.workeasy360.com/icons/maskable-512.png",
+  "monochromeIconUrl": "https://crm.workeasy360.com/icons/monochrome-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
     "alias": "keel-upload"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1.1.0",
+  "appVersionCode": 2,
   "shortcuts": [
     {
       "name": "Pipeline",
       "shortName": "Pipeline",
-      "url": "https://3-110-142-102.sslip.io/pipeline",
-      "chosenIconUrl": "https://3-110-142-102.sslip.io/icons/icon-192.png"
+      "url": "https://crm.workeasy360.com/pipeline",
+      "chosenIconUrl": "https://crm.workeasy360.com/icons/icon-192.png"
     },
     {
-      "name": "Contacts",
-      "shortName": "Contacts",
-      "url": "https://3-110-142-102.sslip.io/contacts",
-      "chosenIconUrl": "https://3-110-142-102.sslip.io/icons/icon-192.png"
+      "name": "Leads",
+      "shortName": "Leads",
+      "url": "https://crm.workeasy360.com/contacts",
+      "chosenIconUrl": "https://crm.workeasy360.com/icons/icon-192.png"
     },
     {
-      "name": "Activities",
-      "shortName": "Activities",
-      "url": "https://3-110-142-102.sslip.io/activities",
-      "chosenIconUrl": "https://3-110-142-102.sslip.io/icons/icon-192.png"
+      "name": "Tasks",
+      "shortName": "Tasks",
+      "url": "https://crm.workeasy360.com/activities",
+      "chosenIconUrl": "https://crm.workeasy360.com/icons/icon-192.png"
     }
   ],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://3-110-142-102.sslip.io/manifest.webmanifest",
+  "webManifestUrl": "https://crm.workeasy360.com/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -53,8 +53,8 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://3-110-142-102.sslip.io/",
-  "minSdkVersion": 21,
+  "fullScopeUrl": "https://crm.workeasy360.com/",
+  "minSdkVersion": 24,
   "orientation": "default",
   "fingerprints": [],
   "additionalTrustedOrigins": [],
@@ -63,5 +63,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "1.0.0"
+  "appVersion": "1.1.0"
 }

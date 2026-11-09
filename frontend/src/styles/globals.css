@@ -155,6 +155,15 @@
   color: var(--kl-fg);
 }
 
+/* The phone app's green chrome: its top bar and the welcome screen. The neutral tokens re-pointed by
+   .kl-chrome already read light on it, so only the surface differs from the navy desktop chrome. */
+.kl-phone-bar {
+  background: linear-gradient(120deg, #0a3a2c, #0d5c43);
+}
+.kl-phone-hero {
+  background: linear-gradient(165deg, #0a3a2c 0%, #0b4a37 55%, #0d5c43 100%);
+}
+
 @keyframes kl-fade-in {
   from {
     opacity: 0;

@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QUICK_ADD_ITEMS, QuickAdd, permittedQuickAddItems } from "@/components/shell/quick-add";
-import { MOBILE_NEW_KINDS } from "@/components/shell/mobile-nav";
 import type { ActiveContext } from "@/lib/api/types";
 
 const open = vi.fn();
@@ -55,9 +54,10 @@ describe("QuickAdd", () => {
     expect(screen.queryByRole("button", { name: "New record" })).not.toBeInTheDocument();
   });
 
-  it("orders the mobile subset Task, Call, Contact, Deal", () => {
+  it("keeps a requested subset in the order asked for, permitted items only", () => {
+    const subset = ["task", "call", "contact", "deal"] as const;
     const ctx = active({ "contacts.create": "own", "deals.create": "own", "activities.create": "own" });
-    expect(permittedQuickAddItems(ctx, MOBILE_NEW_KINDS).map((i) => i.kind)).toEqual(["task", "call", "contact", "deal"]);
-    expect(permittedQuickAddItems(active({ "deals.create": "own" }), MOBILE_NEW_KINDS).map((i) => i.kind)).toEqual(["deal"]);
+    expect(permittedQuickAddItems(ctx, subset).map((i) => i.kind)).toEqual(["task", "call", "contact", "deal"]);
+    expect(permittedQuickAddItems(active({ "deals.create": "own" }), subset).map((i) => i.kind)).toEqual(["deal"]);
   });
 });

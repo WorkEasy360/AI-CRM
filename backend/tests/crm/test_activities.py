@@ -263,3 +263,43 @@ def test_follow_ups_and_summary_totals(org_a, org_b, owner_client, make_member, 
     # a rep counts only their own
     rep = make_member(org_a, "sales_rep")
     assert client_for(rep.user, rep).get("/api/v1/activities/summary/").json()["totals"]["all"] == 0
+
+
+def test_an_activity_shows_its_contacts_phone_within_the_members_scope(org_a, crm, make_member, client_for):
+    """The phone drives the Call and WhatsApp buttons, and the rep may see a task linked to a contact they may not."""
+    rep = make_member(org_a, "sales_rep")
+    theirs = crm.make_contact(org_a, owner=rep, phone="+15550002222")
+    other = crm.make_contact(org_a, phone="+15550003333")
+    start = timezone.now() + timedelta(minutes=5)
+    crm.make_activity(org_a, owner=rep, title="Mine", contact=theirs, start_at=start)
+    crm.make_activity(org_a, owner=rep, title="Someone else's contact", contact=other, start_at=start)
+
+    client = client_for(rep.user, rep)
+    listed = client.get("/api/v1/activities/").json()
+    rows = {a["title"]: a for a in listed["results"]}
+    assert rows["Mine"]["contact"]["phone"] == "+15550002222"
+    assert rows["Someone else's contact"]["contact"]["phone"] is None
+    assert rows["Someone else's contact"]["contact"]["whatsapp_opt_in"] is None
+    assert "+15550003333" not in str(listed)
+
+    day = client.get("/api/v1/activities/my-day/").json()
+    assert {a["title"]: a["contact"]["phone"] for a in day["tasks"]} == {
+        "Mine": "+15550002222",
+        "Someone else's contact": None,
+    }
+
+
+def test_an_activity_withholds_a_phone_hidden_by_a_field_rule(org_a, crm, make_member, client_for):
+    from apps.authz.models import FieldPermission
+
+    rep = make_member(org_a, "sales_rep")
+    with tenant_context(org_a.org.pk):
+        FieldPermission.objects.create(
+            organization_id=org_a.org.pk, role_id=rep.role_id, entity_type="contact", field="phone", access="hidden"
+        )
+    contact = crm.make_contact(org_a, owner=rep, phone="+15550002222")
+    crm.make_activity(org_a, owner=rep, title="Mine", contact=contact)
+
+    listed = client_for(rep.user, rep).get("/api/v1/activities/").json()
+    assert listed["results"][0]["contact"]["phone"] is None
+    assert "+15550002222" not in str(listed)

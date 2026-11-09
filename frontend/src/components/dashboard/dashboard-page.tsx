@@ -17,8 +17,10 @@ import { crmKeys } from "@/lib/crm/keys";
 import { monthKey, monthName } from "@/lib/crm/periods";
 import { useListParams } from "@/lib/crm/use-list-params";
 import { hasPermission, queryKeys, useSession } from "@/lib/session";
+import { useIsPhone } from "@/lib/use-is-phone";
 import { cn } from "@/lib/utils";
 import { DashboardTabs } from "./dashboard-tabs";
+import { PhoneHome } from "./phone-home";
 import {
   AiInsightsCard,
   BusinessSummary,
@@ -75,7 +77,8 @@ export function DashboardPage() {
   const { data: session } = useSession();
   const active = session?.active;
   const currency = active?.organization.base_currency ?? "USD";
-  const { params, setParam, setParams } = useListParams(["period", "pipeline", "months", "owner"]);
+  const { params, setParam, setParams } = useListParams(["period", "pipeline", "months", "owner", "view"]);
+  const phone = useIsPhone();
   const period = periodOf(params.period);
   const pipeline = params.pipeline;
   const months = TREND_OPTIONS.find((m) => String(m) === params.months) ?? 6;
@@ -108,6 +111,35 @@ export function DashboardPage() {
   const noDeals = data && data.open_pipeline === null ? "No access" : undefined;
   // Someone without a name set has their email as display_name; greet them by the part before the @.
   const userName = (session?.user.display_name || session?.user.email || "").split("@")[0]!.trim();
+  const periodSelect = (
+    <Select value={period} onValueChange={(v) => setParam("period", v === monthKey() ? undefined : v)}>
+      <SelectTrigger className={cn("h-9 font-medium", phone ? "w-32" : "w-40")} aria-label="Period">
+        {phone ? null : <CalendarDays className="size-4 shrink-0 text-fg-muted" aria-hidden />}
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {recentMonths().map((m) => (
+          <SelectItem key={m} value={m}>
+            {monthName(m)}
+          </SelectItem>
+        ))}
+        <SelectSeparator />
+        {DASHBOARD_PERIODS.map((p) => (
+          <SelectItem key={p} value={p}>
+            {PERIOD_LABELS[p]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  // Phones get a focused Home; everything else on this page stays one tap away.
+  if (phone && params.view !== "full") {
+    if (summary.isError) {
+      return <EmptyState title="Could not load the dashboard" description={errorMessage(summary.error)} action={<Button variant="secondary" onClick={() => summary.refetch()}>Retry</Button>} />;
+    }
+    return <PhoneHome session={session} active={active} data={data} currency={currency} periodSelect={periodSelect} canActivities={canActivities} hrefs={{ open: openHref, won: wonHref }} fullHref="/dashboard?view=full" />;
+  }
 
   return (
     <div className="w-full">
@@ -118,25 +150,7 @@ export function DashboardPage() {
         actions={
           <>
             <DashboardTabs active="overview" />
-            <Select value={period} onValueChange={(v) => setParam("period", v === monthKey() ? undefined : v)}>
-              <SelectTrigger className="h-9 w-40 font-medium" aria-label="Period">
-                <CalendarDays className="size-4 shrink-0 text-fg-muted" aria-hidden />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {recentMonths().map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {monthName(m)}
-                  </SelectItem>
-                ))}
-                <SelectSeparator />
-                {DASHBOARD_PERIODS.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PERIOD_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {periodSelect}
             <Select value={owner} onValueChange={(v) => setParam("owner", v === "me" ? undefined : v)}>
               <SelectTrigger className="h-9 w-40 font-medium" aria-label="Records">
                 <UserRound className="size-4 shrink-0 text-fg-muted" aria-hidden />

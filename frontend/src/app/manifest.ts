@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "WorkEasyCRM",
     short_name: "WorkEasy",
     description: "Pipeline, contacts and follow-ups for sales teams.",
-    start_url: "/pipeline",
+    start_url: "/dashboard",
     scope: "/",
     display: "standalone",
     orientation: "any",
