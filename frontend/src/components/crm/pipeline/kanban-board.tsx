@@ -2,10 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, CalendarDays, CheckCircle2, MoreHorizontal, Pencil, Plus, Settings2, User, XCircle } from "lucide-react";
-import { CallLink, WhatsAppButton } from "@/components/crm/contact-actions";
+import { Building2, CalendarDays, CheckCircle2, MoreHorizontal, Pencil, Phone, Plus, Settings2, User, XCircle } from "lucide-react";
+import { CallLink, WhatsAppCallLink, WhatsAppChatLink } from "@/components/crm/contact-actions";
 import { weightedTotal } from "@/components/crm/deals/deal-helpers";
 import { useMoveStage, type StageTarget } from "@/components/crm/deals/move-stage-dialog";
 import { RiskBadge } from "@/components/crm/risk-badge";
@@ -23,10 +22,10 @@ import type { Board, BoardStage, DealCard, ListParams } from "@/lib/api/crm-type
 import { errorMessage, isApiError } from "@/lib/api/problem";
 import { useWindowedList } from "@/lib/use-windowed-list";
 import { defaultFollowUpTime, dueLabel, DUE_TONE_CLASS, formatDayMonth } from "@/lib/crm/due-date";
+import { toWhatsAppNumber } from "@/lib/phone";
 import { formatMoney, stageHue, stageTintStyle } from "@/lib/crm/format";
 import { cn } from "@/lib/utils";
 
-const WhatsAppDialog = dynamic(() => import("@/components/messaging/whatsapp-dialog").then((m) => m.WhatsAppDialog), { ssr: false });
 
 const DRAG_MIME = "application/x-keel-deal";
 /** Typical card height (with its gap) for windowing a column; cards vary a little around it. */
@@ -111,8 +110,6 @@ export function KanbanBoard({
   const [more, setMore] = React.useState<Record<string, boolean>>({});
   const [loadingMore, setLoadingMore] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<DealCard | null>(null);
-  // One composer for the whole board, loaded when first asked for, rather than one per card.
-  const [messaging, setMessaging] = React.useState<DealCard | null>(null);
   const { open: openCreate } = useQuickCreate();
   const { toast } = useToast();
   React.useEffect(() => {
@@ -269,7 +266,6 @@ export function KanbanBoard({
                     showRisk={showRisk}
                     canWhatsApp={canWhatsApp}
                     canFollowUp={canFollowUp}
-                    onWhatsApp={() => setMessaging(deal)}
                     onFollowUp={() =>
                       openCreate("task", {
                         deal: { id: deal.id, name: deal.name },
@@ -313,19 +309,6 @@ export function KanbanBoard({
       </ol>
       {move.dialog}
       {editing ? <QuickEditDialog deal={editing} onClose={() => setEditing(null)} /> : null}
-      {messaging?.primary_contact?.phone ? (
-        <WhatsAppDialog
-          open
-          onOpenChange={(open) => !open && setMessaging(null)}
-          deal={{ id: messaging.id, name: messaging.name }}
-          contact={{
-            id: messaging.primary_contact.id,
-            name: messaging.primary_contact.name,
-            phone: messaging.primary_contact.phone,
-            whatsapp_opt_in: Boolean(messaging.primary_contact.whatsapp_opt_in),
-          }}
-        />
-      ) : null}
     </div>
   );
 }
@@ -480,7 +463,6 @@ function DealCard({
   onMove,
   onEdit,
   onOpen,
-  onWhatsApp,
   onFollowUp,
 }: {
   deal: DealCard;
@@ -496,12 +478,13 @@ function DealCard({
   onDragEnd: () => void;
   onMove: (stage: StageTarget) => void;
   onEdit: () => void;
-  onWhatsApp: () => void;
   onFollowUp: () => void;
 }) {
   const person = deal.primary_contact?.name || deal.company?.name || "";
   const open = deal.status === "open";
   const phone = deal.primary_contact?.phone;
+  const number = toWhatsAppNumber(phone);
+  const firstName = deal.primary_contact?.name.trim().split(/\s+/)[0];
   const due = open && deal.next_activity_at ? dueLabel(deal.next_activity_at) : null;
   return (
     <li
@@ -525,33 +508,45 @@ function DealCard({
             </Link>
           )}
         </div>
-        {canMove ? (
+        {canMove || (canWhatsApp && number) ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1 size-7 shrink-0 max-lg:size-11 max-md:-mr-2 max-md:size-8" aria-label={`Move ${deal.name} to another stage`} disabled={busy}>
+              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1 size-7 shrink-0 max-lg:size-11 max-md:-mr-2 max-md:size-8" aria-label={canMove ? `Move ${deal.name} to another stage` : `More actions for ${deal.name}`} disabled={busy}>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={onEdit}>
-                <Pencil /> Edit details…
-              </DropdownMenuItem>
-              {open && canFollowUp ? (
-                // The card's Follow-up button has no room on a phone, so it moves here.
-                <DropdownMenuItem onSelect={onFollowUp} className="md:hidden">
-                  <CalendarDays /> Add follow-up
+              {/* The card's call button opens WhatsApp, so the ordinary phone call lives here. */}
+              {canWhatsApp && number ? (
+                <DropdownMenuItem asChild>
+                  <a href={`tel:+${number}`} draggable={false}>
+                    <Phone /> Call via phone
+                  </a>
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Move to…</DropdownMenuLabel>
-              {stages
-                .filter((s) => s.id !== deal.stage.id)
-                .map((s) => (
-                  <DropdownMenuItem key={s.id} onSelect={() => onMove(s)}>
-                    {s.name}
-                    {s.kind !== "open" ? <span className="ml-auto text-xs text-fg-subtle">{s.kind === "won" ? "Won" : "Lost"}</span> : null}
+              {canMove ? (
+                <>
+                  <DropdownMenuItem onSelect={onEdit}>
+                    <Pencil /> Edit details…
                   </DropdownMenuItem>
-                ))}
+                  {open && canFollowUp ? (
+                    // The card's Follow-up button has no room on a phone, so it moves here.
+                    <DropdownMenuItem onSelect={onFollowUp} className="md:hidden">
+                      <CalendarDays /> Add follow-up
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Move to…</DropdownMenuLabel>
+                  {stages
+                    .filter((s) => s.id !== deal.stage.id)
+                    .map((s) => (
+                      <DropdownMenuItem key={s.id} onSelect={() => onMove(s)}>
+                        {s.name}
+                        {s.kind !== "open" ? <span className="ml-auto text-xs text-fg-subtle">{s.kind === "won" ? "Won" : "Lost"}</span> : null}
+                      </DropdownMenuItem>
+                    ))}
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
@@ -625,8 +620,9 @@ function DealCard({
       ) : null}
 
       <div className="mt-2.5 flex items-center gap-1.5">
-        <CallLink phone={phone} name={person || deal.name} />
-        {canWhatsApp ? <WhatsAppButton phone={phone} name={person || deal.name} onClick={onWhatsApp} /> : null}
+        {/* Someone who may not message on WhatsApp keeps the ordinary phone call. */}
+        {canWhatsApp ? <WhatsAppCallLink number={number} name={person || deal.name} /> : <CallLink phone={phone} name={person || deal.name} />}
+        {canWhatsApp ? <WhatsAppChatLink number={number} name={person || deal.name} text={`Hi${firstName ? ` ${firstName}` : ""}, regarding ${deal.name}`} /> : null}
         {open && canFollowUp ? (
           <button
             type="button"

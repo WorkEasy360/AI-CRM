@@ -70,6 +70,8 @@ The file currently lists the debug key of the machine that generated this projec
 
 ## Changing the app
 
+`bubblewrap update` regenerates `AndroidManifest.xml` and drops the `<queries>` block the deal cards need on Android 11+, so add that block back after running it.
+
 Edit `twa-manifest.json`, then run `npx @bubblewrap/cli update`. This regenerates the project and bumps `appVersionCode`, which every Play upload needs.
 
 If the site's host changes, the installed app breaks: it is bound to `host`. To avoid that:

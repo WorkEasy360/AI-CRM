@@ -22,6 +22,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.workeasy360.keelcrm">
 
+    <!-- Android 11+ package visibility for the apps the deal cards link to. Not known to Bubblewrap:
+         `bubblewrap update` regenerates this file, so add this block back after running it. -->
+    <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+    </queries>
+
     
 
     
