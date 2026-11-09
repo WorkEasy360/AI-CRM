@@ -208,9 +208,10 @@ export function PipelinePage() {
           title="Pipeline"
           description="Manage deals across stages, track value and close more sales."
           className="mb-3"
+          phoneBarTitle
           actions={
             <>
-              <div role="tablist" aria-label="Pipeline views" className="scroll-x flex items-center gap-1 rounded-lg border border-border bg-surface p-1 shadow-sm">
+              <div role="tablist" aria-label="Pipeline views" className="scroll-x flex items-center gap-1 rounded-lg border border-border bg-surface p-1 shadow-sm max-md:w-full max-md:gap-2 max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none">
                 {(
                   [
                     ["kanban", "Kanban", LayoutGrid],
@@ -225,9 +226,14 @@ export function PipelinePage() {
                     role="tab"
                     aria-selected={pageTab === value}
                     onClick={() => selectTab(value)}
-                    className={cn("inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors", pageTab === value ? "bg-brand text-brand-fg shadow-sm" : "text-fg hover:bg-bg-subtle")}
+                    className={cn(
+                      "inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors max-md:h-10 max-md:flex-1 max-md:justify-center max-md:rounded-lg",
+                      pageTab === value ? "bg-brand text-brand-fg shadow-sm" : "text-fg hover:bg-bg-subtle max-md:border max-md:border-border max-md:bg-surface",
+                      // A phone leads with Kanban and List; Filters reveals the other two.
+                      (value === "forecast" || value === "analytics") && pageTab !== value && !filtersOpen && "max-md:hidden",
+                    )}
                   >
-                    <Icon className="size-4 max-sm:hidden" aria-hidden />
+                    <Icon className="size-4" aria-hidden />
                     {label}
                   </button>
                 ))}
@@ -235,19 +241,27 @@ export function PipelinePage() {
               {pageTab === "kanban" || pageTab === "list" ? <PeriodFilter value={params.closed_period} onChange={(v) => setParam("closed_period", v)} /> : null}
               {pageTab !== "forecast" ? <OwnerFilter value={params.owner} onChange={(v) => setParam("owner", v)} /> : null}
               {hasFilterPanel ? (
-                <Button variant="secondary" className="h-9" aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen((o) => !o)}>
-                  <SlidersHorizontal /> Filters{panelFilters ? ` (${panelFilters})` : ""}
+                <Button variant="secondary" className="h-9 max-md:px-2.5" aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen((o) => !o)}>
+                  <SlidersHorizontal /> <span className="max-md:sr-only">Filters{panelFilters ? ` (${panelFilters})` : ""}</span>
                 </Button>
               ) : null}
               {canCreate ? (
-                <Button className="h-9" onClick={() => setNewOpen(true)} onPointerEnter={warmForm} onFocus={warmForm} disabled={pipelineList.length === 0}>
+                // On a phone this is the "+" in the top bar.
+                <Button className="h-9 max-md:hidden" onClick={() => setNewOpen(true)} onPointerEnter={warmForm} onFocus={warmForm} disabled={pipelineList.length === 0}>
                   <Plus /> Add Deal
                 </Button>
               ) : null}
             </>
           }
         />
-        {pageTab === "analytics" ? <PipelineKpis stats={stats.data} baseCurrency={baseCurrency} /> : pageTab === "forecast" ? null : <PipelineSummary stats={stats.data} baseCurrency={baseCurrency} />}
+        {pageTab === "analytics" ? (
+          <PipelineKpis stats={stats.data} baseCurrency={baseCurrency} />
+        ) : pageTab === "forecast" ? null : (
+          // A phone goes straight to the board: Home has these figures.
+          <div className="max-md:hidden">
+            <PipelineSummary stats={stats.data} baseCurrency={baseCurrency} />
+          </div>
+        )}
         {summary ? (
           <p className="sr-only" aria-live="polite">
             {summary.open} open {summary.open === 1 ? "deal" : "deals"}
@@ -501,7 +515,7 @@ function PeriodFilter({ value, onChange }: { value: string | undefined; onChange
   const known = [current, previous, ...CLOSED_PRESETS.map((p) => p.value)] as string[];
   return (
     <Select value={value ?? current} onValueChange={(v) => onChange(v === current ? undefined : v)}>
-      <SelectTrigger className="h-9 w-40" aria-label="Period for won and lost deals">
+      <SelectTrigger className="h-9 w-40 max-md:w-0 max-md:flex-1" aria-label="Period for won and lost deals">
         <CalendarDays className="size-4 shrink-0 text-fg-muted" aria-hidden />
         <SelectValue />
       </SelectTrigger>
@@ -545,7 +559,7 @@ function OwnerFilter({ value, onChange }: { value: string | undefined; onChange:
   const options = members.isError ? [] : members.items.filter((m) => m.status === "active");
   return (
     <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? undefined : v)}>
-      <SelectTrigger className="h-9 w-36" aria-label="Owner filter">
+      <SelectTrigger className="h-9 w-36 max-md:w-0 max-md:flex-1" aria-label="Owner filter">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

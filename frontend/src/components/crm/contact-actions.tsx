@@ -3,7 +3,7 @@ import { MessageCircle, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // 44px on touch layouts, tighter where there is a pointer.
-const SQUARE = "inline-flex size-11 shrink-0 items-center justify-center rounded-md transition-colors lg:size-8 [&_svg]:size-4";
+const SQUARE = "inline-flex size-11 shrink-0 items-center justify-center rounded-md transition-colors lg:size-8 [&_svg]:size-4 max-md:rounded-full max-md:[&_svg]:size-5 max-md:[&_svg]:fill-current";
 const READY = "bg-brand-soft text-brand hover:bg-brand hover:text-brand-fg focus-visible:outline-2 focus-visible:outline-ring";
 const UNAVAILABLE = "cursor-not-allowed bg-bg-subtle text-fg-subtle";
 

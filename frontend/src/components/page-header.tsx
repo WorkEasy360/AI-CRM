@@ -7,6 +7,7 @@ export function PageHeader({
   actions,
   icon: Icon,
   className,
+  phoneBarTitle = false,
 }: {
   title: string;
   description?: React.ReactNode;
@@ -14,11 +15,13 @@ export function PageHeader({
   /** The module's icon, on a soft brand tile beside the title (module pages; settings pages omit it). */
   icon?: React.ComponentType<{ className?: string }>;
   className?: string;
+  /** The phone's top bar already shows this title: there, keep it for screen readers and show only the actions. */
+  phoneBarTitle?: boolean;
 }) {
   if (Icon) {
     return (
       <div className={cn("mb-5 flex flex-wrap items-center justify-between gap-3", className)}>
-        <div className="flex min-w-0 items-center gap-3.5">
+        <div className={cn("flex min-w-0 items-center gap-3.5", phoneBarTitle && "max-md:sr-only")}>
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand sm:size-12" aria-hidden>
             <Icon className="size-5 sm:size-6" />
           </span>
@@ -27,7 +30,7 @@ export function PageHeader({
             {description ? <Text className="mt-0.5 text-sm text-fg-muted">{description}</Text> : null}
           </div>
         </div>
-        {actions ? <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className={cn("flex max-w-full shrink-0 flex-wrap items-center gap-2", phoneBarTitle && "max-md:w-full")}>{actions}</div> : null}
       </div>
     );
   }

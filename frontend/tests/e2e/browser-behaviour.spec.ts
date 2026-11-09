@@ -188,7 +188,8 @@ for (const device of [
     await page.goto("/pipeline");
     await expect(page.getByRole("navigation", { name: "Quick navigation" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeHidden();
-    await page.getByRole("button", { name: "Open navigation" }).click();
+    // A phone's tab bar has "More"; a tablet also keeps the header's menu button.
+    await page.getByRole("navigation", { name: "Quick navigation" }).getByRole("button", { name: "More" }).click();
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
     await page.keyboard.press("Escape");
 

@@ -326,6 +326,8 @@ class ActivityViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, TenantVi
                     {"id": str(a.membership_id), "display_name": a.membership.user.display_name}
                 )
         ctx["attendees_map"] = attendees
+        # ContactRefSerializer shows a contact's phone only within this member's scope: it must know who is asking.
+        ctx["actor"] = self.request.actor
         return ctx
 
     def _read(self, activity: Activity) -> dict[str, Any]:

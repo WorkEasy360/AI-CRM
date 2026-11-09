@@ -34,7 +34,7 @@
         \"relation\": [\"delegate_permission/common.handle_all_urls\"],
         \"target\": {
             \"namespace\": \"web\",
-            \"site\": \"https://3-110-142-102.sslip.io\"
+            \"site\": \"https://crm.workeasy360.com\"
         }
     }]
     
