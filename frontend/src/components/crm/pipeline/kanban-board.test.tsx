@@ -1,8 +1,9 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { WhatsAppCallLink, WhatsAppChatLink } from "@/components/crm/contact-actions";
 import { KanbanBoard } from "@/components/crm/pipeline/kanban-board";
 import { CONFLICT_TITLE } from "@/components/crm/deals/move-stage-dialog";
 import { ToastProvider } from "@/components/ui/toast";
@@ -156,9 +157,76 @@ describe("KanbanBoard", () => {
     renderBoard({ board: withPhone });
     const card = screen.getByTestId("deal-card-d9");
     expect(within(card).getByText("Rahul Mehta")).toBeInTheDocument();
-    expect(within(card).getByRole("link", { name: "Call Rahul Mehta" })).toHaveAttribute("href", "tel:+919876543210");
-    expect(within(card).getByRole("button", { name: "WhatsApp Rahul Mehta" })).toBeEnabled();
+    const chat = within(card).getByRole("link", { name: "WhatsApp Rahul Mehta" });
+    expect(chat).toHaveAttribute("href", "https://wa.me/919876543210?text=Hi%20Rahul%2C%20regarding%20Phone%20deal");
+    expect(chat).toHaveAttribute("target", "_blank");
+    expect(chat).toHaveAttribute("rel", "noopener noreferrer");
+    const call = within(card).getByRole("link", { name: "WhatsApp call Rahul Mehta" });
+    expect(call).toHaveAttribute("href", "https://wa.me/919876543210");
+    expect(call).toHaveAttribute("title", "WhatsApp call (opens chat)");
     expect(within(card).getByRole("button", { name: "Add a follow-up for Phone deal" })).toBeEnabled();
+
+    const user = userEvent.setup();
+    await user.click(within(card).getByRole("button", { name: "Move Phone deal to another stage" }));
+    expect(await screen.findByRole("menuitem", { name: "Call via phone" })).toHaveAttribute("href", "tel:+919876543210");
+  });
+
+  it("leaves the WhatsApp composer closed, and a click on either link stays with the link", () => {
+    const withPhone: Board = {
+      ...board,
+      stages: board.stages.map((s) =>
+        s.id === "s1" ? { ...s, deals: [deal({ id: "d9", name: "Phone deal", stage: qualified, primary_contact: { id: "c9", name: "Rahul Mehta", email: "", phone: "8828731121", whatsapp_opt_in: true } })] } : s,
+      ),
+    };
+    renderBoard({ board: withPhone });
+    const card = screen.getByTestId("deal-card-d9");
+    for (const name of ["WhatsApp Rahul Mehta", "WhatsApp call Rahul Mehta"]) {
+      const link = within(card).getByRole("link", { name });
+      expect(link).toHaveAttribute("draggable", "false");
+      link.addEventListener("click", (event) => event.preventDefault());
+      fireEvent.click(link);
+    }
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    const onCardClick = vi.fn();
+    render(
+      <div onClick={onCardClick}>
+        <WhatsAppChatLink number="918828731121" name="Isolated" />
+        <WhatsAppCallLink number="918828731121" name="Isolated" />
+      </div>,
+    );
+    for (const name of ["WhatsApp Isolated", "WhatsApp call Isolated"]) {
+      const link = screen.getByRole("link", { name });
+      link.addEventListener("click", (event) => event.preventDefault());
+      fireEvent.click(link);
+    }
+    expect(onCardClick).not.toHaveBeenCalled();
+  });
+
+  it("switches both off when the saved phone is not a usable number", () => {
+    const badPhone: Board = {
+      ...board,
+      stages: board.stages.map((s) =>
+        s.id === "s1" ? { ...s, deals: [deal({ id: "d9", name: "Phone deal", stage: qualified, primary_contact: { id: "c9", name: "Rahul Mehta", email: "", phone: "12345", whatsapp_opt_in: true } })] } : s,
+      ),
+    };
+    renderBoard({ board: badPhone });
+    const card = screen.getByTestId("deal-card-d9");
+    expect(within(card).getByRole("button", { name: "Call Rahul Mehta: no phone number" })).toBeDisabled();
+    expect(within(card).getByRole("button", { name: "WhatsApp Rahul Mehta: no phone number" })).toHaveAttribute("title", "No phone number");
+  });
+
+  it("keeps an ordinary phone call for a member who may not use WhatsApp", () => {
+    const withPhone: Board = {
+      ...board,
+      stages: board.stages.map((s) =>
+        s.id === "s1" ? { ...s, deals: [deal({ id: "d9", name: "Phone deal", stage: qualified, primary_contact: { id: "c9", name: "Rahul Mehta", email: "", phone: "+91 98765-43210", whatsapp_opt_in: true } })] } : s,
+      ),
+    };
+    renderBoard({ board: withPhone, canWhatsApp: false });
+    const card = screen.getByTestId("deal-card-d9");
+    expect(within(card).getByRole("link", { name: "Call Rahul Mehta" })).toHaveAttribute("href", "tel:+919876543210");
+    expect(within(card).queryByRole("link", { name: /WhatsApp/ })).not.toBeInTheDocument();
   });
 
   it("switches Call and WhatsApp off when no number is available, without hiding them", () => {
@@ -172,6 +240,7 @@ describe("KanbanBoard", () => {
     renderBoard({ canWhatsApp: false, canFollowUp: false });
     const card = screen.getByTestId("deal-card-d1");
     expect(within(card).queryByRole("button", { name: /WhatsApp/ })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("link", { name: /WhatsApp/ })).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: /follow-up/ })).not.toBeInTheDocument();
   });
 
