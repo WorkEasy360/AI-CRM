@@ -16,11 +16,15 @@ import json
 from pathlib import Path
 
 import pytest
+from django.utils import timezone
 
 from apps.ai.providers.fake import FakeProvider
+from apps.assistant.models import ConversationTurn
 from apps.core.tenancy.context import tenant_context
+from apps.deals.models import Deal
 from apps.helpkb import parser, search, sync
 from apps.helpkb.models import HelpArticle, HelpArticleStat, HelpFeedback, OrgHelpArticle, UnansweredQuestion
+from tests.factories import make_company, make_conversation, make_conversation_turn, make_deal
 
 pytestmark = pytest.mark.django_db
 
@@ -311,6 +315,54 @@ def test_reopened_thread_keeps_the_help_article(owner_client):
     thread = owner_client.get(f"/api/v1/assistant/conversations/{answer['conversation_id']}/").json()
     assert thread["turns"][-1]["help_article"] == "pipeline-create"
     assert thread["turns"][-1]["turn_id"] == answer["turn_id"]
+    assert thread["turns"][-1]["action"] is None
+
+
+def reopen(client, conversation_id):
+    return client.get(f"/api/v1/assistant/conversations/{conversation_id}/").json()["turns"][-1]["action"]
+
+
+def test_reopened_thread_keeps_the_action_card(owner_client):
+    answer = ask(owner_client, "create pipeline")
+    assert answer["action"]["ready"] is False
+    assert reopen(owner_client, answer["conversation_id"]) == answer["action"]
+
+
+def test_reopened_thread_rechecks_the_role_for_the_action(org_a, make_member, client_for):
+    rep = make_member(org_a, "sales_rep")
+    conversation = make_conversation(org_a, membership=rep)
+    stored = {"kind": "pipeline", "title": "Enterprise", "due_date": "", "links": {}, "ready": False}
+    make_conversation_turn(org_a, conversation=conversation, intent="action_request", action=stored)
+    action = reopen(client_for(rep.user, rep), conversation.pk)
+    assert action["kind"] == "pipeline" and action["permission_ok"] is False
+
+
+def test_reopened_thread_only_names_records_the_member_can_still_see(org_a, owner_client, make_member, client_for):
+    deal = make_deal(org_a, name="Owner's private deal", owner=org_a.owner_membership)
+    stored = {"kind": "task", "title": "Call", "due_date": "", "links": {"deal": str(deal.pk)}, "ready": False}
+
+    mine = make_conversation(org_a)
+    make_conversation_turn(org_a, conversation=mine, intent="action_request", action=stored)
+    assert reopen(owner_client, mine.pk)["links"] == {"deal": {"id": str(deal.pk), "name": deal.name}}
+
+    rep = make_member(org_a, "sales_rep")
+    theirs = make_conversation(org_a, membership=rep)
+    make_conversation_turn(org_a, conversation=theirs, intent="action_request", action=stored)
+    assert reopen(client_for(rep.user, rep), theirs.pk)["links"] == {}
+
+    with tenant_context(org_a.org.pk, reason="test.helpkb"):
+        Deal.objects.filter(pk=deal.pk).update(archived_at=timezone.now())
+    assert reopen(owner_client, mine.pk)["links"] == {}
+
+
+def test_a_turn_stores_linked_records_as_ids_only(org_a, owner_client):
+    company = make_company(org_a, name="ABC Corp")
+    answer = ask(owner_client, "Create a task for tomorrow to call ABC Corp")
+    assert answer["action"]["links"] == {"company": {"id": str(company.pk), "name": "ABC Corp"}}
+    with tenant_context(org_a.org.pk, reason="test.helpkb"):
+        turn = ConversationTurn.objects.get(pk=answer["turn_id"])
+    assert turn.action["links"] == {"company": str(company.pk)}
+    assert "permission_ok" not in turn.action
 
 
 # --------------------------------------------------------------------------- member endpoints

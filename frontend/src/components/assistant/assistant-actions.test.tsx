@@ -2,7 +2,7 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantProvider, Conversation, useAssistant } from "@/components/assistant/ask-keel";
 import type { AssistantActionProposal, AssistantAnswer } from "@/lib/api/crm-types";
 import type { Session } from "@/lib/api/types";
@@ -36,7 +36,7 @@ vi.mock("@/lib/session", async (importOriginal) => {
   return { ...actual, useSession: () => ({ data: SESSION }) };
 });
 
-import { archivePipeline, askKeel, createPipeline } from "@/lib/api/crm";
+import { archivePipeline, askKeel, createPipeline, getAssistantConversation } from "@/lib/api/crm";
 
 function answerWith(action: AssistantActionProposal): AssistantAnswer {
   return {
@@ -126,5 +126,51 @@ describe("assistant actions", () => {
     await user.click(screen.getByRole("button", { name: "Ask" }));
     expect(await screen.findByRole("link", { name: /Open pipeline settings/ })).toBeInTheDocument();
     expect(createPipeline).not.toHaveBeenCalled();
+  });
+
+  describe("a restored thread", () => {
+    const THREAD_KEY = "workeasy.assistant.thread:m1";
+    const restoreWith = (action: AssistantActionProposal | null, answer: string) => {
+      window.localStorage.setItem(THREAD_KEY, "c1");
+      vi.mocked(getAssistantConversation).mockResolvedValue({
+        id: "c1",
+        turns: [{ position: 1, question: "create pipeline", answer, mode: "retrieval", created_at: "2026-11-09T00:00:00Z", intent: "action_request", action, turn_id: "t1" }],
+      });
+      renderHarness();
+    };
+    afterEach(() => window.localStorage.removeItem(THREAD_KEY));
+
+    it("shows the card of a request that still needs details, with its note under the headline", async () => {
+      restoreWith({ ...PIPELINE, title: "", ready: false }, "Almost ready to create a pipeline. Add the missing details and click Save.\nNothing is saved until you confirm in the form.");
+
+      expect(await screen.findByRole("link", { name: /Open pipeline settings/ })).toHaveAttribute("href", "/settings/pipelines");
+      expect(screen.getByText("Almost ready to create a pipeline. Add the missing details and click Save.")).toBeInTheDocument();
+      expect(screen.getByText("Nothing is saved until you confirm in the form.")).toBeInTheDocument();
+      expect(createPipeline).not.toHaveBeenCalled();
+    });
+
+    it("never runs a ready request again, and does not offer an Undo it cannot do", async () => {
+      restoreWith(PIPELINE, "Creating the pipeline “Enterprise Sales”.\nCreated with the same checks as the normal form. Use Undo if it isn't what you wanted.");
+
+      expect(await screen.findByText("Enterprise Sales")).toBeInTheDocument();
+      expect(screen.queryByText(/Use Undo/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Undo/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Open pipeline settings/ })).not.toBeInTheDocument();
+      expect(createPipeline).not.toHaveBeenCalled();
+    });
+
+    it("shows the role note when the member can no longer create it", async () => {
+      restoreWith({ ...PIPELINE, title: "", ready: false, permission_ok: false }, "Almost ready to create a pipeline.");
+
+      expect(await screen.findByText(/Your role can't create this/)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Open pipeline settings/ })).not.toBeInTheDocument();
+    });
+
+    it("keeps an ordinary answer as its saved text", async () => {
+      restoreWith(null, "First line.\nSecond line.");
+
+      expect(await screen.findByText(/First line\./)).toBeInTheDocument();
+      expect(screen.getByText(/Second line\./)).toBeInTheDocument();
+    });
   });
 });

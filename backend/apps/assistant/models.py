@@ -57,6 +57,8 @@ class ConversationTurn(TenantModel):
     flagged_input = models.BooleanField(default=False)
     # The help article that answered a "how do I" question, so a reopened thread can show the guide again.
     help_article = models.CharField(max_length=80, blank=True)
+    # The action proposed by this turn, so a reopened thread can show its card again. See actions.for_storage.
+    action = models.JSONField(default=dict, blank=True)
 
     class Meta:
         constraints = [

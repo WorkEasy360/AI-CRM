@@ -551,6 +551,7 @@ def _persist(
         flagged_input=bool(payload.get("flagged_input")),
         focus=focus,
         help_article=help_article,
+        action=actions.for_storage(payload["action"]) if payload.get("answer_type") == "action" else None,
     )
     return conversation, turn
 

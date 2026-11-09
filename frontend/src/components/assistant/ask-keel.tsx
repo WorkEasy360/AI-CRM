@@ -627,7 +627,11 @@ function safeStorage(): Storage | null {
   }
 }
 
-/** Rebuild a saved thread. Help answers are re-rendered from their article; other answers as their saved text. */
+/**
+ * Rebuild a saved thread. Help answers are re-rendered from their article, action answers get their card
+ * back, and other answers show their saved text. A restored turn has no `run`, and only a fresh answer
+ * starts one, so restoring never creates anything again.
+ */
 async function restoreThread(conversationId: string): Promise<Turn[] | null> {
   const thread: AssistantConversation = await getAssistantConversation(conversationId);
   if (!thread.id || thread.turns.length === 0) return null;
@@ -639,15 +643,19 @@ async function restoreThread(conversationId: string): Promise<Turn[] | null> {
   );
   return thread.turns.map((turn) => {
     const detail = turn.help_article ? articles.get(turn.help_article) : null;
+    const action = detail ? null : turn.action;
+    // An action's headline and note are saved as one text, a line each.
+    const [actionHeadline = "", ...actionNote] = action ? turn.answer.split("\n") : [];
     const answer: AssistantAnswer = {
       conversation_id: thread.id ?? conversationId,
       question: turn.question,
       intent: turn.intent ?? "",
       mode: turn.mode,
-      answer_type: detail ? "help" : "answer",
-      headline: detail ? detail.summary : turn.answer,
+      answer_type: detail ? "help" : action ? "action" : "answer",
+      headline: detail ? detail.summary : action ? actionHeadline : turn.answer,
       facts: [],
-      analysis: "",
+      // A request that already ran has no Undo here, so its note offering one is left out.
+      analysis: action && !action.ready ? actionNote.join("\n") : "",
       recommendation: "",
       sections: [],
       sources: [],
@@ -658,6 +666,7 @@ async function restoreThread(conversationId: string): Promise<Turn[] | null> {
       help: detail
         ? { found: true, article: detail.article, summary: detail.summary, content: detail.content, text: "", related: detail.related, language: "en", verified: true }
         : undefined,
+      action: action ?? undefined,
     };
     return { question: turn.question, answer };
   });

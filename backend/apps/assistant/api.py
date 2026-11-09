@@ -5,7 +5,7 @@ from __future__ import annotations
 from rest_framework import serializers
 from rest_framework.response import Response
 
-from apps.assistant import memory, orchestrator
+from apps.assistant import actions, memory, orchestrator
 from apps.assistant.models import MAX_QUESTION_CHARS, Conversation
 from apps.core.api.request import ActorRequest
 from apps.core.api.viewsets import TenantAPIView
@@ -96,6 +96,7 @@ class ConversationView(TenantAPIView):
                         "mode": turn.mode,
                         "intent": turn.intent,
                         "help_article": turn.help_article,
+                        "action": actions.restore(request.actor, turn.action),
                         "turn_id": str(turn.pk),
                         "created_at": turn.created_at,
                     }

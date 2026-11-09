@@ -1470,6 +1470,8 @@ export interface AssistantConversation {
     created_at: string;
     intent?: string;
     help_article?: string;
+    /** The action this turn proposed, checked against the caller's current permissions. */
+    action?: AssistantActionProposal | null;
     turn_id?: string;
   }[];
 }

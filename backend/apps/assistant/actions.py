@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+import uuid
 from typing import Any
 
 from django.utils import timezone
@@ -203,3 +204,30 @@ def propose(actor: Actor, parsed: Any, records: list[tuple[str, Any]]) -> dict[s
             "phone": phone,
         },
     }
+
+
+def for_storage(action: dict[str, Any]) -> dict[str, Any]:
+    """What a conversation turn keeps of a proposal: what the user typed, and linked records as ids only.
+
+    Record names and the permission are worked out again by ``restore``, so a reopened thread stops
+    naming a record the moment the member can no longer see it.
+    """
+    stored = {key: value for key, value in action.items() if key != "permission_ok"}
+    stored["links"] = {entity_type: link["id"] for entity_type, link in action["links"].items()}
+    return stored
+
+
+def restore(actor: Actor, stored: dict[str, Any]) -> dict[str, Any] | None:
+    """A stored proposal, under the caller's current permissions. ``None`` for a turn that proposed nothing.
+
+    ``ready`` is kept as it was: on a reopened thread it means the browser already acted on the request,
+    and nothing here or in the client runs it again.
+    """
+    if not stored:
+        return None
+    links = {}
+    for entity_type, pk in stored["links"].items():
+        record = crm_tools._load(actor, entity_type, uuid.UUID(pk))
+        if record is not None:
+            links[entity_type] = {"id": pk, "name": crm_tools._title(entity_type, record)}
+    return {**stored, "links": links, "permission_ok": actor.has(PERMISSIONS[stored["kind"]])}
