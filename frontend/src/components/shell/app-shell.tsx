@@ -107,8 +107,10 @@ export function AppShell({ session, active, children }: { session: Session; acti
             </div>
           ) : null}
 
-          {/* Bottom padding clears the mobile tab bar; desktop keeps the plain 1rem. */}
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-5 lg:pb-6">{children}</main>
+          {/* Bottom padding clears the mobile tab bar; desktop keeps the plain 1rem.
+              `relative` keeps absolutely positioned content (sr-only text) inside this scroller. Without it,
+              text far down a long page stretches the document, and scrollIntoView then scrolls the whole shell. */}
+          <main className="relative min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-5 lg:pb-6">{children}</main>
         </div>
 
         <MobileNav active={active} onSearch={() => setSearchOpen(true)} />
