@@ -133,6 +133,7 @@ urlpatterns = [
     path("session/", account_views.SessionView.as_view(), name="session"),
     path("session/switch-organization/", account_views.SwitchOrganizationView.as_view(), name="session-switch"),
     path("session/bootstrap/", account_views.SessionBootstrapView.as_view(), name="session-bootstrap"),
+    path("session/persistence/", account_views.SessionPersistenceView.as_view(), name="session-persistence"),
     path("organizations/", account_views.OrganizationCreateView.as_view(), name="organization-create"),
     path("organizations/current/", account_views.OrganizationCurrentView.as_view(), name="organization-current"),
     path("organizations/current/logo/", file_views.OrganizationLogoView.as_view(), name="organization-logo"),

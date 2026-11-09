@@ -5,17 +5,17 @@ question: I forgot my password. How do I reset it?
 module: Getting Started
 keywords: [forgot password, reset password, password reset link, lost password, new password, password bhool gaya, password kaise reset kare, पासवर्ड भूल गए, पासवर्ड रीसेट, can't remember password]
 route: /forgot-password
-menu_path: Sign in page → Forgot password?
+menu_path: CRM Login page → Forgot Password?
 spotlight: Send reset link
 related: [getting-started-login, getting-started-profile, getting-started-login-two-factor]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
 If you cannot remember your password, request a reset link by email and choose a new password.
 
 ## Steps
-1. On the **Sign in** page, click **Forgot password?**.
+1. On the **CRM Login** page, click **Forgot Password?**.
 2. On **Reset your password**, enter your **Email**.
 3. Click **Send reset link**.
 4. Open the reset email and click the link.

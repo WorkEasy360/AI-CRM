@@ -5,10 +5,10 @@ question: What do I enter when the login asks for an authentication code?
 module: Getting Started
 keywords: [two-factor, 2fa, authentication code, authenticator app, otp, recovery code, verify code, 2fa code kahan se milega, otp kaise dale, दो-चरणीय सत्यापन, कोड]
 route: /login
-menu_path: Sign in page → Two-factor authentication
+menu_path: CRM Login page → Two-factor authentication
 spotlight: Verify
 related: [getting-started-login, getting-started-profile, getting-started-forgot-password]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
@@ -18,7 +18,7 @@ If two-factor authentication is on for your account, the CRM asks for a 6-digit 
 - Keep your authenticator app, or your saved recovery codes, at hand.
 
 ## Steps
-1. Enter your **Email** and **Password** and click **Sign in**.
+1. Enter your **Email Address** and **Password** and click **Log In to CRM**.
 2. On the **Two-factor authentication** screen, open your authenticator app.
 3. Type the current 6-digit code into **Authentication code**. You can type one of your recovery codes instead.
 4. Click **Verify**.

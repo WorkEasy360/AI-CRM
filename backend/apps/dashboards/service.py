@@ -22,6 +22,7 @@ from apps.authz.actor import Actor
 from apps.authz.service import scope
 from apps.contacts.models import Contact
 from apps.deals.models import Deal
+from apps.lifecycle.stages import LifecycleStage
 from apps.pipelines.models import Pipeline
 
 PERIODS: dict[str, int] = {"7d": 7, "30d": 30, "90d": 90, "365d": 365}
@@ -36,16 +37,20 @@ FORECAST_MONTHS = 3
 TOP_COMPANIES = 5
 TOP_OWNERS = 8
 MONEY = DecimalField(max_digits=20, decimal_places=2)
+# Leads still being worked: past these a contact has become a customer or gone inactive.
+ACTIVE_LEAD_STAGES = (LifecycleStage.LEAD, LifecycleStage.PROSPECT, LifecycleStage.QUALIFIED)
 
 
 def _money(value: Decimal | None) -> str:
     return str((value or Decimal("0")).quantize(Decimal("0.01")))
 
 
-def _scoped(actor: Actor, permission: str, queryset: QuerySet) -> QuerySet | None:
+def _scoped(actor: Actor, permission: str, queryset: QuerySet, *, mine: bool = False) -> QuerySet | None:
     if not actor.has(permission):
         return None
-    return scope(actor, permission, queryset)
+    scoped = scope(actor, permission, queryset)
+    # Narrows after the scope check, so "mine" can never show more than the member's scope allows.
+    return scoped.filter(owner_id=actor.membership.pk) if mine else scoped
 
 
 def _month_start(value):
@@ -95,12 +100,12 @@ def bounds(period: str, now: dt.datetime) -> tuple[dt.datetime, dt.datetime, dt.
     return since, now, since - timedelta(days=days)
 
 
-def _activity_summary(actor: Actor, *, since, now, until=None, before=None) -> dict[str, Any] | None:
+def _activity_summary(actor: Actor, *, since, now, until=None, before=None, mine=False) -> dict[str, Any] | None:
     """Activity counters inside the actor's ``activities.view`` scope (None without the permission)."""
     from apps.activities.models import Activity
     from apps.activities.queries import OPEN_STATUSES
 
-    qs = _scoped(actor, "activities.view", Activity.objects.all())
+    qs = _scoped(actor, "activities.view", Activity.objects.all(), mine=mine)
     if qs is None:
         return None
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -137,6 +142,7 @@ def _activity_summary(actor: Actor, *, since, now, until=None, before=None) -> d
             "id", filter=Q(kind="task", status__in=OPEN_STATUSES, start_at__lt=today_start + timedelta(days=1))
         ),
         tasks_overdue=Count("id", filter=Q(kind="task", status__in=OPEN_STATUSES, start_at__lt=now)),
+        tasks_open=Count("id", filter=Q(kind="task", status__in=OPEN_STATUSES)),
         meetings_upcoming=Count(
             "id", filter=Q(kind="meeting", status__in=OPEN_STATUSES, start_at__gte=now, start_at__lt=week_end)
         ),
@@ -159,21 +165,66 @@ def _lead_conversion(contacts: QuerySet, *, since) -> dict[str, Any]:
     return {"created": created, "converted": converted, "rate": rate}
 
 
+def _stages_at(contacts: QuerySet, moment: dt.datetime) -> dict[str, int]:
+    """Contacts that existed at ``moment``, counted by the lifecycle stage they were in then.
+
+    Starts from today's stages (one indexed group-by, however many contacts there are) and rewinds only the
+    contacts that changed since ``moment``, which are few: each goes back to the stage its earliest later
+    transition started from. A per-contact subquery here would scan every contact of the tenant.
+    """
+    from apps.lifecycle.models import LifecycleHistory
+
+    existing = contacts.filter(created_at__lt=moment)
+    counts: dict[str, int] = dict(existing.order_by().values_list("lifecycle_stage").annotate(n=Count("id")))
+    earliest_change = dict(
+        LifecycleHistory.objects.filter(entity_type="contact", changed_at__gte=moment)
+        .exclude(from_stage="")  # a record's first stage: it was not in another stage before
+        .order_by("entity_id", "changed_at")
+        .distinct("entity_id")
+        .values_list("entity_id", "from_stage")
+    )
+    if earliest_change:
+        for contact_id, current in existing.filter(pk__in=earliest_change).values_list("pk", "lifecycle_stage"):
+            counts[current] = counts.get(current, 0) - 1
+            then = earliest_change[contact_id]
+            counts[then] = counts.get(then, 0) + 1
+    return {stage: count for stage, count in counts.items() if count > 0}
+
+
+def _leads(contacts: QuerySet, *, since, until) -> dict[str, Any]:
+    """Everyone in the sales funnel at the end of the period and at its start, by lifecycle stage."""
+    now_stages = _stages_at(contacts, until)
+    then_stages = _stages_at(contacts, since)
+    return {
+        "total": sum(now_stages.values()),
+        "previous_total": sum(then_stages.values()),
+        "active": sum(now_stages.get(stage.value, 0) for stage in ACTIVE_LEAD_STAGES),
+        "previous_active": sum(then_stages.get(stage.value, 0) for stage in ACTIVE_LEAD_STAGES),
+        "by_status": [
+            {"status": stage.value, "label": str(stage.label), "count": now_stages.get(stage.value, 0)}
+            for stage in LifecycleStage
+        ],
+    }
+
+
 def summary(
     actor: Actor,
     *,
     period: str = DEFAULT_PERIOD,
     pipeline_id: uuid.UUID | None = None,
     trend_months: int = TREND_MONTHS,
+    mine: bool = False,
 ) -> dict[str, Any]:
     """Cached per organization + member + permission scope (see ``apps.dashboards.cache``)."""
     from apps.dashboards import cache as dashboard_cache
 
     return dashboard_cache.get_or_compute(
         actor,
-        period=f"{period}:t{trend_months}",
+        period=f"{period}:t{trend_months}:{'mine' if mine else 'all'}",
         pipeline_id=pipeline_id,
-        compute=lambda: compute_summary(actor, period=period, pipeline_id=pipeline_id, trend_months=trend_months),
+        compute=lambda: compute_summary(
+            actor, period=period, pipeline_id=pipeline_id, trend_months=trend_months, mine=mine
+        ),
     )
 
 
@@ -182,11 +233,11 @@ def _growth(qs: QuerySet, *, since, until) -> dict[str, int]:
     return {"count": qs.filter(created_at__lt=until).count(), "previous": qs.filter(created_at__lt=since).count()}
 
 
-def _open_tickets(actor: Actor, *, since, until, before) -> dict[str, Any] | None:
+def _open_tickets(actor: Actor, *, since, until, before, mine=False) -> dict[str, Any] | None:
     from apps.helpdesk import services as helpdesk
     from apps.helpdesk.models import Ticket
 
-    tickets = _scoped(actor, "tickets.view", Ticket.objects.all())
+    tickets = _scoped(actor, "tickets.view", Ticket.objects.all(), mine=mine)
     if tickets is None:
         return None
     hours = helpdesk.sla_hours(actor.organization)
@@ -204,6 +255,7 @@ def compute_summary(
     period: str = DEFAULT_PERIOD,
     pipeline_id: uuid.UUID | None = None,
     trend_months: int = TREND_MONTHS,
+    mine: bool = False,
 ) -> dict[str, Any]:
     now = timezone.now()
     since, until, before = bounds(period, now)
@@ -212,14 +264,16 @@ def compute_summary(
         "since": since,
         "until": until,
         "currency": actor.organization.base_currency,
-        "activities": _activity_summary(actor, since=since, now=now, until=until, before=before),
-        "tickets": _open_tickets(actor, since=since, until=until, before=before),
+        "owner": "me" if mine else "all",
+        "activities": _activity_summary(actor, since=since, now=now, until=until, before=before, mine=mine),
+        "tickets": _open_tickets(actor, since=since, until=until, before=before, mine=mine),
     }
 
     from apps.companies.models import Company
 
-    contacts = _scoped(actor, "contacts.view", Contact.objects.filter(archived_at__isnull=True))
-    companies = _scoped(actor, "companies.view", Company.objects.filter(archived_at__isnull=True))
+    contacts = _scoped(actor, "contacts.view", Contact.objects.filter(archived_at__isnull=True), mine=mine)
+    companies = _scoped(actor, "companies.view", Company.objects.filter(archived_at__isnull=True), mine=mine)
+    out["leads"] = None if contacts is None else _leads(contacts, since=since, until=until)
     out["contacts_created"] = (
         None if contacts is None else contacts.filter(created_at__gte=since, created_at__lt=until).count()
     )
@@ -229,7 +283,7 @@ def compute_summary(
         "companies": None if companies is None else _growth(companies, since=since, until=until),
     }
 
-    deals = _scoped(actor, "deals.view", Deal.objects.filter(archived_at__isnull=True))
+    deals = _scoped(actor, "deals.view", Deal.objects.filter(archived_at__isnull=True), mine=mine)
     out["totals"]["deals"] = None if deals is None else _growth(deals, since=since, until=until)
     if deals is None:
         for key in (
@@ -275,6 +329,8 @@ def compute_summary(
         prev_won_count=Count("id", filter=prev_won_q),
         prev_won_amount=Sum("amount_base", filter=prev_won_q),
         prev_lost_count=Count("id", filter=prev_lost_q),
+        # Open when the period began: created by then, and still open or closed since.
+        prev_open_amount=Sum("amount_base", filter=Q(created_at__lt=since) & (open_q | Q(closed_at__gte=since))),
     )
     out["deals_won"] = {"count": agg["won_count"], "amount": _money(agg["won_amount"])}
     out["deals_lost"] = {"count": agg["lost_count"], "amount": _money(agg["lost_amount"])}
@@ -289,6 +345,7 @@ def compute_summary(
         "since": before,
         "deals_created": agg["prev_created_count"],
         "deals_won": {"count": agg["prev_won_count"], "amount": _money(agg["prev_won_amount"])},
+        "open_amount": _money(agg["prev_open_amount"]),
         "win_rate": round(100 * agg["prev_won_count"] / prev_closed) if prev_closed else None,
     }
 

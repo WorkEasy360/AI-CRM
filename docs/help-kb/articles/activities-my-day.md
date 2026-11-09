@@ -9,7 +9,7 @@ menu_path: Activities → My Day
 spotlight: My Day
 permission: activities.view
 related: [activities-overdue, activities-calendar-view, activities-mark-complete, activities-create-task]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
@@ -31,7 +31,7 @@ The header shows today's date and how many items you have **completed today**. F
 ## Tips
 - The **Today's Schedule** card on the right side of the Activities page is always visible. Click an item there to open it.
 - If nothing is planned, click **New task** in the empty My Day view to add one.
-- The dashboard's **Today's Agenda** panel links here with **View all**.
+- The dashboard's **Today's Follow-ups** panel links here with **View All**.
 
 ## Troubleshooting
 - **"Could not load your day"** Click **Try again**.

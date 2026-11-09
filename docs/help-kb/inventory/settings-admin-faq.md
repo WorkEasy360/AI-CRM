@@ -36,7 +36,7 @@
 | Trial and billing questions | /settings/billing | Settings → Also in Settings → Billing & Subscription | — | — | — | faq-billing-trial |
 | Data security and workspace isolation | /settings/security | Settings → Security & Data → Password & 2FA | — | — | — | faq-data-security |
 | AI data usage / Generative AI switch | /settings/ai | Settings → AI Assistant → AI Settings | ai.settings.manage | Generative AI enabled, Monthly budget | Toggle, Save | faq-ai-data-usage |
-| Forgot password | /forgot-password | Sign in → Forgot password? | — | Email*; New password*, Confirm new password* | Send reset link, Update password | getting-started-forgot-password |
+| Forgot password | /forgot-password | CRM Login → Forgot Password? | — | Email*; New password*, Confirm new password* | Send reset link, Update password | getting-started-forgot-password |
 | Locked out / lost authenticator | /login | Sign in | — | Authentication code (accepts recovery code) | — | faq-locked-out |
 | Mobile / browser / install as app | /dashboard | Sidebar → Dashboard | — | — | Open navigation, bottom bar | faq-mobile-app |
 | "Confirm it's you" re-authentication | /settings/security | Settings → Security & Data → Password & 2FA | — | Password* | Confirm, Cancel, Confirm with Workeasy360 | faq-confirm-its-you |

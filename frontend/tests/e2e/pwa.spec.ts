@@ -75,7 +75,7 @@ test("the service worker caches only the offline page, and shows it when the net
   await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();
   await context.setOffline(false);
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "CRM Login" })).toBeVisible();
 });
 
 test("Digital Asset Links name the Android app's package", async ({ request }) => {

@@ -33,8 +33,29 @@ class RefSerializer(serializers.Serializer):
 
 
 class ContactRefSerializer(serializers.Serializer):
+    """The linked contact. ``phone`` and ``whatsapp_opt_in`` drive the Call and WhatsApp buttons and are
+    ``null`` unless the actor's ``contacts.view`` scope covers the contact and the field is not hidden."""
+
     id = serializers.UUIDField(read_only=True)
     name = serializers.CharField(source="display_name", read_only=True)
+    phone = serializers.SerializerMethodField()
+    whatsapp_opt_in = serializers.SerializerMethodField()
+
+    def _readable(self, obj, field: str) -> bool:
+        from apps.authz import fields as field_rules
+
+        actor = self.context.get("actor")
+        return (
+            actor is not None
+            and actor.covers_owner("contacts.view", obj.owner_id)
+            and field not in field_rules.hidden_fields(actor, "contact")
+        )
+
+    def get_phone(self, obj) -> str | None:
+        return obj.phone if self._readable(obj, "phone") else None
+
+    def get_whatsapp_opt_in(self, obj) -> bool | None:
+        return obj.whatsapp_opt_in if self._readable(obj, "whatsapp_opt_in") else None
 
 
 class ActivitySerializer(serializers.ModelSerializer):

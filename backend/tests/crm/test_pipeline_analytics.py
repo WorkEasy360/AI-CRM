@@ -109,3 +109,32 @@ def test_analytics_tab_and_tenant_isolation(org_a, org_b, owner_client, client_f
 
     other = client_for(org_b.owner, org_b.owner_membership)
     assert other.get(f"/api/v1/deals/analytics/?pipeline={pipeline.pk}").status_code == 404
+
+
+def test_closed_period_keeps_open_deals_and_narrows_won_and_lost(org_a, owner_client):
+    pipeline = make_pipeline(org_a)
+    won, lost = stage_named(pipeline, "Won"), stage_named(pipeline, "Lost")
+    make_deal(org_a, name="Old but open", amount_base="100.00", amount="100.00")
+    make_deal(org_a, name="Won now", stage=won, amount_base="300.00", amount="300.00")
+    make_deal(org_a, name="Lost now", stage=lost, amount_base="100.00", amount="100.00")
+    old = make_deal(org_a, name="Won long ago", stage=won, amount_base="900.00", amount="900.00")
+    old_open = make_deal(org_a, name="Open for a year", amount_base="50.00", amount="50.00")
+    now = timezone.now()
+    with tenant_context(org_a.org.pk):
+        Deal.objects.filter(pk=old.pk).update(closed_at=now - dt.timedelta(days=200))
+        Deal.objects.filter(pk=old_open.pk).update(created_at=now - dt.timedelta(days=365))
+
+    stats = owner_client.get("/api/v1/deals/pipeline-stats/?closed_period=30d").json()
+    assert stats["total_deals"] == 4 and stats["open_deals"] == 2
+    assert stats["won_deals"] == 1 and stats["won_amount"] == "300.00"
+    assert stats["lost_deals"] == 1 and stats["lost_amount"] == "100.00"
+    assert stats["conversion_rate"] == 50.0
+
+    everything = owner_client.get("/api/v1/deals/pipeline-stats/?closed_period=all").json()
+    assert everything["total_deals"] == 5 and everything["won_amount"] == "1200.00"
+
+    board = owner_client.get(f"/api/v1/deals/board/?pipeline={pipeline.pk}&closed_period=30d").json()
+    names = {d["name"] for s in board["stages"] for d in s["deals"]}
+    assert names == {"Old but open", "Won now", "Lost now", "Open for a year"}
+    assert owner_client.get("/api/v1/deals/?closed_period=2999-01").status_code == 400
+    assert owner_client.get("/api/v1/deals/?closed_period=nonsense").status_code == 400

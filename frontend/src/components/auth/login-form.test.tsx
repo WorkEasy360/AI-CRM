@@ -7,7 +7,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import { ApiError, parseProblem } from "@/lib/api/problem";
 
 vi.mock("@/lib/api/allauth", () => ({ login: vi.fn(), mfaAuthenticate: vi.fn() }));
-vi.mock("@/lib/api/endpoints", () => ({ getSession: vi.fn() }));
+vi.mock("@/lib/api/endpoints", () => ({ getSession: vi.fn(), setSessionPersistence: vi.fn(async () => ({ remember: false })) }));
 vi.mock("@/lib/external-navigation", () => ({ replaceLocation: vi.fn(), navigateExternal: vi.fn() }));
 
 let methods: { data?: { password: boolean; workeasy360: boolean }; isError: boolean } = {
@@ -27,7 +27,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { login, mfaAuthenticate } from "@/lib/api/allauth";
-import { getSession } from "@/lib/api/endpoints";
+import { getSession, setSessionPersistence } from "@/lib/api/endpoints";
 import { clearSignedOutMarker } from "@/lib/direct-sign-in";
 import { navigateExternal, replaceLocation } from "@/lib/external-navigation";
 
@@ -44,9 +44,9 @@ function renderForm() {
 
 async function submitCredentials() {
   const user = userEvent.setup();
-  await user.type(screen.getByLabelText("Email"), "ada@example.com");
+  await user.type(screen.getByLabelText("Email Address"), "ada@example.com");
   await user.type(screen.getByLabelText("Password"), "correct-horse-battery");
-  await user.click(screen.getByRole("button", { name: "Sign in" }));
+  await user.click(screen.getByRole("button", { name: "Log In to CRM" }));
   return user;
 }
 
@@ -118,30 +118,71 @@ describe("LoginForm", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/pipeline"));
     expect(login).not.toHaveBeenCalled();
   });
-  it("asks 'Already a Workeasy360 user?' first, keeping the next path, with the password on request", async () => {
+  it("offers the password form and 'Already a Workeasy360 user?' together, keeping the next path", () => {
     search = new URLSearchParams("next=/contacts");
     methods = { data: { password: true, workeasy360: true }, isError: false };
     renderForm();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Already a Workeasy360 user?" })).toBeInTheDocument();
     expect(screen.getByText("Access WorkEasyCRM using your Workeasy360 account.")).toBeInTheDocument();
     const link = screen.getByRole("link", { name: "Access WorkEasyCRM" });
     expect(link).toHaveAttribute("href", "/api/auth/workeasy360/start?next=%2Fcontacts");
-    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
-    const other = screen.getByRole("button", { name: "Use another sign-in method" });
-    expect(other).toHaveAttribute("aria-expanded", "false");
-    await userEvent.setup().click(other);
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Access WorkEasyCRM" })).toBeInTheDocument();
+  });
+
+  it("links to the existing recovery and sign-up pages", () => {
+    renderForm();
+    expect(screen.getByRole("heading", { level: 1, name: "CRM Login" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Forgot Password?" })).toHaveAttribute("href", "/forgot-password");
+    expect(screen.getByRole("link", { name: "Create CRM Account" })).toHaveAttribute("href", "/signup");
+  });
+
+  it("shows and hides the password on request", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const password = screen.getByLabelText("Password");
+    expect(password).toHaveAttribute("type", "password");
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password).toHaveAttribute("type", "text");
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(password).toHaveAttribute("type", "password");
+  });
+
+  it("ends the session with the browser unless Remember me is ticked", async () => {
+    vi.mocked(login).mockResolvedValue({ kind: "authenticated" });
+    renderForm();
+    await submitCredentials();
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(setSessionPersistence).toHaveBeenCalledWith(false);
+  });
+
+  it("keeps the session when Remember me is ticked, and through the MFA step", async () => {
+    const user = userEvent.setup();
+    vi.mocked(login).mockResolvedValue({ kind: "mfa_required" });
+    vi.mocked(mfaAuthenticate).mockResolvedValue({ kind: "authenticated" });
+    renderForm();
+    await user.click(screen.getByRole("checkbox", { name: "Remember me" }));
+    await submitCredentials();
+    await user.type(await screen.findByLabelText("Authentication code"), "123456");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(setSessionPersistence).toHaveBeenCalledWith(true);
+  });
+
+  it("still signs in when the session preference cannot be saved", async () => {
+    vi.mocked(login).mockResolvedValue({ kind: "authenticated" });
+    vi.mocked(setSessionPersistence).mockRejectedValueOnce(new Error("network"));
+    renderForm();
+    await submitCredentials();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/pipeline"));
   });
 
   it("shows only Workeasy360 when password sign-in is off", () => {
     methods = { data: { password: false, workeasy360: true }, isError: false };
     renderForm();
     expect(screen.getByRole("link", { name: "Access WorkEasyCRM" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Use another sign-in method" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
-    expect(screen.queryByText("Forgot password?")).not.toBeInTheDocument();
-    expect(screen.queryByText("Create account")).not.toBeInTheDocument();
+    expect(screen.queryByText("Forgot Password?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Create CRM Account")).not.toBeInTheDocument();
   });
 
   it("explains a Workeasy360 sign-in failure from the fixed vocabulary", () => {
@@ -185,7 +226,7 @@ describe("LoginForm", () => {
     ])("waits for the click, with %s", async (_label, query) => {
       search = new URLSearchParams(query);
       renderForm();
-      expect(screen.getByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: "CRM Login" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Access WorkEasyCRM" })).toHaveAttribute("href", expect.stringContaining("/api/auth/workeasy360/start"));
       // Give any effect the chance to navigate.
       await act(async () => {

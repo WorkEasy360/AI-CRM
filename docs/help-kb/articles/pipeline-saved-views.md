@@ -5,11 +5,11 @@ question: How do I save my filters as a view?
 module: Pipeline
 keywords: [saved views, save view, custom view, share view, default view, filters, bookmark, view save kaise kare, apna view, सहेजा गया व्यू, दृश्य]
 route: /pipeline
-menu_path: Pipeline → Kanban View → Saved views
+menu_path: Pipeline → Kanban → Saved views
 spotlight: Saved views
 permission: deals.view
 related: [pipeline-filter-deals, pipeline-list-view, pipeline-more-views]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
@@ -21,7 +21,7 @@ A saved view stores the current filters, columns, sort and view settings under a
 ## Steps
 1. Click **Pipeline** in the left sidebar.
 2. Set up the filters, sort and view (Kanban, List, Sheet and so on) you want.
-3. Click **Saved views** above the board.
+3. Click **Filters**, then click **Saved views**.
 4. Click **Save as new view…**.
 5. Type a **Name**.
 6. If shown, choose **Who can use it**: **Only me**, **Everyone** or **Selected teams** (then tick the teams).

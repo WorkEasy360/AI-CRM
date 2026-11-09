@@ -8,7 +8,7 @@ route: /pipeline
 menu_path: Pipeline
 permission: deals.view
 related: [pipeline-default, pipeline-kanban-view, pipeline-sub-pipeline, pipeline-create]
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 ## Overview
@@ -16,12 +16,12 @@ When your workspace has more than one pipeline, the **Pipeline** page shows one 
 
 ## Steps
 1. Click **Pipeline** in the left sidebar.
-2. Make sure **Kanban View** is selected.
-3. Open the **Pipeline** drop-down in the filter row (next to **Search deals…**).
+2. Make sure **Kanban** view is selected.
+3. Click **Filters**, then open the **Pipeline** drop-down (next to **Search deals…**).
 4. Choose the pipeline you want.
 
 ## Result
-The board, the summary tiles (**Total Deals**, **Pipeline Value** and so on) and the **List View** now show that pipeline's deals.
+The board, the summary (**Total Deals**, **Open Pipeline Value** and so on) and the **List** view now show that pipeline's deals.
 
 ## Tips
 - On wide screens a **Pipelines** column on the left lists every pipeline. Click a name to switch. A lock icon marks restricted pipelines.

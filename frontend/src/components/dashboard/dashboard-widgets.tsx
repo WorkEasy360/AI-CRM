@@ -2,17 +2,22 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Activity as ActivityIcon,
   AlarmClock,
   ArrowRight,
   BarChart3,
   Bot,
   BriefcaseBusiness,
   CalendarCheck,
+  CalendarClock,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronRight,
+  ClipboardCheck,
   Layers,
   ListTodo,
   Mail,
@@ -23,16 +28,22 @@ import {
   UserPlus,
   Workflow,
 } from "lucide-react";
+import { relativeTime } from "@/components/activities/activity-utils";
+import { useCompleteActivity } from "@/components/activities/activity-item";
+import { CallLink, WhatsAppButton } from "@/components/crm/contact-actions";
 import { useQuickCreate } from "@/components/shell/quick-create-provider";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMyDay, listActivities } from "@/lib/api/crm";
 import { DEAL_SOURCE_LABELS, type Activity, type ActivityKind, type DealSource } from "@/lib/api/crm-types";
 import type { ActiveContext, DashboardInsight, DashboardSummary } from "@/lib/api/types";
+import { defaultFollowUpTime, dueLabel, DUE_TONE_CLASS } from "@/lib/crm/due-date";
 import { formatCompactMoney, formatMoney, stageDotClass, stageTintStyle } from "@/lib/crm/format";
 import { hasPermission } from "@/lib/session";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { ChangeBadge, EmptyNote, NoAccess, Panel, PanelLink, monthLabel, percentChange, type KpiChange } from "./stat-tile";
+
+const WhatsAppDialog = dynamic(() => import("@/components/messaging/whatsapp-dialog").then((m) => m.WhatsAppDialog), { ssr: false });
 
 const KIND_ICON: Record<ActivityKind, React.ComponentType<{ className?: string }>> = { task: CheckCircle2, call: Phone, meeting: CalendarDays };
 const KIND_TINT: Record<ActivityKind, string> = { task: "bg-brand-soft text-brand", call: "bg-brand-soft text-brand", meeting: "bg-accent-soft text-accent" };
@@ -44,6 +55,135 @@ function relatedName(a: Activity): string {
 function timeOf(value: string | null): string {
   if (!value) return "";
   return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+/* ------------------------------------------------------------------ sales pipeline bars */
+
+/** These counts cover every deal in a stage, so the list they open must not narrow won and lost deals to a period. */
+function stageHref(stageId: string, pipelineId: string | undefined): string {
+  return `/pipeline?view=list&stage=${encodeURIComponent(stageId)}&closed_period=all${pipelineId ? `&pipeline=${encodeURIComponent(pipelineId)}` : ""}`;
+}
+
+/** The smallest round number at or above ``value`` that divides into five whole steps: the axis reads 0, 10, 20, never 3.8. */
+export function niceCeiling(value: number): number {
+  if (value <= 5) return 5;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const step = [1, 2, 5, 10].find((m) => value <= m * magnitude) ?? 10;
+  return step * magnitude;
+}
+
+/** Deals per stage as one series of bars, each opening the stage's deals. Lost is left out: this is the path to a win. */
+export function StageBars({ data, currency }: { data: DashboardSummary; currency: string }) {
+  if (data.deals_by_stage === null) return <NoAccess />;
+  const stages = (data.deals_by_stage?.stages ?? []).filter((s) => s.kind !== "lost");
+  if (stages.length === 0) return <EmptyNote>No pipeline stages yet.</EmptyNote>;
+  const pipelineId = data.deals_by_stage?.pipeline?.id;
+  const ceiling = niceCeiling(Math.max(...stages.map((s) => s.count), 1));
+  const ticks = [5, 4, 3, 2, 1, 0].map((n) => (ceiling / 5) * n);
+  return (
+    <div className="relative h-56 pl-8">
+      {/* The plot box: 1.5rem above for the tallest bar's label, 2.25rem below for the stage names. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-9 top-6" aria-hidden>
+        {ticks.map((tick) => (
+          <span key={tick} className="absolute inset-x-0 flex items-center gap-2" style={{ bottom: `calc(${(tick / ceiling) * 100}% - 0.5rem)` }}>
+            <span className="w-6 text-right text-[11px] tabular-nums text-fg-subtle">{tick.toLocaleString()}</span>
+            <span className={cn("h-px flex-1", tick === 0 ? "bg-border-strong" : "bg-border")} />
+          </span>
+        ))}
+      </div>
+      <ul className="relative flex h-full gap-1 sm:gap-2">
+        {stages.map((s) => (
+          <li key={s.id} className="min-w-0 flex-1">
+            <Link href={stageHref(s.id, pipelineId)} title={`${s.name}: ${s.count.toLocaleString()} ${s.count === 1 ? "deal" : "deals"}, ${formatMoney(s.amount, currency)}`} className="group flex h-full flex-col rounded-sm focus-visible:outline-2 focus-visible:outline-ring">
+              <span className="relative mt-6 min-h-0 flex-1">
+                <span className="absolute bottom-0 left-1/2 w-3/5 max-w-14 -translate-x-1/2 rounded-t bg-brand transition-colors group-hover:bg-brand-hover" style={{ height: `${(s.count / ceiling) * 100}%` }}>
+                  <span className="absolute inset-x-0 -top-5 text-center text-sm font-semibold tabular-nums text-fg">{s.count.toLocaleString()}</span>
+                </span>
+              </span>
+              <span className="mt-1 line-clamp-2 h-8 text-center text-xs leading-4 text-fg-muted">{s.name}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="sr-only">
+        <table>
+          <caption>Deals by stage</caption>
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th>Deals</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stages.map((s) => (
+              <tr key={s.id}>
+                <td>{s.name}</td>
+                <td>{s.count}</td>
+                <td>{formatMoney(s.amount, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ leads by status */
+
+/** Fixed per stage (never by rank); the same validated set as the source donut, with gray for "no longer active". */
+const LEAD_HUES: Record<string, string> = { lead: "#16a34a", prospect: "#3b82f6", qualified: "#d97706", customer: "#8b5cf6", inactive: "#94a3b0" };
+
+export function LeadsDonut({ data }: { data: DashboardSummary }) {
+  const leads = data.leads;
+  if (leads === null || leads === undefined) return <NoAccess />;
+  const total = leads.total;
+  const radius = 42;
+  const circumference = 2 * Math.PI * radius;
+  const gap = leads.by_status.filter((s) => s.count > 0).length > 1 ? 2 : 0;
+  let offset = 0;
+  return (
+    <div className="flex flex-col items-center gap-4 min-[420px]:flex-row">
+      <svg viewBox="0 0 120 120" className="size-36 shrink-0 -rotate-90" role="img" aria-label={`Leads by status: ${total.toLocaleString()} in total`}>
+        <circle cx={60} cy={60} r={radius} fill="none" strokeWidth={18} className="stroke-bg-subtle" />
+        {total > 0
+          ? leads.by_status.map((s) => {
+              if (s.count === 0) return null;
+              const length = (s.count / total) * circumference;
+              const dash = Math.max(0, length - gap);
+              const el = (
+                <circle key={s.status} cx={60} cy={60} r={radius} fill="none" stroke={LEAD_HUES[s.status] ?? LEAD_HUES.inactive} strokeWidth={18} strokeDasharray={`${dash} ${circumference - dash}`} strokeDashoffset={-offset}>
+                  <title>{`${s.label}: ${s.count.toLocaleString()}`}</title>
+                </circle>
+              );
+              offset += length;
+              return el;
+            })
+          : null}
+        <g className="rotate-90 [transform-origin:60px_60px]">
+          <text x={60} y={62} textAnchor="middle" className="fill-fg text-[20px] font-bold tabular-nums">
+            {total.toLocaleString()}
+          </text>
+          <text x={60} y={77} textAnchor="middle" className="fill-fg-subtle text-[12px]">
+            Total
+          </text>
+        </g>
+      </svg>
+      <ul className="grid w-full min-w-0 flex-1 gap-0.5 text-sm">
+        {leads.by_status.map((s) => (
+          <li key={s.status}>
+            <Link href={`/contacts?lifecycle=${encodeURIComponent(s.status)}`} className="flex items-center gap-2 rounded-sm px-1 py-1 hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ring">
+              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: LEAD_HUES[s.status] ?? LEAD_HUES.inactive }} aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-fg">{s.label}</span>
+              <span className="shrink-0 font-medium tabular-nums text-fg">{s.count.toLocaleString()}</span>
+              <span className="w-11 shrink-0 text-right text-xs tabular-nums text-fg-muted">{total ? `${Math.round((100 * s.count) / total)}%` : "0%"}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ pipeline overview */
@@ -59,7 +199,7 @@ export function PipelineOverview({ data, currency }: { data: DashboardSummary; c
       {stages.map((s) => (
         <li key={s.id}>
           <Link
-            href={`/pipeline?view=list&stage=${encodeURIComponent(s.id)}${pipelineId ? `&pipeline=${encodeURIComponent(pipelineId)}` : ""}`}
+            href={stageHref(s.id, pipelineId)}
             className="block rounded-lg px-3 py-3 transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-ring"
             style={stageTintStyle(s.color_token)}
           >
@@ -290,44 +430,122 @@ export function BusinessSummary({ data }: { data: DashboardSummary }) {
 
 /* ------------------------------------------------------------------ agenda, upcoming, recent */
 
-/** Today's timed activities for the signed-in member, as a timeline. */
-export function TodayAgenda({ enabled }: { enabled: boolean }) {
+/** "Acme Enterprises" over "Rahul Mehta • Proposal discussion": the record first, then who and why. */
+function followUpLines(a: Activity): { primary: string; secondary: string } {
+  const primary = a.company?.name || a.deal?.name || a.contact?.name || a.title;
+  const secondary = [a.contact?.name !== primary ? a.contact?.name : null, a.title !== primary ? a.title : null].filter(Boolean).join(" • ");
+  return { primary, secondary };
+}
+
+/** The signed-in member's work for today: time, who it concerns, and the actions to get it done. */
+export function TodaysFollowUps({ enabled, active }: { enabled: boolean; active: ActiveContext | null | undefined }) {
   const day = useQuery({ queryKey: ["crm", "activities", "my-day", "dashboard"], queryFn: () => getMyDay(Intl.DateTimeFormat().resolvedOptions().timeZone), enabled, staleTime: 30_000 });
   const items = React.useMemo(() => {
     if (!day.data) return [];
     return [...day.data.events, ...day.data.calls, ...day.data.tasks].filter((a) => a.start_at).sort((x, y) => (x.start_at ?? "").localeCompare(y.start_at ?? ""));
   }, [day.data]);
+  const complete = useCompleteActivity();
+  const [messaging, setMessaging] = React.useState<Activity | null>(null);
+  const canWhatsApp = hasPermission(active, "whatsapp.send");
+  const canComplete = hasPermission(active, "activities.update");
   return (
-    <Panel title={`Today's Agenda${day.data ? ` (${items.length})` : ""}`} action={<PanelLink href="/activities?tab=day">View all</PanelLink>}>
+    <Panel title="Today's Follow-ups" icon={<CalendarClock />} action={<PanelLink href="/activities?tab=day">View All{day.data ? ` (${items.length})` : ""}</PanelLink>}>
       {!enabled ? (
         <NoAccess />
       ) : day.isPending ? (
         <Skeleton className="h-32 w-full" />
       ) : day.isError ? (
-        <EmptyNote>Your agenda is unavailable right now.</EmptyNote>
+        <EmptyNote>Your follow-ups are unavailable right now.</EmptyNote>
       ) : items.length === 0 ? (
         <EmptyNote>Nothing scheduled for today.</EmptyNote>
       ) : (
-        <ol className="relative flex flex-col gap-2 pl-4 before:absolute before:bottom-2 before:left-[5px] before:top-2 before:w-px before:bg-border">
+        <ol className="flex flex-col divide-y divide-border">
           {items.slice(0, 5).map((a) => {
-            const Icon = KIND_ICON[a.kind];
+            const { primary, secondary } = followUpLines(a);
+            const name = a.contact?.name || primary;
             return (
-              <li key={a.id} className="relative flex items-center gap-2">
-                <span className="absolute -left-4 top-1/2 size-2.5 -translate-y-1/2 rounded-full border-2 border-brand bg-surface" aria-hidden />
-                <span className="w-16 shrink-0 text-xs font-medium tabular-nums text-fg">{timeOf(a.start_at)}</span>
-                <Link href={`/activities?open=${encodeURIComponent(a.id)}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border px-2 py-1.5 hover:bg-bg-subtle">
-                  <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", KIND_TINT[a.kind])} aria-hidden>
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-fg">{a.title}</span>
-                    {relatedName(a) ? <span className="block truncate text-xs text-fg-muted">{relatedName(a)}</span> : null}
-                  </span>
+              <li key={a.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 py-2.5 first:pt-0 last:pb-0">
+                <span className="shrink-0 rounded-md bg-brand-soft px-2 py-1 text-xs font-medium tabular-nums text-fg">{timeOf(a.start_at)}</span>
+                <Link href={`/activities?open=${encodeURIComponent(a.id)}`} className="min-w-28 flex-1 rounded-sm hover:text-primary focus-visible:outline-2 focus-visible:outline-ring">
+                  <span className="block truncate text-sm font-semibold text-fg">{primary}</span>
+                  {secondary ? <span className="block truncate text-xs text-fg-muted">{secondary}</span> : null}
                 </Link>
+                <span className="flex shrink-0 items-center gap-1">
+                  <CallLink phone={a.contact?.phone} name={name} />
+                  {canWhatsApp ? <WhatsAppButton phone={a.contact?.phone} name={name} onClick={() => setMessaging(a)} /> : null}
+                  {canComplete ? (
+                    <button
+                      type="button"
+                      disabled={complete.isPending}
+                      onClick={() => complete.mutate({ activity: a })}
+                      aria-label={`Mark ${a.title} done`}
+                      title="Mark as done"
+                      className="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-border-strong text-brand transition-colors hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 lg:size-8"
+                    >
+                      <Check className="size-4" aria-hidden />
+                    </button>
+                  ) : null}
+                </span>
               </li>
             );
           })}
         </ol>
+      )}
+      {messaging?.contact?.phone ? (
+        <WhatsAppDialog
+          open
+          onOpenChange={(open) => !open && setMessaging(null)}
+          deal={messaging.deal}
+          contact={{ id: messaging.contact.id, name: messaging.contact.name, phone: messaging.contact.phone, whatsapp_opt_in: Boolean(messaging.contact.whatsapp_opt_in) }}
+        />
+      ) : null}
+    </Panel>
+  );
+}
+
+/** Open tasks, soonest first; ticking one completes it. */
+export function PendingTasks({ enabled, active, mine, total }: { enabled: boolean; active: ActiveContext | null | undefined; mine: boolean; total: number | undefined }) {
+  const params = { kind: "task", open: "1", top_level: "1", sort: "start_at", limit: "5", ...(mine ? { owner: "me" } : {}) };
+  const tasks = useQuery({ queryKey: ["crm", "activities", "pending-tasks", "dashboard", params], queryFn: () => listActivities(params), enabled, staleTime: 30_000 });
+  const complete = useCompleteActivity();
+  const canComplete = hasPermission(active, "activities.update");
+  return (
+    <Panel title="Pending Tasks" icon={<ClipboardCheck />} action={<PanelLink href="/activities?tab=tasks">View All{total !== undefined ? ` (${total})` : ""}</PanelLink>}>
+      {!enabled ? (
+        <NoAccess />
+      ) : tasks.isPending ? (
+        <Skeleton className="h-32 w-full" />
+      ) : tasks.isError ? (
+        <EmptyNote>Tasks are unavailable right now.</EmptyNote>
+      ) : tasks.data.results.length === 0 ? (
+        <EmptyNote>No pending tasks.</EmptyNote>
+      ) : (
+        <ul className="flex flex-col divide-y divide-border">
+          {tasks.data.results.map((a) => {
+            const due = a.start_at ? dueLabel(a.start_at) : null;
+            return (
+              <li key={a.id} className="flex min-h-11 items-center gap-2.5 py-1.5 first:pt-0 last:pb-0">
+                {canComplete ? (
+                  // The label is the 44px touch target around the smaller box.
+                  <label className="-ml-3 flex size-11 shrink-0 cursor-pointer items-center justify-center lg:-ml-1 lg:size-7">
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      disabled={complete.isPending}
+                      onChange={() => complete.mutate({ activity: a })}
+                      aria-label={`Mark ${a.title} done`}
+                      className="size-5 rounded-sm border-border-strong accent-[var(--kl-brand)]"
+                    />
+                  </label>
+                ) : null}
+                <Link href={`/activities?open=${encodeURIComponent(a.id)}`} className="min-w-0 flex-1 truncate text-sm text-fg hover:text-primary focus-visible:outline-2 focus-visible:outline-ring">
+                  {a.title}
+                </Link>
+                {due ? <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium", DUE_TONE_CLASS[due.tone])}>{due.tone === "overdue" ? "Overdue" : due.text}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </Panel>
   );
@@ -363,10 +581,11 @@ export function UpcomingOverdue({ data }: { data: DashboardSummary }) {
   );
 }
 
-export function RecentActivities({ enabled }: { enabled: boolean }) {
-  const recent = useQuery({ queryKey: ["crm", "activities", "recent", "dashboard"], queryFn: () => listActivities({ sort: "-updated_at", limit: "4" }), enabled, staleTime: 30_000 });
+export function RecentActivities({ enabled, mine = false }: { enabled: boolean; mine?: boolean }) {
+  const params = { sort: "-updated_at", limit: "4", ...(mine ? { owner: "me" } : {}) };
+  const recent = useQuery({ queryKey: ["crm", "activities", "recent", "dashboard", params], queryFn: () => listActivities(params), enabled, staleTime: 30_000 });
   return (
-    <Panel title="Recent Activities" action={<PanelLink href="/activities">View all</PanelLink>}>
+    <Panel title="Recent Activities" icon={<ActivityIcon />} action={<PanelLink href="/activities">View All</PanelLink>}>
       {!enabled ? (
         <NoAccess />
       ) : recent.isPending ? (
@@ -376,18 +595,20 @@ export function RecentActivities({ enabled }: { enabled: boolean }) {
       ) : recent.data.results.length === 0 ? (
         <EmptyNote>No activities yet.</EmptyNote>
       ) : (
-        <ul className="flex flex-col divide-y divide-border">
+        <ul className="flex flex-col gap-3">
           {recent.data.results.map((a) => {
             const Icon = KIND_ICON[a.kind];
             return (
               <li key={a.id}>
-                <Link href={`/activities?open=${encodeURIComponent(a.id)}`} className="flex items-center gap-2.5 py-1.5 text-sm hover:text-primary">
-                  <Icon className="size-4 shrink-0 text-brand" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">
-                    {a.title}
-                    {relatedName(a) ? <span className="text-fg-muted"> – {relatedName(a)}</span> : null}
+                <Link href={`/activities?open=${encodeURIComponent(a.id)}`} className="flex items-center gap-2.5 rounded-sm hover:text-primary focus-visible:outline-2 focus-visible:outline-ring">
+                  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-md", KIND_TINT[a.kind])} aria-hidden>
+                    <Icon className="size-4" />
                   </span>
-                  <span className="shrink-0 text-xs text-fg-muted">{a.start_at ? formatDateTime(a.start_at) : "No date"}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-fg">{a.title}</span>
+                    {relatedName(a) ? <span className="block truncate text-xs text-fg-muted">{relatedName(a)}</span> : null}
+                  </span>
+                  <span className="shrink-0 text-xs text-fg-muted">{relativeTime(a.updated_at)}</span>
                 </Link>
               </li>
             );
@@ -413,12 +634,46 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: "View Reports", icon: BarChart3, tint: "text-brand", permission: "deals.view", href: "/pipeline?tab=analytics" },
 ];
 
+/** The day's four most-used actions, each one tap from the dashboard. */
+export function QuickActionsList({ active }: { active: ActiveContext | null | undefined }) {
+  const { open } = useQuickCreate();
+  const actions = [
+    { label: "Add Lead", icon: UserPlus, permission: "contacts.create", run: () => open("contact") },
+    { label: "Add Task", icon: CalendarCheck, permission: "activities.create", run: () => open("task") },
+    { label: "Schedule Follow-up", icon: CalendarClock, permission: "activities.create", run: () => open("task", { title: "Follow up", start_at: defaultFollowUpTime() }) },
+    { label: "Add Deal", icon: Layers, permission: "deals.create", run: () => open("deal") },
+  ].filter((a) => hasPermission(active, a.permission));
+  return (
+    <Panel title="Quick Actions">
+      {actions.length === 0 ? (
+        <NoAccess />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {actions.map((a) => (
+            <li key={a.label}>
+              <button
+                type="button"
+                onClick={a.run}
+                className="flex min-h-11 w-full items-center gap-3 rounded-md bg-brand-soft px-3 py-2 text-left text-sm font-semibold text-fg transition-colors hover:bg-brand hover:text-brand-fg focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <a.icon className="size-5 shrink-0" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{a.label}</span>
+                <ArrowRight className="size-4 shrink-0" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 export function QuickActionsGrid({ active }: { active: ActiveContext | null | undefined }) {
   const { open } = useQuickCreate();
   const items = QUICK_ACTIONS.filter((a) => hasPermission(active, a.permission));
   const tile = "flex h-[4.5rem] flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface px-1 text-center text-xs font-medium text-fg shadow-sm transition-colors hover:border-brand hover:bg-brand-soft";
   return (
-    <Panel title="Quick Actions">
+    <Panel title="More Actions">
       {items.length === 0 ? (
         <NoAccess />
       ) : (

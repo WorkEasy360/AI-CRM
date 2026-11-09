@@ -489,7 +489,8 @@ export interface DealCard {
   name: string;
   stage: StageRef;
   company: NamedRef | null;
-  primary_contact: NamedRef | null;
+  /** phone and whatsapp_opt_in are null unless the member may see them on the contact itself. */
+  primary_contact: (NamedRef & { phone?: string | null; whatsapp_opt_in?: boolean | null }) | null;
   owner: MembershipRef | null;
   amount: string;
   currency: string;
@@ -500,7 +501,9 @@ export interface DealCard {
   probability_overridden: boolean;
   expected_close_date: string | null;
   status: DealStatus;
+  closed_at?: string | null;
   priority?: DealPriority;
+  next_activity_at?: string | null;
   next_activity_title: string;
   risk_level: RiskLevel;
   version: number;
@@ -808,6 +811,9 @@ export const CALL_OUTCOME_LABELS: Record<CallOutcome, string> = {
 export interface ActivityContactRef {
   id: string;
   name: string;
+  /** Null unless the member may see them on the contact itself. */
+  phone?: string | null;
+  whatsapp_opt_in?: boolean | null;
 }
 
 export interface Activity {

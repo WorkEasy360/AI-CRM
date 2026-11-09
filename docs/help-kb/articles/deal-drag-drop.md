@@ -5,7 +5,7 @@ question: How do I move a deal to the next stage on the board?
 module: Pipeline
 keywords: [move deal, drag and drop, change stage, deal stage, move to stage, kanban drag, update stage, deal ko aage badhaye, stage kaise badle, drag karke move, स्टेज बदलें, डील आगे]
 route: /pipeline
-menu_path: Pipeline → Kanban View
+menu_path: Pipeline → Kanban
 permission: deals.change_stage
 related: [deal-move-next-stage, deal-mark-won-lost, pipeline-kanban-view]
 updated: 2026-11-06
@@ -19,7 +19,7 @@ Moving a deal between stages records its progress and updates its probability to
 
 ## Steps
 1. Click **Pipeline** in the left sidebar.
-2. Make sure **Kanban View** is selected.
+2. Make sure **Kanban** view is selected.
 3. Press and hold a deal card.
 4. Drag it onto the column of the new stage and release it.
 

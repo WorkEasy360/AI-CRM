@@ -4,7 +4,7 @@ from allauth.mfa.models import Authenticator
 from django.db.models import Exists, OuterRef, Prefetch
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
-from rest_framework import mixins, status
+from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -109,6 +109,28 @@ class SessionBootstrapView(APIView):
                     membership, federated_aal=federated_aal_from_session(request._request.session)
                 )
         return Response(_session_payload(request))
+
+
+class SessionPersistenceSerializer(serializers.Serializer):
+    remember = serializers.BooleanField()
+
+
+class SessionPersistenceView(APIView):
+    """The sign-in form's "Remember me": whether this session survives closing the browser.
+
+    It only chooses between the two lifetimes the settings already allow: a session cookie, or the normal
+    ``SESSION_COOKIE_AGE``. It can never lengthen a session past that, and the idle timeout still applies.
+    """
+
+    permission_classes = [IsAuthenticatedUser]
+    throttle_scope = "sensitive"
+
+    def post(self, request: Request) -> Response:
+        ser = SessionPersistenceSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        # 0 ends with the browser; None returns to the configured lifetime.
+        request._request.session.set_expiry(None if ser.validated_data["remember"] else 0)
+        return Response({"remember": ser.validated_data["remember"]})
 
 
 class SwitchOrganizationView(APIView):

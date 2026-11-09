@@ -29,7 +29,7 @@ The Forecast tab adds up open deals by their expected close date, weighted by pr
 Tiles show **Pipeline value**, **Weighted**, **Committed** (deals at or above the committed probability), **Won so far** and **Expected revenue** (weighted plus won). The **By month** panel and the breakdown table show the same figures per month and per group.
 
 ## Tips
-- Click the **Pipeline value** or **Won so far** tile to open the matching deals in the List View.
+- Click the **Pipeline value** or **Won so far** tile to open the matching deals in the List view.
 - Deals without an expected close date are not in the forecast. Set a date on each open deal.
 
 ## Troubleshooting

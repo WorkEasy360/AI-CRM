@@ -28,7 +28,7 @@ The deal disappears from the board and lists, and its page shows a **Deleted** b
 
 ## Tips
 - You can also delete from the **Edit Deal** panel: click **Delete** at the bottom left, then **Delete deal**.
-- To find deleted deals, open **List View** and choose **Archived deals** in the first drop-down.
+- To find deleted deals, open **List** view and choose **Archived deals** in the first drop-down.
 
 ## Troubleshooting
 - **No Delete button.** You can delete only deals your role allows, and a deal that is already deleted shows no Delete button.

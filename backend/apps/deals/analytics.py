@@ -63,6 +63,10 @@ def stats(deals: QuerySet, *, hide_money: bool, now: dt.datetime | None = None, 
         open=Count("id", filter=Q(status=Deal.Status.OPEN)),
         value=Sum("amount_base", filter=Q(status=Deal.Status.OPEN)),
         expected=Sum(_WEIGHTED, filter=Q(status=Deal.Status.OPEN)),
+        won=Count("id", filter=Q(status=Deal.Status.WON)),
+        lost=Count("id", filter=Q(status=Deal.Status.LOST)),
+        won_amount=Sum("amount_base", filter=Q(status=Deal.Status.WON)),
+        lost_amount=Sum("amount_base", filter=Q(status=Deal.Status.LOST)),
     )
     return {
         "days": days,
@@ -70,6 +74,12 @@ def stats(deals: QuerySet, *, hide_money: bool, now: dt.datetime | None = None, 
         "open_deals": totals["open"],
         "pipeline_value": _money(totals["value"], hide_money),
         "expected_revenue": _money(totals["expected"], hide_money),
+        # Over the deal set as filtered (``closed_period`` narrows these to deals closed in that period).
+        "won_deals": totals["won"],
+        "lost_deals": totals["lost"],
+        "won_amount": _money(totals["won_amount"], hide_money),
+        "lost_amount": _money(totals["lost_amount"], hide_money),
+        "conversion_rate": _rate(totals["won"], totals["lost"]),
         "current": _window(deals, since, now),
         "previous": _window(deals, before, since),
     }
