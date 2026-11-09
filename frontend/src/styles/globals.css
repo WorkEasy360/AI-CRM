@@ -163,14 +163,17 @@
     opacity: 1;
   }
 }
+/* Centring stays with the element's own `translate` (Tailwind v4's -translate-* set that property, not
+   `transform`), so this only nudges relative to it. Repeating the -50% here would apply it twice and
+   make the pop-up snap into place when the animation ends. */
 @keyframes kl-pop-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -48%) scale(0.98);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: none;
   }
 }
 @keyframes kl-slide-in-right {
