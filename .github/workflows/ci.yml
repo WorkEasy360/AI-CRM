@@ -119,9 +119,15 @@ jobs:
       - name: Bandit
         working-directory: backend
         run: uv run bandit -c pyproject.toml -r apps config security -q
+      # Every locked dependency, pinned and hash-checked, except workeasy360-sso: Workeasy360's own sign-in
+      # connector, vendored as a wheel (backend/vendor/) and not published to PyPI, so there is no record of it
+      # to look up and --strict would fail on that alone. Its dependencies (Django, PyJWT, httpx) are in the lock
+      # and audited here like everything else.
       - name: pip-audit
         working-directory: backend
-        run: uv run pip-audit --strict
+        run: |
+          uv export --frozen --no-emit-project --no-emit-package workeasy360-sso -o "$RUNNER_TEMP/requirements.txt"
+          uv run pip-audit --strict --disable-pip --require-hashes -r "$RUNNER_TEMP/requirements.txt"
       # Semgrep runs from the backend project so the version is the one pinned in backend/uv.lock
       # (1.177.0), installed by the `uv sync --frozen` above. The retired semgrep-action shipped
       # 1.36.0, which is below the 1.76 floor upstream still supports and which matched `nosemgrep`

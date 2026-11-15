@@ -23,8 +23,12 @@ dependencies = [
     "pgvector>=0.4",
     "httpx>=0.28",
     "cryptography>=45",
-    # PyJWT: signs the private_key_jwt client assertion and verifies Workeasy360 ID tokens (docs/workeasy360-sso.md).
+    # PyJWT: the JOSE library under the Workeasy360 connector (client assertions, ID and logout tokens); the floor
+    # is ours, the connector accepts older releases.
     "pyjwt>=2.15",
+    # Workeasy360 sign-in (OpenID Connect relying party, entitlement, back-channel logout): the shared connector,
+    # vendored as a wheel because it is not published to an index (docs/workeasy360-sso.md).
+    "workeasy360-sso==0.2.0",
     "openpyxl>=3.1",
 ]
 
@@ -43,6 +47,9 @@ dev = [
     "semgrep>=1.130",
     "pip-audit>=2.9",
 ]
+
+[tool.uv.sources]
+workeasy360-sso = { path = "vendor/workeasy360_sso-0.2.0-py3-none-any.whl" }
 
 [tool.uv]
 # semgrep pins mcp==1.29.0 (still in 1.181.0), which has CVE-2026-59951; the fix is a minor release.

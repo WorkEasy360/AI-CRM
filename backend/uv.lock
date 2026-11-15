@@ -1028,6 +1028,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pyjwt" },
     { name = "structlog" },
+    { name = "workeasy360-sso" },
 ]
 
 [package.dev-dependencies]
@@ -1068,6 +1069,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2" },
     { name = "pyjwt", specifier = ">=2.15" },
     { name = "structlog", specifier = ">=25.4" },
+    { name = "workeasy360-sso", path = "vendor/workeasy360_sso-0.2.0-py3-none-any.whl" },
 ]
 
 [package.metadata.requires-dev]
@@ -2257,6 +2259,29 @@ sdist = { url = "https://files.pythonhosted.org/packages/36/57/ed58088fafdf4c55a
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/0e/57f6bb3024a597b2e8ec4aee710ffe62ddc95af2e2bb1ee7a7abdc22c68c/wcwidth-0.8.3-py3-none-any.whl", hash = "sha256:d5b73dba6158a595ec9370350e7f2637bcac8d6c5e4fde34f30fcffb6103a5e4", size = 331669, upload-time = "2026-08-28T18:10:04.909Z" },
 ]
+
+[[package]]
+name = "workeasy360-sso"
+version = "0.2.0"
+source = { path = "vendor/workeasy360_sso-0.2.0-py3-none-any.whl" }
+dependencies = [
+    { name = "django" },
+    { name = "httpx" },
+    { name = "pyjwt", extra = ["crypto"] },
+]
+wheels = [
+    { filename = "workeasy360_sso-0.2.0-py3-none-any.whl", hash = "sha256:9585ebb23a6b179b1a4700b702c60c95216b7b84bfabe20504bb91aef05e8270" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "django", specifier = ">=4.2,<6.1" },
+    { name = "httpx", specifier = ">=0.25,<1" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8,<3" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
+    { name = "pytest-django", marker = "extra == 'test'", specifier = ">=4.9" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "wrapt"
