@@ -8,7 +8,7 @@ class AccountsConfig(AppConfig):
 
     def ready(self) -> None:
         from apps.accounts import signals  # noqa: F401 - connect handlers
-        from apps.accounts.workeasy360 import checks  # noqa: F401 - register the system check
+        from apps.accounts.workeasy360 import backchannel, checks, entitlement  # noqa: F401 - checks, receivers
         from apps.billing import entitlements
 
         def _count_seats(_module: str | None) -> int:

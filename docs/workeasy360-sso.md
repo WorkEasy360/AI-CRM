@@ -11,7 +11,7 @@ Workeasy360 app launcher ── https://crm.workeasy360.com/?organization=<uuid>
         │  frontend middleware (src/lib/launcher.ts)
         ▼
 GET /api/auth/workeasy360/start?organization=<uuid>&next=<path>
-        │  state, nonce, PKCE verifier, organization, next  -> Django session
+        │  state, nonce, PKCE verifier, organization, next  -> single-use server-side flow, bound to this browser by a cookie
         ▼  302
 Workeasy360 /authorize  (sign-in, MFA, organization choice, entitlement and seat checks)
         │  302
@@ -28,7 +28,7 @@ next (default "/")          — or /login?sso_error=<code> on any failure
   no refresh tokens. Only the issuer is configured; endpoints come from
   `{issuer}/.well-known/openid-configuration`, whose `issuer` must equal ours exactly. Discovery and
   the key set are cached for an hour; an unknown `kid` refreshes the key set once, then fails.
-* ID token checks (`apps/accounts/workeasy360/oidc.py`): key by `kid` from the cached key set,
+* ID token checks (the workeasy360-sso connector, `workeasy360_sso.tokens`): key by `kid` from the cached key set,
   algorithm from the key (RS256/ES256, never from the header), `aud` = client id, `iss`, `exp`/`nbf`
   with 30 s leeway, `typ == "id_token"`, `nonce` matches the session, `organization_id` present. `azp`,
   when present, must be the client id, and an `aud` that is a list must be exactly `[client id]` or come with
@@ -138,6 +138,9 @@ details are logged (`workeasy360.sign_in_failed`). Workeasy360 authorize errors 
 | `WORKEASY360_PRODUCT_CODE` | `easy_crm` | ID tokens for another product, or without a `product_code`, are refused. It must not be empty or blank where sign-in is configured (an empty value would switch the check off): production refuses to start, `manage.py check` fails (`workeasy360.E001`), and if it happens anyway every sign-in is refused (`unavailable`). Leave it unset for the default |
 | `WORKEASY360_DEFAULT_ROLE` | `sales_rep` | role for people joining an existing organization; never `owner` |
 | `WORKEASY360_SSO_ONLY` | `true` (`false` in dev and test) | |
+| `WORKEASY360_POST_LOGOUT_REDIRECT_URI` | — | enables "sign out of WorkEasyCRM and Workeasy360"; https in production |
+| `WORKEASY360_BACKCHANNEL_LOGOUT` | `true` | serves `POST /api/auth/workeasy360/backchannel-logout` (see below) |
+| `WORKEASY360_ALLOW_INSECURE_HTTP` | `false` | local development only: http issuer/redirect URI on a loopback host; production refuses to start with it |
 
 Sign-in is offered when issuer, client id, redirect URI, key id and a private key are all set.
 `config.settings.prod` refuses to start when `WORKEASY360_SSO_ONLY` is on and sign-in is not
@@ -158,16 +161,60 @@ does not exist, or when sign-in is configured and `WORKEASY360_PRODUCT_CODE` is 
    `private_key_jwt`; redirect URI `https://crm.workeasy360.com/api/auth/callback/workeasy360`; launch URL
    `https://crm.workeasy360.com/`; scopes **`openid email profile organization`** (all four must be
    registered, or Workeasy360 answers `invalid_scope`). Upload `easy-crm-w360.pub`.
-3. Set `WORKEASY360_KEY_ID` to the credential id Workeasy360 returns for that key, and
+3. Register the back-channel logout URI `https://crm.workeasy360.com/api/auth/workeasy360/backchannel-logout`
+   (same origin as the redirect URI; `python manage.py w360sso_manifest` prints both from the running
+   configuration).
+4. Set `WORKEASY360_KEY_ID` to the credential id Workeasy360 returns for that key, and
    `WORKEASY360_CLIENT_ID` to the client id. Put the private key in the secret store and expose it as
    `WORKEASY360_PRIVATE_KEY` or a mounted `WORKEASY360_PRIVATE_KEY_FILE`.
-4. Rotation: register a second public key, switch `WORKEASY360_KEY_ID`/the private key, then retire
-   the old credential in Workeasy360.
+5. Rotation: register a second public key, switch `WORKEASY360_KEY_ID`/the private key, then retire
+   the old credential in Workeasy360. `python manage.py w360sso_check` proves discovery, the key set and the
+   credential against the live provider.
 
 Local development: Workeasy360 accepts `http://localhost:*` redirect URIs outside production, e.g.
 `http://localhost:4000/api/auth/callback/workeasy360` (the Next.js dev server proxies `/api/` to
 Django). Register that URI on a development integration and set `WORKEASY360_ISSUER` to the local
 Workeasy360 backend.
+
+## The workeasy360-sso connector and back-channel logout (2026-11-16)
+
+The OpenID Connect protocol is the shared **workeasy360-sso** connector (vendored wheel in `backend/vendor/`,
+`INSTALLED_APPS` entry `workeasy360_sso`), not Keel code: discovery and the key set, the authorization code
+flow with PKCE, the single-use server-side flow bound to the browser by a cookie (several tabs can sign in at
+once), `private_key_jwt`, ID-token and logout-token verification, the entitlement API with its cache and
+rules, and the back-channel logout receiver. It reads its configuration from the `WORKEASY360_*` settings
+above (`apps/accounts/workeasy360/connector_settings.py`); no environment or SSM name changed.
+
+Keel keeps its rules around it: the three routes and their behaviour (`apps/accounts/workeasy360/views.py`,
+the `sso_error` vocabulary the frontend maps), who signs in and where they land (`provisioning.py`, the
+connector's user and organization adapters - one transaction), what is recorded about a sign-in (allauth's
+backend and authentication record, `workeasy360_aal`/`workeasy360_sub`, `user_logged_in`), MFA and
+"Confirm it's you", DRF enforcement of entitlement and its 403 codes (`entitlement.py`), background-job
+gating (`background.py`).
+
+**Data.** `ExternalIdentity` stays the authoritative (issuer, `sub`) → user link. The connector keeps a mirror,
+`workeasy360_sso_federated_identity`, which migration `accounts.0007` back-filled and every sign-in keeps in
+step; its session records (`workeasy360_sso_product_session`) say which Keel sessions a sign-in opened.
+Other connector tables hold in-flight sign-ins and spent logout-token ids; `accounts.workeasy360_cleanup`
+(Celery beat, every 6 h) purges what is no longer needed.
+
+**Back-channel logout** (OpenID Connect Back-Channel Logout 1.0). Workeasy360 POSTs a signed logout token to
+`/api/auth/workeasy360/backchannel-logout` (under `/api/`, the only prefix the edge routes to Django). The
+connector verifies it (signature from the key set, `iss`, `aud`, `iat`/`exp`, the back-channel event, no
+`nonce`, `typ: logout+jwt`) and accepts each `jti` once; a replay or a forged token is answered `400` and ends
+nothing.
+
+| Token names | Ends |
+|---|---|
+| `sid` ("sign out of this device") | the Keel sessions that Workeasy360 sign-in opened - nothing else; the same person's other devices stay signed in |
+| only `sub` ("sign out everywhere") | every Keel session of that person: the connector's records, and `services.revoke_user_sessions` (session salt rotated, allauth sessions purged), which also ends sessions opened before this release |
+
+A session opened before this release has no connector record, so only "sign out everywhere" reaches it. If
+ending the sessions fails, nothing is recorded and Workeasy360 is answered `503` and delivers again. Both
+cases are audited (`auth.logout` / `auth.sessions_revoked`, method `workeasy360_backchannel`).
+
+Sign-out of WorkEasyCRM only is unchanged (allauth's session `DELETE`); it also ends the session's connector
+record. A password sign-in in hybrid mode drops the federated keys and that record as well.
 
 ## Moving an existing customer to Workeasy360 sign-in
 

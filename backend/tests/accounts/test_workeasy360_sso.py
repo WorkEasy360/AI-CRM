@@ -1,7 +1,9 @@
-"""Sign in with Workeasy360, end to end through the two views, against an in-process provider."""
+"""Sign in with Workeasy360, end to end through Keel's views and the workeasy360-sso connector, against an
+in-process provider."""
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -19,6 +21,8 @@ from django.core.checks import run_checks
 from django.core.management import CommandError, call_command
 from django.core.management.base import SystemCheckError
 from rest_framework.test import APIClient
+from workeasy360_sso import discovery
+from workeasy360_sso.models import PendingSignIn
 
 from apps.accounts import services
 from apps.accounts.models import ExternalIdentity, Membership, Organization, User
@@ -39,15 +43,14 @@ CALLBACK = "/api/auth/callback/workeasy360"
 
 
 @pytest.fixture
-def provider(settings, monkeypatch):
-    provider = fake.FakeProvider()
-    settings.WORKEASY360_ISSUER = fake.ISSUER
-    settings.WORKEASY360_CLIENT_ID = fake.CLIENT_ID
-    settings.WORKEASY360_REDIRECT_URI = fake.REDIRECT_URI
-    settings.WORKEASY360_KEY_ID = fake.CLIENT_KID
-    settings.WORKEASY360_PRIVATE_KEY = provider.client_private_pem
-    monkeypatch.setattr(config, "transport_override", provider.transport)
-    return provider
+def provider(settings):
+    return fake.configure(settings, fake.FakeProvider())
+
+
+def _flow(location: str) -> PendingSignIn:
+    """The connector's pending flow for the authorization request at ``location`` (it stores a hash of state)."""
+    state = parse_qs(urlsplit(location).query)["state"][0]
+    return PendingSignIn.objects.get(state_hash=hashlib.sha256(state.encode()).hexdigest())
 
 
 @pytest.fixture
@@ -89,17 +92,18 @@ def _actions(**filters) -> list[str]:
 # ----------------------------------------------------------------------------- start
 
 
-def test_start_keeps_the_flow_in_the_session_and_redirects_with_the_organization(provider):
+def test_start_keeps_the_flow_server_side_and_redirects_with_the_organization(provider):
     client = APIClient()
     resp = client.get(START, {"organization": W360_ORG, "next": "/contacts?view=all"})
     assert resp.status_code == 302
     query = {k: v[0] for k, v in parse_qs(urlsplit(resp["Location"]).query).items()}
     assert query["organization"] == W360_ORG
     assert query["redirect_uri"] == fake.REDIRECT_URI
-    [flow] = client.session["workeasy360_flows"]
-    assert flow["state"] == query["state"] and flow["nonce"] == query["nonce"]
-    assert flow["organization"] == W360_ORG and flow["next"] == "/contacts?view=all"
-    assert "verifier" in flow and flow["verifier"] not in resp["Location"]
+    flow = _flow(resp["Location"])  # single use, bound to this browser by a cookie; state stored only hashed
+    assert flow.nonce == query["nonce"] and query["state"] not in flow.state_hash
+    assert str(flow.organization_hint) == W360_ORG and flow.next_path == "/contacts?view=all"
+    assert flow.code_verifier and flow.code_verifier not in resp["Location"]
+    assert "w360sso_bind" in resp.cookies
 
 
 @pytest.mark.parametrize("bad_next", ["https://evil.example/", "//evil.example", "/\\evil.example", "/login", "/a b"])
@@ -107,14 +111,14 @@ def test_start_drops_a_bad_organization_and_an_off_site_next(provider, bad_next)
     client = APIClient()
     resp = client.get(START, {"organization": "not-a-uuid", "next": bad_next})
     assert "organization" not in parse_qs(urlsplit(resp["Location"]).query)
-    [flow] = client.session["workeasy360_flows"]
-    assert flow["organization"] == "" and flow["next"] == "/"
+    flow = _flow(resp["Location"])
+    assert flow.organization_hint is None and flow.next_path == "/"
 
 
 def test_next_never_carries_the_launcher_parameter_back(provider):
     client = APIClient()
-    client.get(START, {"next": f"/deals?organization={W360_ORG}"})
-    assert client.session["workeasy360_flows"][0]["next"] == "/deals"
+    resp = client.get(START, {"next": f"/deals?organization={W360_ORG}"})
+    assert _flow(resp["Location"]).next_path == "/deals"
 
 
 def test_start_without_configuration_goes_back_to_login():
@@ -202,10 +206,14 @@ def test_a_blank_product_code_is_not_an_error_where_sign_in_is_not_configured(se
 
 @pytest.mark.parametrize("claims", [{}, {"product_code": None}, {"product_code": "easy_helpdesk"}])
 def test_a_blank_product_code_refuses_every_sign_in_instead_of_checking_nothing(provider, settings, claims):
-    """If the startup checks were bypassed, an empty setting must not switch the comparison off."""
-    settings.WORKEASY360_PRODUCT_CODE = ""
+    """If the startup checks were bypassed, an empty setting must not switch the comparison off: no sign-in
+    starts, and one already under way when the setting went blank is refused at the callback."""
     client = APIClient()
-    assert _error_of(_sign_in(client, provider, **claims)) == "unavailable"
+    resp = client.get(START)
+    code, state = provider.authorize(resp["Location"], **claims)
+    settings.WORKEASY360_PRODUCT_CODE = ""
+    assert _error_of(client.get(CALLBACK, {"code": code, "state": state})) == "unavailable"
+    assert _error_of(client.get(START)) == "unavailable"
     assert "_auth_user_id" not in client.session
     assert not User.objects.filter(email="ada@example.com").exists()
 
@@ -370,10 +378,14 @@ def test_a_successful_callback_issues_a_new_session_key_so_a_planted_one_is_wort
     """Session fixation: whoever planted the session id a browser had before signing in must not be signed in
     by the sign-in. The key changes across the callback and the old one is gone."""
     client = APIClient()
+    planted = client.session  # a session id the browser had (or was given) before signing in
+    planted["planted"] = True
+    planted.save()
+    client.cookies[settings.SESSION_COOKIE_NAME] = planted.session_key
     resp = client.get(START)
     assert resp.status_code == 302
     before = client.session.session_key
-    assert before and client.session["workeasy360_flows"]
+    assert before == planted.session_key
 
     code, state = provider.authorize(resp["Location"])
     done = client.get(CALLBACK, {"code": code, "state": state})
@@ -455,9 +467,7 @@ def test_an_expired_flow_is_refused(provider, monkeypatch):
     client = APIClient()
     resp = client.get(START)
     code, state = provider.authorize(resp["Location"])
-    session = client.session
-    session["workeasy360_flows"][0]["at"] = time.time() - 3600
-    session.save()
+    PendingSignIn.objects.update(expires_at="2000-01-01T00:00:00Z")  # started an hour (and more) ago
     assert _error_of(client.get(CALLBACK, {"code": code, "state": state})) == "expired"
 
 
@@ -488,10 +498,11 @@ def test_two_tabs_can_sign_in_at_once(provider):
 )
 def test_provider_error_parameters_map_to_the_fixed_vocabulary(provider, error, expected):
     client = APIClient()
-    state = parse_qs(urlsplit(client.get(START)["Location"]).query)["state"][0]
+    location = client.get(START)["Location"]
+    state = parse_qs(urlsplit(location).query)["state"][0]
     resp = client.get(CALLBACK, {"error": error, "error_description": "<script>", "state": state})
     assert _error_of(resp) == expected
-    assert client.session["workeasy360_flows"] == []  # the flow is spent
+    assert _flow(location).consumed_at is not None  # the flow is spent
 
 
 def test_invalid_grant_sends_the_user_back_to_try_again(provider):
@@ -659,18 +670,18 @@ def _age_newest_record(client, seconds: int) -> None:
 
 
 def test_sign_out_of_workeasy360_goes_to_its_confirmation_with_the_registered_uri(provider, settings):
-    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = "http://testserver/login"
+    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = fake.POST_LOGOUT_REDIRECT_URI
     resp = APIClient().get("/api/auth/workeasy360/logout")
     assert resp.status_code == 302
     assert resp["Location"].startswith(fake.END_SESSION + "?")
     query = {k: v[0] for k, v in parse_qs(urlsplit(resp["Location"]).query).items()}
-    assert query == {"client_id": fake.CLIENT_ID, "post_logout_redirect_uri": "http://testserver/login"}
+    assert query == {"client_id": fake.CLIENT_ID, "post_logout_redirect_uri": fake.POST_LOGOUT_REDIRECT_URI}
 
 
 def test_the_sign_out_link_changes_nothing_here(provider, settings):
     """A link to it cannot sign anyone out of Keel: the frontend ends Keel's session first, with a
     CSRF-protected write."""
-    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = "http://testserver/login"
+    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = fake.POST_LOGOUT_REDIRECT_URI
     client = APIClient()
     _sign_in(client, provider)
     client.get("/api/auth/workeasy360/logout")
@@ -679,11 +690,9 @@ def test_the_sign_out_link_changes_nothing_here(provider, settings):
 
 def test_sign_out_of_workeasy360_falls_back_to_sign_in_when_unavailable(provider, settings):
     assert APIClient().get("/api/auth/workeasy360/logout")["Location"] == "/login"  # no post-logout URI
-    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = "http://testserver/login"
+    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = fake.POST_LOGOUT_REDIRECT_URI
     provider.advertise_end_session = False
-    from apps.accounts.workeasy360 import config as cfg
-
-    cfg._cached = None  # rediscover
+    discovery.reset_cache()  # rediscover
     assert APIClient().get("/api/auth/workeasy360/logout")["Location"] == "/login"
 
 
@@ -709,7 +718,7 @@ def test_auth_methods_endpoint(provider, settings):
         "workeasy360_sign_out": False,
     }
     settings.WORKEASY360_SSO_ONLY = True
-    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = "http://testserver/login"
+    settings.WORKEASY360_POST_LOGOUT_REDIRECT_URI = fake.POST_LOGOUT_REDIRECT_URI
     assert APIClient().get("/api/v1/auth/methods/").json() == {
         "password": False,
         "workeasy360": True,

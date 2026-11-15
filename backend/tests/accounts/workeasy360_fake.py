@@ -1,9 +1,13 @@
-"""An in-process stand-in for the Workeasy360 OpenID provider, plugged in as the client's transport.
+"""An in-process stand-in for the Workeasy360 OpenID provider, plugged in as the connector's HTTP transport.
 
 It serves discovery and the key set, records what the browser was sent to authorize, and answers the
 token endpoint the way the real one does: client assertion signature, PKCE verifier and redirect URI are
 checked, and a code is single-use. The entitlement API answers ``self.entitlement`` (allow, by default), or
 ``self.entitlement_by_subject[subject]`` when the request names a person, to a correctly authenticated client.
+It also mints back-channel logout tokens (``logout_token``) signed with its own key.
+
+``configure(settings, provider)`` points Keel's ``WORKEASY360_*`` settings - and through them the
+workeasy360-sso connector (``WORKEASY360_HTTP_TRANSPORT``) - at it.
 """
 
 from __future__ import annotations
@@ -13,9 +17,11 @@ import hashlib
 import json
 import time
 import uuid
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+import httpx
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -24,12 +30,15 @@ from jwt.algorithms import RSAAlgorithm
 ISSUER = "https://id.workeasy360.test"
 CLIENT_ID = "keel-test-client"
 CLIENT_KID = "cred-test-1"
-REDIRECT_URI = "http://testserver/api/auth/callback/workeasy360"
+# https, as registered in production: the connector refuses an http redirect URI outside loopback development.
+REDIRECT_URI = "https://testserver/api/auth/callback/workeasy360"
+POST_LOGOUT_REDIRECT_URI = "https://testserver/login"
 AUTHORIZE = f"{ISSUER}/oauth/authorize"
 TOKEN = f"{ISSUER}/oauth/token"
 JWKS = f"{ISSUER}/.well-known/jwks.json"
 END_SESSION = f"{ISSUER}/oauth/logout"
 ENTITLEMENT = f"{ISSUER}/integrations/entitlements/verify"
+BACKCHANNEL_EVENT = "http://schemas.openid.net/event/backchannel-logout"
 
 _KEYS: dict[str, rsa.RSAPrivateKey] = {}
 
@@ -61,8 +70,12 @@ class FakeProvider:
         self.discovery_issuer = ISSUER
         self.keys: list[dict[str, Any]] = [public_jwk(self.signing_key, self.kid)]
         self.calls: list[tuple[str, str, dict | None]] = []
+        #: (url, httpx timeout extension) of every request, to see what the connector waits for.
+        self.timeouts: list[tuple[str, dict[str, Any] | None]] = []
         self.token_status = 200
         self.token_error = ""
+        #: Replaces the token endpoint's answer: form -> (status, body).
+        self.token_override: Callable[[dict[str, str]], tuple[int, dict[str, Any]]] | None = None
         self.advertise_end_session = True
         self.advertise_entitlement = True
         self.entitlement_status = 200
@@ -77,6 +90,8 @@ class FakeProvider:
         self.entitlement_by_subject: dict[str, dict[str, Any]] = {}
         # Answers for one organization (the ``organization_id`` form field) when no person-specific one applies.
         self.entitlement_by_organization: dict[str, dict[str, Any]] = {}
+        #: Called with the form before the entitlement endpoint answers (races, failures).
+        self.entitlement_hook: Callable[[dict[str, str]], None] | None = None
         self._codes: dict[str, dict[str, Any]] = {}
 
     @property
@@ -128,7 +143,40 @@ class FakeProvider:
             headers={"kid": kid or self.kid, **(headers or {})},
         )
 
+    def logout_token(self, *, sub: str | None = None, sid: str | None = None, key=None, **overrides: Any) -> str:
+        """A back-channel logout token (Back-Channel Logout 1.0 section 2.4), as Workeasy360 POSTs one."""
+        now = int(time.time())
+        claims: dict[str, Any] = {
+            "iss": ISSUER,
+            "aud": CLIENT_ID,
+            "iat": now,
+            "exp": now + 120,
+            "jti": uuid.uuid4().hex,
+            "events": {BACKCHANNEL_EVENT: {}},
+            "sub": sub,
+            "sid": sid,
+        }
+        claims.update(overrides)
+        claims = {k: v for k, v in claims.items() if v is not None}
+        return jwt.encode(
+            claims, pem(key or self.signing_key), algorithm="RS256", headers={"kid": self.kid, "typ": "logout+jwt"}
+        )
+
     # --- the transport ------------------------------------------------------
+
+    @property
+    def httpx_transport(self) -> httpx.MockTransport:
+        """What the connector's ``HTTP_TRANSPORT`` setting takes."""
+        return httpx.MockTransport(self.handle)
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        self.timeouts.append((url, request.extensions.get("timeout")))
+        form = None
+        if request.method == "POST":
+            form = {k: v[0] for k, v in parse_qs(request.content.decode()).items()}
+        status, body = self.transport(request.method, url, form)
+        return httpx.Response(status, json=body)
 
     def transport(self, method: str, url: str, form: dict[str, str] | None) -> tuple[int, dict[str, Any]]:
         self.calls.append((method, url, form))
@@ -162,11 +210,14 @@ class FakeProvider:
             issuer=CLIENT_ID,
         )
         assert assertion["sub"] == CLIENT_ID
+        assert assertion["exp"] - assertion["iat"] <= 300  # the platform refuses longer-lived assertions
         assert jwt.get_unverified_header(form["client_assertion"])["kid"] == CLIENT_KID
 
     def _entitlement(self, form: dict[str, str]) -> tuple[int, dict[str, Any]]:
         self._authenticate_client(form)
         assert "product_code" not in form  # the product is the authenticated client, never a parameter
+        if self.entitlement_hook is not None:
+            self.entitlement_hook(form)
         if self.entitlement_status != 200:
             return self.entitlement_status, {"error": "temporarily_unavailable"}
         answer = self.entitlement_by_subject.get(form.get("subject", ""))
@@ -177,7 +228,12 @@ class FakeProvider:
     def entitlement_calls(self) -> list[dict | None]:
         return [form for method, url, form in self.calls if method == "POST" and url == ENTITLEMENT]
 
+    def token_calls(self) -> list[dict | None]:
+        return [form for method, url, form in self.calls if method == "POST" and url == TOKEN]
+
     def _token(self, form: dict[str, str]) -> tuple[int, dict[str, Any]]:
+        if self.token_override is not None:
+            return self.token_override(form)
         if self.token_status != 200:
             return self.token_status, {"error": self.token_error}
         self._authenticate_client(form)
@@ -189,3 +245,28 @@ class FakeProvider:
             return 400, {"error": "invalid_grant"}
         token = self.id_token(nonce=grant["query"]["nonce"], **grant["claims"])
         return 200, {"id_token": token, "access_token": "at", "token_type": "Bearer", "expires_in": 300}
+
+
+def configure(settings, provider: FakeProvider) -> FakeProvider:
+    """Point Keel's Workeasy360 settings (and with them the connector) at ``provider``."""
+    settings.WORKEASY360_ISSUER = ISSUER
+    settings.WORKEASY360_CLIENT_ID = CLIENT_ID
+    settings.WORKEASY360_REDIRECT_URI = REDIRECT_URI
+    settings.WORKEASY360_KEY_ID = CLIENT_KID
+    settings.WORKEASY360_PRIVATE_KEY = provider.client_private_pem
+    settings.WORKEASY360_HTTP_TRANSPORT = provider.httpx_transport
+    return provider
+
+
+class Clock:
+    """The connector's entitlement clock, moved by hand: ``advance(901)`` makes every stored answer, back-off
+    and refusal mark 901 seconds older."""
+
+    def __init__(self) -> None:
+        self.now = time.time()
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds

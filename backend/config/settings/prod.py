@@ -69,6 +69,9 @@ if _workeasy360_configured:
         raise RuntimeError("WORKEASY360_PRIVATE_KEY_FILE does not name a readable file.")
     if WORKEASY360_POST_LOGOUT_REDIRECT_URI and not WORKEASY360_POST_LOGOUT_REDIRECT_URI.startswith("https://"):
         raise RuntimeError("WORKEASY360_POST_LOGOUT_REDIRECT_URI must be https:// in production.")
+if env.bool("WORKEASY360_ALLOW_INSECURE_HTTP", default=False):
+    raise RuntimeError("WORKEASY360_ALLOW_INSECURE_HTTP is a development-only switch; never set it in production.")
+WORKEASY360_ALLOW_INSECURE_HTTP = False
 
 AUTO_LOGIN_ENABLED = False
 

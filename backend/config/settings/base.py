@@ -7,6 +7,8 @@ from pathlib import Path
 
 import environ
 
+from apps.accounts.workeasy360.connector_settings import ConnectorSettings
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 REPO_DIR = BASE_DIR.parent
 
@@ -40,6 +42,8 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "csp",
     "django_celery_beat",
+    # Workeasy360 sign-in: the shared OpenID Connect connector (apps.accounts.workeasy360 holds Keel's rules).
+    "workeasy360_sso",
     "apps.core",
     "apps.accounts",
     "apps.authz",
@@ -89,6 +93,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Keeps back-channel logout pointed at a Workeasy360 session when Keel rotates its key (organization switch).
+    # Never redirects or refuses: the frontend starts sign-ins and DRF enforces access (not SSOMiddleware).
+    "workeasy360_sso.middleware.SessionTrackingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
@@ -347,6 +354,18 @@ WORKEASY360_SSO_ONLY = env.bool("WORKEASY360_SSO_ONLY", default=True)
 # logout). Must be registered for this client in Workeasy360 exactly (its post-logout URIs), e.g.
 # https://crm.workeasy360.com/login. Empty: only Keel's own sign-out is offered.
 WORKEASY360_POST_LOGOUT_REDIRECT_URI = env("WORKEASY360_POST_LOGOUT_REDIRECT_URI", default="")
+# OpenID Connect Back-Channel Logout: Workeasy360 POSTs a signed logout token to
+# /api/auth/workeasy360/backchannel-logout when a person signs out of a device or everywhere, and the Keel
+# sessions of that sign-in (or of that person) end. Register that URI on the integration.
+WORKEASY360_BACKCHANNEL_LOGOUT = env.bool("WORKEASY360_BACKCHANNEL_LOGOUT", default=True)
+# Local development only: allows http issuer/redirect URIs on loopback hosts (127.0.0.0/8, localhost).
+# config.settings.prod refuses it.
+WORKEASY360_ALLOW_INSECURE_HTTP = env.bool("WORKEASY360_ALLOW_INSECURE_HTTP", default=False)
+# Python only (tests): an httpx transport the connector sends every request to Workeasy360 through.
+WORKEASY360_HTTP_TRANSPORT = None
+# The connector's configuration, derived from the settings above whenever it reads it
+# (apps.accounts.workeasy360.connector_settings). Configure the WORKEASY360_* settings, not this.
+WORKEASY360_SSO = ConnectorSettings()
 
 # ----------------------------------------------------------------------------- API
 REST_FRAMEWORK = {
@@ -560,6 +579,12 @@ CELERY_BEAT_SCHEDULE = {
     "billing.reconcile_usage": {"task": "billing.reconcile_usage", "schedule": 6 * 3600.0},
     # Delayed automation steps ("send after 3 days", "if no reply") and runs held while access was paused.
     "automation.run_due": {"task": "automation.run_due", "schedule": 300.0, "options": {"expires": 280}},
+    # The Workeasy360 connector's spent sign-in flows, logout-token ids and old session records.
+    "accounts.workeasy360_cleanup": {
+        "task": "accounts.workeasy360_cleanup",
+        "schedule": 6 * 3600.0,
+        "options": {"expires": 3600},
+    },
 }
 # Emails are queued (notifications queue) unless a deployment opts out; tests run tasks eagerly.
 EMAIL_ASYNC = env.bool("EMAIL_ASYNC", default=True)
