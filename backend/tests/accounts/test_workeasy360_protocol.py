@@ -237,7 +237,8 @@ def test_the_client_assertion_names_this_client_and_the_token_endpoint(provider)
     assert claims["iss"] == claims["sub"] == fake.CLIENT_ID
     assert claims["aud"] == fake.TOKEN
     assert claims["exp"] - claims["iat"] <= 60
-    assert jwt.decode(second, options={"verify_signature": False})["jti"] != claims["jti"]
+    again = jwt.decode(second, provider.client_key.public_key(), algorithms=["RS256"], audience=fake.TOKEN)
+    assert again["jti"] != claims["jti"]  # single use: every assertion has its own jti
     assert (
         provider.token_calls()[0]["client_assertion_type"] == "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
     )
