@@ -115,6 +115,20 @@ def test_start_drops_a_bad_organization_and_an_off_site_next(provider, bad_next)
     assert flow.organization_hint is None and flow.next_path == "/"
 
 
+def test_use_another_account_asks_workeasy360_for_its_account_chooser(provider):
+    client = APIClient()
+    resp = client.get(START, {"prompt": "select_account", "next": "/deals"})
+    assert parse_qs(urlsplit(resp["Location"]).query)["prompt"] == ["select_account"]
+    assert _flow(resp["Location"]).prompt == "select_account"
+
+
+@pytest.mark.parametrize("prompt", ["none", "login", "consent", "select_account login"])
+def test_no_other_prompt_can_be_asked_for_by_a_visitor(provider, prompt):
+    client = APIClient()
+    resp = client.get(START, {"prompt": prompt})
+    assert "prompt" not in parse_qs(urlsplit(resp["Location"]).query)
+
+
 def test_next_never_carries_the_launcher_parameter_back(provider):
     client = APIClient()
     resp = client.get(START, {"next": f"/deals?organization={W360_ORG}"})

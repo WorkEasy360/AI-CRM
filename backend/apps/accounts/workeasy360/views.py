@@ -171,13 +171,18 @@ def _clean_uuid(value: str | None) -> str:
 @never_cache
 @require_GET
 def start(request: HttpRequest) -> HttpResponse:
-    """GET /api/auth/workeasy360/start?organization=<uuid>&next=<path>"""
+    """GET /api/auth/workeasy360/start?organization=<uuid>&next=<path>[&prompt=select_account]
+
+    ``prompt=select_account`` ("Use another account") makes Workeasy360 show its account chooser even when it
+    would otherwise continue silently; it is the only prompt a visitor may ask for.
+    """
     if not config.is_configured():
         return _login_error("unavailable")
     if not ratelimit.consume(request, action="login"):
         return _login_error("rate_limited")
     organization = _clean_uuid(request.GET.get("organization"))
     reauth = request.GET.get("reauth") == "1"
+    choose_account = request.GET.get("prompt") == "select_account"
     subject = ""
     if reauth:
         # "Confirm it's you" is about the person and the organization already here: Workeasy360 is asked
@@ -194,7 +199,7 @@ def start(request: HttpRequest) -> HttpResponse:
             request,
             next_path=_safe_next(request.GET.get("next")),
             organization=organization or None,
-            prompt="login" if reauth else "",
+            prompt="login" if reauth else ("select_account" if choose_account else ""),
             reauth_subject=subject,
         )
     except SignInRefused as refusal:
