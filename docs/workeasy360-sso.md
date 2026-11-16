@@ -216,6 +216,43 @@ cases are audited (`auth.logout` / `auth.sessions_revoked`, method `workeasy360_
 Sign-out of WorkEasyCRM only is unchanged (allauth's session `DELETE`); it also ends the session's connector
 record. A password sign-in in hybrid mode drops the federated keys and that record as well.
 
+### Rolling out the connector release, and rolling it back
+
+The platform side is Workeasy360 PR #4 (back-channel logout, ADR-067), stacked on its production branch. Keel
+and the platform can be deployed in either order. Until both are live and the URI is registered, nothing is
+sent to the receiver.
+
+**Before deploying Keel**
+1. Run `manage.py check --deploy` and `manage.py w360sso_check` with the production environment. The
+   connector refuses some configuration the old client accepted, and in SSO-only production it refuses to
+   start on any `workeasy360_sso.E001` error. Examples: a query string in `WORKEASY360_POST_LOGOUT_REDIRECT_URI`,
+   a trailing `/` on `WORKEASY360_ISSUER`, an RSA key under 2048 bits. Fix those first.
+2. Take a database snapshot, as for every release.
+
+**Deploy**
+1. `migrate`: `workeasy360_sso.0001`/`0002` create the connector's tables, and `accounts.0007` back-fills the
+   identity mirror. It only adds rows; nothing existing is changed.
+2. Deploy `api`, `worker` and `beat`. Sessions that are already open keep working, and nobody is signed out.
+   A sign-in that is mid-flight at the moment of the deploy ends once in `sso_error=expired`.
+3. Check: one Workeasy360 sign-in works. `manage.py w360sso_manifest` prints the URLs to register.
+
+**Turn on back-channel logout.** Do this only after Keel and platform PR #4 are both live.
+1. In Super Admin, under Products → Easy CRM → Authentication, set the back-channel logout URL to
+   `https://crm.workeasy360.com/api/auth/workeasy360/backchannel-logout`. Its hostname is already proven
+   (carried over).
+2. Sign out of Workeasy360 on one device. That device's Keel session ends, and Super Admin shows the delivery
+   as delivered.
+
+**Roll back**
+1. First clear the back-channel logout URL in Super Admin. The old image answers `404` to its POSTs, and the
+   platform would record each one as a refused delivery.
+2. Redeploy the previous image (`f5c9254`). There is no migration to reverse.
+   - The connector's tables stay; the old code ignores them.
+   - `ExternalIdentity` was authoritative throughout and written exactly as before, so every user link is intact.
+   - Sessions opened by the new code use allauth's backend and the same session keys, so they survive.
+3. To redeploy the new image later, migrate again (a no-op); the identity mirror catches up at each sign-in.
+4. Never drop the connector's tables while either image may still run. The cleanup task keeps them small.
+
 ## Moving an existing customer to Workeasy360 sign-in
 
 Before the first sign-in, attach their Keel organization to their Workeasy360 organization, or a new
