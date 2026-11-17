@@ -22,7 +22,7 @@ One entry per runtime dependency added after Phase 1, in the form ADR-0010 requi
   dependency. Raising the floor moved the dev-only `semgrep` from 1.177.0 to 1.180.0 in the lock (the
   older release's dependency constraints did not admit PyJWT 2.15).
 
-## workeasy360-sso (`workeasy360-sso==0.3.0`, vendored wheel) — added 2026-11-16, 0.3.0 on 2026-11-17
+## workeasy360-sso (`workeasy360-sso==0.3.1`, vendored wheel) — added 2026-11-16, 0.3.1 on 2026-11-17
 
 - **Purpose:** the shared Workeasy360 sign-in connector (an OpenID Connect relying party): authorization code
   flow with PKCE and `private_key_jwt`, offline ID-token and logout-token verification, entitlement re-checks,
@@ -42,3 +42,7 @@ One entry per runtime dependency added after Phase 1, in the form ADR-0010 requi
 - **0.3.0 (2026-11-17):** adds only the `w360sso_move_issuer` command used by `move_workeasy360_issuer`;
   no change to sign-in, token verification or back-channel logout. Wheel sha256
   `2a6fe8e66c956e43ee37991349d54c5fa2d4f24f7c19c31d46ba7cae75b9cf1c` (tag `v0.3.0`).
+- **0.3.1 (2026-11-17):** WorkEasy360 spelling in the connector's own pages, messages and checks; a
+  state-only migration (`workeasy360_sso.0003`, no SQL). No behaviour change. Wheel sha256
+  `cc4766ce62b9b1a27819ad2015c618586680bbd8a74367f49f4a33ff67719c94` (tag `v0.3.1`, private repository
+  `WorkEasy360/workeasy360-sso`).
