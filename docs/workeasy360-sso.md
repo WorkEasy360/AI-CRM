@@ -129,7 +129,7 @@ details are logged (`workeasy360.sign_in_failed`). Workeasy360 authorize errors 
 
 | Setting | Default | |
 |---|---|---|
-| `WORKEASY360_ISSUER` | — | e.g. `https://app.workeasy360.com`; https required in production |
+| `WORKEASY360_ISSUER` | — | Production: `https://accounts.workeasy360.com` (WorkEasy360 Accounts). Never `app.`: it serves no discovery document, and every sign-in would end in `sso_error=unavailable`. https is required in production; see *Moving to WorkEasy360 Accounts* |
 | `WORKEASY360_CLIENT_ID` | — | from the Workeasy360 integration |
 | `WORKEASY360_REDIRECT_URI` | — | `https://crm.workeasy360.com/api/auth/callback/workeasy360` (exact match) |
 | `WORKEASY360_KEY_ID` | — | the credential id Workeasy360 returned for our public key |
@@ -218,7 +218,7 @@ record. A password sign-in in hybrid mode drops the federated keys and that reco
 
 ### Rolling out the connector release, and rolling it back
 
-The platform side is Workeasy360 PR #4 (back-channel logout, ADR-067), stacked on its production branch. Keel
+The platform side is Workeasy360 PR #4 (back-channel logout, ADR-069; drafted as ADR-067), stacked on its production branch. Keel
 and the platform can be deployed in either order. Until both are live and the URI is registered, nothing is
 sent to the receiver.
 
@@ -252,6 +252,50 @@ sent to the receiver.
    - Sessions opened by the new code use allauth's backend and the same session keys, so they survive.
 3. To redeploy the new image later, migrate again (a no-op); the identity mirror catches up at each sign-in.
 4. Never drop the connector's tables while either image may still run. The cleanup task keeps them small.
+
+## Moving to WorkEasy360 Accounts (`accounts.workeasy360.com`), 2026-11-17
+
+WorkEasy360's central sign-in is moving from `https://auth.workeasy360.com` to
+`https://accounts.workeasy360.com` (platform ADR-067). It is the same provider, with the same keys, the same
+people (`sub`), and the same client id, credential, redirect URI and post-logout URI. Only the issuer changes.
+The platform answers on both names while products move, and each name issues tokens only under its own `iss`.
+Keel keeps verifying exactly one issuer, the configured one.
+
+**Which value.** Use `https://accounts.workeasy360.com` once the platform is at stage b (its runbook,
+`deploy/single-host/README.md`, "Accounts"). It is then served and issued on its own host. Before stage b,
+discovery under that name is refused (fails closed), so do not switch earlier.
+
+**Data, in the same release.** Keel links people on (issuer, `sub`) twice: `ExternalIdentity` and the
+connector's mirror. Move both before the new configuration takes traffic:
+
+```sh
+python manage.py move_workeasy360_issuer --from https://auth.workeasy360.com           # dry run, both tables
+python manage.py move_workeasy360_issuer --from https://auth.workeasy360.com --apply   # one transaction
+```
+
+- It moves the links to the configured issuer only, together with their open session records, and audits
+  `auth.sso_issuer_moved`.
+- It folds a duplicate link (the same person on the same Keel user under both names).
+- If one person has two Keel users, or one Keel user holds two people, in either table, it moves nothing and
+  lists them.
+- Running it again moves nothing.
+
+On 2026-11-16 production Keel was not completing any sign-in (`sso_error=unavailable`; SSM
+`/keel/production/WORKEASY360_ISSUER` probably holds `app.`), so the dry run is expected to report
+`identities=0`. Run it anyway: it is the evidence.
+
+**Rollout**
+1. Read SSM `/keel/production/WORKEASY360_ISSUER` (owner).
+2. When the platform is at stage b, set it to `https://accounts.workeasy360.com`.
+3. Deploy, running `migrate` and then `move_workeasy360_issuer --from <old value> --apply` before traffic. If
+   the old value was `app.` (no sign-in ever completed), run the dry run only.
+4. Check with `w360sso_check`, then one sign-in and one sign-out.
+
+**Rollback** (while the platform is still at stage b or c): put the previous value back, then run
+`move_workeasy360_issuer --from https://accounts.workeasy360.com --apply`.
+
+Back-channel logout keeps working through the move: the platform signs each logout token with the issuer Keel
+last redeemed a code under (platform ADR-069 addendum).
 
 ## Moving an existing customer to Workeasy360 sign-in
 

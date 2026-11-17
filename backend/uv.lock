@@ -1069,7 +1069,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2" },
     { name = "pyjwt", specifier = ">=2.15" },
     { name = "structlog", specifier = ">=25.4" },
-    { name = "workeasy360-sso", path = "vendor/workeasy360_sso-0.2.0-py3-none-any.whl" },
+    { name = "workeasy360-sso", path = "vendor/workeasy360_sso-0.3.0-py3-none-any.whl" },
 ]
 
 [package.metadata.requires-dev]
@@ -2262,15 +2262,15 @@ wheels = [
 
 [[package]]
 name = "workeasy360-sso"
-version = "0.2.0"
-source = { path = "vendor/workeasy360_sso-0.2.0-py3-none-any.whl" }
+version = "0.3.0"
+source = { path = "vendor/workeasy360_sso-0.3.0-py3-none-any.whl" }
 dependencies = [
     { name = "django" },
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
 ]
 wheels = [
-    { filename = "workeasy360_sso-0.2.0-py3-none-any.whl", hash = "sha256:9585ebb23a6b179b1a4700b702c60c95216b7b84bfabe20504bb91aef05e8270" },
+    { filename = "workeasy360_sso-0.3.0-py3-none-any.whl", hash = "sha256:2a6fe8e66c956e43ee37991349d54c5fa2d4f24f7c19c31d46ba7cae75b9cf1c" },
 ]
 
 [package.metadata]
