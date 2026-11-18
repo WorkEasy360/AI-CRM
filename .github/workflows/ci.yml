@@ -173,8 +173,13 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - working-directory: frontend
         run: pnpm install --frozen-lockfile
+      # Advisories accepted by ID are listed in package.json (pnpm.auditConfig.ignoreGhsas); each must be
+      # recorded in audit-exceptions.json with an owner and review date, and fails here once that date passes.
+      # The daily Dependency watch workflow fails when an accepted advisory gets a fixed version.
       - working-directory: frontend
         run: pnpm audit --audit-level=high
+      - working-directory: frontend
+        run: node scripts/audit-exceptions.mjs
       - working-directory: frontend
         run: pnpm lint && pnpm typecheck && pnpm test && pnpm build
       # The production server must actually hydrate under the nonce-based CSP. A statically

@@ -46,3 +46,30 @@ One entry per runtime dependency added after Phase 1, in the form ADR-0010 requi
   state-only migration (`workeasy360_sso.0003`, no SQL). No behaviour change. Wheel sha256
   `cc4766ce62b9b1a27819ad2015c618586680bbd8a74367f49f4a33ff67719c94` (tag `v0.3.1`, private repository
   `WorkEasy360/workeasy360-sso`).
+
+## Accepted frontend advisories (`pnpm audit`)
+
+`pnpm audit --audit-level=high` runs on every pull request. An advisory can be accepted only by ID, in
+`frontend/package.json` (`pnpm.auditConfig.ignoreGhsas`), and only with a record in
+`frontend/audit-exceptions.json` naming its owner and review date. CI (`node scripts/audit-exceptions.mjs`)
+fails once that date passes, and the daily **Dependency watch** workflow fails as soon as an accepted
+advisory names a fixed version.
+
+### GHSA-fc5q-39xc-vjpf (picomatch `<= 4.0.7`, high) — accepted 2026-11-18, review by 2026-12-18
+
+ReDoS through single-branch repeated extglobs. Accepted under the owner's conditional approval after each
+condition was checked (2026-11-18, `pnpm-lock.yaml` at next 15.5.29):
+
+- **Installed:** picomatch 2.3.2 (`eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` →
+  `micromatch`) and 4.0.7 (`eslint-config-next` → `@typescript-eslint/…/typescript-estree` → `tinyglobby`).
+  Lint only.
+- **Not in production:** `pnpm why picomatch --prod` is empty and `pnpm audit --prod` finds no
+  vulnerability. The image ships the Next.js standalone server (`.next/standalone`), which carries runtime
+  files only. Next's own bundled copy (`next/dist/compiled/picomatch`) runs at request time only to match
+  `images.localPatterns` / `images.remotePatterns`. `next.config.ts` sets neither (defaults: `undefined`
+  and `[]`), so it is never called.
+- **No untrusted input:** the slow regular expressions come from the glob pattern, and every pattern on
+  these paths is developer-written lint configuration.
+- **No fix:** 4.0.7 is the latest release and the advisory names no patched version.
+
+Owner: platform owner. Remove the ID (and its record) once a fixed picomatch is available.

@@ -1,0 +1,50 @@
+name: Dependency watch
+
+# Daily, on the default branch: the frontend audit against today's advisory database, the review dates of
+# every advisory accepted by ID (frontend/audit-exceptions.json), and whether an accepted advisory now has a
+# fixed version. A failure here means an exception can be removed (upgrade, then delete it), has passed its
+# review date, or a new advisory has appeared.
+on:
+  schedule:
+    - cron: "47 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend advisories and accepted exceptions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm audit --audit-level=high
+      - run: node scripts/audit-exceptions.mjs
+      - name: Accepted advisories that now have a fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fixed=0
+          for id in $(node scripts/audit-exceptions.mjs --ids); do
+            patched=$(gh api "advisories/$id" --jq '[.vulnerabilities[].first_patched_version | select(. != null)] | join(", ")')
+            if [ -n "$patched" ]; then
+              echo "::error::$id now has a fixed version ($patched): upgrade, then remove it from package.json and audit-exceptions.json"
+              fixed=1
+            else
+              echo "$id: still no fixed version"
+            fi
+          done
+          exit $fixed

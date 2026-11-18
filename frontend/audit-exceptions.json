@@ -1,0 +1,16 @@
+{
+  "GHSA-vfj7-8cjw-p6xm": {
+    "package": "braces <= 3.0.3",
+    "owner": "platform owner",
+    "accepted": "2026-10-19 (commit 8693939)",
+    "reviewBy": null,
+    "why": "No fixed release; reached only through dev tooling. Kept as it was; give it a review date at its next review."
+  },
+  "GHSA-fc5q-39xc-vjpf": {
+    "package": "picomatch <= 4.0.7 (high: ReDoS through single-branch repeated extglobs)",
+    "owner": "platform owner",
+    "accepted": "2026-11-18",
+    "reviewBy": "2026-12-18",
+    "why": "No fixed release exists. Reached only through eslint-config-next (lint): `pnpm why picomatch --prod` is empty and `pnpm audit --prod` is clean. The image ships the Next.js standalone server, which carries runtime files only; Next's own bundled copy runs at request time only for images.localPatterns/remotePatterns, which this app does not set. Every glob pattern on these paths is developer-written configuration. See docs/security/dependency-notes.md."
+  }
+}
