@@ -38,8 +38,10 @@ One entry per runtime dependency added after Phase 1, in the form ADR-0010 requi
   `ssh://git@github.com/WorkEasy360/workeasy360-sso.git`, pinned to the full commit SHA of tag `v0.3.1`
   (`a98552f8f37e1e4f1fab1de99cc5b915cb9ed5c1`). Installs therefore never resolve the name from PyPI (no
   dependency confusion), and a moved tag changes nothing. Installing needs read access to that repository:
-  developers through their GitHub account, CI and the image build through a read-only deploy key (the Actions
-  secret `WORKEASY360_SSO_DEPLOY_KEY`, forwarded to BuildKit's SSH mount). Details are in docs/workeasy360-sso.md,
+  developers through their GitHub account, CI and the image build through a one-hour, read-only installation token
+  of a GitHub App installed on that repository alone (`WORKEASY360_SSO_APP_ID`, `WORKEASY360_SSO_APP_PRIVATE_KEY`;
+  given only to the install step, or to the build as a BuildKit secret). The API image, which therefore contains
+  the connector, is pushed only to a private ECR repository. Details are in docs/workeasy360-sso.md,
   "Installing the connector". Upgrading means putting the new tag's commit in `[tool.uv.sources]` and re-locking.
 - **Build:** a git dependency is built from source at install time, and the lock does not record build tools. So
   `build-constraint-dependencies` in `backend/pyproject.toml` pins the build backend (hatchling 1.33.0) and its

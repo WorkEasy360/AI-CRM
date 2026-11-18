@@ -3,10 +3,12 @@
 
 FROM python:3.13-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /uvx /bin/
-# The WorkEasy360 sign-in connector is a git dependency on a private repository, fetched over SSH
-# (docs/workeasy360-sso.md, "Installing the connector"). git and the SSH client exist in this stage only. github.com's
-# host keys are pinned as GitHub publishes them (fingerprints in .github/actions/workeasy360-sso-access, which pins the
-# same three lines); no other host key is trusted and an unknown or changed one is refused.
+# The WorkEasy360 sign-in connector is a git dependency on a private repository, locked by its SSH URL
+# (docs/workeasy360-sso.md, "Installing the connector"). git and the SSH client exist in this stage only. For the SSH
+# path, github.com's host keys are pinned exactly as GitHub publishes them (https://api.github.com/meta, "ssh_keys";
+# fingerprints: Ed25519 SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU, ECDSA
+# SHA256:p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM, RSA SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s); no
+# other host key is trusted and an unknown or changed one is refused.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git openssh-client \
     && rm -rf /var/lib/apt/lists/* \
@@ -23,13 +25,31 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock ./
-# The SSH mount forwards the caller's ssh-agent to this step alone (CI: the deploy key, via build-push-action's `ssh`
-# input; locally: `docker build --ssh default`) and the build stops if none is forwarded. The private key never
-# enters the build, and git's clone stays in the cache mount, so no key and no .git lands in any layer: only the
-# installed package does.
-RUN --mount=type=ssh,required=true \
+# Read access to the connector's repository reaches this one step, in one of two ways:
+# - a short-lived token as the BuildKit secret `workeasy360_sso_token`. CI passes a one-hour, read-only GitHub App
+#   installation token (build-push-action `secret-envs`); locally: `--secret id=workeasy360_sso_token,env=GH_TOKEN`.
+#   git fetches the locked SSH URL over HTTPS with it, set in this command's environment only.
+# - otherwise the caller's ssh-agent (`docker build --ssh default`; docker compose forwards it with `ssh: [default]`).
+# With neither, the build stops here and says so. The secret and the agent are mounted for this step alone, and git's
+# clone stays in the cache mount, so no token, no key and no .git lands in any layer: only the installed package does.
+RUN --mount=type=secret,id=workeasy360_sso_token,required=false \
+    --mount=type=ssh,required=false \
     --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    if [ -s /run/secrets/workeasy360_sso_token ]; then \
+        GIT_CONFIG_COUNT=1 \
+        GIT_CONFIG_KEY_0="url.https://x-access-token:$(tr -d '[:space:]' </run/secrets/workeasy360_sso_token)@github.com/WorkEasy360/workeasy360-sso.git.insteadOf" \
+        GIT_CONFIG_VALUE_0="ssh://git@github.com/WorkEasy360/workeasy360-sso.git" \
+        GIT_TERMINAL_PROMPT=0 \
+        uv sync --frozen --no-dev --no-install-project; \
+    elif [ -S "${SSH_AUTH_SOCK:-}" ]; then \
+        uv sync --frozen --no-dev --no-install-project; \
+    else \
+        echo "error: the WorkEasy360 sign-in connector is in the private repository WorkEasy360/workeasy360-sso." \
+            "Build with --secret id=workeasy360_sso_token,env=GH_TOKEN (GH_TOKEN: a token that can read it, e.g. from" \
+            "'gh auth token') or with --ssh default (an ssh-agent holding a key that can)." \
+            "See docs/workeasy360-sso.md, Installing the connector." >&2; \
+        exit 1; \
+    fi
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev

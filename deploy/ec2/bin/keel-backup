@@ -11,8 +11,17 @@ umask 077
 DIR=/var/backups/keel
 KEEP="${KEEL_BACKUP_DAYS:-7}"
 TAG="$(cat /var/lib/keel/current)"
-export KEEL_API_IMAGE="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}-api:$TAG"
-export KEEL_WEB_IMAGE="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}-web:$TAG"
+# The images the current release runs (bin/keel-deploy records them; a release deployed before that ran both from
+# GHCR). Compose needs them to load the stack; `exec` below uses the running containers and pulls nothing.
+IMAGES=/var/lib/keel/images.env
+if [ -r "$IMAGES" ] && grep -qxF "KEEL_RELEASE=$TAG" "$IMAGES"; then
+  KEEL_API_IMAGE="$(sed -n 's/^KEEL_API_IMAGE=//p' "$IMAGES")"
+  KEEL_WEB_IMAGE="$(sed -n 's/^KEEL_WEB_IMAGE=//p' "$IMAGES")"
+else
+  KEEL_API_IMAGE="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}-api:$TAG"
+  KEEL_WEB_IMAGE="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}-web:$TAG"
+fi
+export KEEL_API_IMAGE KEEL_WEB_IMAGE
 ts="$(date -u +%Y%m%dT%H%M%SZ)"
 install -d -m 0700 "$DIR"
 cd /opt/keel/src/deploy/ec2

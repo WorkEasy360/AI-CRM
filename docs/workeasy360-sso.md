@@ -239,51 +239,119 @@ Without it, `uv sync` stops at the connector.
   ```
 
   The lock still names the SSH URL and the same commit; only your git changes how it fetches.
-- *Docker:* run `docker build --ssh default backend`, or `docker compose build` (`ssh: [default]` in
-  `docker-compose.yml` forwards your agent). The image build needs an ssh-agent holding a key with access. On
-  Windows that is the OpenSSH Authentication Agent service. The HTTPS rewrite does not reach inside the build.
-  Without `--ssh`, the build stops at the connector step (`unset ssh forward key default`).
+- *Docker:* either pass a token as the BuildKit secret, for example your GitHub CLI's:
+
+  ```bash
+  GH_TOKEN="$(gh auth token)" docker build --secret id=workeasy360_sso_token,env=GH_TOKEN backend
+  ```
+
+  or forward an ssh-agent holding a key with access: `docker build --ssh default backend`, or
+  `docker compose build` (`ssh: [default]` in `docker-compose.yml`). On Windows the agent is the OpenSSH
+  Authentication Agent service. The HTTPS rewrite in your own git configuration does not reach inside the build.
+  With neither, the build stops at the connector step and says so.
 
 **CI** (`ci.yml`, `deploy.yml`). Every job that installs backend dependencies or builds the backend image
 (backend tests, lint and types, security, container build, deploy images) first runs
 `.github/actions/workeasy360-sso-access`. That step:
 
-- loads the read-only deploy key from the Actions secret `WORKEASY360_SSO_DEPLOY_KEY` into an ssh-agent (piped
-  in, never written to disk);
-- pins github.com's host keys exactly as GitHub publishes them, with strict host key checking;
-- checks with `git ls-remote` that the key can read the repository;
-- exports `SSH_AUTH_SOCK`.
+- checks that the repository variable `WORKEASY360_SSO_APP_ID` and the secret `WORKEASY360_SSO_APP_PRIVATE_KEY`
+  exist, and fails with a message naming whichever is missing;
+- mints an installation token of the GitHub App **WorkEasy360 connector reader** with
+  `actions/create-github-app-token` (pinned by commit, v2.2.2): `owner: WorkEasy360`,
+  `repositories: workeasy360-sso`, `permission-contents: read`. The token lasts one hour, can read that one
+  repository and nothing else, is masked in every log, and is revoked when the job ends;
+- checks with `git ls-remote` that the token can read the repository.
 
-A missing, unusable or unauthorized key fails that step with a message saying which. Pull requests from forks get
-no secrets, so their backend jobs stop there. Two caches are switched off because each would hold the connector,
-and a cache saved on `main` can be restored by any pull request, forks included:
+The token is an output of that step, handed only to the step that needs it:
+
+- `uv sync`: git's environment configuration on that one step, which fetches the locked SSH URL over HTTPS with
+  the token. No file is written and no global git configuration is changed:
+
+  ```yaml
+  env:
+    GIT_CONFIG_COUNT: "1"
+    GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.connector.outputs.token }}@github.com/WorkEasy360/workeasy360-sso.git.insteadOf
+    GIT_CONFIG_VALUE_0: ssh://git@github.com/WorkEasy360/workeasy360-sso.git
+  ```
+
+  Later `uv run` steps reuse what that step installed and need no access.
+- the image build: a BuildKit secret, `secret-envs: workeasy360_sso_token=WORKEASY360_SSO_TOKEN` (read from the
+  step's environment, so it is not written to a file either).
+
+The dependency spec stays the SSH URL, so developers keep using their own access. Pull requests from forks get no
+secrets, so their backend jobs stop at the access step. Two caches are switched off because each would hold the
+connector, and a cache saved on `main` can be restored by any pull request, forks included:
 
 - setup-uv's cache, in the backend jobs. `uv cache prune --ci` keeps wheels built from source.
 - the `type=gha` layer cache, for the deploy's API image.
 
-**Image** (`backend/Dockerfile`). The builder stage installs git and the SSH client and pins the same host keys.
-It runs the dependency `uv sync` under `RUN --mount=type=ssh,required=true`, so BuildKit forwards the caller's
-agent to that one step: in CI, build-push-action's `ssh: default=${{ env.SSH_AUTH_SOCK }}`. The private key
-never enters the build. git's clone stays in the uv cache mount, which is not part of the image, so no layer holds
-a key or a `.git` directory. The runtime stage copies only `/app`, which holds the installed package and its
-`direct_url.json` (repository URL and commit, no credential); it has neither git nor ssh.
+**Image** (`backend/Dockerfile`). The builder stage installs git and the SSH client and pins github.com's host keys.
+The dependency `uv sync` is one `RUN` with two optional mounts, and uses the first that is present:
 
-**The image is not private by itself.** The runtime image necessarily contains the connector's code. The GHCR
-packages `ghcr.io/workeasy360/ai-crm-{api,web}` are public, because the host pulls without credentials
-(`deploy/ec2/README.md`). So pushing an API image built with the connector publishes it. Before the first such
-deploy, make `ai-crm-api` private and give the host credentials to pull it.
+1. the BuildKit secret `workeasy360_sso_token`: git fetches over HTTPS with it, set in that command's environment
+   only (CI);
+2. the caller's ssh-agent, `--mount=type=ssh` (a developer's `docker build --ssh default` or `docker compose build`).
 
-**Setting up the deploy key** (repository owner, once):
+With neither, the build stops at that step and says how to pass one. Both mounts exist for that step alone, and
+git's clone stays in the uv cache mount, which is not part of the image. So no layer holds a token, a key or a
+`.git` directory. The runtime stage copies only `/app`, which holds the installed package and its `direct_url.json`
+(the SSH URL and the commit, no credential); it has neither git nor ssh. Checked on 2026-11-18 with a build that
+received a token as the secret: the token appears in no layer, no image config or history, and no layer holds a
+`.git` directory or a private key.
+
+**The image is private because of where it is pushed.** The API image necessarily contains the connector's code,
+so it must never reach a public registry. `deploy.yml` pushes it only to a private ECR repository, through the
+deploy role (GitHub OIDC), and the EC2 host pulls it with its instance role (`deploy/ec2/terraform`;
+`deploy/ec2/README.md`, "Private API image"). The web image holds no connector code and stays on the public GHCR
+package `ghcr.io/workeasy360/ai-crm-web`. The public `ghcr.io/workeasy360/ai-crm-api` package only ever received
+images built from `main` before the connector arrived (16 tags, checked 2026-11-18). Once the ECR deploy works,
+make it private or delete it.
+
+**Setting up the GitHub App** (repository owner, once). The App belongs to the `WorkEasy360` account, can read
+repository contents only, and is installed on `workeasy360-sso` only.
+
+1. Open <https://github.com/settings/apps/new> (Settings → Developer settings → GitHub Apps → New GitHub App).
+2. **GitHub App name:** `WorkEasy360 connector reader`. Names are unique across GitHub, so add a suffix if it is
+   taken. **Homepage URL:** `https://github.com/WorkEasy360`.
+3. Leave **Callback URL** empty and **Request user authorization (OAuth) during installation** and **Enable Device
+   Flow** unchecked. Under **Webhook**, uncheck **Active**.
+4. **Permissions → Repository permissions → Contents: Read-only.** Metadata becomes Read-only by itself, which is
+   required. Leave every other repository, organization and account permission at **No access**, and subscribe to
+   no events.
+5. **Where can this GitHub App be installed?** **Only on this account.** Then **Create GitHub App**.
+6. On the App's **General** page, note the **App ID** (a number; it is not secret).
+7. Under **Private keys**, click **Generate a private key**. The browser downloads a `.pem` file.
+8. **Install App** (left menu) → **Install** next to `WorkEasy360` → **Only select repositories** →
+   `WorkEasy360/workeasy360-sso` → **Install**.
+9. Store both in this repository, then delete the key file:
+
+   ```bash
+   gh variable set WORKEASY360_SSO_APP_ID -R WorkEasy360/AI-CRM --body "<App ID>"
+   gh secret set WORKEASY360_SSO_APP_PRIVATE_KEY -R WorkEasy360/AI-CRM < key.pem
+   rm key.pem        # PowerShell: Remove-Item key.pem
+   ```
+
+10. Re-run the pull request's checks. The access step logs `WorkEasy360/workeasy360-sso is readable with a
+    one-hour, read-only App token.`
+
+The same App also serves EasyBook, whose CI installs the same connector (wired separately). Store the App ID and a
+private key there the same way, under the names EasyBook's docs give. Generate a separate private key for each
+repository: an App can have several keys, so each one can be deleted on its own.
+
+To rotate the key, generate a new one, update the secret, then delete the old key on the App's page. To cut CI off
+from the connector at once, delete the key, or uninstall the App from `workeasy360-sso`. Anyone who can push a
+branch to this repository can write a workflow that uses the secret, as with any Actions secret. What the key can
+ever do is mint tokens that read `workeasy360-sso`.
+
+**The old deploy key.** The previous revision of this setup asked for a read-only deploy key
+(`WORKEASY360_SSO_DEPLOY_KEY`). Nothing uses it any more. On 2026-11-18 `workeasy360-sso` had no deploy key, and
+this repository had no such secret. If either was created since, remove both:
 
 ```bash
-ssh-keygen -t ed25519 -N "" -C "AI-CRM CI (read-only)" -f w360sso_deploy      # on a trusted machine
-gh repo deploy-key add w360sso_deploy.pub -R WorkEasy360/workeasy360-sso --title "AI-CRM CI (read-only)"
-gh secret set WORKEASY360_SSO_DEPLOY_KEY -R WorkEasy360/AI-CRM < w360sso_deploy
-rm w360sso_deploy w360sso_deploy.pub
+gh repo deploy-key list -R WorkEasy360/workeasy360-sso
+gh repo deploy-key delete <id> -R WorkEasy360/workeasy360-sso
+gh secret delete WORKEASY360_SSO_DEPLOY_KEY -R WorkEasy360/AI-CRM
 ```
-
-`gh repo deploy-key add` without `--allow-write` adds a read-only key. To rotate the key: add a new one, update
-the secret, then delete the old deploy key.
 
 **Upgrading.** Find the commit of the new release tag. Run
 `gh api repos/WorkEasy360/workeasy360-sso/git/ref/tags/vX.Y.Z`; for an annotated tag (`"type": "tag"`), follow
@@ -307,9 +375,10 @@ sent to the receiver.
    start on any `workeasy360_sso.E001` error. Examples: a query string in `WORKEASY360_POST_LOGOUT_REDIRECT_URI`,
    a trailing `/` on `WORKEASY360_ISSUER`, an RSA key under 2048 bits. Fix those first.
 2. Take a database snapshot, as for every release.
-3. The deploy key secret `WORKEASY360_SSO_DEPLOY_KEY` exists, and `ghcr.io/workeasy360/ai-crm-api` is private
-   with pull credentials on the host ([Installing the connector](#installing-the-connector-private-repository)).
-   A public API image publishes the private connector.
+3. The connector App is set up (`WORKEASY360_SSO_APP_ID`, `WORKEASY360_SSO_APP_PRIVATE_KEY`), and the API
+   image goes to the private ECR repository: `deploy/ec2/terraform` applied, `AWS_DEPLOY_ROLE_ARN` and
+   `AWS_REGION` set ([Installing the connector](#installing-the-connector-private-repository);
+   `deploy/ec2/README.md`, "Private API image"). A public API image publishes the private connector.
 
 **Deploy**
 1. `migrate`: `workeasy360_sso.0001`/`0002` create the connector's tables, and `accounts.0007` back-fills the

@@ -8,6 +8,10 @@
 # generated here, on the host, and stored as SecureString with --no-overwrite: they never pass through
 # a workstation, CI or a chat, and a rebuilt host can recover them. Nothing in this script prints a
 # secret value.
+#
+# Images: the API image carries WorkEasy360's private sign-in connector, so it comes from a private ECR repository
+# (deploy/ec2/terraform), pulled with this instance's role; the web image holds no private code and comes from
+# the public GHCR package. Both are tagged with the commit SHA, and ECR tags are immutable.
 set -euo pipefail
 umask 077
 
@@ -15,7 +19,7 @@ ETC=/etc/keel
 STATE=/var/lib/keel
 SRC=/opt/keel/src/deploy/ec2
 PREFIX=/keel/production
-IMAGE_REPO="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}"
+IMAGE_REPO="${KEEL_IMAGE_REPO:-ghcr.io/workeasy360/ai-crm}" # web image; API images before the move to ECR
 
 log() { printf '%s keel-deploy: %s\n' "$(date -u +%FT%TZ)" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -43,6 +47,31 @@ REGION="$(imds placement/region)"
 export AWS_DEFAULT_REGION="$REGION"
 install -d -m 0755 "$ETC" "$STATE"
 install -d -m 0700 /run/keel
+
+# --- images -------------------------------------------------------------------------------------------
+# $STATE/images.env records the images a deploy started, so a restart (boot) starts exactly those and needs neither
+# a registry nor this script's lookups. A release deployed before that file existed ran both images from GHCR.
+recorded_image() { # name: its value in images.env, only if the file records the current release
+  [ -r "$STATE/images.env" ] && grep -qxF "KEEL_RELEASE=$TAG" "$STATE/images.env" \
+    && sed -n "s/^$1=//p" "$STATE/images.env"
+}
+if [ "$mode" = restart ]; then
+  KEEL_API_IMAGE="$(recorded_image KEEL_API_IMAGE || true)"
+  KEEL_WEB_IMAGE="$(recorded_image KEEL_WEB_IMAGE || true)"
+  : "${KEEL_API_IMAGE:=$IMAGE_REPO-api:$TAG}" "${KEEL_WEB_IMAGE:=$IMAGE_REPO-web:$TAG}"
+else
+  # Terraform (deploy/ec2/terraform) records the private repository's URL; accept only an ECR repository of this
+  # instance's own account and region, so a changed parameter cannot point the host at someone else's registry.
+  API_REPO="$(aws ssm get-parameter --name "$PREFIX/API_IMAGE_REPOSITORY" --query Parameter.Value --output text)" \
+    || die "cannot read $PREFIX/API_IMAGE_REPOSITORY: apply deploy/ec2/terraform first (deploy/ec2/README.md, \"Private API image\")"
+  ACCOUNT="$(aws sts get-caller-identity --query Account --output text)" || die "cannot read this instance's AWS account"
+  ecr_re="^${ACCOUNT}[.]dkr[.]ecr[.]${REGION}[.]amazonaws[.]com/[a-z0-9][a-z0-9._/-]*$"
+  [[ "$API_REPO" =~ $ecr_re ]] \
+    || die "$PREFIX/API_IMAGE_REPOSITORY must name an ECR repository of account $ACCOUNT in $REGION, not '$API_REPO'"
+  KEEL_API_IMAGE="$API_REPO:$TAG"
+  KEEL_WEB_IMAGE="$IMAGE_REPO-web:$TAG"
+fi
+export KEEL_API_IMAGE KEEL_WEB_IMAGE
 
 # --- secrets ------------------------------------------------------------------------------------------
 put_secret() { # name, value on stdin; written through a 0600 tmpfs file so it is never an argument
@@ -160,11 +189,20 @@ if [ ! -s "$ETC/pg-tls/server.crt" ]; then
 fi
 
 # --- start --------------------------------------------------------------------------------------------
-export KEEL_API_IMAGE="$IMAGE_REPO-api:$TAG" KEEL_WEB_IMAGE="$IMAGE_REPO-web:$TAG"
 cd "$SRC"
 if [ "$mode" = deploy ]; then
   log "pulling $TAG"
+  # The instance role logs in to the private registry: a 12-hour ECR token, kept only in a private directory on
+  # /run (tmpfs) that is removed as soon as the images are pulled. No registry credential stays on the host.
+  DOCKER_CONFIG="$(mktemp -d /run/keel/docker.XXXXXX)"
+  export DOCKER_CONFIG
+  trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+  aws ecr get-login-password | docker login --username AWS --password-stdin "${KEEL_API_IMAGE%%/*}" >/dev/null \
+    || die "the instance role cannot log in to ${KEEL_API_IMAGE%%/*} (policy KeelCrmApiImagePull, deploy/ec2/terraform)"
   docker compose --profile migrate pull --quiet
+  rm -rf "$DOCKER_CONFIG"
+  trap - EXIT
+  unset DOCKER_CONFIG
 fi
 docker compose up -d --wait postgres redis
 if [ "$mode" = deploy ]; then
@@ -177,6 +215,9 @@ if [ "$mode" = deploy ]; then
   prev="$(cat "$STATE/current" 2>/dev/null || true)"
   [ -n "$prev" ] && [ "$prev" != "$TAG" ] && echo "$prev" >"$STATE/previous"
   echo "$TAG" >"$STATE/current"
+  printf 'KEEL_RELEASE=%s\nKEEL_API_IMAGE=%s\nKEEL_WEB_IMAGE=%s\n' "$TAG" "$KEEL_API_IMAGE" "$KEEL_WEB_IMAGE" \
+    >"$STATE/images.env.tmp"
+  mv "$STATE/images.env.tmp" "$STATE/images.env"
 fi
 
 # Certificate issuance can take a minute on first start; the check goes through Caddy with real TLS.
