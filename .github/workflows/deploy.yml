@@ -47,6 +47,13 @@ jobs:
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
+      # The API image installs the sign-in connector from its private repository (backend/uv.lock): load the
+      # deploy key first, so a missing or wrong key fails here with a clear message.
+      - name: Access to the private sign-in connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          deploy-key: ${{ secrets.WORKEASY360_SSO_DEPLOY_KEY }}
+
       - name: Log in to GHCR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,11 +67,11 @@ jobs:
           load: true
           tags: ${{ env.IMAGE_REPO }}-api:${{ env.DEPLOY_SHA }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          # Always rebuild the runtime stage so its apt/apk security upgrade is fresh, not a cached layer
-          # from before a fix shipped; dependency/build stages stay cached.
-          no-cache-filters: runtime
-          cache-from: type=gha,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
-          cache-to: type=gha,mode=max,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
+          # The deploy key's agent, for the Dockerfile's `RUN --mount=type=ssh` step only: no key enters the build.
+          ssh: default=${{ env.SSH_AUTH_SOCK }}
+          # No layer cache (type=gha) for this image: its layers hold the private connector's installed code, and
+          # a cache saved by this main-branch run can be restored by any pull request, forks included. Every
+          # deploy therefore builds the API image from scratch, which also keeps its apt security upgrade fresh.
 
       - name: Build web image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6

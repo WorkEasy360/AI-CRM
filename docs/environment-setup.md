@@ -4,6 +4,8 @@
 - Docker (Desktop or Engine) for PostgreSQL 16, Redis 7 and Mailpit
 - `uv` ≥ 0.11 (installs Python 3.13 automatically)
 - Node 20+ with `corepack enable pnpm` (pnpm 10)
+- Read access to the private repository `WorkEasy360/workeasy360-sso`: `uv sync` installs the sign-in connector
+  from it over SSH ([docs/workeasy360-sso.md](workeasy360-sso.md#installing-the-connector-private-repository))
 
 ## First run
 ```bash

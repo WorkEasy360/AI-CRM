@@ -41,6 +41,12 @@ jobs:
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The sign-in connector comes from a private repository (backend/uv.lock): load its deploy key first, so a
+      # missing or wrong key fails here with a clear message (.github/actions/workeasy360-sso-access).
+      - name: Access to the private sign-in connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          deploy-key: ${{ secrets.WORKEASY360_SSO_DEPLOY_KEY }}
       - name: Create least-privilege runtime role (no superuser, no RLS bypass)
         run: |
           PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -v ON_ERROR_STOP=1 \
@@ -55,6 +61,9 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
+          # No uv cache: it would hold the private connector (built from source, which `uv cache prune --ci`
+          # keeps), and a cache saved on main can be restored by any pull request, forks included.
+          enable-cache: false
       - name: Install
         working-directory: backend
         run: uv sync --frozen
@@ -82,9 +91,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The sign-in connector comes from a private repository (backend/uv.lock): load its deploy key first, so a
+      # missing or wrong key fails here with a clear message (.github/actions/workeasy360-sso-access).
+      - name: Access to the private sign-in connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          deploy-key: ${{ secrets.WORKEASY360_SSO_DEPLOY_KEY }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
+          # No uv cache: it would hold the private connector (built from source, which `uv cache prune --ci`
+          # keeps), and a cache saved on main can be restored by any pull request, forks included.
+          enable-cache: false
       - working-directory: backend
         run: uv sync --frozen
       - working-directory: backend
@@ -111,18 +129,28 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The sign-in connector comes from a private repository (backend/uv.lock): load its deploy key first, so a
+      # missing or wrong key fails here with a clear message (.github/actions/workeasy360-sso-access).
+      - name: Access to the private sign-in connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          deploy-key: ${{ secrets.WORKEASY360_SSO_DEPLOY_KEY }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
+          # No uv cache: it would hold the private connector (built from source, which `uv cache prune --ci`
+          # keeps), and a cache saved on main can be restored by any pull request, forks included.
+          enable-cache: false
       - working-directory: backend
         run: uv sync --frozen
       - name: Bandit
         working-directory: backend
         run: uv run bandit -c pyproject.toml -r apps config security -q
-      # Every locked dependency, pinned and hash-checked, except workeasy360-sso: Workeasy360's own sign-in
-      # connector, vendored as a wheel (backend/vendor/) and not published to PyPI, so there is no record of it
-      # to look up and --strict would fail on that alone. Its dependencies (Django, PyJWT, httpx) are in the lock
-      # and audited here like everything else.
+      # Every locked dependency, pinned and hash-checked, except workeasy360-sso: WorkEasy360's own sign-in
+      # connector, a git dependency on its private repository. A VCS requirement cannot carry a hash, so it
+      # would fail --require-hashes, and it is not on PyPI, so there is no record of it for --strict to look up.
+      # It is pinned instead by the full commit SHA recorded in uv.lock. Its own dependencies (Django, PyJWT,
+      # httpx) stay in the lock and in this export, so they are audited, hash-checked, like everything else.
       - name: pip-audit
         working-directory: backend
         run: |
@@ -207,6 +235,12 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      # The sign-in connector comes from a private repository (backend/uv.lock): load its deploy key first, so a
+      # missing or wrong key fails here with a clear message (.github/actions/workeasy360-sso-access).
+      - name: Access to the private sign-in connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          deploy-key: ${{ secrets.WORKEASY360_SSO_DEPLOY_KEY }}
       - name: Build backend image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
@@ -214,6 +248,8 @@ jobs:
           push: false
           load: true
           tags: keel-backend:${{ github.sha }}
+          # The deploy key's agent, for the Dockerfile's `RUN --mount=type=ssh` step only: no key enters the build.
+          ssh: default=${{ env.SSH_AUTH_SOCK }}
       - name: Trivy (fail on HIGH/CRITICAL with fixes)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

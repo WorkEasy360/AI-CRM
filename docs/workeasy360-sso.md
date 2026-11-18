@@ -178,8 +178,9 @@ Workeasy360 backend.
 
 ## The workeasy360-sso connector and back-channel logout (2026-11-16)
 
-The OpenID Connect protocol is the shared **workeasy360-sso** connector (vendored wheel in `backend/vendor/`,
-`INSTALLED_APPS` entry `workeasy360_sso`), not Keel code: discovery and the key set, the authorization code
+The OpenID Connect protocol is the shared **workeasy360-sso** connector (installed from its private repository,
+see [Installing the connector](#installing-the-connector-private-repository); `INSTALLED_APPS` entry
+`workeasy360_sso`), not Keel code: discovery and the key set, the authorization code
 flow with PKCE, the single-use server-side flow bound to the browser by a cookie (several tabs can sign in at
 once), `private_key_jwt`, ID-token and logout-token verification, the entitlement API with its cache and
 rules, and the back-channel logout receiver. It reads its configuration from the `WORKEASY360_*` settings
@@ -216,6 +217,84 @@ cases are audited (`auth.logout` / `auth.sessions_revoked`, method `workeasy360_
 Sign-out of WorkEasyCRM only is unchanged (allauth's session `DELETE`); it also ends the session's connector
 record. A password sign-in in hybrid mode drops the federated keys and that record as well.
 
+### Installing the connector (private repository)
+
+The connector's repository, `WorkEasy360/workeasy360-sso`, is **private**, and nothing is published to an index.
+This repository is public, so it does not carry the connector. `backend/pyproject.toml` (`[tool.uv.sources]`)
+installs it from a git source over SSH, pinned to the full commit SHA of tag `v0.3.1`:
+`a98552f8f37e1e4f1fab1de99cc5b915cb9ed5c1` (the tag is annotated; this is the commit it points to). `uv.lock`
+records the same commit, so a moved tag changes nothing. Installing needs read access to that repository.
+Without it, `uv sync` stops at the connector.
+
+**Developers.** Your GitHub account needs read access to `WorkEasy360/workeasy360-sso`. Then either:
+
+- *SSH:* keep an SSH key for that account in your ssh-agent (`ssh -T git@github.com` greets you by name), and
+  run `cd backend && uv sync` as before.
+- *HTTPS through the GitHub CLI:* let git fetch this one repository over HTTPS, with `gh` as the credential helper:
+
+  ```bash
+  gh auth login && gh auth setup-git
+  git config --global url."https://github.com/WorkEasy360/workeasy360-sso.git".insteadOf \
+    "ssh://git@github.com/WorkEasy360/workeasy360-sso.git"
+  ```
+
+  The lock still names the SSH URL and the same commit; only your git changes how it fetches.
+- *Docker:* run `docker build --ssh default backend`, or `docker compose build` (`ssh: [default]` in
+  `docker-compose.yml` forwards your agent). The image build needs an ssh-agent holding a key with access. On
+  Windows that is the OpenSSH Authentication Agent service. The HTTPS rewrite does not reach inside the build.
+  Without `--ssh`, the build stops at the connector step (`unset ssh forward key default`).
+
+**CI** (`ci.yml`, `deploy.yml`). Every job that installs backend dependencies or builds the backend image
+(backend tests, lint and types, security, container build, deploy images) first runs
+`.github/actions/workeasy360-sso-access`. That step:
+
+- loads the read-only deploy key from the Actions secret `WORKEASY360_SSO_DEPLOY_KEY` into an ssh-agent (piped
+  in, never written to disk);
+- pins github.com's host keys exactly as GitHub publishes them, with strict host key checking;
+- checks with `git ls-remote` that the key can read the repository;
+- exports `SSH_AUTH_SOCK`.
+
+A missing, unusable or unauthorized key fails that step with a message saying which. Pull requests from forks get
+no secrets, so their backend jobs stop there. Two caches are switched off because each would hold the connector,
+and a cache saved on `main` can be restored by any pull request, forks included:
+
+- setup-uv's cache, in the backend jobs. `uv cache prune --ci` keeps wheels built from source.
+- the `type=gha` layer cache, for the deploy's API image.
+
+**Image** (`backend/Dockerfile`). The builder stage installs git and the SSH client and pins the same host keys.
+It runs the dependency `uv sync` under `RUN --mount=type=ssh,required=true`, so BuildKit forwards the caller's
+agent to that one step: in CI, build-push-action's `ssh: default=${{ env.SSH_AUTH_SOCK }}`. The private key
+never enters the build. git's clone stays in the uv cache mount, which is not part of the image, so no layer holds
+a key or a `.git` directory. The runtime stage copies only `/app`, which holds the installed package and its
+`direct_url.json` (repository URL and commit, no credential); it has neither git nor ssh.
+
+**The image is not private by itself.** The runtime image necessarily contains the connector's code. The GHCR
+packages `ghcr.io/workeasy360/ai-crm-{api,web}` are public, because the host pulls without credentials
+(`deploy/ec2/README.md`). So pushing an API image built with the connector publishes it. Before the first such
+deploy, make `ai-crm-api` private and give the host credentials to pull it.
+
+**Setting up the deploy key** (repository owner, once):
+
+```bash
+ssh-keygen -t ed25519 -N "" -C "AI-CRM CI (read-only)" -f w360sso_deploy      # on a trusted machine
+gh repo deploy-key add w360sso_deploy.pub -R WorkEasy360/workeasy360-sso --title "AI-CRM CI (read-only)"
+gh secret set WORKEASY360_SSO_DEPLOY_KEY -R WorkEasy360/AI-CRM < w360sso_deploy
+rm w360sso_deploy w360sso_deploy.pub
+```
+
+`gh repo deploy-key add` without `--allow-write` adds a read-only key. To rotate the key: add a new one, update
+the secret, then delete the old deploy key.
+
+**Upgrading.** Find the commit of the new release tag. Run
+`gh api repos/WorkEasy360/workeasy360-sso/git/ref/tags/vX.Y.Z`; for an annotated tag (`"type": "tag"`), follow
+up with `gh api repos/WorkEasy360/workeasy360-sso/git/tags/<sha> --jq .object.sha`. Put the commit in `rev` and
+run `uv lock`. If the connector's `[build-system]` changed, update `build-constraint-dependencies` (the pinned
+build backend). Then migrate, as for every connector release.
+
+**Audit.** CI's `pip-audit --strict --require-hashes` checks every locked package except the connector
+(`uv export --no-emit-package workeasy360-sso`). A VCS dependency carries no hash, and the connector is not on
+PyPI to look up. Its dependencies (Django, PyJWT, httpx) remain in the export and are audited.
+
 ### Rolling out the connector release, and rolling it back
 
 The platform side is Workeasy360 PR #4 (back-channel logout, ADR-069; drafted as ADR-067), stacked on its production branch. Keel
@@ -228,6 +307,9 @@ sent to the receiver.
    start on any `workeasy360_sso.E001` error. Examples: a query string in `WORKEASY360_POST_LOGOUT_REDIRECT_URI`,
    a trailing `/` on `WORKEASY360_ISSUER`, an RSA key under 2048 bits. Fix those first.
 2. Take a database snapshot, as for every release.
+3. The deploy key secret `WORKEASY360_SSO_DEPLOY_KEY` exists, and `ghcr.io/workeasy360/ai-crm-api` is private
+   with pull credentials on the host ([Installing the connector](#installing-the-connector-private-repository)).
+   A public API image publishes the private connector.
 
 **Deploy**
 1. `migrate`: `workeasy360_sso.0001`/`0002` create the connector's tables, and `accounts.0007` back-fills the
