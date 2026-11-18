@@ -44,7 +44,7 @@ next (default "/")          — or /login?sso_error=<code> on any failure
 | Situation | Result |
 |---|---|
 | (issuer, `sub`) already linked | that Keel user (email changes at Workeasy360 do not matter) |
-| a Keel account has the address, `email_verified` true, no Workeasy360 identity yet | **linked**. If Keel itself never verified that address, the account's password is removed and its sessions revoked (it may have been pre-registered by someone else) |
+| a Keel account has the address, no Workeasy360 identity yet | refused: `account_conflict` ("contact your administrator"); **never merged by email**. An operator links it with `link_workeasy360_user` (see *Existing accounts*). Only with `WORKEASY360_LINK_BY_VERIFIED_EMAIL` on is it linked at sign-in, under the rules there |
 | the address exists but Workeasy360 has not verified it | refused: `email_unverified` (no takeover) |
 | the Keel account is linked to a different Workeasy360 account | refused: `account_conflict` |
 | unknown address, verified | new account: no usable password, verified `EmailAddress`, name from `name` |
@@ -137,6 +137,7 @@ details are logged (`workeasy360.sign_in_failed`). Workeasy360 authorize errors 
 | `WORKEASY360_SCOPES` | `openid email profile organization` | |
 | `WORKEASY360_PRODUCT_CODE` | `easy_crm` | ID tokens for another product, or without a `product_code`, are refused. It must not be empty or blank where sign-in is configured (an empty value would switch the check off): production refuses to start, `manage.py check` fails (`workeasy360.E001`), and if it happens anyway every sign-in is refused (`unavailable`). Leave it unset for the default |
 | `WORKEASY360_DEFAULT_ROLE` | `sales_rep` | role for people joining an existing organization; never `owner` |
+| `WORKEASY360_LINK_BY_VERIFIED_EMAIL` | `false` | `false`: a sign-in whose address belongs to an existing Keel account is refused (`account_conflict`) and an operator links it. `true`: the sign-in links it itself, only within the organization (see *Existing accounts*) |
 | `WORKEASY360_SSO_ONLY` | `true` (`false` in dev and test) | |
 | `WORKEASY360_POST_LOGOUT_REDIRECT_URI` | — | enables "sign out of WorkEasyCRM and Workeasy360"; https in production |
 | `WORKEASY360_BACKCHANNEL_LOGOUT` | `true` | serves `POST /api/auth/workeasy360/backchannel-logout` (see below) |
@@ -458,8 +459,48 @@ python manage.py link_workeasy360_organization <keel-org-id-or-slug> <workeasy36
 ```
 
 It refuses when either side is already linked and writes `org.workeasy360_linked` to the audit log.
-Existing members are then linked by verified email on their first Workeasy360 sign-in and keep their
-roles and data.
+Existing members keep their roles and data once each is linked to their Workeasy360 account (below); until
+then their Workeasy360 sign-in is refused with `account_conflict`.
+
+### Existing accounts: linking a person (`link_workeasy360_user`)
+
+The same email address is not proof of the same person, so a Workeasy360 sign-in never takes over an existing
+Keel account by its address. An operator who has confirmed who the person is links the two, for one
+organization:
+
+```sh
+python manage.py link_workeasy360_user --email ada@example.com --subject <workeasy360-sub>     --organization <workeasy360-org-uuid> --actor "Priya (support)" --reason "ticket 4711"     # dry run
+python manage.py link_workeasy360_user ... --apply                                           # link
+```
+
+* `--subject` is the person's Workeasy360 user id (`sub`); `--user-id` may replace `--email`. The link is made
+  at the configured `WORKEASY360_ISSUER`.
+* `--organization` must already be linked to a Keel organization (`link_workeasy360_organization`), and the
+  account must be an active member of it. The dry run lists every other organization the link opens.
+* Refused when the account already has a Workeasy360 identity, or the Workeasy360 identity already belongs to
+  another account. Nothing is merged or moved.
+* Audited as `auth.sso_identity_linked` (actor type `system`, in the organization): `link: operator`, `actor`,
+  `reason`, `user_id`, `issuer`, `subject`, the organization ids, the other organizations, whether Keel had
+  verified the address, and `password_kept`. The connector's identity mirror is written with it.
+
+**Automatic linking (`WORKEASY360_LINK_BY_VERIFIED_EMAIL=true`, off by default).** The sign-in links the
+account itself only when all of these hold; otherwise it is refused with `account_conflict` and the log says
+which rule:
+
+1. Workeasy360 says the address is verified (`email_verified` true; otherwise `email_unverified`), and Keel
+   verified it too (an unverified Keel address may have been pre-registered by someone else);
+2. the token's organization is linked to a Keel organization and the account is an active member of it;
+3. the account belongs to **no other** Keel organization, whatever the status (a link would open them all, and
+   Keel-only organizations are never checked with Workeasy360): never across organizations;
+4. the account has no Workeasy360 identity yet (never re-linked), is active, and is not a staff account.
+
+Every automatic link is audited as `auth.sso_identity_linked` with `link: automatic`, by the person signing in.
+
+**Passwords are left as they are** on both paths (no authentication data is removed before migration and
+linking are proven). A linked account that had a password can still use it while password sign-in is on.
+`WORKEASY360_SSO_ONLY=true` (the production default) retires every password: password sign-in and password
+re-authentication are refused before the password is checked, and no reset link is sent (see
+*`WORKEASY360_SSO_ONLY`*). Removing the stored hashes afterwards is a separate, later step.
 
 ## Universal sign-in: what the person controls (2026-10-12)
 

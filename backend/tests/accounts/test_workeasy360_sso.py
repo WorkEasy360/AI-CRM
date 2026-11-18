@@ -327,22 +327,135 @@ def test_returning_user_is_recognised_by_subject_even_after_an_email_change(prov
     assert User.objects.filter(email__in=["ada@example.com", "ada.new@example.com"]).count() == 1
 
 
-def test_existing_account_is_linked_by_verified_email_and_keeps_its_password(provider, make_user):
+def _link_org(bundle, w360_id: str = W360_ORG) -> None:
+    call_command("link_workeasy360_organization", str(bundle.org.pk), w360_id, stdout=StringIO())
+
+
+def _linked_events(user: User) -> list[AuditEvent]:
+    with system_context("test.audit"):
+        events = AuditEvent.objects.filter(action="auth.sso_identity_linked", resource_type="externalidentity")
+        return list(events.filter(metadata__user_id=str(user.pk)))
+
+
+def _not_linked(user: User) -> bool:
+    user.refresh_from_db()
+    return not ExternalIdentity.objects.filter(user=user).exists() and user.check_password(DEFAULT_PASSWORD)
+
+
+@pytest.fixture
+def link_by_email(settings):
+    settings.WORKEASY360_LINK_BY_VERIFIED_EMAIL = True
+
+
+def test_email_linking_is_off_by_default():
+    base = (Path(__file__).resolve().parents[2] / "config/settings/base.py").read_text(encoding="utf-8")
+    assert 'env.bool("WORKEASY360_LINK_BY_VERIFIED_EMAIL", default=False)' in base
+    assert config.link_by_verified_email() is False
+
+
+def test_an_existing_account_with_the_address_is_refused_by_default(provider, make_user):
     user = make_user("ada@example.com")
     resp = _sign_in(APIClient(), provider)
+    assert _error_of(resp) == "account_conflict"
+    assert _not_linked(user)
+    assert User.objects.filter(email__iexact="ada@example.com").count() == 1
+    assert "auth.login_failed" in _actions(action="auth.login_failed")
+
+
+def test_a_member_of_the_linked_organization_is_refused_by_default_too(provider, org_a):
+    _link_org(org_a)
+    resp = _sign_in(APIClient(), provider, email=org_a.owner.email)
+    assert _error_of(resp) == "account_conflict"
+    assert _not_linked(org_a.owner)
+    assert _linked_events(org_a.owner) == []
+
+
+def test_with_email_linking_on_a_verified_member_of_the_linked_organization_is_linked_and_audited(
+    provider, org_a, link_by_email
+):
+    _link_org(org_a)
+    client = APIClient()
+    resp = _sign_in(client, provider, email=org_a.owner.email)
     assert _error_of(resp) is None
-    assert ExternalIdentity.objects.get(issuer=fake.ISSUER, subject="w360-user-1").user_id == user.pk
-    user.refresh_from_db()
-    assert user.check_password(DEFAULT_PASSWORD)
-    assert "auth.sso_identity_linked" in _actions(actor_user_id=user.pk)
+    identity = ExternalIdentity.objects.get(issuer=fake.ISSUER, subject="w360-user-1")
+    assert identity.user_id == org_a.owner.pk
+    org_a.owner.refresh_from_db()
+    assert org_a.owner.check_password(DEFAULT_PASSWORD)  # the password is left as it is
+    assert _membership(org_a.org, org_a.owner).role.key == "owner"
+    assert client.get("/api/v1/session/").json()["active"]["organization"]["id"] == str(org_a.org.pk)
+    [event] = _linked_events(org_a.owner)
+    assert event.actor_user_id == org_a.owner.pk and event.organization_id == org_a.org.pk
+    assert event.resource_id == str(identity.pk)
+    assert event.metadata["link"] == "automatic"
+    assert event.metadata["subject"] == "w360-user-1" and event.metadata["issuer"] == fake.ISSUER
+    assert event.metadata["workeasy360_organization_id"] == W360_ORG and event.metadata["password_kept"] is True
 
 
-def test_linking_an_account_keel_never_verified_removes_its_password(provider, make_user):
+def test_with_email_linking_on_an_account_only_in_another_organization_is_never_linked(
+    provider, org_a, org_b, link_by_email
+):
+    _link_org(org_a)
+    resp = _sign_in(APIClient(), provider, email=org_b.owner.email)
+    assert _error_of(resp) == "account_conflict"
+    assert _not_linked(org_b.owner)
+
+
+def test_with_email_linking_on_an_account_also_in_another_organization_is_never_linked(
+    provider, org_a, org_b, make_member, link_by_email
+):
+    _link_org(org_a)
+    make_member(org_b, user=org_a.owner)
+    resp = _sign_in(APIClient(), provider, email=org_a.owner.email)
+    assert _error_of(resp) == "account_conflict"
+    assert _not_linked(org_a.owner)
+
+
+def test_with_email_linking_on_an_account_in_no_linked_organization_is_never_linked(
+    provider, make_user, org_a, link_by_email
+):
+    lone = make_user("ada@example.com")
+    assert _error_of(_sign_in(APIClient(), provider)) == "account_conflict"  # W360_ORG is linked to nothing
+    assert _not_linked(lone)
+    _link_org(org_a)
+    assert _error_of(_sign_in(APIClient(), provider)) == "account_conflict"  # linked, but not a member
+    assert _not_linked(lone)
+
+
+def test_with_email_linking_on_an_already_linked_account_never_relinks(provider, org_a, link_by_email):
+    _link_org(org_a)
+    assert _error_of(_sign_in(APIClient(), provider, email=org_a.owner.email)) is None
+    resp = _sign_in(APIClient(), provider, sub="someone-else", email=org_a.owner.email)
+    assert _error_of(resp) == "account_conflict"
+    assert list(ExternalIdentity.objects.filter(user=org_a.owner).values_list("subject", flat=True)) == ["w360-user-1"]
+    assert len(_linked_events(org_a.owner)) == 1
+
+
+def test_with_email_linking_on_an_account_keel_never_verified_is_not_linked(
+    provider, org_a, make_member, make_user, link_by_email
+):
+    _link_org(org_a)
     squatter = make_user("ada@example.com", verified=False)
-    assert _error_of(_sign_in(APIClient(), provider)) is None
-    squatter.refresh_from_db()
-    assert not squatter.has_usable_password()
-    assert EmailAddress.objects.get(user=squatter).verified
+    make_member(org_a, user=squatter)
+    assert _error_of(_sign_in(APIClient(), provider)) == "account_conflict"
+    assert _not_linked(squatter)
+    assert not EmailAddress.objects.get(user=squatter).verified
+
+
+def test_with_email_linking_on_a_suspended_member_or_a_staff_account_is_not_linked(
+    provider, org_a, make_member, make_user, link_by_email
+):
+    _link_org(org_a)
+    suspended = make_member(org_a, user=make_user("ada@example.com")).user
+    with tenant_context(org_a.org.pk, reason="test.suspend"):
+        Membership.objects.filter(user=suspended).update(status=Membership.Status.SUSPENDED)
+    assert _error_of(_sign_in(APIClient(), provider)) == "account_conflict"
+    assert _not_linked(suspended)
+    staff = make_member(org_a, user=make_user("grace@example.com")).user
+    User.objects.filter(pk=staff.pk).update(is_staff=True)
+    assert _error_of(_sign_in(APIClient(), provider, sub="w360-user-2", email="grace@example.com")) == (
+        "account_conflict"
+    )
+    assert _not_linked(staff)
 
 
 def test_unverified_email_at_the_provider_never_takes_over_an_account(provider, make_user):
@@ -815,7 +928,10 @@ def test_sso_only_workeasy360_sign_in_works_and_creates_only_the_workeasy360_org
 def test_link_command_attaches_an_existing_organization(provider, org_a):
     call_command("link_workeasy360_organization", org_a.org.slug, W360_ORG, stdout=StringIO())
     assert _org().pk == org_a.org.pk
-    # The owner's first Workeasy360 sign-in lands in the existing organization with their role.
+    # The owner's account is not taken over by its address: an operator links the person first.
+    assert _error_of(_sign_in(APIClient(), provider, email=org_a.owner.email)) == "account_conflict"
+    _link_user(org_a.owner.email)
+    # Their first Workeasy360 sign-in then lands in the existing organization with their role.
     resp = _sign_in(APIClient(), provider, email=org_a.owner.email)
     assert _error_of(resp) is None
     assert _membership(org_a.org, org_a.owner).role.key == "owner"
@@ -830,3 +946,103 @@ def test_link_command_refuses_when_either_side_is_linked(org_a, org_b):
         call_command("link_workeasy360_organization", org_b.org.slug, W360_ORG, stdout=StringIO())
     with pytest.raises(CommandError, match="must be a UUID"):
         call_command("link_workeasy360_organization", org_b.org.slug, "nope", stdout=StringIO())
+
+
+def _link_user(
+    email: str, *, subject: str = "w360-user-1", organization: str = W360_ORG, apply: bool = True, **extra
+) -> str:
+    args = ["--email", email, "--subject", subject, "--organization", organization]
+    args += ["--actor", extra.pop("actor", "Priya (support)"), "--reason", extra.pop("reason", "ticket 4711")]
+    out = StringIO()
+    call_command("link_workeasy360_user", *args, *(["--apply"] if apply else []), stdout=out, **extra)
+    return out.getvalue()
+
+
+def test_link_user_command_is_a_dry_run_without_apply(provider, org_a):
+    _link_org(org_a)
+    out = _link_user(org_a.owner.email, apply=False)
+    assert "dry run" in out and f"organization={org_a.org.slug}" in out
+    assert not ExternalIdentity.objects.filter(user=org_a.owner).exists()
+    assert _linked_events(org_a.owner) == []
+
+
+def test_link_user_command_links_audits_and_keeps_the_password(provider, org_a, org_b, make_member):
+    from workeasy360_sso.models import FederatedIdentity
+
+    _link_org(org_a)
+    make_member(org_b, user=org_a.owner)  # an operator may vouch for an account in several organizations
+    out = _link_user(org_a.owner.email)
+    assert f"other organizations it opens: {org_b.org.slug} (active)" in out
+    identity = ExternalIdentity.objects.get(issuer=fake.ISSUER, subject="w360-user-1")
+    assert identity.user_id == org_a.owner.pk
+    assert FederatedIdentity.objects.get(issuer=fake.ISSUER, subject="w360-user-1").user_id == org_a.owner.pk
+    org_a.owner.refresh_from_db()
+    assert org_a.owner.check_password(DEFAULT_PASSWORD)
+    [event] = _linked_events(org_a.owner)
+    assert event.actor_type == "system" and event.actor_user_id is None
+    assert event.organization_id == org_a.org.pk and event.resource_id == str(identity.pk)
+    assert event.metadata["link"] == "operator"
+    assert event.metadata["actor"] == "Priya (support)" and event.metadata["reason"] == "ticket 4711"
+    assert event.metadata["user_id"] == str(org_a.owner.pk) and event.metadata["subject"] == "w360-user-1"
+    assert event.metadata["issuer"] == fake.ISSUER and event.metadata["workeasy360_organization_id"] == W360_ORG
+    assert event.metadata["other_organizations"] == [f"{org_b.org.slug} (active)"]
+    assert event.created_at is not None
+    # The person then signs in as that account.
+    client = APIClient()
+    assert _error_of(_sign_in(client, provider, email="changed@example.com")) is None
+    assert client.get("/api/v1/session/").json()["user"]["email"] == org_a.owner.email
+
+
+def test_link_user_command_refuses_an_unknown_or_unlinked_organization_and_a_non_member(provider, org_a, org_b):
+    with pytest.raises(CommandError, match="not linked to a Keel organization"):
+        _link_user(org_a.owner.email)
+    with pytest.raises(CommandError, match="must be a Workeasy360 organization id"):
+        _link_user(org_a.owner.email, organization="nope")
+    _link_org(org_a)
+    with pytest.raises(CommandError, match="is not a member in"):
+        _link_user(org_b.owner.email)
+    with pytest.raises(CommandError, match="No Keel account matches"):
+        _link_user("nobody@example.com")
+    with tenant_context(org_a.org.pk, reason="test.suspend"):
+        Membership.objects.filter(user=org_a.owner).update(status=Membership.Status.SUSPENDED)
+    with pytest.raises(CommandError, match="is suspended in"):
+        _link_user(org_a.owner.email)
+    assert not ExternalIdentity.objects.exists() and _linked_events(org_a.owner) == []
+
+
+def test_link_user_command_refuses_when_either_side_is_linked(provider, org_a, make_member, make_user):
+    _link_org(org_a)
+    other = make_member(org_a, user=make_user("grace@example.com")).user
+    _link_user(org_a.owner.email)
+    with pytest.raises(CommandError, match="already linked to a Workeasy360 identity"):
+        _link_user(org_a.owner.email, subject="w360-user-2")
+    with pytest.raises(CommandError, match="already linked to the Keel account"):
+        _link_user(other.email, subject="w360-user-1")
+    assert list(ExternalIdentity.objects.values_list("user_id", "subject")) == [(org_a.owner.pk, "w360-user-1")]
+    assert len(_linked_events(org_a.owner)) == 1
+
+
+@pytest.mark.parametrize("blank", [{"actor": "  "}, {"reason": ""}])
+def test_link_user_command_needs_an_actor_and_a_reason(provider, org_a, blank):
+    _link_org(org_a)
+    with pytest.raises(CommandError, match="must not be blank"):
+        _link_user(org_a.owner.email, **blank)
+    assert not ExternalIdentity.objects.exists()
+
+
+def test_link_user_command_needs_the_issuer_configured(org_a):
+    _link_org(org_a)
+    with pytest.raises(CommandError, match="WORKEASY360_ISSUER is not configured"):
+        _link_user(org_a.owner.email)
+
+
+def test_no_link_is_kept_without_its_audit_record(provider, org_a, monkeypatch, settings):
+    from apps.audit import service as audit_service
+
+    _link_org(org_a)
+    monkeypatch.setattr(audit_service, "record", lambda *args, **kwargs: None)
+    with pytest.raises(CommandError, match="audit record could not be written"):
+        _link_user(org_a.owner.email)
+    settings.WORKEASY360_LINK_BY_VERIFIED_EMAIL = True
+    assert _error_of(_sign_in(APIClient(), provider, email=org_a.owner.email)) == "unavailable"
+    assert not ExternalIdentity.objects.exists()

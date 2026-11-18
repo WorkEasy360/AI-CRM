@@ -28,6 +28,11 @@ def sso_only() -> bool:
     return bool(getattr(settings, "WORKEASY360_SSO_ONLY", False))
 
 
+def link_by_verified_email() -> bool:
+    """True when a sign-in may link an existing Keel account by its verified address (``provisioning``)."""
+    return bool(getattr(settings, "WORKEASY360_LINK_BY_VERIFIED_EMAIL", False))
+
+
 def password_sign_in_enabled() -> bool:
     return not sso_only()
 

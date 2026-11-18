@@ -27,8 +27,11 @@ existing session, allauth authentication records, login signal, audit and MFA ma
 - After verification, Keel's own session takes over (ADR-0003 is unchanged): `django_login`,
   `record_authentication(method="workeasy360")`, the existing `user_logged_in` hook.
 - Identity is (issuer, `sub`) in `ExternalIdentity`; tenants map 1:1 by
-  `Organization.workeasy360_organization_id`. Existing accounts link by email only when Workeasy360
-  says the address is verified; a first sign-in into an unknown Workeasy360 organization creates its
+  `Organization.workeasy360_organization_id`. Existing accounts are never linked by their address alone
+  (amended 2026-11-19; before, a Workeasy360-verified address linked them): the sign-in is refused with
+  `account_conflict` and an operator links the person with `link_workeasy360_user`, audited. The optional
+  `WORKEASY360_LINK_BY_VERIFIED_EMAIL` (off) links at sign-in only within the token's organization
+  (docs/workeasy360-sso.md, "Existing accounts"). A first sign-in into an unknown Workeasy360 organization creates its
   Keel counterpart with that person as owner; later members join with `WORKEASY360_DEFAULT_ROLE`.
 - Keel keeps authority over what happens inside Keel: a membership a Keel admin suspended or removed
   stays refused; roles are Keel's; the plan's seat limit applies.

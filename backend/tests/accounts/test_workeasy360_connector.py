@@ -247,11 +247,28 @@ def test_signing_out_of_the_product_ends_its_session_record(provider):
     assert record.end_reason == ProductSession.EndReason.SIGNED_OUT
 
 
-def test_a_password_sign_in_never_inherits_a_workeasy360_session_record(provider, make_user):
+def test_a_password_sign_in_never_inherits_a_workeasy360_session_record(provider, make_user, make_org):
     """Hybrid mode: a password sign-in in a browser whose session still carries the connector's data (signed
     out of Keel's account, say, but not of the session) is not that Workeasy360 sign-in - the record is ended
     and the data dropped, so a Workeasy360 sign-out of that device cannot end the password session."""
-    make_user("ada@example.com")  # linked by verified email on the Workeasy360 sign-in; keeps its password
+    # An existing Keel account, linked by an operator to the Workeasy360 account; it keeps its password.
+    bundle = make_org("Analytical Engines", owner=make_user("ada@example.com"))
+    call_command("link_workeasy360_organization", str(bundle.org.pk), W360_ORG, stdout=io.StringIO())
+    call_command(
+        "link_workeasy360_user",
+        "--email",
+        "ada@example.com",
+        "--subject",
+        "w360-user-1",
+        "--organization",
+        W360_ORG,
+        "--actor",
+        "test",
+        "--reason",
+        "test",
+        "--apply",
+        stdout=io.StringIO(),
+    )
     federated = _signed_in_as(provider, sid="sid-1")
     record = ProductSession.objects.get()
     leftover = dict(federated.session["workeasy360_sso"])

@@ -12,11 +12,16 @@ sign-in.
 
 Who the user is:
 1. (issuer, sub) already known            -> that user.
-2. else a Keel account has the address,   -> link it, but only when Workeasy360 says the address is
-   and it has no Workeasy360 identity        verified (otherwise anyone who registered that address at
-                                             the provider could take the Keel account over).
+2. else a Keel account has the address    -> refused (``account_conflict``): the same address is not proof
+                                             of the same person. An operator links the two with
+                                             ``manage.py link_workeasy360_user`` (audited). Only with
+                                             ``WORKEASY360_LINK_BY_VERIFIED_EMAIL`` on does the sign-in link
+                                             it itself, under the rules of ``_link_by_email``.
 3. else                                   -> a new account with no usable password, its address
                                              recorded as verified (the provider verified it).
+
+A link never touches the account's password: password sign-in ends for everyone with
+``WORKEASY360_SSO_ONLY`` (docs/workeasy360-sso.md, "Existing accounts").
 
 Which organization: the one whose ``workeasy360_organization_id`` is the token's ``organization_id``,
 created on first sign-in (the person who caused that becomes its owner). ``organization_name`` is only
@@ -58,6 +63,10 @@ from apps.core.tenancy.context import system_context, tenant_context
 
 #: Display name of an organization created before Workeasy360 told us its name (no organization scope).
 FALLBACK_ORGANIZATION_NAME = "My organization"
+
+
+class LinkNotAuditedError(RuntimeError):
+    """The audit record of a link could not be written; the link is undone with the transaction."""
 
 
 @dataclass(frozen=True)
@@ -209,7 +218,7 @@ def _resolve_user(claims: SignInClaims, *, issuer: str, request) -> tuple[User, 
 
     existing = _user_for_email(claims.email)
     if existing is not None:
-        return _link(existing, claims, issuer=issuer, request=request), False, True
+        return _link_by_email(existing, claims, issuer=issuer, request=request), False, True
 
     if not claims.email_verified:
         # Keel accounts are keyed by verified addresses only; an unverified one could squat the address
@@ -250,40 +259,97 @@ def _user_for_email(email: str) -> User | None:
     return address.user if address is not None else None
 
 
-def _link(user: User, claims: SignInClaims, *, issuer: str, request) -> User:
-    """Attach a Workeasy360 identity to an existing Keel account that has the same address."""
+def _link_by_email(user: User, claims: SignInClaims, *, issuer: str, request) -> User:
+    """A sign-in whose address belongs to an existing Keel account: refused, unless automatic linking is on and
+    every rule below holds. Each refusal is ``account_conflict`` (the person is told to ask their administrator,
+    who can link the account with ``link_workeasy360_user``); the log reason says which rule."""
     if not claims.email_verified:
         raise SignInRefused(
             "email_unverified", log_reason="refusing to link an existing account on an unverified address"
         )
     _require_active(user)
-    if ExternalIdentity.objects.filter(user=user, issuer=issuer).exists():
-        # This Keel account already belongs to a different Workeasy360 account.
+    if ExternalIdentity.objects.filter(user=user).exists():
+        # This Keel account already belongs to a Workeasy360 account (another one: the subject was not found).
         raise SignInRefused("account_conflict", log_reason="account is linked to another Workeasy360 identity")
-    keel_verified = EmailAddress.objects.filter(user=user, email__iexact=claims.email, verified=True).exists()
+    if not config.link_by_verified_email():
+        raise SignInRefused(
+            "account_conflict",
+            log_reason="a Keel account has this address; linking by email is off (link_workeasy360_user)",
+        )
+    if user.is_staff or user.is_superuser:
+        raise SignInRefused("account_conflict", log_reason="never links a staff account by email")
+    if not EmailAddress.objects.filter(user=user, email__iexact=claims.email, verified=True).exists():
+        # Nobody proved to Keel that they own the address, so whoever chose this account's password may not be
+        # the person Workeasy360 verified (a pre-registered account). Linking it would keep that password.
+        raise SignInRefused("account_conflict", log_reason="Keel never verified this account's address")
+    organization = _organization_for(claims.organization_id)
+    if organization is None:
+        raise SignInRefused("account_conflict", log_reason="the token's organization is linked to no Keel organization")
+    with system_context(reason="workeasy360.sign_in.link_by_email"):
+        memberships = list(Membership.identity.for_user(user).values_list("organization_id", "status"))
+    if (organization.pk, Membership.Status.ACTIVE) not in memberships:
+        raise SignInRefused(
+            "account_conflict", log_reason="account is not an active member of the token's organization"
+        )
+    if any(org_id != organization.pk for org_id, _status in memberships):
+        # The link would open every organization the account belongs to, and Keel-only ones are never checked
+        # with Workeasy360: an account in another organization is linked only by an operator.
+        raise SignInRefused("account_conflict", log_reason="account belongs to another organization too")
     try:
-        with transaction.atomic():
-            ExternalIdentity.objects.create(
-                user=user, issuer=issuer, subject=claims.subject, last_login_at=timezone.now()
-            )
-            if not keel_verified:
-                # Nobody ever proved to Keel that they own this address, so whoever chose this account's
-                # password may not be the person Workeasy360 just verified (a pre-registered account).
-                # The password goes, and with it every session it opened; the address is now verified.
-                user.set_unusable_password()
-                user.save(update_fields=["password"])
-                user.rotate_session_salt()
-                EmailAddress.objects.filter(user=user, email__iexact=claims.email).update(verified=True)
+        link_identity(
+            user,
+            issuer=issuer,
+            subject=claims.subject,
+            organization=organization,
+            request=request,
+            metadata={"method": "workeasy360", "link": "automatic", "rule": "verified_email_same_organization"},
+        )
     except IntegrityError:
         raise SignInRefused("account_conflict", log_reason="identity already linked concurrently") from None
-    audit.record(
+    except LinkNotAuditedError:
+        raise SignInRefused("unavailable", log_reason="the automatic link could not be audited") from None
+    return user
+
+
+def link_identity(
+    user: User,
+    *,
+    issuer: str,
+    subject: str,
+    organization: Organization,
+    metadata: dict[str, Any],
+    request=None,
+    by_operator: bool = False,
+) -> ExternalIdentity:
+    """Bind ``user`` to the Workeasy360 identity (issuer, subject) and audit it, as the person signing in or (with
+    ``by_operator``) as the system, the operator named in ``metadata``. The password and the address are left as
+    they are. Raises ``IntegrityError`` when either side is linked already (both are unique), and
+    ``LinkNotAuditedError`` when the audit record could not be written (no link without its record: the caller's
+    transaction undoes it)."""
+    with transaction.atomic():
+        identity = ExternalIdentity.objects.create(
+            user=user, issuer=issuer, subject=subject, last_login_at=timezone.now() if not by_operator else None
+        )
+    extra: dict[str, Any] = {"actor_type": "system"} if by_operator else {"user": user}
+    event = audit.record(
         actions.AUTH_SSO_IDENTITY_LINKED,
         request=request,
-        user=user,
-        organization_id=None,
-        metadata={"method": "workeasy360", "issuer": issuer, "password_removed": not keel_verified},
+        organization_id=organization.pk,
+        resource=identity,
+        metadata={
+            **metadata,
+            "issuer": issuer,
+            "subject": subject,
+            "user_id": str(user.pk),
+            "organization_id": str(organization.pk),
+            "workeasy360_organization_id": str(organization.workeasy360_organization_id),
+            "password_kept": user.has_usable_password(),
+        },
+        **extra,
     )
-    return user
+    if event is None:
+        raise LinkNotAuditedError(str(identity.pk))
+    return identity
 
 
 def _require_active(user: User) -> None:

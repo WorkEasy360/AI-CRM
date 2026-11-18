@@ -346,6 +346,12 @@ WORKEASY360_PRODUCT_CODE = env("WORKEASY360_PRODUCT_CODE", default="easy_crm").s
 # privileged role that can still do everyday CRM work (create records, edit their own and their
 # team's); viewer is read-only. Admins promote people afterwards. Never "owner".
 WORKEASY360_DEFAULT_ROLE = env("WORKEASY360_DEFAULT_ROLE", default="sales_rep")
+# A Workeasy360 sign-in whose address matches an existing Keel account is refused (account_conflict) and an
+# operator links the two with ``manage.py link_workeasy360_user`` (audited). Off by default. On: the sign-in links
+# the account itself, and only when Workeasy360 says the address is verified, Keel verified it too, the account is
+# an active member of the Keel organization linked to the token's organization and of no other organization, and
+# it has no Workeasy360 identity yet; every such link is audited (docs/workeasy360-sso.md, "Existing accounts").
+WORKEASY360_LINK_BY_VERIFIED_EMAIL = env.bool("WORKEASY360_LINK_BY_VERIFIED_EMAIL", default=False)
 # Workeasy360 is the only way in: password sign-in, sign-up, password reset, invitation sign-up and
 # self-service organization creation are refused. On by default (and in production, which refuses to
 # start unless Workeasy360 sign-in is configured); config.settings.dev and test turn it off.
