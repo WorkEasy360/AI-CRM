@@ -41,6 +41,15 @@ jobs:
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The sign-in connector comes from a private repository (backend/uv.lock): mint a one-hour, read-only GitHub App
+      # token for it first, so missing App settings fail here with a clear message
+      # (.github/actions/workeasy360-sso-access). Only the install step below receives the token.
+      - name: Access to the private sign-in connector
+        id: connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          app-id: ${{ vars.WORKEASY360_SSO_APP_ID }}
+          private-key: ${{ secrets.WORKEASY360_SSO_APP_PRIVATE_KEY }}
       - name: Create least-privilege runtime role (no superuser, no RLS bypass)
         run: |
           PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -v ON_ERROR_STOP=1 \
@@ -55,8 +64,17 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
+          # No uv cache: it would hold the private connector (built from source, which `uv cache prune --ci`
+          # keeps), and a cache saved on main can be restored by any pull request, forks included.
+          enable-cache: false
       - name: Install
         working-directory: backend
+        # git fetches the connector's locked SSH URL over HTTPS with the App token, configured in this step's
+        # environment only: no file, no global git configuration, and no other step is given the token.
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.connector.outputs.token }}@github.com/WorkEasy360/workeasy360-sso.git.insteadOf
+          GIT_CONFIG_VALUE_0: ssh://git@github.com/WorkEasy360/workeasy360-sso.git
         run: uv sync --frozen
       - name: Migrations are in sync with models
         working-directory: backend
@@ -82,10 +100,29 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The sign-in connector comes from a private repository (backend/uv.lock): mint a one-hour, read-only GitHub App
+      # token for it first, so missing App settings fail here with a clear message
+      # (.github/actions/workeasy360-sso-access). Only the install step below receives the token.
+      - name: Access to the private sign-in connector
+        id: connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          app-id: ${{ vars.WORKEASY360_SSO_APP_ID }}
+          private-key: ${{ secrets.WORKEASY360_SSO_APP_PRIVATE_KEY }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
-      - working-directory: backend
+          # No uv cache: it would hold the private connector (built from source, which `uv cache prune --ci`
+          # keeps), and a cache saved on main can be restored by any pull request, forks included.
+          enable-cache: false
+      - name: Install
+        working-directory: backend
+        # git fetches the connector's locked SSH URL over HTTPS with the App token, configured in this step's
+        # environment only: no file, no global git configuration, and no other step is given the token.
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.connector.outputs.token }}@github.com/WorkEasy360/workeasy360-sso.git.insteadOf
+          GIT_CONFIG_VALUE_0: ssh://git@github.com/WorkEasy360/workeasy360-sso.git
         run: uv sync --frozen
       - working-directory: backend
         run: uv run ruff check . && uv run ruff format --check .
@@ -111,17 +148,43 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The sign-in connector comes from a private repository (backend/uv.lock): mint a one-hour, read-only GitHub App
+      # token for it first, so missing App settings fail here with a clear message
+      # (.github/actions/workeasy360-sso-access). Only the install step below receives the token.
+      - name: Access to the private sign-in connector
+        id: connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          app-id: ${{ vars.WORKEASY360_SSO_APP_ID }}
+          private-key: ${{ secrets.WORKEASY360_SSO_APP_PRIVATE_KEY }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
-      - working-directory: backend
+          # No uv cache: it would hold the private connector (built from source, which `uv cache prune --ci`
+          # keeps), and a cache saved on main can be restored by any pull request, forks included.
+          enable-cache: false
+      - name: Install
+        working-directory: backend
+        # git fetches the connector's locked SSH URL over HTTPS with the App token, configured in this step's
+        # environment only: no file, no global git configuration, and no other step is given the token.
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.connector.outputs.token }}@github.com/WorkEasy360/workeasy360-sso.git.insteadOf
+          GIT_CONFIG_VALUE_0: ssh://git@github.com/WorkEasy360/workeasy360-sso.git
         run: uv sync --frozen
       - name: Bandit
         working-directory: backend
         run: uv run bandit -c pyproject.toml -r apps config security -q
+      # Every locked dependency, pinned and hash-checked, except workeasy360-sso: WorkEasy360's own sign-in
+      # connector, a git dependency on its private repository. A VCS requirement cannot carry a hash, so it
+      # would fail --require-hashes, and it is not on PyPI, so there is no record of it for --strict to look up.
+      # It is pinned instead by the full commit SHA recorded in uv.lock. Its own dependencies (Django, PyJWT,
+      # httpx) stay in the lock and in this export, so they are audited, hash-checked, like everything else.
       - name: pip-audit
         working-directory: backend
-        run: uv run pip-audit --strict
+        run: |
+          uv export --frozen --no-emit-project --no-emit-package workeasy360-sso -o "$RUNNER_TEMP/requirements.txt"
+          uv run pip-audit --strict --disable-pip --require-hashes -r "$RUNNER_TEMP/requirements.txt"
       # Semgrep runs from the backend project so the version is the one pinned in backend/uv.lock
       # (1.177.0), installed by the `uv sync --frozen` above. The retired semgrep-action shipped
       # 1.36.0, which is below the 1.76 floor upstream still supports and which matched `nosemgrep`
@@ -167,8 +230,13 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - working-directory: frontend
         run: pnpm install --frozen-lockfile
+      # Advisories accepted by ID are listed in package.json (pnpm.auditConfig.ignoreGhsas); each must be
+      # recorded in audit-exceptions.json with an owner and review date, and fails here once that date passes.
+      # The daily Dependency watch workflow fails when an accepted advisory gets a fixed version.
       - working-directory: frontend
         run: pnpm audit --audit-level=high
+      - working-directory: frontend
+        run: node scripts/audit-exceptions.mjs
       - working-directory: frontend
         run: pnpm lint && pnpm typecheck && pnpm test && pnpm build
       # The production server must actually hydrate under the nonce-based CSP. A statically
@@ -196,13 +264,27 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      # The sign-in connector comes from a private repository (backend/uv.lock): mint a one-hour, read-only GitHub App
+      # token for it first, so missing App settings fail here with a clear message
+      # (.github/actions/workeasy360-sso-access). Only the install step below receives the token.
+      - name: Access to the private sign-in connector
+        id: connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          app-id: ${{ vars.WORKEASY360_SSO_APP_ID }}
+          private-key: ${{ secrets.WORKEASY360_SSO_APP_PRIVATE_KEY }}
       - name: Build backend image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        env:
+          WORKEASY360_SSO_TOKEN: ${{ steps.connector.outputs.token }}
         with:
           context: backend
           push: false
           load: true
           tags: keel-backend:${{ github.sha }}
+          # The App token as a BuildKit secret, read from the environment (no file): mounted for the Dockerfile's
+          # dependency step only, so it is in no layer, no build argument and no cache.
+          secret-envs: workeasy360_sso_token=WORKEASY360_SSO_TOKEN
       - name: Trivy (fail on HIGH/CRITICAL with fixes)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -265,6 +347,20 @@ jobs:
         with:
           scan-type: config
           scan-ref: infra/terraform
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+      # The EC2 host's private API image registry (ECR repository, push and pull policies, SSM pointer).
+      - name: terraform fmt (EC2 registry)
+        working-directory: deploy/ec2/terraform
+        run: terraform fmt -check -recursive
+      - name: terraform validate (EC2 registry)
+        working-directory: deploy/ec2/terraform
+        run: terraform init -backend=false -input=false && terraform validate
+      - name: Trivy IaC scan (EC2 registry)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: deploy/ec2/terraform
           exit-code: "1"
           severity: HIGH,CRITICAL
       # `inspect` runs the init context, which parses users.json. The real file comes from

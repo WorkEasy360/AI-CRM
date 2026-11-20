@@ -23,8 +23,12 @@ dependencies = [
     "pgvector>=0.4",
     "httpx>=0.28",
     "cryptography>=45",
-    # PyJWT: signs the private_key_jwt client assertion and verifies Workeasy360 ID tokens (docs/workeasy360-sso.md).
+    # PyJWT: the JOSE library under the Workeasy360 connector (client assertions, ID and logout tokens); the floor
+    # is ours, the connector accepts older releases.
     "pyjwt>=2.15",
+    # WorkEasy360 sign-in (OpenID Connect relying party, entitlement, back-channel logout): the shared connector,
+    # installed from its private repository at the v0.3.1 commit ([tool.uv.sources]; docs/workeasy360-sso.md).
+    "workeasy360-sso==0.3.1",
     "openpyxl>=3.1",
 ]
 
@@ -44,6 +48,12 @@ dev = [
     "pip-audit>=2.9",
 ]
 
+[tool.uv.sources]
+# The private repository WorkEasy360/workeasy360-sso over SSH, pinned to the full commit SHA of tag v0.3.1 (an
+# annotated tag, dereferenced), so moving the tag cannot change what installs; uv.lock records the same commit.
+# Installing needs read access to that repository (docs/workeasy360-sso.md, "Installing the connector").
+workeasy360-sso = { git = "ssh://git@github.com/WorkEasy360/workeasy360-sso.git", rev = "a98552f8f37e1e4f1fab1de99cc5b915cb9ed5c1" }
+
 [tool.uv]
 # semgrep pins mcp==1.29.0 (still in 1.181.0), which has CVE-2026-59951; the fix is a minor release.
 # Drop this once semgrep allows mcp>=1.30.
@@ -60,6 +70,17 @@ override-dependencies = [
     "opentelemetry-instrumentation>=0.66b0",
     "opentelemetry-instrumentation-requests>=0.66b0",
     "opentelemetry-instrumentation-threading>=0.66b0",
+]
+# workeasy360-sso is built from its git checkout at install time, and uv.lock does not record build
+# dependencies: pin its build backend (hatchling) and everything it pulls in, so every install builds the
+# connector with the same tools instead of whatever PyPI serves that day. Review when the connector moves.
+build-constraint-dependencies = [
+    "hatchling==1.33.0",
+    "packaging==26.3",
+    "pathspec==1.1.1",
+    "pluggy==1.7.0",
+    "tomlkit==0.15.2",
+    "trove-classifiers==2026.9.21.13",
 ]
 
 [tool.pytest.ini_options]

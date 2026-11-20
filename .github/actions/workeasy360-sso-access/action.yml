@@ -1,0 +1,80 @@
+name: WorkEasy360 sign-in connector access
+description: >-
+  A short-lived, read-only token for the private repository WorkEasy360/workeasy360-sso, which backend/uv.lock
+  installs the sign-in connector from (docs/workeasy360-sso.md, "Installing the connector"). It is an installation
+  token of the GitHub App "WorkEasy360 connector reader": valid for one hour, Contents read-only, that one
+  repository only, masked in every log and revoked when the job ends. Missing or wrong App settings fail here, with
+  a message naming the variable or secret, instead of deep inside `uv sync` or an image build. The token is only an
+  output: each job hands it to the one step that needs it (git's environment configuration on `uv sync`, or a
+  BuildKit secret on the image build). Nothing is written to disk or to any git configuration file.
+
+inputs:
+  app-id:
+    description: The GitHub App's ID (vars.WORKEASY360_SSO_APP_ID).
+    required: true
+  private-key:
+    description: The GitHub App's private key, PEM (secrets.WORKEASY360_SSO_APP_PRIVATE_KEY).
+    required: true
+
+outputs:
+  token:
+    description: Installation token that can read WorkEasy360/workeasy360-sso, and nothing else, for one hour.
+    value: ${{ steps.token.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check the connector App settings
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        PRIVATE_KEY: ${{ inputs.private-key }}
+      run: |
+        set -euo pipefail
+        if [ -z "${APP_ID//[[:space:]]/}" ]; then
+          echo "::error title=Variable WORKEASY360_SSO_APP_ID is missing::The backend installs the WorkEasy360 sign-in connector from the private repository WorkEasy360/workeasy360-sso (backend/uv.lock), and this job has no GitHub App to read it with. Set the repository variable WORKEASY360_SSO_APP_ID to the ID of the \"WorkEasy360 connector reader\" App (docs/workeasy360-sso.md, \"Installing the connector\")."
+          exit 1
+        fi
+        if [ -z "${PRIVATE_KEY//[[:space:]]/}" ]; then
+          echo "::error title=Secret WORKEASY360_SSO_APP_PRIVATE_KEY is missing::The backend installs the WorkEasy360 sign-in connector from the private repository WorkEasy360/workeasy360-sso (backend/uv.lock), and this job has no key for its GitHub App. Save the App's private key as the Actions secret WORKEASY360_SSO_APP_PRIVATE_KEY in this repository (docs/workeasy360-sso.md, \"Installing the connector\"). Pull requests from forks never receive secrets, so their backend jobs stop here."
+          exit 1
+        fi
+        if [[ "$PRIVATE_KEY" != *"-----BEGIN"*"PRIVATE KEY-----"* ]]; then
+          echo "::error title=Secret WORKEASY360_SSO_APP_PRIVATE_KEY is not a private key::The secret is set but holds no PEM private key. Save the whole .pem file GitHub generated for the App, from the BEGIN line to the END line (docs/workeasy360-sso.md, \"Installing the connector\")."
+          exit 1
+        fi
+
+    - name: Mint a read-only token for WorkEasy360/workeasy360-sso
+      id: token
+      uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: WorkEasy360
+        repositories: workeasy360-sso
+        permission-contents: read
+
+    - name: Explain a refused token
+      if: failure() && steps.token.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::error title=No token for WorkEasy360/workeasy360-sso::GitHub refused to issue an installation token. Check that WORKEASY360_SSO_APP_ID is the App's ID, that WORKEASY360_SSO_APP_PRIVATE_KEY is a current private key of that same App, that the App is installed on WorkEasy360/workeasy360-sso, and that it has Contents: read-only (docs/workeasy360-sso.md, \"Installing the connector\")."
+        exit 1
+
+    # The same environment-only rewrite the jobs use: git keeps the locked SSH URL and fetches it over HTTPS with
+    # the token. Run outside the checkout, so its persisted GITHUB_TOKEN header cannot stand in for the App token.
+    - name: Check that the token can read the connector
+      shell: bash
+      env:
+        GIT_CONFIG_COUNT: "1"
+        GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.token.outputs.token }}@github.com/WorkEasy360/workeasy360-sso.git.insteadOf
+        GIT_CONFIG_VALUE_0: ssh://git@github.com/WorkEasy360/workeasy360-sso.git
+        GIT_TERMINAL_PROMPT: "0"
+      run: |
+        set -euo pipefail
+        cd "$RUNNER_TEMP"
+        if ! git ls-remote --exit-code ssh://git@github.com/WorkEasy360/workeasy360-sso.git HEAD >/dev/null; then
+          echo "::error title=The App token cannot read WorkEasy360/workeasy360-sso::GitHub issued a token but refused it for the repository. Give the App the repository permission Contents: read-only and install it on WorkEasy360/workeasy360-sso (docs/workeasy360-sso.md, \"Installing the connector\")."
+          exit 1
+        fi
+        echo "WorkEasy360/workeasy360-sso is readable with a one-hour, read-only App token."

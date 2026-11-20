@@ -11,7 +11,7 @@ Workeasy360 app launcher ── https://crm.workeasy360.com/?organization=<uuid>
         │  frontend middleware (src/lib/launcher.ts)
         ▼
 GET /api/auth/workeasy360/start?organization=<uuid>&next=<path>
-        │  state, nonce, PKCE verifier, organization, next  -> Django session
+        │  state, nonce, PKCE verifier, organization, next  -> single-use server-side flow, bound to this browser by a cookie
         ▼  302
 Workeasy360 /authorize  (sign-in, MFA, organization choice, entitlement and seat checks)
         │  302
@@ -28,7 +28,7 @@ next (default "/")          — or /login?sso_error=<code> on any failure
   no refresh tokens. Only the issuer is configured; endpoints come from
   `{issuer}/.well-known/openid-configuration`, whose `issuer` must equal ours exactly. Discovery and
   the key set are cached for an hour; an unknown `kid` refreshes the key set once, then fails.
-* ID token checks (`apps/accounts/workeasy360/oidc.py`): key by `kid` from the cached key set,
+* ID token checks (the workeasy360-sso connector, `workeasy360_sso.tokens`): key by `kid` from the cached key set,
   algorithm from the key (RS256/ES256, never from the header), `aud` = client id, `iss`, `exp`/`nbf`
   with 30 s leeway, `typ == "id_token"`, `nonce` matches the session, `organization_id` present. `azp`,
   when present, must be the client id, and an `aud` that is a list must be exactly `[client id]` or come with
@@ -44,7 +44,7 @@ next (default "/")          — or /login?sso_error=<code> on any failure
 | Situation | Result |
 |---|---|
 | (issuer, `sub`) already linked | that Keel user (email changes at Workeasy360 do not matter) |
-| a Keel account has the address, `email_verified` true, no Workeasy360 identity yet | **linked**. If Keel itself never verified that address, the account's password is removed and its sessions revoked (it may have been pre-registered by someone else) |
+| a Keel account has the address, no Workeasy360 identity yet | refused: `account_conflict` ("contact your administrator"); **never merged by email**. An operator links it with `link_workeasy360_user` (see *Existing accounts*). Only with `WORKEASY360_LINK_BY_VERIFIED_EMAIL` on is it linked at sign-in, under the rules there |
 | the address exists but Workeasy360 has not verified it | refused: `email_unverified` (no takeover) |
 | the Keel account is linked to a different Workeasy360 account | refused: `account_conflict` |
 | unknown address, verified | new account: no usable password, verified `EmailAddress`, name from `name` |
@@ -129,7 +129,7 @@ details are logged (`workeasy360.sign_in_failed`). Workeasy360 authorize errors 
 
 | Setting | Default | |
 |---|---|---|
-| `WORKEASY360_ISSUER` | — | e.g. `https://app.workeasy360.com`; https required in production |
+| `WORKEASY360_ISSUER` | — | Production: `https://accounts.workeasy360.com` (WorkEasy360 Accounts). Never `app.`: it serves no discovery document, and every sign-in would end in `sso_error=unavailable`. https is required in production; see *Moving to WorkEasy360 Accounts* |
 | `WORKEASY360_CLIENT_ID` | — | from the Workeasy360 integration |
 | `WORKEASY360_REDIRECT_URI` | — | `https://crm.workeasy360.com/api/auth/callback/workeasy360` (exact match) |
 | `WORKEASY360_KEY_ID` | — | the credential id Workeasy360 returned for our public key |
@@ -137,7 +137,11 @@ details are logged (`workeasy360.sign_in_failed`). Workeasy360 authorize errors 
 | `WORKEASY360_SCOPES` | `openid email profile organization` | |
 | `WORKEASY360_PRODUCT_CODE` | `easy_crm` | ID tokens for another product, or without a `product_code`, are refused. It must not be empty or blank where sign-in is configured (an empty value would switch the check off): production refuses to start, `manage.py check` fails (`workeasy360.E001`), and if it happens anyway every sign-in is refused (`unavailable`). Leave it unset for the default |
 | `WORKEASY360_DEFAULT_ROLE` | `sales_rep` | role for people joining an existing organization; never `owner` |
+| `WORKEASY360_LINK_BY_VERIFIED_EMAIL` | `false` | `false`: a sign-in whose address belongs to an existing Keel account is refused (`account_conflict`) and an operator links it. `true`: the sign-in links it itself, only within the organization (see *Existing accounts*) |
 | `WORKEASY360_SSO_ONLY` | `true` (`false` in dev and test) | |
+| `WORKEASY360_POST_LOGOUT_REDIRECT_URI` | — | enables "sign out of WorkEasyCRM and Workeasy360"; https in production |
+| `WORKEASY360_BACKCHANNEL_LOGOUT` | `true` | serves `POST /api/auth/workeasy360/backchannel-logout` (see below) |
+| `WORKEASY360_ALLOW_INSECURE_HTTP` | `false` | local development only: http issuer/redirect URI on a loopback host; production refuses to start with it |
 
 Sign-in is offered when issuer, client id, redirect URI, key id and a private key are all set.
 `config.settings.prod` refuses to start when `WORKEASY360_SSO_ONLY` is on and sign-in is not
@@ -158,16 +162,292 @@ does not exist, or when sign-in is configured and `WORKEASY360_PRODUCT_CODE` is 
    `private_key_jwt`; redirect URI `https://crm.workeasy360.com/api/auth/callback/workeasy360`; launch URL
    `https://crm.workeasy360.com/`; scopes **`openid email profile organization`** (all four must be
    registered, or Workeasy360 answers `invalid_scope`). Upload `easy-crm-w360.pub`.
-3. Set `WORKEASY360_KEY_ID` to the credential id Workeasy360 returns for that key, and
+3. Register the back-channel logout URI `https://crm.workeasy360.com/api/auth/workeasy360/backchannel-logout`
+   (same origin as the redirect URI; `python manage.py w360sso_manifest` prints both from the running
+   configuration).
+4. Set `WORKEASY360_KEY_ID` to the credential id Workeasy360 returns for that key, and
    `WORKEASY360_CLIENT_ID` to the client id. Put the private key in the secret store and expose it as
    `WORKEASY360_PRIVATE_KEY` or a mounted `WORKEASY360_PRIVATE_KEY_FILE`.
-4. Rotation: register a second public key, switch `WORKEASY360_KEY_ID`/the private key, then retire
-   the old credential in Workeasy360.
+5. Rotation: register a second public key, switch `WORKEASY360_KEY_ID`/the private key, then retire
+   the old credential in Workeasy360. `python manage.py w360sso_check` proves discovery, the key set and the
+   credential against the live provider.
 
 Local development: Workeasy360 accepts `http://localhost:*` redirect URIs outside production, e.g.
 `http://localhost:4000/api/auth/callback/workeasy360` (the Next.js dev server proxies `/api/` to
 Django). Register that URI on a development integration and set `WORKEASY360_ISSUER` to the local
 Workeasy360 backend.
+
+## The workeasy360-sso connector and back-channel logout (2026-11-16)
+
+The OpenID Connect protocol is the shared **workeasy360-sso** connector (installed from its private repository,
+see [Installing the connector](#installing-the-connector-private-repository); `INSTALLED_APPS` entry
+`workeasy360_sso`), not Keel code: discovery and the key set, the authorization code
+flow with PKCE, the single-use server-side flow bound to the browser by a cookie (several tabs can sign in at
+once), `private_key_jwt`, ID-token and logout-token verification, the entitlement API with its cache and
+rules, and the back-channel logout receiver. It reads its configuration from the `WORKEASY360_*` settings
+above (`apps/accounts/workeasy360/connector_settings.py`); no environment or SSM name changed.
+
+Keel keeps its rules around it: the three routes and their behaviour (`apps/accounts/workeasy360/views.py`,
+the `sso_error` vocabulary the frontend maps), who signs in and where they land (`provisioning.py`, the
+connector's user and organization adapters - one transaction), what is recorded about a sign-in (allauth's
+backend and authentication record, `workeasy360_aal`/`workeasy360_sub`, `user_logged_in`), MFA and
+"Confirm it's you", DRF enforcement of entitlement and its 403 codes (`entitlement.py`), background-job
+gating (`background.py`).
+
+**Data.** `ExternalIdentity` stays the authoritative (issuer, `sub`) → user link. The connector keeps a mirror,
+`workeasy360_sso_federated_identity`, which migration `accounts.0007` back-filled and every sign-in keeps in
+step; its session records (`workeasy360_sso_product_session`) say which Keel sessions a sign-in opened.
+Other connector tables hold in-flight sign-ins and spent logout-token ids; `accounts.workeasy360_cleanup`
+(Celery beat, every 6 h) purges what is no longer needed.
+
+**Back-channel logout** (OpenID Connect Back-Channel Logout 1.0). Workeasy360 POSTs a signed logout token to
+`/api/auth/workeasy360/backchannel-logout` (under `/api/`, the only prefix the edge routes to Django). The
+connector verifies it (signature from the key set, `iss`, `aud`, `iat`/`exp`, the back-channel event, no
+`nonce`, `typ: logout+jwt`) and accepts each `jti` once; a replay or a forged token is answered `400` and ends
+nothing.
+
+| Token names | Ends |
+|---|---|
+| `sid` ("sign out of this device") | the Keel sessions that Workeasy360 sign-in opened - nothing else; the same person's other devices stay signed in |
+| only `sub` ("sign out everywhere") | every Keel session of that person: the connector's records, and `services.revoke_user_sessions` (session salt rotated, allauth sessions purged), which also ends sessions opened before this release |
+
+A session opened before this release has no connector record, so only "sign out everywhere" reaches it. If
+ending the sessions fails, nothing is recorded and Workeasy360 is answered `503` and delivers again. Both
+cases are audited (`auth.logout` / `auth.sessions_revoked`, method `workeasy360_backchannel`).
+
+Sign-out of WorkEasyCRM only is unchanged (allauth's session `DELETE`); it also ends the session's connector
+record. A password sign-in in hybrid mode drops the federated keys and that record as well.
+
+### Installing the connector (private repository)
+
+The connector's repository, `WorkEasy360/workeasy360-sso`, is **private**, and nothing is published to an index.
+This repository is public, so it does not carry the connector. `backend/pyproject.toml` (`[tool.uv.sources]`)
+installs it from a git source over SSH, pinned to the full commit SHA of tag `v0.3.1`:
+`a98552f8f37e1e4f1fab1de99cc5b915cb9ed5c1` (the tag is annotated; this is the commit it points to). `uv.lock`
+records the same commit, so a moved tag changes nothing. Installing needs read access to that repository.
+Without it, `uv sync` stops at the connector.
+
+**Developers.** Your GitHub account needs read access to `WorkEasy360/workeasy360-sso`. Then either:
+
+- *SSH:* keep an SSH key for that account in your ssh-agent (`ssh -T git@github.com` greets you by name), and
+  run `cd backend && uv sync` as before.
+- *HTTPS through the GitHub CLI:* let git fetch this one repository over HTTPS, with `gh` as the credential helper:
+
+  ```bash
+  gh auth login && gh auth setup-git
+  git config --global url."https://github.com/WorkEasy360/workeasy360-sso.git".insteadOf \
+    "ssh://git@github.com/WorkEasy360/workeasy360-sso.git"
+  ```
+
+  The lock still names the SSH URL and the same commit; only your git changes how it fetches.
+- *Docker:* either pass a token as the BuildKit secret, for example your GitHub CLI's:
+
+  ```bash
+  GH_TOKEN="$(gh auth token)" docker build --secret id=workeasy360_sso_token,env=GH_TOKEN backend
+  ```
+
+  or forward an ssh-agent holding a key with access: `docker build --ssh default backend`, or
+  `docker compose build` (`ssh: [default]` in `docker-compose.yml`). On Windows the agent is the OpenSSH
+  Authentication Agent service. The HTTPS rewrite in your own git configuration does not reach inside the build.
+  With neither, the build stops at the connector step and says so.
+
+**CI** (`ci.yml`, `deploy.yml`). Every job that installs backend dependencies or builds the backend image
+(backend tests, lint and types, security, container build, deploy images) first runs
+`.github/actions/workeasy360-sso-access`. That step:
+
+- checks that the repository variable `WORKEASY360_SSO_APP_ID` and the secret `WORKEASY360_SSO_APP_PRIVATE_KEY`
+  exist, and fails with a message naming whichever is missing;
+- mints an installation token of the GitHub App **WorkEasy360 connector reader** with
+  `actions/create-github-app-token` (pinned by commit, v2.2.2): `owner: WorkEasy360`,
+  `repositories: workeasy360-sso`, `permission-contents: read`. The token lasts one hour, can read that one
+  repository and nothing else, is masked in every log, and is revoked when the job ends;
+- checks with `git ls-remote` that the token can read the repository.
+
+The token is an output of that step, handed only to the step that needs it:
+
+- `uv sync`: git's environment configuration on that one step, which fetches the locked SSH URL over HTTPS with
+  the token. No file is written and no global git configuration is changed:
+
+  ```yaml
+  env:
+    GIT_CONFIG_COUNT: "1"
+    GIT_CONFIG_KEY_0: url.https://x-access-token:${{ steps.connector.outputs.token }}@github.com/WorkEasy360/workeasy360-sso.git.insteadOf
+    GIT_CONFIG_VALUE_0: ssh://git@github.com/WorkEasy360/workeasy360-sso.git
+  ```
+
+  Later `uv run` steps reuse what that step installed and need no access.
+- the image build: a BuildKit secret, `secret-envs: workeasy360_sso_token=WORKEASY360_SSO_TOKEN` (read from the
+  step's environment, so it is not written to a file either).
+
+The dependency spec stays the SSH URL, so developers keep using their own access. Pull requests from forks get no
+secrets, so their backend jobs stop at the access step. Two caches are switched off because each would hold the
+connector, and a cache saved on `main` can be restored by any pull request, forks included:
+
+- setup-uv's cache, in the backend jobs. `uv cache prune --ci` keeps wheels built from source.
+- the `type=gha` layer cache, for the deploy's API image.
+
+**Image** (`backend/Dockerfile`). The builder stage installs git and the SSH client and pins github.com's host keys.
+The dependency `uv sync` is one `RUN` with two optional mounts, and uses the first that is present:
+
+1. the BuildKit secret `workeasy360_sso_token`: git fetches over HTTPS with it, set in that command's environment
+   only (CI);
+2. the caller's ssh-agent, `--mount=type=ssh` (a developer's `docker build --ssh default` or `docker compose build`).
+
+With neither, the build stops at that step and says how to pass one. Both mounts exist for that step alone, and
+git's clone stays in the uv cache mount, which is not part of the image. So no layer holds a token, a key or a
+`.git` directory. The runtime stage copies only `/app`, which holds the installed package and its `direct_url.json`
+(the SSH URL and the commit, no credential); it has neither git nor ssh. Checked on 2026-11-18 with a build that
+received a token as the secret: the token appears in no layer, no image config or history, and no layer holds a
+`.git` directory or a private key.
+
+**The image is private because of where it is pushed.** The API image necessarily contains the connector's code,
+so it must never reach a public registry. `deploy.yml` pushes it only to a private ECR repository, through the
+deploy role (GitHub OIDC), and the EC2 host pulls it with its instance role (`deploy/ec2/terraform`;
+`deploy/ec2/README.md`, "Private API image"). The web image holds no connector code and stays on the public GHCR
+package `ghcr.io/workeasy360/ai-crm-web`. The public `ghcr.io/workeasy360/ai-crm-api` package only ever received
+images built from `main` before the connector arrived (16 tags, checked 2026-11-18). Once the ECR deploy works,
+make it private or delete it.
+
+**Setting up the GitHub App** (repository owner, once). The App belongs to the `WorkEasy360` account, can read
+repository contents only, and is installed on `workeasy360-sso` only.
+
+1. Open <https://github.com/settings/apps/new> (Settings → Developer settings → GitHub Apps → New GitHub App).
+2. **GitHub App name:** `WorkEasy360 connector reader`. Names are unique across GitHub, so add a suffix if it is
+   taken. **Homepage URL:** `https://github.com/WorkEasy360`.
+3. Leave **Callback URL** empty and **Request user authorization (OAuth) during installation** and **Enable Device
+   Flow** unchecked. Under **Webhook**, uncheck **Active**.
+4. **Permissions → Repository permissions → Contents: Read-only.** Metadata becomes Read-only by itself, which is
+   required. Leave every other repository, organization and account permission at **No access**, and subscribe to
+   no events.
+5. **Where can this GitHub App be installed?** **Only on this account.** Then **Create GitHub App**.
+6. On the App's **General** page, note the **App ID** (a number; it is not secret).
+7. Under **Private keys**, click **Generate a private key**. The browser downloads a `.pem` file.
+8. **Install App** (left menu) → **Install** next to `WorkEasy360` → **Only select repositories** →
+   `WorkEasy360/workeasy360-sso` → **Install**.
+9. Store both in this repository, then delete the key file:
+
+   ```bash
+   gh variable set WORKEASY360_SSO_APP_ID -R WorkEasy360/AI-CRM --body "<App ID>"
+   gh secret set WORKEASY360_SSO_APP_PRIVATE_KEY -R WorkEasy360/AI-CRM < key.pem
+   rm key.pem        # PowerShell: Remove-Item key.pem
+   ```
+
+10. Re-run the pull request's checks. The access step logs `WorkEasy360/workeasy360-sso is readable with a
+    one-hour, read-only App token.`
+
+The same App also serves EasyBook, whose CI installs the same connector (wired separately). Store the App ID and a
+private key there the same way, under the names EasyBook's docs give. Generate a separate private key for each
+repository: an App can have several keys, so each one can be deleted on its own.
+
+To rotate the key, generate a new one, update the secret, then delete the old key on the App's page. To cut CI off
+from the connector at once, delete the key, or uninstall the App from `workeasy360-sso`. Anyone who can push a
+branch to this repository can write a workflow that uses the secret, as with any Actions secret. What the key can
+ever do is mint tokens that read `workeasy360-sso`.
+
+**The old deploy key.** The previous revision of this setup asked for a read-only deploy key
+(`WORKEASY360_SSO_DEPLOY_KEY`). Nothing uses it any more. On 2026-11-18 `workeasy360-sso` had no deploy key, and
+this repository had no such secret. If either was created since, remove both:
+
+```bash
+gh repo deploy-key list -R WorkEasy360/workeasy360-sso
+gh repo deploy-key delete <id> -R WorkEasy360/workeasy360-sso
+gh secret delete WORKEASY360_SSO_DEPLOY_KEY -R WorkEasy360/AI-CRM
+```
+
+**Upgrading.** Find the commit of the new release tag. Run
+`gh api repos/WorkEasy360/workeasy360-sso/git/ref/tags/vX.Y.Z`; for an annotated tag (`"type": "tag"`), follow
+up with `gh api repos/WorkEasy360/workeasy360-sso/git/tags/<sha> --jq .object.sha`. Put the commit in `rev` and
+run `uv lock`. If the connector's `[build-system]` changed, update `build-constraint-dependencies` (the pinned
+build backend). Then migrate, as for every connector release.
+
+**Audit.** CI's `pip-audit --strict --require-hashes` checks every locked package except the connector
+(`uv export --no-emit-package workeasy360-sso`). A VCS dependency carries no hash, and the connector is not on
+PyPI to look up. Its dependencies (Django, PyJWT, httpx) remain in the export and are audited.
+
+### Rolling out the connector release, and rolling it back
+
+The platform side is Workeasy360 PR #4 (back-channel logout, ADR-069; drafted as ADR-067), stacked on its production branch. Keel
+and the platform can be deployed in either order. Until both are live and the URI is registered, nothing is
+sent to the receiver.
+
+**Before deploying Keel**
+1. Run `manage.py check --deploy` and `manage.py w360sso_check` with the production environment. The
+   connector refuses some configuration the old client accepted, and in SSO-only production it refuses to
+   start on any `workeasy360_sso.E001` error. Examples: a query string in `WORKEASY360_POST_LOGOUT_REDIRECT_URI`,
+   a trailing `/` on `WORKEASY360_ISSUER`, an RSA key under 2048 bits. Fix those first.
+2. Take a database snapshot, as for every release.
+3. The connector App is set up (`WORKEASY360_SSO_APP_ID`, `WORKEASY360_SSO_APP_PRIVATE_KEY`), and the API
+   image goes to the private ECR repository: `deploy/ec2/terraform` applied, `AWS_DEPLOY_ROLE_ARN` and
+   `AWS_REGION` set ([Installing the connector](#installing-the-connector-private-repository);
+   `deploy/ec2/README.md`, "Private API image"). A public API image publishes the private connector.
+
+**Deploy**
+1. `migrate`: `workeasy360_sso.0001`/`0002` create the connector's tables, and `accounts.0007` back-fills the
+   identity mirror. It only adds rows; nothing existing is changed.
+2. Deploy `api`, `worker` and `beat`. Sessions that are already open keep working, and nobody is signed out.
+   A sign-in that is mid-flight at the moment of the deploy ends once in `sso_error=expired`.
+3. Check: one Workeasy360 sign-in works. `manage.py w360sso_manifest` prints the URLs to register.
+
+**Turn on back-channel logout.** Do this only after Keel and platform PR #4 are both live.
+1. In Super Admin, under Products → Easy CRM → Authentication, set the back-channel logout URL to
+   `https://crm.workeasy360.com/api/auth/workeasy360/backchannel-logout`. Its hostname is already proven
+   (carried over).
+2. Sign out of Workeasy360 on one device. That device's Keel session ends, and Super Admin shows the delivery
+   as delivered.
+
+**Roll back**
+1. First clear the back-channel logout URL in Super Admin. The old image answers `404` to its POSTs, and the
+   platform would record each one as a refused delivery.
+2. Redeploy the previous image (`f5c9254`). There is no migration to reverse.
+   - The connector's tables stay; the old code ignores them.
+   - `ExternalIdentity` was authoritative throughout and written exactly as before, so every user link is intact.
+   - Sessions opened by the new code use allauth's backend and the same session keys, so they survive.
+3. To redeploy the new image later, migrate again (a no-op); the identity mirror catches up at each sign-in.
+4. Never drop the connector's tables while either image may still run. The cleanup task keeps them small.
+
+## Moving to WorkEasy360 Accounts (`accounts.workeasy360.com`), 2026-11-17
+
+WorkEasy360's central sign-in is moving from `https://auth.workeasy360.com` to
+`https://accounts.workeasy360.com` (platform ADR-067). It is the same provider, with the same keys, the same
+people (`sub`), and the same client id, credential, redirect URI and post-logout URI. Only the issuer changes.
+The platform answers on both names while products move, and each name issues tokens only under its own `iss`.
+Keel keeps verifying exactly one issuer, the configured one.
+
+**Which value.** Use `https://accounts.workeasy360.com` once the platform is at stage b (its runbook,
+`deploy/single-host/README.md`, "Accounts"). It is then served and issued on its own host. Before stage b,
+discovery under that name is refused (fails closed), so do not switch earlier.
+
+**Data, in the same release.** Keel links people on (issuer, `sub`) twice: `ExternalIdentity` and the
+connector's mirror. Move both before the new configuration takes traffic:
+
+```sh
+python manage.py move_workeasy360_issuer --from https://auth.workeasy360.com           # dry run, both tables
+python manage.py move_workeasy360_issuer --from https://auth.workeasy360.com --apply   # one transaction
+```
+
+- It moves the links to the configured issuer only, together with their open session records, and audits
+  `auth.sso_issuer_moved`.
+- It folds a duplicate link (the same person on the same Keel user under both names).
+- If one person has two Keel users, or one Keel user holds two people, in either table, it moves nothing and
+  lists them.
+- Running it again moves nothing.
+
+On 2026-11-16 production Keel was not completing any sign-in (`sso_error=unavailable`; SSM
+`/keel/production/WORKEASY360_ISSUER` probably holds `app.`), so the dry run is expected to report
+`identities=0`. Run it anyway: it is the evidence.
+
+**Rollout**
+1. Read SSM `/keel/production/WORKEASY360_ISSUER` (owner).
+2. When the platform is at stage b, set it to `https://accounts.workeasy360.com`.
+3. Deploy, running `migrate` and then `move_workeasy360_issuer --from <old value> --apply` before traffic. If
+   the old value was `app.` (no sign-in ever completed), run the dry run only.
+4. Check with `w360sso_check`, then one sign-in and one sign-out.
+
+**Rollback** (while the platform is still at stage b or c): put the previous value back, then run
+`move_workeasy360_issuer --from https://accounts.workeasy360.com --apply`.
+
+Back-channel logout keeps working through the move: the platform signs each logout token with the issuer Keel
+last redeemed a code under (platform ADR-069 addendum).
 
 ## Moving an existing customer to Workeasy360 sign-in
 
@@ -179,8 +459,48 @@ python manage.py link_workeasy360_organization <keel-org-id-or-slug> <workeasy36
 ```
 
 It refuses when either side is already linked and writes `org.workeasy360_linked` to the audit log.
-Existing members are then linked by verified email on their first Workeasy360 sign-in and keep their
-roles and data.
+Existing members keep their roles and data once each is linked to their Workeasy360 account (below); until
+then their Workeasy360 sign-in is refused with `account_conflict`.
+
+### Existing accounts: linking a person (`link_workeasy360_user`)
+
+The same email address is not proof of the same person, so a Workeasy360 sign-in never takes over an existing
+Keel account by its address. An operator who has confirmed who the person is links the two, for one
+organization:
+
+```sh
+python manage.py link_workeasy360_user --email ada@example.com --subject <workeasy360-sub>     --organization <workeasy360-org-uuid> --actor "Priya (support)" --reason "ticket 4711"     # dry run
+python manage.py link_workeasy360_user ... --apply                                           # link
+```
+
+* `--subject` is the person's Workeasy360 user id (`sub`); `--user-id` may replace `--email`. The link is made
+  at the configured `WORKEASY360_ISSUER`.
+* `--organization` must already be linked to a Keel organization (`link_workeasy360_organization`), and the
+  account must be an active member of it. The dry run lists every other organization the link opens.
+* Refused when the account already has a Workeasy360 identity, or the Workeasy360 identity already belongs to
+  another account. Nothing is merged or moved.
+* Audited as `auth.sso_identity_linked` (actor type `system`, in the organization): `link: operator`, `actor`,
+  `reason`, `user_id`, `issuer`, `subject`, the organization ids, the other organizations, whether Keel had
+  verified the address, and `password_kept`. The connector's identity mirror is written with it.
+
+**Automatic linking (`WORKEASY360_LINK_BY_VERIFIED_EMAIL=true`, off by default).** The sign-in links the
+account itself only when all of these hold; otherwise it is refused with `account_conflict` and the log says
+which rule:
+
+1. Workeasy360 says the address is verified (`email_verified` true; otherwise `email_unverified`), and Keel
+   verified it too (an unverified Keel address may have been pre-registered by someone else);
+2. the token's organization is linked to a Keel organization and the account is an active member of it;
+3. the account belongs to **no other** Keel organization, whatever the status (a link would open them all, and
+   Keel-only organizations are never checked with Workeasy360): never across organizations;
+4. the account has no Workeasy360 identity yet (never re-linked), is active, and is not a staff account.
+
+Every automatic link is audited as `auth.sso_identity_linked` with `link: automatic`, by the person signing in.
+
+**Passwords are left as they are** on both paths (no authentication data is removed before migration and
+linking are proven). A linked account that had a password can still use it while password sign-in is on.
+`WORKEASY360_SSO_ONLY=true` (the production default) retires every password: password sign-in and password
+re-authentication are refused before the password is checked, and no reset link is sent (see
+*`WORKEASY360_SSO_ONLY`*). Removing the stored hashes afterwards is a separate, later step.
 
 ## Universal sign-in: what the person controls (2026-10-12)
 

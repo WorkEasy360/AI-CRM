@@ -5,8 +5,9 @@ organization. Run it before switching an existing customer to Workeasy360 sign-i
 
     python manage.py link_workeasy360_organization <keel-org-id-or-slug> <workeasy360-org-uuid>
 
-Existing members are then matched to their Workeasy360 accounts by verified email on their first
-Workeasy360 sign-in and keep their roles. Refuses if either side is already linked.
+Existing members keep their roles once each is linked to their Workeasy360 account with
+``link_workeasy360_user`` (an email match alone is refused unless WORKEASY360_LINK_BY_VERIFIED_EMAIL is on).
+Refuses if either side is already linked.
 """
 
 from __future__ import annotations

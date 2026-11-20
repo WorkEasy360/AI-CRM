@@ -15,6 +15,14 @@ overrides = [
     { name = "opentelemetry-sdk", specifier = ">=1.45.1,<2" },
     { name = "opentelemetry-semantic-conventions", specifier = ">=0.66b0" },
 ]
+build-constraints = [
+    { name = "hatchling", specifier = "==1.33.0" },
+    { name = "packaging", specifier = "==26.3" },
+    { name = "pathspec", specifier = "==1.1.1" },
+    { name = "pluggy", specifier = "==1.7.0" },
+    { name = "tomlkit", specifier = "==0.15.2" },
+    { name = "trove-classifiers", specifier = "==2026.9.21.13" },
+]
 
 [[package]]
 name = "amqp"
@@ -1028,6 +1036,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pyjwt" },
     { name = "structlog" },
+    { name = "workeasy360-sso" },
 ]
 
 [package.dev-dependencies]
@@ -1068,6 +1077,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2" },
     { name = "pyjwt", specifier = ">=2.15" },
     { name = "structlog", specifier = ">=25.4" },
+    { name = "workeasy360-sso", git = "ssh://git@github.com/WorkEasy360/workeasy360-sso.git?rev=a98552f8f37e1e4f1fab1de99cc5b915cb9ed5c1" },
 ]
 
 [package.metadata.requires-dev]
@@ -2256,6 +2266,16 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/36/57/ed58088fafdf4c55a0ad6bde846502567645424d7ebf325230b9237f4085/wcwidth-0.8.3.tar.gz", hash = "sha256:d128512515fbf4612e0ff21fd6380399210318b7b54a9af59dff8454cf9730eb", size = 1458450, upload-time = "2026-08-28T18:10:06.875Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/0e/57f6bb3024a597b2e8ec4aee710ffe62ddc95af2e2bb1ee7a7abdc22c68c/wcwidth-0.8.3-py3-none-any.whl", hash = "sha256:d5b73dba6158a595ec9370350e7f2637bcac8d6c5e4fde34f30fcffb6103a5e4", size = 331669, upload-time = "2026-08-28T18:10:04.909Z" },
+]
+
+[[package]]
+name = "workeasy360-sso"
+version = "0.3.1"
+source = { git = "ssh://git@github.com/WorkEasy360/workeasy360-sso.git?rev=a98552f8f37e1e4f1fab1de99cc5b915cb9ed5c1#a98552f8f37e1e4f1fab1de99cc5b915cb9ed5c1" }
+dependencies = [
+    { name = "django" },
+    { name = "httpx" },
+    { name = "pyjwt", extra = ["crypto"] },
 ]
 
 [[package]]

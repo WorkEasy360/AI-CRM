@@ -14,6 +14,8 @@ AUTH_REAUTHENTICATED = "auth.reauthenticated"
 # Workeasy360 sign-in: an account created for a new Workeasy360 identity, or an existing account linked to one.
 AUTH_SSO_ACCOUNT_CREATED = "auth.sso_account_created"
 AUTH_SSO_IDENTITY_LINKED = "auth.sso_identity_linked"
+# Workeasy360's issuer changed (auth. -> accounts.): the identity links moved with it (move_workeasy360_issuer).
+AUTH_SSO_ISSUER_MOVED = "auth.sso_issuer_moved"
 
 ORG_CREATED = "org.created"
 ORG_UPDATED = "org.updated"

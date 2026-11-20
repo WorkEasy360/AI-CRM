@@ -50,6 +50,9 @@ services:
   backend:
     build:
       context: ./backend
+      # The sign-in connector comes from a private repository over SSH (docs/workeasy360-sso.md): forward
+      # your ssh-agent, which must hold a key that can read WorkEasy360/workeasy360-sso.
+      ssh: [default]
     env_file: .env
     environment:
       DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
@@ -72,6 +75,7 @@ services:
   worker:
     build:
       context: ./backend
+      ssh: [default]
     env_file: .env
     environment:
       DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
@@ -92,6 +96,7 @@ services:
   worker-heavy:
     build:
       context: ./backend
+      ssh: [default]
     env_file: .env
     environment:
       DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel
@@ -112,6 +117,7 @@ services:
   beat:
     build:
       context: ./backend
+      ssh: [default]
     env_file: .env
     environment:
       DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel

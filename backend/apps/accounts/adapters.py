@@ -8,6 +8,7 @@ from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.headless.adapter import DefaultHeadlessAdapter
 from allauth.headless.base.response import ForbiddenResponse
 from django.http import HttpRequest, HttpResponse
+from workeasy360_sso import api as workeasy360_sso
 
 from apps.accounts.models import ExternalIdentity
 from apps.accounts.tasks import queue_email
@@ -20,7 +21,8 @@ log = structlog.get_logger(__name__)
 class AccountAdapter(DefaultAccountAdapter):
     """allauth hooks. With ``WORKEASY360_SSO_ONLY`` on, every allauth way in is closed here: Workeasy360
     (apps.accounts.workeasy360.views) is then the only sign-in, and it does not pass through allauth's
-    login flow. Sessions, MFA management and logout stay with allauth."""
+    login flow. Sessions, MFA management and logout stay with allauth (a logout also ends the connector's
+    back-channel record of the session: workeasy360_sso listens to Django's ``user_logged_out``)."""
 
     error_messages = {
         **DefaultAccountAdapter.error_messages,
@@ -58,9 +60,11 @@ class AccountAdapter(DefaultAccountAdapter):
         return super().pre_login(request, user, **kwargs)
 
     def login(self, request: HttpRequest, user) -> None:
-        # A sign-in through allauth is not a Workeasy360 session, even in a browser that had one.
+        # A sign-in through allauth is not a Workeasy360 session, even in a browser that had one: its keys go,
+        # and so does the connector's record of it (a Workeasy360 sign-out must not end this password session).
         request.session.pop(FEDERATED_AAL_SESSION_KEY, None)
         request.session.pop(FEDERATED_SUBJECT_SESSION_KEY, None)
+        workeasy360_sso.forget_sign_in(request)
         super().login(request, user)
 
     def send_password_reset_mail(self, user, email: str, context: dict) -> None:

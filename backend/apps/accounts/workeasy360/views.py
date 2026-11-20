@@ -1,28 +1,30 @@
-"""The two browser-facing steps of "Sign in with Workeasy360". Plain Django views, both top-level GET
-navigations (the page's CSP allows no cross-origin fetch or form post, and none is needed).
+"""The browser-facing steps of "Sign in with Workeasy360". Plain Django views, top-level GET navigations
+(the page's CSP allows no cross-origin fetch or form post, and none is needed). The protocol is the
+workeasy360-sso connector's (``workeasy360_sso.api``); these views keep Keel's routes, rules and error
+vocabulary around it.
 
-``start``    keeps state, nonce and PKCE verifier in the session and redirects to Workeasy360.
-             ``reauth=1`` ("Confirm it's you") asks Workeasy360 for a fresh sign-in (``prompt=login``)
-             for the current organization, remembering which Workeasy360 account is signed in here.
-``callback`` matches the returned state against the session, exchanges the code, verifies the ID token,
-             provisions, signs the browser in and lands it in the organization the token names. For a
-             "Confirm it's you" flow it also requires the ID token's ``auth_time`` to be no older than the
-             flow (a round trip on a still-open Workeasy360 session is not a confirmation) and its ``sub``
-             to be the account signed in here (another person's password confirms nothing about them).
+``start``    asks the connector to begin a sign-in: a single-use flow (state, nonce, PKCE verifier) kept
+             server-side and bound to this browser by a cookie, so several tabs can sign in at once.
+             ``reauth=1`` ("Confirm it's you") asks Workeasy360 for a fresh sign-in (``prompt=login``) for the
+             current organization, naming the Workeasy360 account signed in here.
+``callback`` asks the connector to finish it: the flow is spent first, the code exchanged with a
+             ``private_key_jwt`` client assertion, the ID token verified offline, the organization binding and
+             product checked; Keel's adapters (``provisioning``) then resolve the user, organization and
+             membership, and the connector signs the browser in with a new session id. This view adds what
+             Keel records about a sign-in and lands the browser in the organization the token names. For
+             "Confirm it's you" the ID token's ``sub`` must be the account signed in here and its
+             ``auth_time`` no older than the request.
 ``end_session`` sends the browser on to Workeasy360's sign-out confirmation ("sign out of Workeasy360
              too"); Keel's own session is ended by the frontend first.
 
-CSRF: the callback is protected by state (bound to this browser's session), nonce (bound to the ID token)
-and PKCE (bound to the code), as OAuth requires; Django's CSRF check does not apply to GET. The session
-cookie is SameSite=Lax, so it accompanies the top-level navigation back from Workeasy360.
+Back-channel logout (``POST /api/auth/workeasy360/backchannel-logout``) is the connector's own receiver,
+mounted in config/urls.py; ``backchannel`` adds Keel's "sign out everywhere".
 
 Failures redirect to ``/login?sso_error=<code>`` with a code from ``ERROR_CODES``; details go to the log.
 """
 
 from __future__ import annotations
 
-import hmac
-import time
 import uuid
 from urllib.parse import parse_qs, urlsplit
 
@@ -30,29 +32,29 @@ import structlog
 from allauth.account import signals as account_signals
 from allauth.account.internal.flows.login import record_authentication
 from allauth.core import ratelimit
-from django.contrib.auth import login as django_login
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
+from workeasy360_sso import api
+from workeasy360_sso.errors import (
+    STAGE_AUTHORIZATION,
+    STAGE_BINDING,
+    STAGE_ID_TOKEN,
+    STAGE_REAUTHENTICATION,
+    STAGE_TOKEN,
+    SignInRefused,
+)
 
 from apps.accounts.models import ExternalIdentity, User
 from apps.accounts.session import set_active_membership
 from apps.accounts.workeasy360 import config, provisioning
-from apps.accounts.workeasy360.oidc import SSOError
 from apps.audit import actions
 from apps.audit import service as audit
 from apps.authz.actor import FEDERATED_AAL_SESSION_KEY, FEDERATED_SUBJECT_SESSION_KEY
 
 log = structlog.get_logger(__name__)
 
-#: Pending sign-ins, keyed by nothing guessable: a short list of {state, nonce, verifier, ...}.
-FLOWS_SESSION_KEY = "workeasy360_flows"
-#: Two tabs may sign in at once; older pending flows beyond this are dropped.
-MAX_PENDING_FLOWS = 5
-#: Time allowed at Workeasy360 (sign-in, MFA, organization choice) before the flow is abandoned.
-FLOW_TTL_SECONDS = 600
-BACKEND = "allauth.account.auth_backends.AuthenticationBackend"
 DEFAULT_NEXT = "/"
 #: Session cookie the frontend sets (script-readable, no secret) when the person signs out of WorkEasyCRM, so that
 #: opening the product directly shows the sign-in page instead of starting a Workeasy360 sign-in by itself
@@ -107,15 +109,32 @@ _PROVIDER_ERRORS = {
     "temporarily_unavailable": "unavailable",
 }
 
-# SSOError codes from the protocol client, mapped to the vocabulary above.
-_CLIENT_ERRORS = {
-    "provider_unavailable": "unavailable",
-    "provider_misconfigured": "unavailable",
-    "state_mismatch": "expired",
-    "invalid_token": "refused",  # nosec B105 - error code, not a secret
-    "invalid_request": "refused",
-    "sign_in_refused": "refused",  # includes the routine invalid_grant: the message says "try again"
-}
+
+def error_code(refusal: SignInRefused) -> str:
+    """The connector's refusal in Keel's vocabulary (``ERROR_CODES``), which the frontend already maps."""
+    if refusal.stage == STAGE_AUTHORIZATION:
+        return _PROVIDER_ERRORS.get(refusal.provider_error, "refused")
+    if refusal.stage == STAGE_TOKEN:
+        # Unreachable, a server error or "temporarily unavailable" is an outage; any other answer from the token
+        # endpoint (the routine invalid_grant included: the message says "try again") is a refusal.
+        status = refusal.http_status
+        if status is None or status >= 500 or refusal.provider_error == "temporarily_unavailable":
+            return "unavailable"
+        return "refused"
+    if refusal.stage == STAGE_ID_TOKEN:
+        return "unavailable" if refusal.code == "unavailable" else "refused"
+    if refusal.stage == STAGE_REAUTHENTICATION:
+        if refusal.reason == "different_subject":
+            return "reauthentication_wrong_account"
+        return "reauthentication_failed"
+    if refusal.stage == STAGE_BINDING:
+        if refusal.code == "session_ended":
+            # The Workeasy360 session this sign-in came from was signed out meanwhile: start again.
+            return "expired"
+        if refusal.code == "wrong_organization":
+            # The launcher asked for one organization and the provider answered for another.
+            return "refused"
+    return refusal.code if refusal.code in ERROR_CODES else "refused"
 
 
 def _login_error(code: str) -> HttpResponseRedirect:
@@ -152,13 +171,18 @@ def _clean_uuid(value: str | None) -> str:
 @never_cache
 @require_GET
 def start(request: HttpRequest) -> HttpResponse:
-    """GET /api/auth/workeasy360/start?organization=<uuid>&next=<path>"""
+    """GET /api/auth/workeasy360/start?organization=<uuid>&next=<path>[&prompt=select_account]
+
+    ``prompt=select_account`` ("Use another account") makes Workeasy360 show its account chooser even when it
+    would otherwise continue silently; it is the only prompt a visitor may ask for.
+    """
     if not config.is_configured():
         return _login_error("unavailable")
     if not ratelimit.consume(request, action="login"):
         return _login_error("rate_limited")
     organization = _clean_uuid(request.GET.get("organization"))
     reauth = request.GET.get("reauth") == "1"
+    choose_account = request.GET.get("prompt") == "select_account"
     subject = ""
     if reauth:
         # "Confirm it's you" is about the person and the organization already here: Workeasy360 is asked
@@ -171,28 +195,16 @@ def start(request: HttpRequest) -> HttpResponse:
             # whoever answered.
             return _login_error("reauthentication_failed")
     try:
-        authorization = config.get_client().authorization_request(
-            organization_id=organization, prompt="login" if reauth else ""
+        return api.begin_sign_in(
+            request,
+            next_path=_safe_next(request.GET.get("next")),
+            organization=organization or None,
+            prompt="login" if reauth else ("select_account" if choose_account else ""),
+            reauth_subject=subject,
         )
-    except SSOError as exc:
-        log.warning("workeasy360.start_failed", code=exc.code, detail=exc.detail)
-        return _login_error(_CLIENT_ERRORS.get(exc.code, "unavailable"))
-    now = time.time()
-    flows = [f for f in request.session.get(FLOWS_SESSION_KEY, []) if now - f.get("at", 0) < FLOW_TTL_SECONDS]
-    flows.append(
-        {
-            "state": authorization.state,
-            "nonce": authorization.nonce,
-            "verifier": authorization.code_verifier,
-            "organization": organization,
-            "next": _safe_next(request.GET.get("next")),
-            "at": now,
-            "reauth": reauth,
-            "subject": subject,
-        }
-    )
-    request.session[FLOWS_SESSION_KEY] = flows[-MAX_PENDING_FLOWS:]
-    return HttpResponseRedirect(authorization.url)
+    except SignInRefused as refusal:
+        log.warning("workeasy360.start_failed", code=refusal.code, detail=refusal.log_reason)
+        return _login_error(error_code(refusal))
 
 
 def _current_federation(request: HttpRequest) -> tuple[str, str]:
@@ -209,25 +221,8 @@ def _current_federation(request: HttpRequest) -> tuple[str, str]:
     return (str(linked) if linked else ""), (subject or "")
 
 
-def _pop_flow(request: HttpRequest, state: str) -> dict | None:
-    """Remove and return the pending flow whose state matches (constant-time), if still fresh."""
-    flows = request.session.get(FLOWS_SESSION_KEY, [])
-    match = None
-    remaining = []
-    for flow in flows:
-        if state and hmac.compare_digest(str(flow.get("state", "")).encode(), state.encode()):
-            match = flow
-        else:
-            remaining.append(flow)
-    if match is not None:
-        request.session[FLOWS_SESSION_KEY] = remaining
-    if match is None or time.time() - match.get("at", 0) >= FLOW_TTL_SECONDS:
-        return None
-    return match
-
-
-def _fail(request: HttpRequest, code: str, detail: str = "") -> HttpResponseRedirect:
-    log.warning("workeasy360.sign_in_failed", code=code, detail=detail)
+def _fail(request: HttpRequest, code: str, detail: str = "", stage: str = "") -> HttpResponseRedirect:
+    log.warning("workeasy360.sign_in_failed", code=code, detail=detail, stage=stage)
     audit.record(
         actions.AUTH_LOGIN_FAILED,
         request=request,
@@ -242,58 +237,26 @@ def _fail(request: HttpRequest, code: str, detail: str = "") -> HttpResponseRedi
 @require_GET
 def callback(request: HttpRequest) -> HttpResponse:
     """GET /api/auth/callback/workeasy360?code=...&state=...  (or ?error=...&state=...)"""
-    state = request.GET.get("state", "")[:512]
-    flow = _pop_flow(request, state)  # popped first: a flow is good for one callback, whatever happens
-    provider_error = request.GET.get("error")
-    if provider_error:
-        code = _PROVIDER_ERRORS.get(provider_error[:64], "refused")
-        return _fail(request, code, f"provider returned error={provider_error[:64]!r}")
-    if flow is None:
-        return _fail(request, "expired", "no pending flow for this state")
-    if not config.is_configured():
-        return _fail(request, "unavailable", "not configured")
     try:
-        client = config.get_client()
-        raw_claims = client.complete(
-            code=request.GET.get("code", "")[:2048],
-            returned_state=state,
-            expected_state=flow["state"],
-            nonce=flow["nonce"],
-            code_verifier=flow["verifier"],
-        )
-        claims = provisioning.read_claims(raw_claims)
-        if flow.get("reauth") and flow.get("subject") and claims.subject != flow["subject"]:
-            # Somebody else signed in at Workeasy360. That confirms nothing about the person signed in
-            # here, and silently switching accounts in the middle of "Confirm it's you" would be worse:
-            # refused, and the session here is left exactly as it was (still not recently confirmed).
-            return _fail(request, "reauthentication_wrong_account", "a different Workeasy360 account answered")
-        if flow.get("reauth") and not _fresh(raw_claims.get("auth_time"), since=flow["at"]):
-            # "Confirm it's you" asked for a fresh sign-in (prompt=login); a token whose auth_time
-            # predates the request proves only that a Workeasy360 session was still open.
-            return _fail(request, "reauthentication_failed", "auth_time predates the confirmation request")
-        if flow["organization"] and str(claims.organization_id) != flow["organization"]:
-            # The launcher asked for one organization and the provider answered for another.
-            raise SSOError("invalid_token", "organization_id differs from the requested organization")
-        result = provisioning.provision(claims, issuer=client.issuer, request=request)
-    except SSOError as exc:
-        return _fail(request, _CLIENT_ERRORS.get(exc.code, exc.code), exc.detail)
+        # A confirmation is a full sign-in of the same person, so allauth's authentication log gets the
+        # fresh record (with its auth_time) that apps.authz.reauth looks for.
+        result = api.complete_sign_in(request, reauthentication=api.REAUTH_SIGN_IN)
+    except SignInRefused as refusal:
+        return _fail(request, error_code(refusal), refusal.log_reason, refusal.stage)
 
+    claims = provisioning.read_claims(result.claims)
     _sign_in(
         request,
         result.user,
-        result.membership,
+        result.binding,
         aal=claims.aal,
         subject=claims.subject,
-        auth_time=_auth_time(raw_claims),
+        auth_time=_auth_time(result.claims),
     )
-    response = HttpResponseRedirect(flow["next"] or DEFAULT_NEXT)
+    response = HttpResponseRedirect(result.flow.next_path or DEFAULT_NEXT)
     for name in SIGNED_OUT_MARKER_COOKIES:
         response.delete_cookie(name, path="/", samesite="Lax")
     return response
-
-
-#: Clock skew allowed between Workeasy360's auth_time and the moment the flow started here.
-AUTH_TIME_LEEWAY_SECONDS = 30
 
 
 def _auth_time(claims: dict) -> int | None:
@@ -301,17 +264,11 @@ def _auth_time(claims: dict) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
-def _fresh(value: object, *, since: float) -> bool:
-    """Whether Workeasy360 authenticated the person at or after ``since`` (epoch seconds)."""
-    return isinstance(value, int) and not isinstance(value, bool) and value >= since - AUTH_TIME_LEEWAY_SECONDS
+def _sign_in(request: HttpRequest, user, membership, *, aal: int, subject: str, auth_time: int | None = None) -> None:
+    """Record the sign-in exactly like a password login does (see services.register_with_invitation).
 
-
-def _sign_in(
-    request: HttpRequest, user: User, membership, *, aal: int, subject: str, auth_time: int | None = None
-) -> None:
-    """Sign in exactly like a password login does (see services.register_with_invitation)."""
-    # Rotates the session key (or flushes the session when another user was signed in).
-    django_login(request, user, backend=BACKEND)
+    The connector has already called Django's ``login()`` (allauth's backend, a new session key - or a flushed
+    session when another person was signed in here) and recorded the session for back-channel logout."""
     request.session[FEDERATED_AAL_SESSION_KEY] = aal
     # The person Workeasy360 is asked about while this session lasts (entitlement.py), without a query per request.
     request.session[FEDERATED_SUBJECT_SESSION_KEY] = subject
@@ -342,9 +299,7 @@ def end_session(request: HttpRequest) -> HttpResponse:
     """
     if not config.sign_out_of_workeasy360_available():
         return HttpResponseRedirect("/login")
-    try:
-        target = config.get_client().end_session_url(post_logout_redirect_uri=config.post_logout_redirect_uri())
-    except SSOError as exc:
-        log.warning("workeasy360.end_session_failed", code=exc.code, detail=exc.detail)
-        target = ""
+    target = api.end_session_url(config.connector())
+    if not target:
+        log.warning("workeasy360.end_session_failed", detail="no end_session_endpoint or discovery unavailable")
     return HttpResponseRedirect(target or "/login")

@@ -12,6 +12,7 @@ name: keel
 x-backend-loadtest: &backend-loadtest
   build:
     context: ./backend
+    ssh: [default] # the private sign-in connector (docker-compose.yml)
   env_file: .env
   environment:
     DATABASE_URL: postgres://crm_app:crm_app_dev_password@postgres:5432/keel

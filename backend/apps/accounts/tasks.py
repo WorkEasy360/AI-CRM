@@ -95,3 +95,19 @@ def send_email(
         raise
     log.info("email.sent", message_id=message_id, recipients=len(to))
     return "sent"
+
+
+@shared_task(name="accounts.workeasy360_cleanup", ignore_result=True, soft_time_limit=240, time_limit=300)
+def workeasy360_cleanup() -> str:
+    """Beat: the Workeasy360 connector's housekeeping (``manage.py w360sso_cleanup``): spent sign-in flows,
+    logout-token ids and ended-session marks older than a day, and records of sessions that ended or expired
+    more than 30 days ago. Keel's own tables are not touched."""
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    out = StringIO()
+    call_command("w360sso_cleanup", stdout=out)
+    summary = out.getvalue().strip()
+    log.info("accounts.workeasy360_cleanup", summary=summary)
+    return summary

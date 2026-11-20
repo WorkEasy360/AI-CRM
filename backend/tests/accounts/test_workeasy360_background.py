@@ -13,6 +13,7 @@ from django.db import connection as db_connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from structlog.testing import capture_logs
+from workeasy360_sso import entitlements as connector
 
 from apps.accounts.models import Organization
 from apps.accounts.workeasy360 import background, config, entitlement
@@ -28,15 +29,20 @@ ALLOW = {"decision": "allow", "reason": "entitled", "write_allowed": True, "reva
 
 
 @pytest.fixture
-def provider(settings, monkeypatch):
-    provider = fake.FakeProvider()
-    settings.WORKEASY360_ISSUER = fake.ISSUER
-    settings.WORKEASY360_CLIENT_ID = fake.CLIENT_ID
-    settings.WORKEASY360_REDIRECT_URI = fake.REDIRECT_URI
-    settings.WORKEASY360_KEY_ID = fake.CLIENT_KID
-    settings.WORKEASY360_PRIVATE_KEY = provider.client_private_pem
-    monkeypatch.setattr(config, "transport_override", provider.transport)
-    return provider
+def provider(settings):
+    return fake.configure(settings, fake.FakeProvider())
+
+
+_clock = fake.Clock()
+
+
+@pytest.fixture(autouse=True)
+def clock(monkeypatch):
+    """The connector's entitlement clock, moved by ``_age``."""
+    global _clock
+    _clock = fake.Clock()
+    monkeypatch.setattr(connector, "_clock", _clock)
+    return _clock
 
 
 def _link(bundle, workeasy360_id: str | None) -> None:
@@ -52,10 +58,9 @@ def linked(provider, org_a):
 
 
 def _age(workeasy360_id: str, seconds: int) -> None:
-    key = entitlement._key(workeasy360_id)
-    record = cache.get(key)
-    record["checked_at"] -= seconds
-    cache.set(key, record, entitlement.LAST_KNOWN_KEEP_SECONDS)
+    """Make the stored answers ``seconds`` older: the connector's clock moves, and every answer, back-off and
+    refusal mark ages with it."""
+    _clock.advance(seconds)
 
 
 def _skips(logs: list[dict]) -> list[dict]:
@@ -124,9 +129,8 @@ def test_a_refusal_of_the_product_client_skips_the_effect_and_is_asked_again_soo
     provider.entitlement_status = 401
     assert background.allowed(linked.org.pk, task="t") is False  # fails closed, like a request
     provider.entitlement_status = 200
-    cache.delete(entitlement._CLIENT_REFUSED_KEY)  # the 60 s every question is closed for have passed
-    entitlement._local_refused_until = 0.0
-    _age(W360_A, entitlement.DENIAL_RECHECK_SECONDS + 1)  # not the 15 minutes of a plain denial
+    # The 60 s every question is closed for pass with it - and not the 15 minutes of a plain denial.
+    _age(W360_A, entitlement.DENIAL_RECHECK_SECONDS + 1)
     assert background.allowed(linked.org.pk, task="t") is True
 
 
@@ -730,19 +734,19 @@ def test_stale_job_cleanup_leaves_a_denied_organizations_imports_alone(provider,
 # --- Celery's time limit is not an outage --------------------------------------------------------------------
 
 
-def test_a_celery_soft_time_limit_propagates_out_of_the_check(provider, linked, monkeypatch):
+def test_a_celery_soft_time_limit_propagates_out_of_the_check(provider, linked):
     from celery.exceptions import SoftTimeLimitExceeded
 
-    def out_of_time(*_args, **_kwargs):
+    def out_of_time(_form):
         raise SoftTimeLimitExceeded
 
-    monkeypatch.setattr(config.get_client(), "verify_entitlement", out_of_time)
+    provider.entitlement_hook = out_of_time
     with pytest.raises(SoftTimeLimitExceeded):
         background.allowed(linked.org.pk, task="t")
-    key = entitlement._key(W360_A)
-    assert cache.get(f"{key}:refreshing") is None  # the single-flight lock is released
-    assert cache.get(f"{key}:backoff") is None  # and it was not recorded as a Workeasy360 outage
-    assert cache.get(key) is None  # nor as an answer
+    key = connector._key(config.connector(), uuid.UUID(W360_A), None)
+    assert cache.get(f"{key}:lock") is None  # the single-flight lock is released
+    assert not connector._backing_off(config.connector(), key, _clock.now)  # not recorded as an outage
+    assert entitlement.stored_answer(W360_A) is None  # nor as an answer
 
 
 def test_a_client_refusal_skips_every_organizations_jobs_without_asking(provider, org_a, org_b):

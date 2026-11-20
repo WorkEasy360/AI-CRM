@@ -19,5 +19,6 @@ describe("Workeasy360 sign-in URLs", () => {
     expect(WORKEASY360_SIGN_OUT_URL).toBe("/api/auth/workeasy360/logout");
     expect(ssoErrorMessage("reauthentication_failed")).toMatch(/did not confirm it's you/);
     expect(ssoErrorMessage("reauthentication_wrong_account")).toMatch(/different Workeasy360 account/);
+    expect(ssoErrorMessage("account_conflict")).toMatch(/Contact your administrator to link it/);
   });
 });

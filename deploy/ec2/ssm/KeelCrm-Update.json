@@ -4,7 +4,7 @@
   "parameters": {
     "sha": {
       "type": "String",
-      "description": "Full 40-character commit SHA whose images CI pushed to GHCR",
+      "description": "Full 40-character commit SHA whose images CI pushed (API: private ECR, web: GHCR)",
       "allowedPattern": "^[0-9a-f]{40}$"
     }
   },

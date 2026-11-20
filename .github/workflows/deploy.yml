@@ -1,12 +1,15 @@
 # Production deploy to the single Keel EC2 host (deploy/ec2/README.md).
 #
 # 1. images: build the commit CI verified, natively for the host's architecture, scan it (a fixable
-#    HIGH/CRITICAL blocks the deploy) and push it to GHCR tagged with the commit SHA. No AWS registry.
+#    HIGH/CRITICAL blocks the deploy) and push it tagged with the commit SHA. The API image contains
+#    WorkEasy360's private sign-in connector, so it goes only to the private ECR repository
+#    (deploy/ec2/terraform), through the deploy role; the web image holds no private code and goes to GHCR.
 # 2. deploy: assume the Keel deploy role through GitHub OIDC (no stored AWS keys; the role trusts only
 #    this repository's `production` environment) and run the KeelCrm-Update SSM document, which can only
-#    execute `keel-update <sha>`. The host migrates as the schema owner, restarts the stack and checks
-#    HTTPS health.
-#    Skipped until the repository variable AWS_DEPLOY_ROLE_ARN exists.
+#    execute `keel-update <sha>`. The host pulls the API image from ECR with its instance role, migrates as
+#    the schema owner, restarts the stack and checks HTTPS health.
+#    Both AWS parts are skipped until the repository variable AWS_DEPLOY_ROLE_ARN exists; until then the API
+#    image is built and scanned but published nowhere.
 #
 # The ECS/Fargate stack in infra/terraform is the scale-out design; nothing here deploys it.
 name: Deploy
@@ -26,7 +29,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_REPO: ghcr.io/workeasy360/ai-crm
+  IMAGE_REPO: ghcr.io/workeasy360/ai-crm # the web image (public); the API image is never pushed here
+  # Private ECR repository of the API image (deploy/ec2/terraform, variable api_repository_name).
+  API_ECR_REPOSITORY: workeasy360/ai-crm-api
   # The commit CI verified (workflow_run), or main's head for a manual run.
   DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
@@ -37,9 +42,13 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
     # Graviton (t4g) hosts need arm64 images; set the repository variable KEEL_ARCH=amd64 for a t3 host.
     runs-on: ${{ vars.KEEL_ARCH == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+    # The deploy role trusts only this environment (deploy/ec2/iam/KeelCrmGithubDeploy-trust.json), and this job
+    # pushes the API image with it.
+    environment: production
     permissions:
       contents: read
-      packages: write
+      packages: write # the web image on GHCR
+      id-token: write # OIDC to the deploy role, for the API image in ECR; no stored AWS keys
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -47,24 +56,32 @@ jobs:
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Log in to GHCR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      # The API image installs the sign-in connector from its private repository (backend/uv.lock): mint a
+      # one-hour, read-only GitHub App token for it first, so missing App settings fail here with a clear message.
+      - name: Access to the private sign-in connector
+        id: connector
+        uses: ./.github/actions/workeasy360-sso-access
+        with:
+          app-id: ${{ vars.WORKEASY360_SSO_APP_ID }}
+          private-key: ${{ secrets.WORKEASY360_SSO_APP_PRIVATE_KEY }}
 
       - name: Build API image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        env:
+          WORKEASY360_SSO_TOKEN: ${{ steps.connector.outputs.token }}
         with:
           context: backend
           push: false
           load: true
-          tags: ${{ env.IMAGE_REPO }}-api:${{ env.DEPLOY_SHA }}
+          # A local name only: the image is pushed to ECR below, never to a public registry.
+          tags: keel-api:${{ env.DEPLOY_SHA }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          # Always rebuild the runtime stage so its apt/apk security upgrade is fresh, not a cached layer
-          # from before a fix shipped; dependency/build stages stay cached.
-          no-cache-filters: runtime
-          cache-from: type=gha,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
-          cache-to: type=gha,mode=max,scope=api-${{ vars.KEEL_ARCH || 'arm64' }}
+          # The App token as a BuildKit secret, read from the environment (no file): mounted for the Dockerfile's
+          # dependency step only, so it is in no layer, no build argument and no cache.
+          secret-envs: workeasy360_sso_token=WORKEASY360_SSO_TOKEN
+          # No layer cache (type=gha) for this image: its layers hold the private connector's installed code, and
+          # a cache saved by this main-branch run can be restored by any pull request, forks included. Every
+          # deploy therefore builds the API image from scratch, which also keeps its apt security upgrade fresh.
 
       - name: Build web image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -83,7 +100,7 @@ jobs:
       - name: Trivy scan API image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.IMAGE_REPO }}-api:${{ env.DEPLOY_SHA }}
+          image-ref: keel-api:${{ env.DEPLOY_SHA }}
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
@@ -95,10 +112,50 @@ jobs:
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-      - name: Push images
+      - name: Push web image to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker push "$IMAGE_REPO-api:$DEPLOY_SHA"
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push "$IMAGE_REPO-web:$DEPLOY_SHA"
+          docker logout ghcr.io
+
+      - name: API image stays unpublished until AWS is configured
+        if: ${{ vars.AWS_DEPLOY_ROLE_ARN == '' }}
+        run: >-
+          echo "::notice title=API image not pushed::It contains the private sign-in connector, so it is only pushed to
+          the private ECR repository, and the repository variable AWS_DEPLOY_ROLE_ARN is not set
+          (deploy/ec2/README.md, \"Private API image\")."
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ vars.AWS_DEPLOY_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Tags are immutable in this repository, so a re-run for the same commit keeps the image pushed first (built
+      # from the same commit and scanned then) instead of failing on the existing tag.
+      - name: Push API image to the private ECR repository
+        if: ${{ vars.AWS_DEPLOY_ROLE_ARN != '' }}
+        run: |
+          set -euo pipefail
+          repo_uri=$(aws ecr describe-repositories --repository-names "$API_ECR_REPOSITORY" \
+            --query 'repositories[0].repositoryUri' --output text) \
+            || { echo "::error::ECR repository $API_ECR_REPOSITORY not found or not allowed: apply deploy/ec2/terraform (deploy/ec2/README.md)"; exit 1; }
+          registry=${repo_uri%%/*}
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          if err=$(aws ecr describe-images --repository-name "$API_ECR_REPOSITORY" \
+               --image-ids imageTag="$DEPLOY_SHA" 2>&1 >/dev/null); then
+            echo "::notice::$API_ECR_REPOSITORY:$DEPLOY_SHA already exists and tags are immutable: keeping it."
+          elif grep -q ImageNotFoundException <<<"$err"; then
+            docker tag "keel-api:$DEPLOY_SHA" "$repo_uri:$DEPLOY_SHA"
+            docker push "$repo_uri:$DEPLOY_SHA"
+          else
+            echo "$err" >&2
+            exit 1
+          fi
+          docker logout "$registry"
 
   deploy:
     needs: images

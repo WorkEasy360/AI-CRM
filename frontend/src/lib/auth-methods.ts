@@ -57,7 +57,8 @@ const SSO_ERROR_MESSAGES: Record<string, string> = {
   access_policy: "Your organization's Workeasy360 access policy did not allow this sign-in.",
   email_missing: "Workeasy360 did not share your email address, which WorkEasyCRM needs to sign you in.",
   email_unverified: "Verify your email address in Workeasy360, then sign in again.",
-  account_conflict: "The WorkEasyCRM account for this email address is linked to a different Workeasy360 account. Contact support.",
+  account_conflict:
+    "A WorkEasyCRM account already uses this email address and is not linked to your Workeasy360 account. Contact your administrator to link it.",
   account_disabled: "Your WorkEasyCRM account is deactivated. Contact your administrator.",
   membership_inactive: "A WorkEasyCRM administrator has suspended or removed your access to this organization.",
   organization_unavailable: "This organization is not available in WorkEasyCRM. Contact your administrator.",
