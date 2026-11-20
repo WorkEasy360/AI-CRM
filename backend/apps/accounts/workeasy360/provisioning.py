@@ -214,6 +214,7 @@ def _resolve_user(claims: SignInClaims, *, issuer: str, request) -> tuple[User, 
     if identity is not None:
         _require_active(identity.user)
         ExternalIdentity.objects.filter(pk=identity.pk).update(last_login_at=now)
+        _refresh_name(identity.user, claims)
         return identity.user, False, False
 
     existing = _user_for_email(claims.email)
@@ -249,6 +250,18 @@ def _resolve_user(claims: SignInClaims, *, issuer: str, request) -> tuple[User, 
         metadata={"method": "workeasy360", "issuer": issuer},
     )
     return user, True, False
+
+
+def _refresh_name(user: User, claims: SignInClaims) -> None:
+    """WorkEasy360 Accounts is the authority for the person's name (Accounts V3 section 8.1): a name changed
+    there reaches Keel at the next sign-in. Only the name - the email is Keel's username and changes only
+    through Keel's own flow; an empty claim (no ``profile`` scope) changes nothing."""
+    if not claims.name:
+        return
+    first_name, last_name = split_name(claims.name)
+    if (user.first_name, user.last_name) != (first_name, last_name):
+        user.first_name, user.last_name = first_name, last_name
+        user.save(update_fields=["first_name", "last_name"])
 
 
 def _user_for_email(email: str) -> User | None:

@@ -280,6 +280,23 @@ def test_production_does_not_mind_a_blank_product_code_where_sign_in_is_not_conf
 # ----------------------------------------------------------------------------- callback: provisioning
 
 
+def test_a_name_changed_on_workeasy360_accounts_reaches_keel_at_the_next_sign_in(provider):
+    """Accounts V3 8.1: the person's name is WorkEasy360 Accounts'; the email (Keel's username) is not
+    changed by a sign-in, and a sign-in without the name claim changes nothing."""
+    _sign_in(APIClient(), provider)
+    user = User.objects.get(email="ada@example.com")
+    assert (user.first_name, user.last_name) == ("Ada", "Lovelace")
+
+    _sign_in(APIClient(), provider, name="Ada King")
+    user.refresh_from_db()
+    assert (user.first_name, user.last_name) == ("Ada", "King")
+    assert User.objects.filter(email="ada@example.com").count() == 1
+
+    _sign_in(APIClient(), provider, name=None)
+    user.refresh_from_db()
+    assert (user.first_name, user.last_name) == ("Ada", "King")
+
+
 def test_first_sign_in_creates_user_organization_and_owner_and_signs_in(provider):
     client = APIClient()
     resp = _sign_in(client, provider, start_query="?next=/deals")
